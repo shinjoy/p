@@ -1,0 +1,162 @@
+package ib.stats.service;
+
+import java.util.List;
+import java.util.Map;
+
+import ib.work.service.WorkVO;
+
+public interface StatsService {
+	/**
+	 *
+	 * @MethodName : selectPrivateResult
+	 * @param VO
+	 * @return
+	 * @throws Exception
+	 */
+	public List<StatsVO> selectPrivateResult(StatsVO VO) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectPrivateOffer
+	 * @param workVO
+	 * @return
+	 */
+	public List<WorkVO> selectPrivateOffer(WorkVO VO) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectPrivateOfferKeyPoint
+	 * @param workVO
+	 * @return
+	 */
+	public List<WorkVO> selectPrivateOfferKeyPoint(WorkVO workVO) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectRecommendOpinion
+	 * @param workVO
+	 * @return
+	 */
+	public List<WorkVO> selectRecommendOpinion(WorkVO VO) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectNetwork
+	 * @param workVO
+	 * @return
+	 */
+	public List<WorkVO> selectNetwork(WorkVO VO) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectIntroducer
+	 * @param workVO
+	 * @return
+	 */
+	public List<WorkVO> selectIntroducer(WorkVO VO) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectPrivateOffer4Stats
+	 * @param workVO
+	 * @return
+	 */
+	public List<WorkVO> selectPrivateOffer4Stats(StatsVO VO) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectOfferInfo
+	 * @param workVO
+	 * @return
+	 */
+	public Object selectOfferInfo(StatsVO VO) throws Exception;
+
+	/********** 통계 정보 **********/
+	/**
+	 *
+	 * @MethodName : selectDealCount
+	 * @param workVO
+	 * @return
+	 */
+	public List<Map> selectDealCount(Map<String, String> map) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectInvestAmount
+	 * @param workVO
+	 * @return
+	 */
+	public List<Map> selectInvestAmount(Map<String, String> map) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectInvestAmount
+	 * @param workVO
+	 * @return
+	 */
+	public List<Map> selectTotalInvestAmount(Map<String, String> map) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectMnaSummary
+	 * @param workVO
+	 * @return
+	 */
+	public List<Map> selectMnaSummary(Map<String, String> map) throws Exception;
+
+	/**
+	 *  전체 Deal - 진행상황
+	 * @MethodName : selectDealProgress
+	 * @param workVO
+	 * @return
+	 */
+	public List<Map> selectDealProgress(Map<String, String> map) throws Exception;
+
+	/**
+	 * 전체 Deal - 유형별
+	 * @MethodName : selectDealCategory
+	 * @param workVO
+	 * @return
+	 */
+	public List<Map> selectDealCategory(Map<String, String> map) throws Exception;
+
+	/**
+	 * 직접 투자 건수별 - 유형분석
+	 * @MethodName : selectSelfInvestCase
+	 * @param workVO
+	 * @return
+	 */
+	public List<Map> selectSelfInvestCase(Map<String, String> map) throws Exception;
+
+	/**
+	 * 직접 투자 금액별 - 유형분석
+	 * @MethodName : selectSelfInvestAmount
+	 * @param workVO
+	 * @return
+	 */
+	public List<Map> selectSelfInvestAmount(Map<String, String> map) throws Exception;
+
+	/**
+	 * 3년 동기대비 실적비교
+	 * @MethodName : selectRecordCompare
+	 * @param workVO
+	 * @return
+	 */
+	public List<Map> selectRecordCompare(Map<String, String> map) throws Exception;
+
+	/**
+	 * 중개회사 순위
+	 * @MethodName : selectRecordCompare
+	 * @param workVO
+	 * @return
+	 */
+	public List<Map> selectMediCorp(Map<String, String> map) throws Exception;
+
+	/**
+	 * 중개인 순위
+	 * @MethodName : selectRecordCompare
+	 * @param workVO
+	 * @return
+	 */
+	public List<Map> selectBroker(Map<String, String> map) throws Exception ;
+}

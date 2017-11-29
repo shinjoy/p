@@ -1,0 +1,505 @@
+package ib.project.service.impl;
+
+import ib.project.service.ProjectMgmtService;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Service;
+
+import egovframework.rte.fdl.cmmn.AbstractServiceImpl;
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+
+
+@Service("projectMgmtService")
+public class ProjectMgmtServiceImpl extends AbstractServiceImpl implements ProjectMgmtService {
+
+    @Resource(name="projectMgmtDAO")
+    private ProjectMgmtDAO projectMgmtDAO;
+
+    protected static final Log logger = LogFactory.getLog(ProjectMgmtServiceImpl.class);
+
+
+
+	//리스트
+	public Map<String, Object> getProjectList(Map<String, Object> param) throws Exception {
+
+		Map<String, Object> map = new HashMap<String, Object>();
+		//parameter
+		int pageSize = Integer.parseInt(param.get("pageSize").toString());
+		int pageNo 	 = Integer.parseInt(param.get("pageNo").toString());
+
+		map.put("pageNo", param.get("pageNo"));							//넘어온 검색페이지번호도 세팅해서 그대로 반환해준다.
+
+		int totalCount = projectMgmtDAO.getProjectListCount(param);			//총 건수
+		map.put("totalCount", totalCount);
+
+		int pageCount = (totalCount/Integer.parseInt(param.get("pageSize").toString()));
+		pageCount = (totalCount>pageCount*pageSize)?pageCount+1:pageCount;		//총 페이지수 ... (총수/페이지크기)떨어지는지, 절삭하는지 확인하여 총페이지크기를 (+1)여부결정
+		map.put("pageCount", pageCount);										//총 페이지수
+
+		param.put("offset", (pageNo-1) * pageSize);
+		param.put("limit", Integer.parseInt(param.get("pageSize").toString()));	//페이지크기 pageSize
+
+		map.put("list", projectMgmtDAO.getProjectList(param));				//목록리스트
+
+		return map;		//Map map: pageNo(페이지번호), totalCount(총 건수), pageCount(총 페이지수), list(리스트)
+	}
+
+
+	//프로젝트 등록
+	public int insertProject(Map<String, Object> map) throws Exception {
+
+		//--------------------- 프로젝트 등록 :S ---------------------
+		int projectId = projectMgmtDAO.insertProject(map);
+		//--------------------- 프로젝트 등록 :E ---------------------
+
+		//--------------------- activity 등록 :S ---------------------
+		map.put("projectId", projectId);
+		projectMgmtDAO.mergeActivity(map);
+		//--------------------- activity 등록 :E ---------------------
+
+		return projectId;
+	}
+
+	//기본 프로젝트 등록(관계사 생성시)
+	public void insertBaseProject(Map<String, Object> map) throws Exception {
+		List<Map> baseProjectMapList = projectMgmtDAO.getBaseProjectList(map);
+		for(int i = 0 ; i < baseProjectMapList.size() ; i++){
+			Map projectMap = baseProjectMapList.get(i);
+			int baseProjectId = Integer.parseInt(projectMap.get("projectId").toString());
+			//--------------------- 프로젝트 등록 :S ---------------------
+			int projectId = projectMgmtDAO.insertBaseProject(projectMap);
+			//--------------------- 프로젝트 등록 :E ---------------------
+			projectMap.put("baseProjectId", baseProjectId);
+			List<Map> baseActivityMapList = projectMgmtDAO.getBaseActivityList(projectMap);
+			if(baseActivityMapList!=null&&baseActivityMapList.size()>0){
+				//--------------------- activity 등록 :S ---------------------
+				map.put("projectId", projectId);
+				map.put("baseActivityMapList", baseActivityMapList);
+				projectMgmtDAO.insertBaseActivity(map);
+				//--------------------- activity 등록 :E ---------------------
+			}
+		}
+	}
+
+	//프로젝트 수정
+	public void updateProject(Map<String, Object> map) throws Exception {
+
+		//--------------------- 프로젝트 저장 :S ---------------------
+
+		projectMgmtDAO.updateProject(map);
+
+		//--------------------- 프로젝트 저장 :E ---------------------
+
+
+		//--------------------- activity 등록 :S ---------------------
+
+		projectMgmtDAO.mergeActivity(map);
+
+		//--------------------- activity 등록 :E ---------------------
+
+	}
+
+	//프로젝트 정보
+	public List<Map> getProjectInfo(Map map) throws Exception {
+
+		List<Map> list = projectMgmtDAO.getProjectInfo(map);
+
+		List<Map> eList = projectMgmtDAO.getProjectUserList(map);		//activity 별 배정직원 리스트
+		list.get(0).put("empList", (eList.size()>0)?eList:"");			//배정직원 정보 추가
+
+		return list;
+	}
+
+	//activity 리스트
+	public List<Map> getActivityList(Map map) throws Exception {
+
+		List<Map> list = projectMgmtDAO.getActivityList(map);			//activity
+
+
+		List<Map> eList = null;
+		for(int i=0; i<list.size(); i++) {
+			eList = projectMgmtDAO.getActivityUserList(list.get(i));			//activity 별 배정직원 리스트
+			list.get(i).put("empList", (eList.size()>0)?eList:"");		//배정직원 정보 추가
+			list.get(i).put("empListDel", "");							//배정직원 삭제 key 추가(화면에서 추가될 빈 key 생성)
+		}
+
+		return list;
+	}
+
+
+	//개인별 기본 project 및 activity 등록
+	public int changeUserDefaultPjtAct(Map<String, Object> map) throws Exception {
+
+		return projectMgmtDAO.changeUserDefaultPjtAct(map);
+	}
+
+
+	//개인별 프로젝트 리스트
+	public Map<String, Object> getUserProjectList(Map<String, Object> param) throws Exception {
+
+		Map<String, Object> map = new HashMap<String, Object>();
+		//parameter
+		int pageSize = Integer.parseInt(param.get("pageSize").toString());
+		int pageNo 	 = Integer.parseInt(param.get("pageNo").toString());
+
+		map.put("pageNo", param.get("pageNo"));							//넘어온 검색페이지번호도 세팅해서 그대로 반환해준다.
+
+		int totalCount = projectMgmtDAO.getUserProjectListCount(param);			//총 건수
+		map.put("totalCount", totalCount);
+
+		int pageCount = (totalCount/Integer.parseInt(param.get("pageSize").toString()));
+		pageCount = (totalCount>pageCount*pageSize)?pageCount+1:pageCount;		//총 페이지수 ... (총수/페이지크기)떨어지는지, 절삭하는지 확인하여 총페이지크기를 (+1)여부결정
+		map.put("pageCount", pageCount);										//총 페이지수
+
+		param.put("offset", (pageNo-1) * pageSize);
+		param.put("limit", Integer.parseInt(param.get("pageSize").toString()));	//페이지크기 pageSize
+
+		map.put("list", projectMgmtDAO.getUserProjectList(param));				//목록리스트
+
+		return map;		//Map map: pageNo(페이지번호), totalCount(총 건수), pageCount(총 페이지수), list(리스트)
+	}
+
+
+	//개인별 프로젝트 정보
+	public List<Map> getUserProjectInfo(Map map) throws Exception {
+
+		List<Map> list = projectMgmtDAO.getUserProjectList(map);
+
+		List<Map> eList = projectMgmtDAO.getProjectUserList(map);		//프로젝트 별 배정직원 리스트
+		list.get(0).put("empList", (eList.size()>0)?eList:"");			//배정직원 정보 추가
+
+		return list;
+	}
+
+	//개인별 activity 리스트
+	public List<Map> getUserActivityList(Map map) throws Exception {
+
+		List<Map> list = projectMgmtDAO.getUserActivityList(map);			//activity
+
+
+		List<Map> eList = null;
+		for(int i=0; i<list.size(); i++) {
+			eList = projectMgmtDAO.getActivityUserList(list.get(i));		//activity 별 배정직원 리스트
+			list.get(i).put("empList", (eList.size()>0)?eList:"");		//배정직원 정보 추가
+			list.get(i).put("empListDel", "");							//배정직원 삭제 key 추가(화면에서 추가될 빈 key 생성)
+		}
+
+		return list;
+	}
+
+	//프로젝트, activity 별 배정직원 등록
+	public void updateProjectUserAlloc(Map<String, Object> map) throws Exception {
+
+		projectMgmtDAO.mergeActivityUserAlloc(map);			//프로젝트 activity 배정정보 등록
+
+	}
+
+
+	//프로젝트 삭제
+	public void deleteProject(Map<String, Object> map) throws Exception {
+		projectMgmtDAO.deleteActivity(map);			//activity
+		projectMgmtDAO.deleteProject(map);			//프로젝트
+	}
+
+
+	//개인별 activity list (타임시트 사용)
+	public List<Map> getUserActivityListForTimesheet(Map<String, Object> map) throws Exception{
+		return projectMgmtDAO.getUserActivityListForTimesheet(map);			//activity
+	}
+
+	//프로젝트/엑티비티 조회 (공통js)
+	public List<Map> getBaseCommonProject(Map<String, String> param) throws Exception {
+
+        if(param.get("code") == null || param.get("code").equals("")){
+            param.put("code", "cd");
+        }
+        if(param.get("name") == null || param.get("name").equals("")){
+            param.put("name", "nm");
+        }
+        if(param.get("lang") == null || param.get("lang").equals("")){
+            param.put("lang", "KOR");
+        }
+        Map<String,List<Map>> returnMap = new HashMap<String, List<Map>>();
+
+        //프로젝트 조회인지 엑티비티 조회인지 판단한다
+        String type = param.get("type").toString();
+
+        String cardYn = param.get("incCardActivity")==null?"N":param.get("incCardActivity").toString();
+        String isScheSearch = param.get("isScheSearch")==null?"N":param.get("isScheSearch").toString();  //스케줄 조회용인경우 분기처리함
+
+        if(type.equals("PROJECT")){
+        	if(cardYn.equals("Y")){
+        		List<Map> resultList = projectMgmtDAO.getBaseCommonProjectForCard(param);
+        		returnMap.put("list", resultList);
+        	}else if(isScheSearch.equals("Y")){
+        		List<Map> resultList = projectMgmtDAO.getBaseCommonProjectForScheSearch(param);
+        		returnMap.put("list", resultList);
+        	}else{
+        		List<Map> resultList = projectMgmtDAO.getBaseCommonProject(param);
+        		returnMap.put("list", resultList);
+        	}
+        }else if(type.equals("ACTIVITY")){
+        	if(cardYn.equals("Y")){
+        		List<Map> resultList = projectMgmtDAO.getBaseCommonActivityForCard(param);
+	        	returnMap.put("list", resultList);
+        	}else if(isScheSearch.equals("Y")){
+        		List<Map> resultList = projectMgmtDAO.getBaseCommonActivityForScheSearch(param);
+	        	returnMap.put("list", resultList);
+        	}else{
+        		List<Map> resultList = projectMgmtDAO.getBaseCommonActivity(param);
+	        	returnMap.put("list", resultList);
+        	}
+        }
+
+		return returnMap.get("list");
+	}
+
+	//마감일에 대한 데이터 조회
+	public Map<String, Object> chkCloseDateInfo(Map<String, Object> map) throws Exception{
+
+		return projectMgmtDAO.chkCloseDateInfo(map);
+	}
+
+	//출장비, 구매품의 ,교육품의,지출 프로젝트 금액 벨리데이션
+	public EgovMap getProjectExpenseValid(Map<String, String> map) throws Exception{
+		return projectMgmtDAO.getProjectExpenseValid(map);
+	}
+
+
+	//리스트
+	public Map<String, Object> getExpenseList(Map<String, Object> param) throws Exception {
+
+		Map<String, Object> map = new HashMap<String, Object>();
+		//parameter
+		int pageSize = Integer.parseInt(param.get("pageSize").toString());
+		int pageNo 	 = Integer.parseInt(param.get("pageNo").toString());
+
+		map.put("pageNo", param.get("pageNo"));							//넘어온 검색페이지번호도 세팅해서 그대로 반환해준다.
+
+		int totalCount = projectMgmtDAO.getExpenseListCount(param);			//총 건수
+		map.put("totalCount", totalCount);
+
+		int pageCount = (totalCount/Integer.parseInt(param.get("pageSize").toString()));
+		pageCount = (totalCount>pageCount*pageSize)?pageCount+1:pageCount;		//총 페이지수 ... (총수/페이지크기)떨어지는지, 절삭하는지 확인하여 총페이지크기를 (+1)여부결정
+		map.put("pageCount", pageCount);										//총 페이지수
+
+		param.put("offset", (pageNo-1) * pageSize);
+		param.put("limit", Integer.parseInt(param.get("pageSize").toString()));	//페이지크기 pageSize
+
+		map.put("list", projectMgmtDAO.getExpenseList(param));				//목록리스트
+
+		return map;		//Map map: pageNo(페이지번호), totalCount(총 건수), pageCount(총 페이지수), list(리스트)
+	}
+
+
+/**
+	 * activity 배정직원 리스트
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2015. 11. 18.
+	 */
+	public List<Map> getActivityUserList(Map map) throws Exception{
+
+		return projectMgmtDAO.getActivityUserList(map);
+	}
+
+	//프로젝트 수정
+	public int copyProject(Map<String, Object> map) throws Exception {
+		map.put("oldProjectId", map.get("pId").toString());
+
+		int newProjectId = projectMgmtDAO.copyProject(map);  //프로젝트 복사
+		map.put("newProjectId", newProjectId);
+		projectMgmtDAO.copyProjectUser(map);  //프로젝트 참여자 복사
+
+		//복사할 Activy 목록 조회
+		Map activityMap = new HashMap();
+		activityMap.put("projectId", map.get("pId").toString());
+		List<Map> activityList = projectMgmtDAO.getActivityList(activityMap);
+
+		for(Map rtnMap : activityList){
+			map.put("oldActivityId", rtnMap.get("activityId").toString());
+			int newActivityId = projectMgmtDAO.copyActivity(map);  //엑티비티 복사
+
+			map.put("newActivityId", newActivityId);
+			projectMgmtDAO.copyActivityUser(map);  //엑티비티 참여자 복사
+		}
+
+		return newProjectId;
+	}
+
+	/************************************************************************************
+	 * 기본 프로젝트
+	 ************************************************************************************/
+
+	//프로젝트 ID 값 구하기
+	public EgovMap getBaseProjectId(Map<String, Object> map) throws Exception{
+		return projectMgmtDAO.getBaseProjectId(map);
+	}
+
+	//프로젝트 정보
+	public EgovMap getBaseProjectInfo(Map map) throws Exception {
+
+		EgovMap projectMap = projectMgmtDAO.getBaseProjectInfo(map);
+		List<Map> eList = projectMgmtDAO.getProjectUserList(map);		//activity 별 배정직원 리스트
+		projectMap.put("empList", (eList.size()>0)?eList:"");			//배정직원 정보 추가
+
+		return projectMap;
+	}
+
+	//activity 리스트
+	public List<Map> getBaseActivityList(Map map) throws Exception {
+
+		List<Map> list = projectMgmtDAO.getBaseActivityList(map);			//activity
+		List<Map> eList = null;
+		for(int i=0; i<list.size(); i++) {
+			list.get(i).put("empList", "");		//배정직원 정보 추가
+			list.get(i).put("empListDel", "");							//배정직원 삭제 key 추가(화면에서 추가될 빈 key 생성)
+		}
+		return list;
+	}
+
+	//프로젝트 수정
+	public void updateBaseProject(Map<String, Object> map) throws Exception {
+		projectMgmtDAO.updateBaseProject(map);
+		projectMgmtDAO.mergeBaseActivity(map);
+	}
+
+	//프로젝트 상태변경(보류,중단,보류취소,중단취소)
+	public int processStatus(Map<String, Object> map) throws Exception{
+		int cnt = 0;
+		String type = map.get("status").toString();
+
+		if(type.equals("PENDING")){
+			map.put("pendingFlag", "Y");
+			map.put("stopFlag", "N");
+		}else if(type.equals("STOP")){
+			map.put("pendingFlag", "N");
+			map.put("stopFlag", "Y");
+		}else if(type.equals("PENDING_CANCEL")){
+			map.put("pendingFlag", "N");
+			map.put("stopFlag", "N");
+		}else if(type.equals("STOP_CANCEL")){
+			map.put("pendingFlag", "N");
+			map.put("stopFlag", "N");
+		}
+		cnt = projectMgmtDAO.updateProjectStatus(map);
+		return cnt;
+	}
+
+	// 프로젝트 배정직원 리스트
+	public List<Map> getProjectUserList(Map map) throws Exception{
+		return projectMgmtDAO.getProjectUserList(map);
+	}
+
+	// 프로젝트 현황별 리스트 (프로젝트 현황 디테일 화면)
+	public List<Map> searchProjectStatusList(Map map) throws Exception{
+    	return projectMgmtDAO.searchProjectStatusList(map);
+    }
+	// 전자계약 : 기본양식 : 프로젝트 조회
+	public List<EgovMap> getAppvProjectList(Map<String,Object> map) throws Exception{
+		Integer totCnt =0;
+
+        totCnt = projectMgmtDAO.getAppvProjectListTotalCnt(map);
+        map.put("totCnt", totCnt);
+		return projectMgmtDAO.getAppvProjectList(map);
+	}
+
+	//지출 일괄 비차감 처리
+	public Integer processNonExpenseAll(Map map) throws Exception{
+
+		String[] mCheck = (String[])map.get("mCheck");
+
+		//비차감
+		map.put("deductYn", "N");
+
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd");
+
+		String nowDateStr = sdf.format(new Date());
+		String comment = nowDateStr + " "+map.get("userName")+" 차감해지함.";
+		map.put("comment", comment);
+
+		for(String mCheckStr :mCheck){
+
+			String[] mCheckBuf = mCheckStr.split("[|]");
+			String projectId = mCheckBuf[0];
+			String activityId = mCheckBuf[1];
+			String projectExpenseRefId = mCheckBuf[2];
+			String projectExpenseType = mCheckBuf[3];
+			String projectExpenseClass = mCheckBuf[4];
+			String price = mCheckBuf[5];
+			String expenseInputUserId = mCheckBuf[6];
+			String expenseDate = mCheckBuf[7];
+
+			map.put("projectId", projectId);
+			map.put("activityId", activityId);
+			map.put("projectExpenseRefId", projectExpenseRefId);
+			map.put("projectExpenseType", projectExpenseType);
+			map.put("projectExpenseClass", projectExpenseClass);
+			map.put("expenseAmount", price);
+			map.put("expenseInputUserId", expenseInputUserId);
+			map.put("expenseDate", expenseDate);
+
+			projectMgmtDAO.insertProcessNonExpenseAll(map);
+
+		}
+
+		return 0;
+	}
+
+	//지출 차감 처리
+    public Integer processExpense(Map map) throws Exception{
+    	map.put("deductYn", "Y");
+
+    	SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd");
+
+		String nowDateStr = sdf.format(new Date());
+		String comment = nowDateStr + " "+map.get("userName")+" 차감처리함.";
+		map.put("comment", comment);
+    	return projectMgmtDAO.insertProjectExpense(map);
+    }
+    //지출 관련 상세 팝업 열람 권한 체크
+    public String getValidProjectExpenseView(Map map) throws Exception{
+    	String resultMsg = "SUCCESS";
+
+    	String projectExpenseType = map.get("projectExpenseType").toString();
+
+    	Integer cnt = 0;
+
+    	if(projectExpenseType.equals("APPROVE")){
+    		cnt = projectMgmtDAO.getValidProjectExpenseViewForApprove(map);
+
+    		if(cnt == null ||cnt==0){
+    			resultMsg = "문서열람권한이 없습니다.\n상신자, 결재/합의자에게 참조 혹은 수신자로 추가요청 후 적용되면 열람가능해 집니다.";
+    		}
+    	}else if(projectExpenseType.equals("CARD")){
+    		cnt = projectMgmtDAO.getValidProjectExpenseViewForCard(map);
+
+    		if(cnt == null ||cnt==0){
+    			resultMsg = "문서열람권한이 없습니다.\n지출입력(법인카드)건은 본인 작성건과 팀장의 경우 팀원이 작성한 내역 열람가능합니다.";
+    		}
+    	}
+
+    	return resultMsg;
+    }
+
+    //리스트
+  	public List<Map> getProjectTreeList(Map<String, Object> param) throws Exception {
+
+  		int totalCount = projectMgmtDAO.getProjectListCount(param);			//총 건수
+  		param.put("totCnt", totalCount);
+  		return projectMgmtDAO.getProjectList(param);
+  	}
+}

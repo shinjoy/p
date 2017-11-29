@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	수정일                 수정자                          수정내용
+  =========     =======    =================================================
+  2011.09.07   	서준식     	 	로그인 체크 인터셉터 추가
+  2011.09.29	이기하			에러페이지 경로수정
+-->
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xmlns:p="http://www.springframework.org/schema/p" xmlns:context="http://www.springframework.org/schema/context"
+		xmlns:aop="http://www.springframework.org/schema/aop"
+		xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+							http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd
+							http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.0.xsd">
+
+	<!-- The controllers are autodetected POJOs labeled with the @Controller annotation. -->
+	<context:component-scan base-package="ib, *">
+		<context:include-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Service"/>
+		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Repository"/>
+	</context:component-scan>
+
+
+	<!-- For Pagination Tag -->
+	<bean id="imageRenderer" class="ib.cmm.ImagePaginationRenderer"/>
+	<bean id="ibRenderer" class="ib.cmm.IbPaginationRenderer"/>
+
+	<bean id="textRenderer" class="egovframework.rte.ptl.mvc.tags.ui.pagination.DefaultPaginationRenderer"/>
+
+	<bean id="paginationManager" class="egovframework.rte.ptl.mvc.tags.ui.pagination.DefaultPaginationManager">
+		<property name="rendererType">
+			<map>
+				<entry key="image" value-ref="imageRenderer"/>
+				<entry key="text" value-ref="textRenderer"/>
+				<entry key="ib" value-ref="ibRenderer"/>
+			</map>
+		</property>
+	</bean>
+
+	<!--
+		- The form-based controllers within this application provide @RequestMapping
+		- annotations at the type level for path mapping URLs and @RequestMapping
+		- at the method level for request type mappings (e.g., GET and POST).
+		- In contrast, ClinicController - which is not form-based - provides
+		- @RequestMapping only at the method level for path mapping URLs.
+		-
+		- DefaultAnnotationHandlerMapping is driven by these annotations and is
+		- enabled by default with Java 5+.
+	-->
+
+	<!--
+		- This bean processes annotated handler methods, applying Application-specific PropertyEditors
+		- for request parameter binding. It overrides the default AnnotationMethodHandlerAdapter.
+	-->
+	<bean class="org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter">
+		<property name="webBindingInitializer">
+			<bean class="ib.cmm.web.BindingInitializer"/>
+		</property>
+		<property name="customArgumentResolvers">
+			<list>
+				<bean class="egovframework.rte.ptl.mvc.bind.CommandMapArgumentResolver"/>
+			</list>
+		</property>
+		<property name="messageConverters">
+            <list>
+                <bean class="org.springframework.http.converter.json.MappingJacksonHttpMessageConverter">
+                    <property name="supportedMediaTypes">
+                        <list>
+                            <value>text/html;charset=UTF-8</value>
+                            <value>application/json</value> <!-- json -->
+                        </list>
+                    </property>
+                </bean>
+            </list>
+        </property>
+	</bean>
+
+
+	<!-- 로그인 체크가 필요한 URL과 로그인 여부를 체크해줄 인터셉터를 등록한다. -->
+	<!--
+	<bean id="selectAnnotaionMapper" class="egovframework.rte.ptl.mvc.handler.SimpleUrlAnnotationHandlerMapping" p:order="1">
+		<property name="interceptors">
+			<list>
+				<ref local="authenticInterceptor" />
+			</list>
+		</property>
+		-->
+		<!-- 로그인 체크가 필요한 URL 리스트  -->
+		<!--
+		<property name="urls">
+			<set>
+				<value>/**/*.do</value>
+			</set>
+		</property>
+	</bean>
+	-->
+
+	<!-- 로그인 체크 인터셉터 -->
+	<!-- <bean id="authenticInterceptor" class="egovframework.com.cmm.interceptor.AuthenticInterceptor"> -->
+	<!-- 인증 체크가 필요 없는 URL 리스트  -->
+	<!--
+		<property name="permittedURL">
+			<set>
+				<value>/uat/uia/[a-zA-Z]+\.do</value>
+				<value>/EgovLeft.do</value>
+				<value>/uat/uia/actionLogin.do</value>
+			</set>
+		</property>
+	</bean>
+	-->
+
+	<!--
+		- This bean resolves specific types of exceptions to corresponding logical
+		- view names for error views. The default behaviour of DispatcherServlet
+		- is to propagate all exceptions to the servlet container: this will happen
+		- here with all other types of exceptions.
+	-->
+	<bean class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver">
+		<property name="defaultErrorView" value="egovframework/com/cmm/error/egovError"/>
+		<property name="exceptionMappings">
+			<props>
+				<prop key="org.springframework.dao.DataAccessException">egovframework/com/cmm/error/dataAccessFailure</prop>
+				<prop key="org.springframework.transaction.TransactionException">egovframework/com/cmm/error/dataAccessFailure</prop>
+				<prop key="org.springframework.web.HttpSessionRequiredException">error/sessionOut</prop>
+				<prop key="ib.basic.interceptor.HttpSessionRequiredMobileException">error/sessionOutMobile</prop>
+				<prop key="org.springframework.security.AccessDeniedException">error/accessDenied</prop>
+				
+			</props>
+		</property>
+	</bean>
+
+
+
+	<!-- Tiles 2 Resolver -->
+	<bean id="tilesViewResolver" class="org.springframework.web.servlet.view.UrlBasedViewResolver">
+		<property name="viewClass" value="org.springframework.web.servlet.view.tiles2.TilesView" />
+		<property name="order" value="1" />
+	</bean>
+
+	<!-- Tiles 2 Configurer -->
+	<bean id="tilesConfigurer" class="org.springframework.web.servlet.view.tiles2.TilesConfigurer">
+		<property name="definitions">
+			<list>
+				<value>/WEB-INF/tiles/tiles-common.xml</value>
+			</list>
+		</property>
+	</bean>
+
+
+
+	<!--
+		- This bean configures the 'prefix' and 'suffix' properties of
+		- InternalResourceViewResolver, which resolves logical view names
+		- returned by Controllers. For example, a logical view name of "vets"
+		- will be mapped to "/WEB-INF/jsp/vets.jsp".
+	-->
+	<bean class="org.springframework.web.servlet.view.UrlBasedViewResolver"
+		  p:order="2" p:viewClass="org.springframework.web.servlet.view.JstlView"
+		  p:prefix="/WEB-INF/jsp/" p:suffix=".jsp"/>
+
+	<!--
+		- Message source for this context, loaded from localized "messages_xx" files.
+		- Could also reside in the root application context, as it is generic,
+		- but is currently just used within Application's web tier.
+	<bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource" p:basename="messages/message-common"/>
+	-->
+	<bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource" p:basename="message"/>
+
+	<context:property-placeholder location="classpath:props/globals.properties" />
+</beans>

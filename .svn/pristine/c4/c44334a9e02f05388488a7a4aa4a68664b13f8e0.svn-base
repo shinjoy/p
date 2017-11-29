@@ -1,0 +1,100 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+<script type="text/javascript" defer="defer">
+	$(document).ready(function(){
+
+
+	});
+
+</script>
+<!--업무일지/일정-->
+<div class="note_workWrap">
+	<div class="labelsetLine">
+		<h3><strong>업무일지/일정</strong><a href="#" class="rdmore_btn"><em>더보기</em></a></h3>
+		<button type="button" class="toggle_sort all"><em>전체</em></button>
+		<%--<button type="button" class="toggle_sort personal"><em>개인</em></button>--%>
+	</div>
+	<div class="module_tabList">
+		<ul>
+			<li class="current">전체</li>
+			<li>영업정보</li>
+			<li>코멘트</li>
+		</ul>
+	</div>
+	<div class="selectDayBox">
+		<button type="button" class="btn_pre"><em>이전날</em></button>
+		<span>2017.11.03</span><em>(금)</em>
+		<button type="button" class="btn_next"><em>다음날</em></button>
+	</div>
+	<ul class="note_workList">
+		<li>
+			<div class="note_workBox">
+				<p class="conBox"><input type="checkbox" checked="checked" class="chst" id="cdr1"><label for="cdr1"><em class="hidden">오늘할일체크</em></label><a href="#" class="ck_finish"><span class="icon_teamwork"></span><span class="icon_important_L3"><em>!!!</em></span><span>박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식</span></a></p>
+				<p class="writeinfo"><span class="writer ck_finish">[장원화 대리]</span><button type="button" class="btn_modify_con"><em>수정</em></button><button type="button" class="btn_delete_con"><em>삭제</em></button></p>
+				<span class="state_icon finish">완료</span>
+			</div>
+		</li>
+		<li>
+			<div class="note_workBox">
+				<p class="conBox"><input type="checkbox" checked="checked" class="chst" id="cdr2"><label for="cdr2"><em class="hidden">오늘할일체크</em></label><a href="#" class="ck_finish"><span class="icon_teamwork"></span><span class="icon_important_L3"><em>!!!</em></span><span>박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식</span></a></p>
+				<p class="writeinfo"><span class="writer ck_finish">[장원화 대리]</span><button type="button" class="btn_modify_con"><em>수정</em></button><button type="button" class="btn_delete_con"><em>삭제</em></button></p>
+				<span class="state_icon finish">완료</span>
+			</div>
+		</li>
+		<li>
+			<div class="note_workBox">
+				<p class="conBox"><input type="checkbox" checked="checked" class="chst" id="cdr3"><label for="cdr3"><em class="hidden">오늘할일체크</em></label><a href="#" class="ck_finish"><span class="icon_teamwork"></span><span class="icon_important_L3"><em>!!!</em></span><span>박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식</span></a></p>
+				<p class="writeinfo"><span class="writer ck_finish">[장원화 대리]</span><button type="button" class="btn_modify_con"><em>수정</em></button><button type="button" class="btn_delete_con"><em>삭제</em></button></p>
+				<span class="state_icon finish">완료</span>
+			</div>
+		</li>
+		<li>
+			<div class="note_workBox">
+				<p class="conBox"><input type="checkbox" class="chst" id="cdr4"><label for="cdr4"><em class="hidden">오늘할일체크</em></label><a href="#" class=""><span class="icon_teamwork"></span><span class="icon_important_L3"><em>!!!</em></span><span>박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식</span></a></p>
+				<p class="writeinfo"><span class="writer">[장원화 대리]</span><button type="button" class="btn_modify_con"><em>수정</em></button><button type="button" class="btn_delete_con"><em>삭제</em></button></p>
+				<span class="state_icon preplan">계획</span>
+			</div>
+		</li>
+		<li>
+			<div class="note_workBox">
+				<p class="conBox"><input type="checkbox" class="chst" id="cdr5"><label for="cdr5"><em class="hidden">오늘할일체크</em></label><a href="#" class=""><span class="icon_teamwork"></span><span class="icon_important_L3"><em>!!!</em></span><span>박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식</span></a></p>
+				<p class="writeinfo"><span class="writer">[장원화 대리]</span><button type="button" class="btn_modify_con"><em>수정</em></button><button type="button" class="btn_delete_con"><em>삭제</em></button></p>
+				<span class="state_icon delay">보류</span>
+			</div>
+		</li>
+		<li>
+			<div class="note_workBox">
+				<p class="conBox"><input type="checkbox" class="chst" id="cdr5"><label for="cdr5"><em class="hidden">오늘할일체크</em></label><a href="#" class=""><span class="icon_teamwork"></span><span class="icon_important_L3"><em>!!!</em></span><span>박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식</span></a></p>
+				<p class="writeinfo"><span class="writer">[장원화 대리]</span><button type="button" class="btn_modify_con"><em>수정</em></button><button type="button" class="btn_delete_con"><em>삭제</em></button></p>
+				<span class="state_icon ing">진행</span>
+			</div>
+		</li>
+		<li>
+			<div class="note_workBox">
+				<p class="conBox"><input type="checkbox" checked="checked" class="chst" id="cdr6"><label for="cdr6"><em class="hidden">오늘할일체크</em></label><a href="#" class="ck_finish"><span class="icon_teamwork"></span><span class="icon_important_L3"><em>!!!</em></span><span>박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식</span></a></p>
+				<p class="writeinfo"><span class="writer ck_finish">[장원화 대리]</span><button type="button" class="btn_modify_con"><em>수정</em></button><button type="button" class="btn_delete_con"><em>삭제</em></button></p>
+				<span class="state_icon finish">완료</span>
+			</div>
+		</li>
+		<li>
+			<div class="note_workBox">
+				<p class="conBox"><input type="checkbox" checked="checked" class="chst" id="cdr7"><label for="cdr7"><em class="hidden">오늘할일체크</em></label><a href="#" class="ck_finish"><span class="icon_teamwork"></span><span class="icon_important_L3"><em>!!!</em></span><span>박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식</span></a></p>
+				<p class="writeinfo"><span class="writer ck_finish">[장원화 대리]</span><button type="button" class="btn_modify_con"><em>수정</em></button><button type="button" class="btn_delete_con"><em>삭제</em></button></p>
+				<span class="state_icon finish">완료</span>
+			</div>
+		</li>
+		<li>
+			<div class="note_workBox">
+				<p class="conBox"><input type="checkbox" checked="checked" class="chst" id="cdr8"><label for="cdr8"><em class="hidden">오늘할일체크</em></label><a href="#" class="ck_finish"><span class="icon_teamwork"></span><span class="icon_important_L3"><em>!!!</em></span><span>박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식 고객 JW중외신약 EB처리방법박종식</span></a></p>
+				<p class="writeinfo"><span class="writer ck_finish">[장원화 대리]</span><button type="button" class="btn_modify_con"><em>수정</em></button><button type="button" class="btn_delete_con"><em>삭제</em></button></p>
+				<span class="state_icon finish">완료</span>
+			</div>
+		</li>
+	</ul>
+</div>
+<!--//업무일지/일정//-->

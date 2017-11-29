@@ -1,0 +1,17 @@
+package ib.pass.service;
+
+import java.util.List;
+import java.util.Map;
+
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+
+
+public interface PassService {
+
+	String getUserPwdByLoginId(Map<String, String> map) throws Exception;
+
+	List<Map> getNewArticleList(Map<String, Object> map) throws Exception;
+
+	List<Map> getSynergyUserStatusList(Map<String, Object> map) throws Exception;
+
+}

@@ -1,0 +1,158 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+<link href="<c:url value='/css/content.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/css/btn.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/css/management.css'/>" rel="stylesheet" type="text/css"/>
+<script type="text/JavaScript" src="<c:url value='/js/jquery.min.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/process.min.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/part/popUp.js'/>" ></script>
+<script>
+ $(document).ready(function(){
+	$(".t_skinR00 tbody tr:odd").css("background-color", "#F6F9FB");
+	$(".t_skinR00 thead th").addClass('bgPuple');
+
+
+
+	//20150902
+	setSortBtn();		//정렬버튼 모양 세팅 함수 호출
+
+
+ });
+$(document).on("change",'.processResult',function(){
+	var obj = $(this);
+	obj.parent().find('input').val(obj.val());
+});
+ function validation(obj){
+
+	if(isNullAlert(obj,'tm','청구일자를'))
+		return false;
+	if(isNullAlert(obj,'cate','행사내용을'))
+		return false;
+	if(isNullAlert(obj,'AP_cpnId','회사를'))
+		return false;
+	if(isNullAlert(obj,'rank','회차를'))
+		return false;
+
+ 	return true;
+ }
+
+ function isNullAlert(obj, id, text){
+	 if(obj.find("[id^="+id+"]").val().is_null()){
+		alert(text+" 입력하십시요.");
+		return true;
+	}
+ }
+
+ function insertNotice(th){
+		var obj = $(th).parent().parent();
+		if(!validation(obj)) return;
+		var data = {
+				tmDt: 		obj.find('input:eq(0)').val()
+				,cpnId:		obj.find('input:eq(1)').val()
+				,rank:		obj.find('input:eq(2)').val()
+				,categoryCd:obj.find('input:eq(3)').val()
+				,eventStock:obj.find('input:eq(4)').val().replace(',','')
+				,eventPrice:obj.find('input:eq(5)').val().replace(',','')
+				,ipoDt: 	obj.find('input:eq(6)').val()
+				,unchangeStock:		obj.find('input:eq(7)').val()
+				,outstandingStock:	obj.find('input:eq(8)').val()
+				,eventUser:	obj.find('input:eq(9)').val()
+				,comment: 	obj.find('input:eq(10)').val()
+				,rgId: $("#rgstId").val()
+		};
+		var url = "<c:url value='/work/insertEventPublicNotice.do'/>";
+		var fn = function(){
+			document.modifyRec.submit();
+		};
+		ajaxModule(data,url,fn);
+	}
+
+ function modifyNotice(th){
+		var obj = $(th).parent().parent();
+		if(!validation(obj)) return;
+
+		var data = {
+				sNb: 		obj.find('input:eq(11)').val()
+				,tmDt: 		obj.find('input:eq(0)').val()
+				,cpnId:		obj.find('input:eq(1)').val()
+				,rank:		obj.find('input:eq(2)').val()
+				,categoryCd:obj.find('input:eq(3)').val()
+				,eventStock:obj.find('input:eq(4)').val().replace(',','')
+				,eventPrice:obj.find('input:eq(5)').val().replace(',','')
+				,ipoDt: 	obj.find('input:eq(6)').val()
+				,unchangeStock:		obj.find('input:eq(7)').val()
+				,outstandingStock:	obj.find('input:eq(8)').val()
+				,eventUser:	obj.find('input:eq(9)').val()
+				,comment: 	obj.find('input:eq(10)').val()
+				,rgId: $("#rgstId").val()
+		};
+		var url = "<c:url value='/work/modifyEventPublicNotice.do'/>";
+		var fn = function(){
+			document.modifyRec.submit();
+		};
+		ajaxModule(data,url,fn);
+	}
+function excelDownload(){
+	$('body').append('<iframe id="excelDown" style="display:none;"></iframe><form id="excelform"></form>');
+	$('#excelform').attr('action',"../work/excelEventPublicNotice.do");
+	$('#excelform').attr('target','excelDown');
+	$('#excelform').submit();
+}
+function deleteNotice(snb){
+	var url = "<c:url value='/work/deleteEventPublicNotice.do'/>"
+		, data = {sNb:snb}
+		, fn = function(arg){
+			document.modifyRec.submit();
+		};
+		ajaxModule(data,url,fn);
+}
+
+function sortTable(flag,ttT){
+	if(ttT=='total'){
+		$("#ttT").val(flag);
+		$("#sorting").val('1');
+	}else
+		$("#sorting").val(flag);
+
+	document.modifyRec.submit();
+}
+
+
+
+//20150902 추가 (양방향정렬)
+var sortBtn = '${sortBtn}';		//정렬한 곳 숫자값 ('1',~'5')
+function setSortBtn(){
+	var sign;
+	if(sortBtn == undefined || sortBtn == null || sortBtn == '' || sortBtn == '0'){
+		sign = 1;
+		sortBtn = 1;
+	}else{
+		sign = ((1 * sortBtn) > (-1 * sortBtn))? 1:-1;
+	}// 1:정방향정렬, -1:역방향정렬
+
+	for(var i=1; i<=5; i++){
+		var btnShape = '▽';
+		if(sortBtn == i){
+			btnShape = '▲';
+		}else if((sortBtn * -1) == i){
+			btnShape = '▼';
+		}
+		$('#sortBtn'+i).html(btnShape);		//모양세팅
+	}
+}
+
+function openTab(strUrl){
+    location.href =  strUrl;
+}
+
+</script>
+
+<style>
+.t_skinR00 th, .t_skinR00 td{font-size:11px !important;}
+tbody tr:hover{background-color: moccasin !important;}
+input{margin:4px 0px;padding:2px 0px !important;}
+</style>

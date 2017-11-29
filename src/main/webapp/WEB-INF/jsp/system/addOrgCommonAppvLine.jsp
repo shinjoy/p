@@ -1,0 +1,280 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<script type="text/javascript" defer="defer">
+
+	var myUserTree = new UserTree(); 	//UserTree 객체생성
+	$(document).ready(function(){
+		doLoadTreeview();
+
+		//선택관계사의 저장 정보를조회한다
+		searchOrgCommonAppvLine();
+	});
+
+	//조직정보를 트리로 만들어 해당 영역에 만듬
+	function doLoadTreeview(){
+		/* 사용자트리 설정정보 */
+		var configObj = {
+				targetID : 'orgTreeArea',							//대상 위치 id (div, span)
+				url : contextRoot + "/common/getOrgDeptUserList.do",	//데이터 URL
+				isCheckbox:true,
+				isOnlyOne : false,										//선택건수 1개 여부			(false: 복수,		그외,: 한명(default))
+				isAllOrg : false,										//전체 ORG 범위로의 여부		(true: 전체ORG, 		그외,: 나의권한ORG (default))
+				oneOrg : '${baseUserLoginInfo.applyOrgId}',				//전달받은 한개의 ORG ID
+				defaultSelectList : [],	//기본 선택 id array 			(로딩시점 초기 기본 선택 노드 id list)
+				isDeptSelectable : true,								//부서선택 가능여부(= 하위 사용자 모두 선택)		(true: 해당부서하위모두선택, 	그외,:부서선택불가 (default))
+				callbackFn : userChkCallback,							//콜백 function
+				useAllCheck : true,									//전체선택 기능 사용 여부		(true: 사용,			그외,: 미사용(default))
+				isCallbackEnable : true,
+				useNameSortList : true,									//이름정렬선택 리스트 사용 여부 (true: 사용,		그외,: 미사용(default))
+				isUserGroup : false,                                 //유저그룹 탭 사용여부 (true: 사용,       그외,: 미사용(default))
+				hasDeptTopLevel    : false,                                  //부서의 회장 부서 표시여부  (true: 포함,     그외,: 미포함(default))
+				openAllnode : true,									//전체 열기
+				authTree : false,
+				useAllCheck : true,
+				nodeOpenEnable: true
+		};
+
+		myUserTree.setConfig(configObj);	//설정정보 세팅
+
+		myUserTree.drawTree();				//트리 생성
+
+		$(".tnavi_title").hide();
+		$("#tabZoneTreeList").hide();
+
+	}
+	//유저트리 클릭 콜백함수 and 초기값 셋팅할때 사용
+	function userChkCallback(userList,orgId){
+
+		$("#userGroupTable tbody").empty();
+		if(userList.length == 0) {
+			var stStr = "<tr class=\"tr_selected2\"><td colspan=\"5\">선택된 직원이 없습니다.</td></tr>";
+			$("#userGroupTable").append(stStr);
+			return;
+		}
+		var userObj = myUserTree.userObj[orgId];
+
+		var stStr = "";
+
+		for(var i = 0 ; i < userList.length ; i++){
+			for(var j = 0 ; j<userObj.length;j++){
+				if(userList[i] == userObj[j].userId){
+					stStr+="<tr>";
+					stStr+="<td>"+userObj[j].orgNm;
+					stStr+="<input type='hidden' name = 'inUserId' value='"+userObj[j].userId+"'></td>";
+					stStr+="<td>"+userObj[j].deptNm+"</td>";
+					stStr+="<td>"+userObj[j].text+"</td>";
+					var empNo = userObj[j].empNo;
+					stStr+="<td>"+empNo.split("_")[1]+"</td>";
+					stStr+="<td><a href=\"javascript:deleteStaff('"+userObj[j].userId+"')\" class=\"s_gray01_btn\"><em>삭제</em></a></td>";
+					stStr+="</tr>";
+				}
+			}
+		}
+
+		if(stStr == ""){
+			stStr = "<tr class=\"tr_selected2\"><td colspan=\"5\">선택된 직원이 없습니다.</td></tr>";
+		}
+
+		$("#userGroupTable").append(stStr);
+	}
+	//삭제
+	function deleteStaff(userId){
+		$("#"+userId+"_anchor").trigger("click");
+	}
+	//이름 검색
+	function doSearchNm(searchValue,$th){
+		g_searchList = [];
+
+
+        $("#searchArea").css({display:"",left:10,top:62});
+
+        $("#searchArea").show();
+
+        var g_userList= myUserTree.userObj["${baseUserLoginInfo.applyOrgId}"];
+        var searchList =[];
+        var str ='';
+        for(var i=0;i<g_userList.length;i++){
+            var userName = g_userList[i].userName;
+            if(userName.match(searchValue)){
+                searchList.push(g_userList[i]);
+                str +='<li onclick="javascript:searchClick(\''+g_userList[i].userId+'\');"><a href="" class="atcmp_keyword" onclick="return false;">';
+                str +='<span class="atcmp_name">'+userName.replace(new RegExp(searchValue,"gi"), '<strong>'+searchValue+'</strong>')+'</span>';
+                str +='<span class="experson">(<em class="atcmp_com">'+g_userList[i].orgNm+'</em>|<em class="atcmp_team">'+g_userList[i].deptNm+'</em>|<em class="atcmp_num">'+g_userList[i].empNo+'</em>)</span></a></li>';
+            }
+        }
+
+        if(searchList.length==0){
+            str +='<li><a href="" class="atcmp_keyword" onclick="return false;">';
+            str +='<span class="atcmp_name">검색결과가 없습니다.</span>';
+            str +='</a></li>';
+        }
+        g_searchList = searchList;
+
+        $("#resultArea").html(str);
+	}
+	//직원 검색에서 선택시
+	function searchClick(userId,id){
+        if(isUserSelectEabled != 'N'){
+            $("#alertArea").html("");
+            if(getCountWithValue(resultList, 'userId', userId)==0){
+                $("#userCheck_"+userId).prop("checked",true);
+                fnObj.setSelectList(userId,'',id);
+                $("#searchArea").hide();
+            }else{
+                $("#alertArea").html('<i class="axi axi-exclamation-circle"></i>이미 선택되어 있습니다.');
+            }
+        }else{
+            $("#alertArea").html('<i class="axi axi-exclamation-circle"></i>해당옵션에서는 선택 불가합니다.');
+        }
+
+
+    }
+	//선택관계사의 저장정보를 조회
+	function searchOrgCommonAppvLine(){
+		var url =contextRoot + "/system/searchOrgCommonAppvLine.do";
+
+		var param = {
+				searchOrgId		: $("#searchOrgId").val()
+	   	};
+		var callback = function(result){
+			var obj = JSON.parse(result);
+			var userList = obj.resultObject.userList;
+			$('#AXJSTree' + "${baseUserLoginInfo.applyOrgId}").jstree("deselect_all", false);
+			for(var i = 0 ; i <userList.length;i++){
+				if($("#"+userList[i]+"_anchor").length==0){
+					setTimeout(searchOrgCommonAppvLine(),1000);
+					return false;
+				}
+				$("#"+userList[i]+"_anchor").trigger("click");
+			}
+   		};
+
+   		commonAjax("POST", url, param, callback, true);
+	}
+
+	//저장
+	function doSave(){
+
+		if(!confirm("저장하시겠습니까?")) return;
+
+		var url =contextRoot + "/system/processOrgCommonAppvLine.do";
+		var inUserIdStr = "";
+
+		$("input[name = 'inUserId']").each(function(i){
+			if(i>0) inUserIdStr+= ",";
+
+			inUserIdStr+=$(this).val();
+		})
+
+		var param = {
+				searchOrgId		: $("#searchOrgId").val(),
+	   			inUserIdStr 	: inUserIdStr
+	   	 };
+
+	   	var callback = function(result){
+			alert("저장되었습니다.");
+			searchOrgCommonAppvLine();
+   		};
+   		commonAjax("POST", url, param, callback, false);
+	}
+	//검색박스에서 선택
+	function searchClick(userId){
+
+		var $obj = $("#"+userId+"_anchor");
+
+		if($("input[name='inUserId'][value='"+userId+"']").length==0){
+			$("#"+userId+"_anchor").trigger("click");
+		}
+
+		$("#inUserName").val("");
+		$("#searchArea").hide();
+	}
+
+</script>
+
+<section id="detail_contents">
+	<div class="mo_container">
+
+		<div class="groupMgmtWrap">
+
+			<div class="fl_block">
+				<h3 class="h3_title_basic">공개할 직원 선택</h3>
+				<p class="rightsearch" style="margin-top: 0">
+		             <!--검색-->
+		            <div class="carSearchBox">
+		                <span class="carSearchtitle" id="spanUserNameSrch">직원명</span>
+		                <input id="inUserName" name="inUserName" placeholder="직원명검색" onkeypress="if(event.keyCode==13) doSearchNm(this.value,$(this));" class="input_b2 w200px">
+		                <span id="alertArea" style="color:red;padding-left:10px;"></span>
+
+		                <span class="searchItem"><label class="itemTable"><span class="td button" style="" title=""><button type="button" onclick="doSearchNm($('#inUserName').val(),$('#inUserName'));" placeholder="" style="width:40px;" class="AXButton searchButtonItem mgl10">검색</button></span></label></span>
+
+		            </div>
+		            <!--/검색/-->
+
+		             <!-- 검색 결과창 -->
+		            <div id="searchArea" class="pre_search_warp" style="z-index:10000;display:none;position:absolute;">
+		                <div class="pre_search_con">
+		                    <ul class="search_table_st" id="resultArea">
+		                    </ul>
+		                </div>
+		                <div class="btn_prewindow" onclick="javascript:$('#searchArea').hide();return false;"><a class="funoff" href="javascript:$('#searchArea').hide();return false;">닫기</a></div>
+		            </div>
+				</p>
+				<div class="group_orgBox" id = "orgTreeArea" style="height: 500px;"></div>
+
+			</div>
+			<div class="fr_block">
+				<h3 class="h3_title_basic">공개될 관계사 선택</h3>
+				<p class="rightsearch" style="margin-top: 0">
+		             <!--검색-->
+		            <div class="carSearchBox">
+		                <span class="carSearchtitle" id="spanUserNameSrch">관계사</span>
+
+		                <select class="select_b mgl20" id = "searchOrgId" name = "searchOrgId" onchange="searchOrgCommonAppvLine()">
+		                	<c:forEach items="${orgIdList }" var="data">
+		                		<c:if test="${data.orgId ne baseUserLoginInfo.applyOrgId}">
+		                			<option value="${data.orgId }">${data.cpnNm }</option>
+		                		</c:if>
+		                	</c:forEach>
+		                </select>
+
+		            </div>
+		            <!--/검색/-->
+				</p>
+				<div class="selgr_listWrap"  style="height: 500px;">
+					<!-- 그룹관리리스트 -->
+					<table id="userGroupTable" class="datagrid_basic last_lineadd" summary="그룹관리 리스트 (순번, 그룹명, 직원수)">
+			            <caption>공개될 관계사</caption>
+			            <colgroup>
+			               <col width="120">
+			               <col width="120">
+			               <col width="*">
+			               <col width="120">
+			               <col width="80">
+			           </colgroup>
+			            <thead>
+			                <tr>
+			                    <th scope="col">회사</th>
+			                    <th scope="col">부서</th>
+			                    <th scope="col">직원명</th>
+			                    <th scope="col">사번</th>
+			                    <th scope="col">삭제</th>
+			                </tr>
+			            </thead>
+			            <tbody>
+
+			            </tbody>
+			        </table>
+					<!--/ 그룹관리리스트 /-->
+				</div>
+			</div>
+
+		</div>
+		<div class="btnZoneBox">
+			<a href="#" onclick="doSave();return false;" class="p_blueblack_btn btn_auth"><strong>저장</strong></a>
+		</div>
+	</div>
+</section>

@@ -1,0 +1,1456 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="user">
+
+	<!--
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="carVO" type="ib.car.service.CarVO"/>
+	 -->
+
+
+	<!-- 사용자 리스트 -->
+	<select id="user.selectUserList" parameterClass="HashMap" resultClass="HashMap">
+
+		SELECT
+				A.USER_ID						AS userId
+			   ,A.PASSWORD						AS password
+			   ,A.EMP_NO						AS empNo
+			   ,SUBSTRING_INDEX(A.EMP_NO, '_', -1)				AS showEmpNo
+			   ,A.LOGIN_ID						AS loginId
+			   ,A.NAME							AS name
+			   ,A.ORG_ID						As orgId
+			   ,(SELECT CPN_NM
+		 		   FROM IB_COMPANY IC, BS_ORG IO
+		 		  WHERE IC.S_NB = IO.COMPANY_SNB
+				 AND IO.ORG_ID = A.ORG_ID)		AS orgNm
+			   ,A.EMP_TYPE						AS empType
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'EMP_TYPE'
+		  		   AND G.CODE_VALUE = A.EMP_TYPE
+		  		   AND G.ORG_ID = A.ORG_ID)		AS empTypeNm
+			   ,A.CUS_ID						AS cusId
+			   ,(SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = A.CUS_ID)	AS cusNm
+			   ,A.COMPANY						AS company
+			   ,(SELECT CPN_NM
+		 		  FROM IB_COMPANY
+				 WHERE S_NB = A.COMPANY)		AS companyNm
+
+			   ,A.RANK							AS rank
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = A.ORG_ID)		AS rankNm
+
+
+			   ,CONCAT('[',
+								 GROUP_CONCAT(
+									 CONCAT(
+													'{"deptId":"', B.DEPT_ID,
+													'","deptNm":"', (SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = B.DEPT_ID),
+													'","mainYn":"', B.MAIN_YN,
+													'","incharge":"', (select case when count(*) > 0 then 'DEPT_MGR' else '' end
+																		 from bs_dept_manager
+																		where dept_id = B.DEPT_ID
+																		  and user_id = A.USER_ID
+																		  and enable = 'Y'
+																		  and delete_flag = 'N'),
+													'","inchargeNm":"', '',
+													'"}'
+												)
+									 ORDER BY B.MAIN_YN DESC   SEPARATOR ',')
+			   			,']')	AS deptInchargeObj
+
+
+			   ,A.COMPANY_TEL		AS companyTel
+			   ,A.COMPANY_FAX		AS companyFax
+			   ,A.HOME_ZIP			AS homeZip
+			   ,A.HOME_ADDR1		AS homeAddr1
+			   ,A.HOME_ADDR2		AS homeAddr2
+			   ,A.HOME_TEL			AS homeTel
+			   ,A.MOBILE_TEL		AS mobileTel
+			   ,A.EMAIL				AS email
+			   ,A.HOMEPAGE			AS homepage
+			   ,A.HOBBY				AS hobby
+			   ,DATE_FORMAT(A.HIRED_DATE, '%Y-%m-%d')	AS hiredDate
+			   ,DATE_FORMAT(A.JOIN_DATE, '%Y-%m-%d')	AS joinDate
+			   ,A.SOS_TEL			AS sosTel
+			   ,A.SOS_WHO			AS sosWho
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'SOS_WHO'
+		  		   AND G.CODE_VALUE = A.SOS_WHO
+		  		   AND G.ORG_ID = A.ORG_ID)				AS sosWhoNm
+
+			   ,A.BLOOD				AS blood
+			   ,CONCAT((SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'BLOOD'
+		  		   AND G.CODE_VALUE = A.BLOOD
+		  		   AND G.ORG_ID = A.ORG_ID)
+		  		   ,' ',IFNULL((SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'BLOOD_RH'
+		  		   AND G.CODE_VALUE = A.BLOOD_RH
+		  		   AND G.ORG_ID = A.ORG_ID),''))	AS bloodNm
+		  	   ,A.BLOOD_RH			AS bloodRh
+			   ,A.RELIGION			AS religion
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RELIGION'
+		  		   AND G.CODE_VALUE = A.RELIGION
+		  		   AND G.ORG_ID = A.ORG_ID) 		AS religionNm
+
+			   ,A.PASSPORT			AS passport
+			   ,DATE_FORMAT(A.MARRIED_DATE, '%Y-%m-%d')	AS marriedDate
+			   ,A.USER_STATUS		AS userStatus
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'USER_STTS'
+		  		   AND G.CODE_VALUE = A.USER_STATUS
+		  		   AND G.ORG_ID = A.ORG_ID) 			AS userStatusNm
+			   ,DATE_FORMAT(A.FIRED_DATE, '%Y-%m-%d')	AS firedDate
+			   ,WORK									AS work
+			   ,A.ATTR1				AS attr1
+			   ,A.ATTR2				AS attr2
+			   ,A.ATTR3				AS attr3
+			   ,A.ATTR4				AS attr4
+			   ,A.ATTR5				AS attr5
+			   ,A.ATTR6				AS attr6
+			   ,A.ATTR7				AS attr7
+			   ,A.ATTR8				AS attr8
+			   ,A.ATTR9				AS attr9
+			   ,A.ATTR10			AS attr10
+
+			   ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			   ,A.CREATED_BY			AS createdBy
+			   ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			   ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			   ,A.UPDATED_BY			AS updatedBy
+			   ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+			   ,DATE_FORMAT(A.DELETE_DATE, "%Y-%m-%d")	AS deleteDate
+			   ,A.DELETED_BY			AS deletedBy
+			   ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.DELETED_BY)	AS deleteNm
+			   ,A.DELETE_FLAG
+			   ,D.ROLE_ID								AS roleId
+			   ,D.ROLE_CODE								AS roleCode
+			   ,D.ROLE_KOR								AS roleNm
+
+		   FROM BS_USER_MASTER					A
+		   LEFT JOIN BS_USER_DEPARTMENT			B ON A.USER_ID = B.USER_ID AND B.DELETE_FLAG = 'N' AND B.ENABLE = 'Y'
+		   LEFT JOIN BS_USER_ROLE_LIST 			C ON A.USER_ID = C.USER_ID AND C.ORG_ID = A.ORG_ID
+		   LEFT JOIN BS_ROLE_LIST				D ON D.ROLE_ID = C.ROLE_ID
+
+
+		  WHERE 1=1
+		  <isEqual property="hideSynergyUserYn" compareValue="Y">     /* 관계사 시너지 유저 목록 활성화여부 */
+              AND A.CUS_ID != 1133368
+          </isEqual>
+
+
+		<isNotEmpty prepend="AND" property="orgId">
+			A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="firedType">
+			<isEqual property="firedType" compareValue="1">		<!-- 유효사용자 -->
+				(A.FIRED_DATE is NULL or A.FIRED_DATE = '')
+			</isEqual>
+			<isEqual property="firedType" compareValue="0">		<!-- 퇴사자 -->
+				A.FIRED_DATE > DATE_FORMAT('1999-01-01', '%Y-%m-%d')
+			</isEqual>
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="search">
+			(A.EMP_NO LIKE concat('%', #search#, '%')		OR
+			 A.LOGIN_ID LIKE concat('%', #search#, '%')		OR
+			 A.NAME LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+
+		GROUP BY A.USER_ID
+		ORDER BY A.ORG_ID, B.DEPT_ID, A.EMP_NO
+
+		/* user.selectUserList */
+	</select>
+
+
+	<!-- 신규 사용자 사번 생성 -->
+	<select id="user.selectNewEmpNo" parameterClass="String" resultClass="String">
+		SELECT CASE WHEN (MAX(EMP_NO) IS NULL)
+					THEN (CONCAT(REPLACE(DATE_FORMAT(NOW(), "%Y-%m"), '-', ''), '001'))
+					ELSE CONCAT((CAST(MAX(EMP_NO) AS UNSIGNED) + 1), '')
+			   END AS empNo
+
+		  FROM BS_USER_MASTER
+		 WHERE 1=1
+		   AND EMP_NO LIKE CONCAT(REPLACE(DATE_FORMAT(NOW(), "%Y-%m"), '-', ''), '%')		<!-- ex)'201508%' -->
+		/* user.selectNewEmpNo */
+	</select>
+
+
+	<!-- 사용자등록(신규) -->
+	<insert id="user.insertUser" parameterClass="HashMap">
+		INSERT INTO BS_USER_MASTER(
+									 PASSWORD
+									,EMP_NO
+									,LOGIN_ID
+									,NAME
+									,CUS_ID
+									,EMP_TYPE
+									,COMPANY
+									,RANK
+
+									<!-- ,DEPARTMENT -->
+									,COMPANY_TEL
+									,COMPANY_FAX
+									,HOME_ZIP
+									,HOME_ADDR1
+									,HOME_ADDR2
+									,HOME_TEL
+									,MOBILE_TEL
+									,EMAIL
+									,HOMEPAGE
+									,HOBBY
+									,HIRED_DATE
+									,JOIN_DATE
+									,SOS_TEL
+									,SOS_WHO
+									,BLOOD
+									,BLOOD_RH
+									,RELIGION
+									,PASSPORT
+									,MARRIED_DATE
+									,USER_STATUS
+									,FIRED_DATE
+									,ORG_ID
+									,WORK
+									,CREATE_DATE
+									,CREATED_BY
+									,UPDATE_DATE
+									,UPDATED_BY
+							)
+							VALUES(#userPwd#
+									,#empNo#
+									,#loginId#
+									,#userName#
+									,#cusId#
+									,#empType#
+									,#company#
+									,#rank#
+
+									<!-- ,#department# -->
+									,#companyTel#
+									,#companyFax#
+									,#homeZip#
+									,#homeAddr1#
+									,#homeAddr2#
+									,#homeTel#
+									,#mobileTel#
+									,#email#
+									,#homepage#
+									,#hobby#
+									,IF((#hiredDate# IS NOT NULL AND #hiredDate# != ''), STR_TO_DATE(#hiredDate#, '%Y%m%d'), NULL)
+									,IF((#joinDate# IS NOT NULL AND #joinDate# != ''), STR_TO_DATE(#joinDate#, '%Y%m%d'), NULL)
+									,#sosTel#
+									,#sosWho#
+									,#blood#
+									,#bloodRh#
+									,#religion#
+									,#passport#
+									,IF((#marriedDate# IS NOT NULL AND #marriedDate# != ''), STR_TO_DATE(#marriedDate#, '%Y%m%d'), NULL)
+									,'W'
+									,IF((#firedDate# IS NOT NULL AND #firedDate# != ''), STR_TO_DATE(#firedDate#, '%Y%m%d'), NULL)
+									,#orgId#
+									,#userWork#
+									,NOW()
+									,#userSeq#
+									,NOW()
+									,#userSeq#
+							)
+
+		<selectKey resultClass="int" type="post" keyProperty="uId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* user.insertUser */
+	</insert>
+
+
+	<!-- 사용자 부서 없애기 -->
+	<update id="user.updateUserDepartment" parameterClass="HashMap">
+		UPDATE BS_USER_DEPARTMENT
+   		   SET MAIN_YN = 'N'
+   		   	  ,ENABLE = 'N'
+   		   	  ,DELETE_FLAG='Y'
+   		   	  ,UPDATED_BY = #userSeq#
+			  ,UPDATE_DATE = NOW()
+   		 WHERE USER_ID = #uId#
+   		 AND DEPT_ID NOT IN
+   		 <iterate property="deptIdList" open="(" close=")"  conjunction="," >
+   			#deptIdList[].#
+		</iterate>
+		/* user.updateDeptMainInit */
+	</update>
+
+
+
+	<!-- 사용자 대표부서 초기화(없애기) -->
+	<update id="user.updateDeptMainInit" parameterClass="HashMap">
+		UPDATE BS_USER_DEPARTMENT
+   		   SET MAIN_YN = 'N'
+   		   	  ,UPDATED_BY = #userSeq#
+			  ,UPDATE_DATE = NOW()
+
+   		 WHERE USER_ID = #uId#
+   		   AND MAIN_YN = 'Y'
+
+		/* user.updateDeptMainInit */
+	</update>
+
+
+	<!-- 사용자 부서장 초기화(없애기) -->
+	<update id="user.updateDeptManagerInit" parameterClass="HashMap">
+		UPDATE BS_DEPT_MANAGER
+   		   SET DELETE_FLAG = 'Y'
+   		   	  ,UPDATED_BY = #userSeq#
+			  ,UPDATE_DATE = NOW()
+
+   		 WHERE USER_ID = #uId#
+
+		/* user.updateDeptManagerInit */
+	</update>
+
+	<!-- 부서(직책) 등록 -->
+	<insert id="user.mergeDeptInchargeInfo" parameterClass="Map">
+		INSERT INTO BS_USER_DEPARTMENT(
+									 DEPT_ID
+									,USER_ID
+									,MAIN_YN
+									<!-- ,INCHARGE -->
+									,REGIST_DATE
+									,`ENABLE`
+									,DELETE_FLAG
+									,CREATED_BY
+									,CREATE_DATE
+									,UPDATED_BY
+									,UPDATE_DATE
+								)
+								VALUES(
+									 #deptId#
+									,#userId#
+									<isNotEmpty prepend="" property="mainYn">
+                                        ,#mainYn#
+                                    </isNotEmpty>
+                                    <isEmpty prepend="" property="mainYn">
+                                        ,'N'
+                                    </isEmpty>
+
+									,NOW()
+									,'Y'
+									,'N'
+									,#userSeq#
+									,NOW()
+									,#userSeq#
+									,NOW()
+								)
+								ON DUPLICATE KEY
+								UPDATE
+
+								<isNotEmpty prepend="" property="enable">
+									`ENABLE` = #enable#
+								</isNotEmpty>
+								<isEmpty prepend="" property="enable">
+									`ENABLE` = 'Y'
+								</isEmpty>
+								<isNotEmpty prepend="" property="deleteFlag">
+									,DELETE_FLAG = #deleteFlag#
+								</isNotEmpty>
+								<isEmpty prepend="" property="deleteFlag">
+									,DELETE_FLAG = 'N'
+								</isEmpty>
+
+								<isNotEmpty prepend="" property="mainYn">
+                                    ,MAIN_YN = #mainYn#
+                                </isNotEmpty>
+
+									,UPDATED_BY = #userSeq#
+									,UPDATE_DATE = NOW()
+
+		/* user.mergeDeptInchargeInfo */
+	</insert>
+
+
+	<!-- 부서장 등록 -->
+	<insert id="user.mergeDeptManagerInfo" parameterClass="Map">
+		INSERT INTO BS_DEPT_MANAGER(
+									 DEPT_ID
+									,USER_ID
+									,`ENABLE`
+									,DELETE_FLAG
+
+									,CREATED_BY
+									,CREATE_DATE
+									,UPDATED_BY
+									,UPDATE_DATE
+								)
+								VALUES(
+									 #deptId#
+									,#userId#
+									,'Y'
+									,'N'
+
+									,#userSeq#
+									,NOW()
+									,#userSeq#
+									,NOW()
+								)
+								ON DUPLICATE KEY
+								UPDATE
+
+									 USER_ID = #userId#
+
+								<isNotEmpty prepend="" property="enable">
+									,`ENABLE` = #enable#
+								</isNotEmpty>
+								<isEmpty prepend="" property="enable">
+									,`ENABLE` = 'Y'
+								</isEmpty>
+								<isNotEmpty prepend="" property="deleteFlag">
+									,DELETE_FLAG = #deleteFlag#
+								</isNotEmpty>
+								<isEmpty prepend="" property="deleteFlag">
+									,DELETE_FLAG = 'N'
+								</isEmpty>
+
+									,UPDATED_BY = #userSeq#
+									,UPDATE_DATE = NOW()
+
+		/* user.mergeDeptManagerInfo */
+	</insert>
+
+
+	<!-- 사용자수정 -->
+	<update id="user.updateUser" parameterClass="HashMap">
+		UPDATE BS_USER_MASTER
+   		   SET
+   		   	   NAME         		= #userName#
+   		   	  ,CUS_ID 	    		= #cusId#
+   		   	  ,EMP_TYPE     		= #empType#
+   		   	  ,COMPANY      		= #company#
+   		   	  ,RANK  	  	 		= #rank#
+   		   	  ,ORG_ID				= #orgId#
+   		   	  <!-- ,DEPARTMENT   		= #department# -->
+   		   	  ,COMPANY_TEL  		= #companyTel#
+   		   	  ,COMPANY_FAX  		= #companyFax#
+   		   	  ,HOME_ZIP     		= #homeZip#
+   		   	  ,HOME_ADDR1   		= #homeAddr1#
+   		   	  ,HOME_ADDR2   		= #homeAddr2#
+   		   	  ,HOME_TEL     		= #homeTel#
+   		   	  ,MOBILE_TEL   		= #mobileTel#
+   		   	  ,EMAIL        		= #email#
+   		   	  <!-- ,HOMEPAGE     		= #homepage# -->
+   		   	  <!-- ,HOBBY        		= #hobby# -->
+   		   	  ,HIRED_DATE   		= IF((#hiredDate# IS NOT NULL AND #hiredDate# != ''), STR_TO_DATE(#hiredDate#, '%Y%m%d'), NULL)
+   		   	  ,JOIN_DATE    		= IF((#joinDate# IS NOT NULL AND #joinDate# != ''), STR_TO_DATE(#joinDate#, '%Y%m%d'), NULL)
+   		   	  ,SOS_TEL      		= #sosTel#
+   		   	  ,SOS_WHO	 			= #sosWho#
+   		   	  <!-- ,BLOOD        		= #blood#
+   		   	  ,BLOOD_RH        		= #bloodRh#
+   		   	  ,RELIGION     		= #religion#
+   		   	  ,PASSPORT     		= #passport#
+   		   	  ,MARRIED_DATE 		= IF((#marriedDate# IS NOT NULL AND #marriedDate# != ''), STR_TO_DATE(#marriedDate#, '%Y%m%d'), NULL)
+   		   	  ,USER_STATUS  		= #userStatus#
+   		   	  ,FIRED_DATE   		= IF((#firedDate# IS NOT NULL AND #firedDate# != ''), STR_TO_DATE(#firedDate#, '%Y%m%d'), NULL) -->
+   		   	  ,WORK					= #userWork#
+   		   	  ,UPDATE_DATE  		= NOW()
+   		   	  ,UPDATED_BY   		= #userSeq#
+   		   	  <!-- ,DELETE_FLAG			= #deleteFlag# -->
+
+ 		 WHERE USER_ID = #uId#
+		/* user.updateUser */
+	</update>
+
+	<!-- 비밀번호 수정 -->
+	<update id="user.updateInitPwd" parameterClass="HashMap">
+		UPDATE BS_USER_MASTER
+   		   SET
+   		   	   PASSWORD  			= #userPwd#
+
+   		   	  ,UPDATE_DATE  		= NOW()
+   		   	  ,UPDATED_BY   		= #userSeq#
+
+ 		 WHERE USER_ID = #uId#
+		/* user.updateInitPwd */
+	</update>
+
+
+
+	<!-- ============================================= 사용자 프로파일 :S =============================================== -->
+
+	<!-- 사용자 프로파일 리스트 -->
+	<select id="user.selectUserProfile" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				A.USER_ID			AS userId
+			   ,A.ORG_ID 			AS orgId
+			   ,A.EMP_NO			AS empNo
+			   ,SUBSTRING_INDEX(A.EMP_NO, '_', -1)	AS showEmpNo
+			   ,A.LOGIN_ID			AS loginId
+			   ,A.NAME				AS name
+
+			   ,B.USER_LANG			AS userLang
+			   ,B.TIMEZONE			AS timezone
+			   ,B.STATUS			AS status
+			   ,B.PAYROLL_YN		AS payrollYn
+			   ,B.SYSTEM_YN			AS systemYn
+			   ,B.WHOLE_MEMO_VIEW_YN AS wholeMemoViewYn
+			   ,B.PROJECT_YN		AS projectYn
+			   ,B.CAR_WORK_YN		AS carWorkYn
+			   ,B.ATTEND_YN			AS attendYn
+			   ,B.MOBILE_ATTEND		AS mobileAttend
+			   ,B.SECOM_ATTEND		AS secomAttend
+			   ,B.LOGIN_ATTEND		AS loginAttend
+			   ,B.SECURITY_LOGIN	AS securityLogin
+			   ,B.SINGLE_SIGN_ON	AS singleSignOn
+			   ,B.EXPENSE_YN		AS expenseYn
+			   ,B.COSTING_YN		AS costingYn
+			   ,B.TIMESHEET_YN		AS timesheetYn
+			   ,B.MAKE_PROJECT		AS makeProject
+			   ,B.CLOSE_PROJECT		AS closeProject
+			   ,B.CLOSE_TIMESHEET	AS closeTimesheet
+			   ,B.OPEN_CALENDAR		AS openCalendar
+			   ,B.CLOSE_CALENDAR	AS closeCalendar
+			   ,B.B_CARD_YN	AS bCardYn
+			   ,B.B_CARD_CONTROL	AS bCardControl
+			   ,B.BUSINESS_INFO_LEVEL	AS businessInfoLevel
+			   ,B.BOARD_INFO_LEVEL		AS boardInfoLevel
+			   ,B.CUSTOMER_INFO_LEVEL	AS customerInfoLevel
+
+			   ,B.WORK_VIEW_YN		AS workViewYn
+			   ,B.CARD_VIEW_YN		AS cardViewYn
+			   ,B.SCHEDULE_VIEW_YN	AS scheduleViewYn
+
+
+			   ,A.USER_STATUS		AS userStatus
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'USER_STTS'
+		  		   AND G.CODE_VALUE = A.USER_STATUS
+		  		   AND G.ORG_ID = A.ORG_ID) 		AS userStatusNm
+			   ,DATE_FORMAT(A.FIRED_DATE, '%Y-%m-%d')	AS firedDate
+
+			   ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			   ,A.CREATED_BY			AS createdBy
+			   ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			   ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			   ,A.UPDATED_BY			AS updatedBy
+			   ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+
+		   FROM BS_USER_MASTER			A
+		   LEFT JOIN BS_USER_PROFILE	B ON A.USER_ID = B.USER_ID
+		  WHERE 1=1
+		  <isEqual property="hideSynergyUserYn" compareValue="Y">     /* 관계사 시너지 유저 목록 활성화여부 */
+              AND A.CUS_ID != 1133368
+          </isEqual>
+
+		<isNotEmpty prepend="AND" property="firedType">
+			<isEqual property="firedType" compareValue="1">		<!-- 유효사용자 -->
+				(A.FIRED_DATE is NULL or A.FIRED_DATE = '')
+			</isEqual>
+			<isEqual property="firedType" compareValue="0">		<!-- 퇴사자 -->
+				A.FIRED_DATE > DATE_FORMAT('1999-01-01', '%Y-%m-%d')
+			</isEqual>
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="search">
+			(A.EMP_NO LIKE concat('%', #search#, '%')		OR
+			 A.LOGIN_ID LIKE concat('%', #search#, '%')		OR
+			 A.NAME LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="empNo">
+			 A.EMP_NO = #empNo#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="targetOrgId">
+			 A.ORG_ID = #targetOrgId#
+		</isNotEmpty>
+
+		/* user.selectUserProfile */
+	</select>
+
+
+	<!-- 사용자 프로파일 수정 -->
+	<update id="user.updateUserProfile" parameterClass="HashMap">
+		UPDATE BS_USER_PROFILE
+   		   SET
+   		   	   UPDATE_DATE  		= NOW()
+   		   	  ,UPDATED_BY   		= #userSeq#
+
+			<isNotEmpty property="userLang">
+			  ,USER_LANG			= #userLang#
+			</isNotEmpty>
+			<isNotEmpty property="timezone">
+			  ,TIMEZONE				= #timezone#
+			</isNotEmpty>
+			<isNotEmpty property="status">
+			  ,STATUS				= #status#
+			</isNotEmpty>
+			<isNotEmpty property="payrollYn">
+			  ,PAYROLL_YN			= #payrollYn#
+			</isNotEmpty>
+			<isNotEmpty property="systemYn">
+			  ,SYSTEM_YN			= #systemYn#
+			</isNotEmpty>
+			<isNotEmpty property="wholeMemoViewYn">
+			  ,WHOLE_MEMO_VIEW_YN			= #wholeMemoViewYn#
+			</isNotEmpty>
+			<isNotEmpty property="projectYn">
+			  ,PROJECT_YN			= #projectYn#
+			</isNotEmpty>
+			<isNotEmpty property="carWorkYn">
+			  ,CAR_WORK_YN			= #carWorkYn#
+			</isNotEmpty>
+			<isNotEmpty property="attendYn">
+			  ,ATTEND_YN			= #attendYn#
+			</isNotEmpty>
+			<isNotEmpty property="mobileAttend">
+			  ,MOBILE_ATTEND		= #mobileAttend#
+			</isNotEmpty>
+			<isNotEmpty property="secomAttend">
+			  ,SECOM_ATTEND			= #secomAttend#
+			</isNotEmpty>
+			<isNotEmpty property="loginAttend">
+			  ,LOGIN_ATTEND			= #loginAttend#
+			</isNotEmpty>
+			<isNotEmpty property="securityLogin">
+			  ,SECURITY_LOGIN		= #securityLogin#
+			</isNotEmpty>
+			<isNotEmpty property="singleSignOn">
+			  ,SINGLE_SIGN_ON		= #singleSignOn#
+			</isNotEmpty>
+			<isNotEmpty property="expenseYn">
+			  ,EXPENSE_YN			= #expenseYn#
+			</isNotEmpty>
+			<isNotEmpty property="costingYn">
+			  ,COSTING_YN			= #costingYn#
+			</isNotEmpty>
+			<isNotEmpty property="timesheetYn">
+			  ,TIMESHEET_YN			= #timesheetYn#
+			</isNotEmpty>
+			<isNotEmpty property="makeProject">
+			  ,MAKE_PROJECT			= #makeProject#
+			</isNotEmpty>
+			<isNotEmpty property="closeProject">
+			  ,CLOSE_PROJECT		= #closeProject#
+			</isNotEmpty>
+			<isNotEmpty property="closeTimesheet">
+			  ,CLOSE_TIMESHEET		= #closeTimesheet#
+			</isNotEmpty>
+			<isNotEmpty property="openCalendar">
+			  ,OPEN_CALENDAR		= #openCalendar#
+			</isNotEmpty>
+			<isNotEmpty property="closeCalendar">
+			  ,CLOSE_CALENDAR		= #closeCalendar#
+			</isNotEmpty>
+			<isNotEmpty property="bCardYn">
+			  ,B_CARD_YN		= #bCardYn#
+			</isNotEmpty>
+			<isNotEmpty property="bCardControl">
+			  ,B_CARD_CONTROL		= #bCardControl#
+			</isNotEmpty>
+			<isNotEmpty property="businessInfoLevel">
+			  ,BUSINESS_INFO_LEVEL	= #businessInfoLevel#
+			</isNotEmpty>
+			<isNotEmpty property="boardInfoLevel">
+			  ,BOARD_INFO_LEVEL		= #boardInfoLevel#
+			</isNotEmpty>
+			<isNotEmpty property="customerInfoLevel">
+			  ,CUSTOMER_INFO_LEVEL	= #customerInfoLevel#
+			</isNotEmpty>
+			<isNotEmpty property="mainBoardHeadlineYn">
+              ,MAIN_BOARD_HEADLINE_YN            = #mainBoardHeadlineYn#
+            </isNotEmpty>
+
+            <isNotEmpty property="workViewYn">
+			  ,WORK_VIEW_YN		 = #workViewYn#
+			</isNotEmpty>
+			<isNotEmpty property="cardViewYn">
+			  ,CARD_VIEW_YN		 = #cardViewYn#
+			</isNotEmpty>
+			<isNotEmpty property="scheduleViewYn">
+              ,SCHEDULE_VIEW_YN  = #scheduleViewYn#
+            </isNotEmpty>
+
+		 WHERE USER_ID = #userId#
+ 		 <!-- WHERE USER_ID = (SELECT USER_ID FROM BS_USER_MASTER WHERE EMP_NO = #empNo#) -->
+		/* user.updateUserProfile */
+	</update>
+
+
+	<!-- 사용자 프로파일 최초등록 (디폴드값이 혹시 바뀌면 쿼리에서 바꿔준다!!!!!!) -->
+	<insert id="user.insertUserProfile" parameterClass="HashMap">
+		INSERT INTO BS_USER_PROFILE(USER_ID
+										,BASE_DB
+										,USER_LANG
+										,TIMEZONE
+
+										,STATUS
+										,PAYROLL_YN
+										,SYSTEM_YN
+										,WHOLE_MEMO_VIEW_YN
+										,PROJECT_YN
+										,ATTEND_YN
+										,MOBILE_ATTEND
+										,SECOM_ATTEND
+										,LOGIN_ATTEND
+										,SECURITY_LOGIN
+										,SINGLE_SIGN_ON
+										,EXPENSE_YN
+										,COSTING_YN
+										,TIMESHEET_YN
+										,MAKE_PROJECT
+										,CLOSE_PROJECT
+										,CLOSE_TIMESHEET
+										,OPEN_CALENDAR
+										,CLOSE_CALENDAR
+										,ATTR1_YN
+										,ATTR2_YN
+										,ATTR3_YN
+										,ATTR4_YN
+										,ATTR5_YN
+
+										,CREATE_DATE
+										,CREATED_BY
+										,UPDATE_DATE
+										,UPDATED_BY
+
+									)VALUES(
+										 #uId#
+										,'BASE'
+										,'KOR'
+										,'KST'
+
+										,'Y'
+										,'Y'
+										,'Y'
+										,'N'
+										,'Y'
+										,'Y'
+										,#mobileAttend#
+										,#secomAttend#
+										,#loginAttend#
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+										,'Y'
+
+										,now()
+										,#userSeq#
+										,now()
+										,#userSeq#
+
+									)
+		/* user.insertUserProfile */
+	</insert>
+
+	<!-- ============================================= 사용자 프로파일 :E =============================================== -->
+
+
+	<!-- ============================================= 사용자 공통(사원 선택, 부서 선택) :S =============================================== -->
+
+	<!-- 부서 TREE -->
+	<select id="user.selectDeptListForTree" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.DEPT_ID				AS deptId
+			  ,A.DEPT_CODE				AS deptCode
+			  ,A.DEPT_CLASS				AS deptClass
+			  ,A.KOR_NAME				AS korName
+			  ,A.ENG_NAME				AS engName
+			  ,A.DESCRIPTION			AS description
+			  ,A.DEPT_LEVEL				AS deptLevel
+			  ,A.LEVEL_SEQ				AS levelSeq
+			  ,A.DEPT_SEQ				AS sort
+			  ,A.PARENT_DEPT_ID			AS parentId
+
+			  ,(SELECT COUNT(DEPT_ID) FROM BS_DEPARTMENT WHERE PARENT_DEPT_ID = A.DEPT_ID)	AS childCnt
+
+		  FROM BS_DEPARTMENT	A
+		 WHERE 1=1
+		   AND ENABLE = 'Y'
+		   AND DELETE_FLAG = 'N'
+
+		<isNotEmpty prepend="AND" property="deptId">
+			A.DEPT_ID = #deptId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="orgId">
+			A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="parentId">
+			A.PARENT_DEPT_ID = #parentId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="deptClass">
+			A.DEPT_CLASS = #deptClass#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="root">
+			(A.PARENT_DEPT_ID IS NULL OR A.PARENT_DEPT_ID = '' OR A.PARENT_DEPT_ID = 0)
+		</isNotEmpty>
+
+		 ORDER BY A.DEPT_SEQ ASC, A.DEPT_ID ASC
+
+		/* user.selectDeptListForTree */
+	</select>
+
+
+	<!-- 부서별 사용자 -->
+	<select id="user.selectUserListInDept" parameterClass="HashMap" resultClass="HashMap">
+		SELECT B.DEPT_ID						AS deptId
+			  ,B.MAIN_YN						AS mainYn
+			  ,C.KOR_NAME						AS deptNm
+			  ,A.USER_ID						AS userId
+			  ,A.NAME							AS userNm
+			  ,A.NAME							AS userName
+			  ,SUBSTRING_INDEX(A.EMP_NO, '_', -1)			AS empNo
+			  ,A.MOBILE_TEL						AS mobileTel
+			  ,A.ORG_ID							AS orgId
+			  ,(SELECT CPN_NM
+		 		  FROM IB_COMPANY IC, BS_ORG IO
+		 		 WHERE IC.S_NB = IO.COMPANY_SNB
+				   AND IO.ORG_ID = A.ORG_ID)	AS orgNm
+
+			  ,A.RANK							AS rank
+			  ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = A.ORG_ID)		AS rankNm
+
+		  FROM BS_USER_MASTER		A
+		  JOIN BS_USER_DEPARTMENT	B ON A.USER_ID = B.USER_ID
+		  LEFT JOIN BS_DEPARTMENT	C ON B.DEPT_ID = C.DEPT_ID
+		 WHERE 1=1
+		   AND B.ENABLE = 'Y'
+		   AND B.DELETE_FLAG = 'N'
+
+
+		<isNotEmpty prepend="AND" property="deptId">
+			B.DEPT_ID = #deptId#
+		</isNotEmpty>
+		<isEmpty prepend="AND" property="deptId">
+			B.MAIN_YN = 'Y'
+		</isEmpty>
+
+		<isNotEmpty prepend="AND" property="orgId">
+			A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isEqual prepend="AND" property="enable" compareValue="N">
+			A.USER_STATUS IN ('F','R')		<!-- F:퇴직, R:해고 -->
+		</isEqual>
+		<isEqual prepend="AND" property="enable" compareValue="Y">
+			A.USER_STATUS IN ('W','H')		<!-- W:재직, H:병가 -->
+		</isEqual>
+		<isEmpty prepend="AND" property="enable">
+			A.USER_STATUS IN ('W','H')		<!-- W:재직, H:병가 -->
+		</isEmpty>
+
+		<isNotEmpty prepend="AND" property="search">
+			A.NAME LIKE concat('%', #search#, '%')
+		</isNotEmpty>
+
+		<isNotEmpty prepend="" property="sortCol">
+		 	ORDER BY $sortCol$ $sortVal$
+		</isNotEmpty>
+		<isEmpty prepend="" property="sortCol">
+			ORDER BY A.NAME ASC
+		</isEmpty>
+
+		/* user.selectUserListInDept */
+	</select>
+
+	<!-- ============================================= 사용자 공통(사원 선택, 부서 선택) :E =============================================== -->
+
+	<!-- 접속 유저id별 조회 가능한 관계사 id  -->
+	<select id = "user.getAccessOrgIdList" parameterClass="String" resultClass="HashMap">
+		SELECT  /*+ 로그인한 유저의 접근권한이 있는 조직가져오기 */
+		          A.ORG_ID as orgId
+		        , A.ORG_ACCESS_AUTH_TYPE as orgAccessAuthType
+		        ,B.ORG_LOGO as orgLogo
+		        ,B.DESCRIPTION as description
+		        ,B.COMPANY_SNB as companySnb
+		        ,C.CPN_ID as cpnId
+		        ,C.CPN_NM as cpnNm
+		FROM    BS_RELATION_COMPANY_ACCESS_AUTH A
+		       ,BS_ORG                          B
+		       ,IB_COMPANY                      C
+		WHERE   A.USER_ID = #value#
+		AND     A.ORG_ID = B.ORG_ID
+		AND     B.ENABLE = 'Y'
+		AND     NOW() BETWEEN B.START_DT AND DATE_ADD(DATE_SUB(DATE(B.END_DT), INTERVAL 1 SECOND), INTERVAL 1 DAY)
+		AND     B.COMPANY_SNB = C.S_NB
+		ORDER BY A.RELATION_COMPANY_ACCESS_AUTH_ID
+	</select>
+
+	<!-- 전체 관계사 목록  -->
+    <select id = "user.getOrgIdList" parameterClass="String" resultClass="HashMap">
+    SELECT  /*+ 전체 관계사 목록 */
+              B.ORG_ID as orgId
+            ,B.ORG_LOGO as orgLogo
+            ,B.DESCRIPTION as description
+            ,B.COMPANY_SNB as companySnb
+            ,C.CPN_ID as cpnId
+            ,C.CPN_NM as cpnNm
+    FROM   BS_ORG                          B
+           ,IB_COMPANY                      C
+
+    WHERE   1=1
+    AND     B.ENABLE = 'Y'
+    AND     NOW() BETWEEN B.START_DT AND DATE_ADD(DATE_SUB(DATE(B.END_DT), INTERVAL 1 SECOND), INTERVAL 1 DAY)
+    AND     B.COMPANY_SNB = C.S_NB
+    ORDER BY B.ORG_ID
+    </select>
+
+	<!-- 접속 유저id별 조회 가능한 관계사 id  -->
+	<select id = "user.getAccessOrgIdCnt" parameterClass="HashMap" resultClass="Integer">
+	SELECT
+	          COUNT(*)
+	FROM    BS_RELATION_COMPANY_ACCESS_AUTH A
+	       ,BS_ORG                          B
+	       ,IB_COMPANY                      C
+	WHERE   A.USER_ID = #userId#
+	AND		A.ORG_ID = #orgId#
+	AND     A.ORG_ID = B.ORG_ID
+	AND     NOW() BETWEEN B.START_DT AND DATE_ADD(DATE_SUB(DATE(B.END_DT), INTERVAL 1 SECOND), INTERVAL 1 DAY)
+	AND     B.COMPANY_SNB = C.S_NB
+	ORDER BY A.RELATION_COMPANY_ACCESS_AUTH_ID
+	</select>
+
+	<!-- 소속 관계사 입력시 관계사의 auth 정보 입력 -->
+	<insert id="user.insertBsRelationCompanyAccessAuth" parameterClass="HashMap">
+		INSERT INTO BS_RELATION_COMPANY_ACCESS_AUTH
+		(USER_ID, ORG_ID, ORG_ACCESS_AUTH_TYPE, UP_DT, UP_ID, RG_DT, RG_ID)
+		VALUES
+		(#uId#, #orgId#, #authType#, now(), #userSeq#, now(), #userSeq#)
+		/* user.insertBsRelationCompanyAccessAuth */
+	</insert>
+
+	<!-- 소속 관계사 입력시 관계사의 AUTH 정보 검색 -->
+	<select id="user.selectBsRelationCompanyAccessAuth" parameterClass="HashMap" resultClass="int">
+		SELECT COUNT(RELATION_COMPANY_ACCESS_AUTH_ID)
+
+		  FROM BS_RELATION_COMPANY_ACCESS_AUTH
+
+		 WHERE USER_ID = #uId#
+		   AND ORG_ID = #orgId#
+
+		/* user.selectBsRelationCompanyAccessAuth */
+	</select>
+
+	<!-- 소속 관계사 입력시 관계사의 auth 정보 삭제 -->
+	<delete id="user.deleteBsRelationCompanyAccessAuth" parameterClass="HashMap">
+		DELETE FROM BS_RELATION_COMPANY_ACCESS_AUTH
+		 WHERE USER_ID = #uId#
+		   AND ORG_ID = #orgId#
+
+		/* user.deleteBsRelationCompanyAccessAuth */
+	</delete>
+
+	<!-- 사번체크  -->
+	<select id="user.getOrgPersabun" parameterClass="HashMap" resultClass="int">
+		SELECT COUNT(EMP_NO) AS CNT
+			FROM BS_USER_MASTER
+			<isNotEmpty property="empNo" prepend="WHERE">
+				EMP_NO = #empNo#
+			</isNotEmpty>
+		/* user.getOrgPersabun */
+	</select>
+
+	<!--  관계사 코드 반환 -->
+	<select id="user.getOrgCode" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			BO.ORG_CODE 		AS orgCode
+			,BO.ORG_ID 			AS orgId
+		FROM BS_ORG BO
+		WHERE BO.ORG_ID = #orgId#
+			/* user.getOrgCode */
+	</select>
+
+	<!-- 관계사 세부 정보 반환 -->
+	<select id="user.getOrgInfoForGrouping" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			BO.ORG_CODE 		AS orgCode
+			,IC.GROUPING_ORG_YN AS groupingOrgYn
+			,BO.ORG_ID 			AS orgId
+			,IC.S_NB			AS companySnb
+			,IC.CPN_NM			AS cpnNm
+			,(SELECT IFNULL(COUNT(S_NB),0) FROM IB_COMPANY WHERE REF_ORG_ID = BO.ORG_ID) AS cnt
+			, IFNULL(BO.AVAL_USER_CNT,0) AS avalUserCnt
+			, IFNULL(BO.AVAL_USER_CNT + 1,0) -
+			  (SELECT  COUNT(*)
+			        FROM    BS_USER_MASTER  A
+			    WHERE   A.USER_STATUS NOT IN ('F', 'R')
+			    AND     A.ORG_ID = #orgId#)  AS remainUserCnt
+			 ,BO.SECOME_USE_YN  AS secomeUseYn
+		FROM 	BS_ORG BO,
+				IB_COMPANY IC
+		WHERE BO.COMPANY_SNB = IC.S_NB
+		AND BO.ORG_ID = #orgId#
+		/* user.getOrgInfoForGrouping */
+	</select>
+
+	<!-- 관계사에 속하는 소속회사 반환 ( grouping_yn : Y일때만 소속회사 검색 ) -->
+	<select id="user.getGroupingCompanyList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT T.*, @RNUM := @RNUM + 1 AS rnum
+		FROM (
+		SELECT S_NB AS sNb, CPN_NM AS cpnNm, CPN_ID as cpnId, GROUPING_ORG_YN as groupingOrgYn
+		FROM IB_COMPANY
+		WHERE REF_ORG_ID = #orgId#
+
+		<isEmpty prepend="AND" property="groupYn">	  <!-- GROUPING_ORG_YN n 만 -->
+			GROUPING_ORG_YN = 'N'
+		</isEmpty>
+
+		<isNotEmpty prepend="AND" property="groupYn"> <!-- GROUPING_ORG_YN y n 둘다 -->
+			1=1
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="cpnNm">
+				CPN_NM LIKE CONCAT('%',#cpnNm#,'%')
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="cpnId">
+				CPN_ID LIKE CONCAT('%',#cpnId#,'%')
+		</isNotEmpty>
+		) T,
+		( SELECT @RNUM := #offset# ) R
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#, #limit#
+		</isNotEmpty>
+		/* user.getGroupingCompanyList */
+	</select>
+
+	<!-- 관계사에 속하는 소속회사 갯수 반환 -->
+	<select id="user.getGroupingCompanyListCnt" parameterClass="HashMap" resultClass="int">
+		SELECT COUNT(S_NB)
+		FROM IB_COMPANY
+		WHERE REF_ORG_ID = #orgId#  AND GROUPING_ORG_YN = 'N'
+		/* user.getGroupingCompanyListCnt */
+	</select>
+
+	<!--  사용자 등록 - 소속 관계사 리스트  -->
+	<select id = "user.getAccessOrgInfoList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT T.*, @RNUM := @RNUM + 1 AS rnum
+		FROM (
+			SELECT
+	          A.ORG_ID as orgId
+	        , A.ORG_ACCESS_AUTH_TYPE as orgAccessAuthType
+            , B.BUSINESS_GRP_SEQ
+	        ,B.ORG_CODE as orgCode
+	        ,B.COMPANY_SNB as companySnb
+	        ,C.CPN_ID as cpnId
+	        ,C.CPN_NM as cpnNm
+	        , C.GROUPING_ORG_YN as groupingOrgYn
+            ,(SELECT BUSINESS_GRP_NM FROM BS_BUSINESS_GROUP WHERE BUSINESS_GRP_SEQ = B.BUSINESS_GRP_SEQ) as businessGrpNm
+            ,(SELECT COUNT(S_NB) FROM IB_COMPANY WHERE REF_ORG_ID = B.ORG_ID) AS cnt
+            ,IFNULL(B.AVAL_USER_CNT,0) AS avalUserCnt
+            ,IFNULL(B.AVAL_USER_CNT + 1,0) -
+              (SELECT  COUNT(*)
+                    FROM    BS_USER_MASTER  X
+                WHERE   X.USER_STATUS NOT IN ('F', 'R')
+                AND     X.ORG_ID = B.ORG_ID) AS remainUserCnt
+			FROM    BS_RELATION_COMPANY_ACCESS_AUTH A
+			       ,BS_ORG                          B
+			       ,IB_COMPANY                      C
+			WHERE   A.USER_ID = #userId#
+			AND     A.ORG_ID = B.ORG_ID
+			AND     B.COMPANY_SNB = C.S_NB
+			AND 	B.ENABLE = 'Y'
+			<isNotEmpty prepend="AND" property="cpnNm">
+				C.CPN_NM LIKE CONCAT('%',#cpnNm#,'%')
+			</isNotEmpty>
+			ORDER BY A.RELATION_COMPANY_ACCESS_AUTH_ID
+		) T,
+
+		( SELECT @RNUM := #offset# ) R
+
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#, #limit#
+		</isNotEmpty>
+
+		/* user.getAccessOrgInfoList */
+	</select>
+
+		<!--  사용자 등록 - 소속 관계사 리스트 총 갯수 -->
+	<select id = "user.getAccessOrgInfoListCnt" parameterClass="HashMap" resultClass="int">
+		SELECT  COUNT(A.ORG_ID)
+			FROM    BS_RELATION_COMPANY_ACCESS_AUTH A
+			       ,BS_ORG                          B
+			       ,IB_COMPANY                      C
+		WHERE   A.USER_ID = #userId#
+		AND     A.ORG_ID = B.ORG_ID
+		AND     B.COMPANY_SNB = C.S_NB
+		AND 	B.ENABLE = 'Y'
+		<isNotEmpty prepend="AND" property="cpnNm">
+			C.CPN_NM LIKE CONCAT('%',#cpnNm#,'%')
+		</isNotEmpty>
+		/* user.getAccessOrgInfoListCnt */
+	</select>
+
+	<!-- 메인화면 모듈리스트 -->
+	<select id = "user.getModuleList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT
+				  A.MODULE_CODE
+				, A.MODULE_ID
+				, A.MODULE_NAME
+				, A.MODULE_DESC
+				, A.MODULE_INC_URL
+				, A.THEME
+				, A.WIDTH
+				, A.HEIGHT
+		        , B.POSITION
+		        , B.LEFT_POS_X
+		        , B.LEFT_POS_Y
+		        , B.SORT
+
+		FROM    BS_MODULE_LIST      A
+		       ,BS_ROLE_MODULE_LIST B
+
+		WHERE   A.MODULE_ID = B.MODULE_ID
+		AND     A.ENABLE = 'Y'
+		AND     B.ENABLE = 'Y'
+		AND     B.POSITION = 'RELATIVE'
+		<isNotEmpty property="applyOrgId">
+		AND     B.ORG_ID= #applyOrgId#
+		</isNotEmpty>
+		<isNotEmpty property="roleId">
+		AND     B.ROLE_ID= #roleId#
+		</isNotEmpty>
+		ORDER BY B.SORT
+		/* user.getModuleList */
+	</select>
+
+
+	<!-- 소속회사(bs_user_master.company) 를 수정 -->
+	<update id="user.updateCusCpnByUserModify" parameterClass="HashMap">
+		UPDATE IB_CUSTOMER
+		   SET CPN_ID = (SELECT CPN_ID FROM IB_COMPANY WHERE S_NB = #company#)
+		 WHERE S_NB = #cusId#
+
+		/* user.updateCusCpnByUserModify */
+	</update>
+
+	<!-- 로그인 출근 연동여부를 판단하여 출근처리한다. -->
+	<select id = "user.getUserAttendCnt" parameterClass="HashMap" resultClass = "Integer">
+		SELECT  COUNT(*) IS_LOGIN_ATTEND
+		FROM    BS_USER_PROFILE
+		WHERE   USER_ID = #userId#
+		AND     ATTEND_YN = 'Y'
+		<isNotEmpty property="loginAttend">
+			AND     LOGIN_ATTEND = #loginAttend#
+		</isNotEmpty>
+	</select>
+
+	<!-- 유저 그룹관리 팝업에서 관계사 or 부서별 유저 조회 -->
+	<select id="user.getOrgOrDeptUserList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT A.USER_ID
+			  ,A.NAME
+			  ,C.KOR_NAME AS DEPT_NM
+			  ,(SELECT G.VALUE_MEAN_KOR
+                 FROM   BS_CODE_GV G
+                 WHERE  G.ORG_ID = A.ORG_ID
+                 AND    G.CODE_NAME = 'RANK'
+                 AND    G.CODE_VALUE = (SELECT X.RANK FROM BS_USER_MASTER X WHERE X.USER_ID = A.USER_ID)) AS USER_RANK_NM
+              ,E.CPN_NM
+		  FROM BS_USER_MASTER A ,BS_USER_DEPARTMENT B ,BS_DEPARTMENT C , BS_ORG D , IB_COMPANY E
+		 WHERE 1=1
+		  AND A.USER_ID = B.USER_ID
+		  AND B.DEPT_ID = C.DEPT_ID
+		  AND A.ORG_ID = D.ORG_ID
+		  AND D.COMPANY_SNB = E.S_NB
+		  AND A.USER_STATUS NOT IN ('F','R')
+		  AND A.DELETE_FLAG !='Y'
+		  AND B.ENABLE = 'Y'
+		  AND B.DELETE_FLAG != 'Y'
+		  AND B.MAIN_YN = 'Y'
+		  AND C.ENABLE = 'Y'
+		  AND C.DELETE_FLAG != 'Y'
+		  AND D.USE_YN = 'Y'
+		  AND D.ENABLE = 'Y'
+		<isNotEmpty property="orgId">
+			AND A.ORG_ID = #orgId#
+		</isNotEmpty>
+		<isNotEmpty property="deptId">
+			AND B.DEPT_ID = #deptId#
+		</isNotEmpty>
+		<isNotEmpty property="deptArr">
+			AND B.DEPT_ID IN (
+			<iterate property="deptArr" conjunction=",">
+				#deptArr[]#
+			</iterate>
+			)
+		</isNotEmpty>
+		<isNotEmpty property="searchName">
+			AND A.NAME LIKE CONCAT('%',#searchName#,'%')
+		</isNotEmpty>
+		<isNotEmpty property="searchOrder">
+			ORDER BY $searchOrder$
+		</isNotEmpty>
+	</select>
+
+	<!-- 유저 그룹 생성-->
+	<insert id="user.createUserGroup" parameterClass="HashMap">
+		INSERT INTO BS_USER_GROUP (  USER_ID
+									,GROUP_NM
+									,GROUP_ORD
+									,ENABLE
+									,CREATE_DATE
+									,CREATED_BY
+									,UPDATE_DATE
+									,UPDATED_BY
+								   ) VALUES
+									(#userId#
+									,#groupNm#
+									,#groupOrd#
+									,#enable#
+									,NOW()
+									,#userId#
+									,NOW()
+									,#userId#)
+		/* user.createUserGroup */
+		<selectKey resultClass="int" type="post" keyProperty="userGroupId">
+				SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+	<!-- 유저 그룹 수정 -->
+	<update id="user.modifyUserGroup" parameterClass="HashMap">
+		UPDATE BS_USER_GROUP
+   		   SET   GROUP_NM     = #groupNm#
+				,GROUP_ORD    = #groupOrd#
+				,ENABLE       = #enable#
+				,UPDATE_DATE  = NOW()
+				,UPDATED_BY   = #userId#
+   		 WHERE USER_GROUP_ID = #userGroupId#
+		/* user.modifyUserGroup */
+	</update>
+	<!-- 유저그룹 조회 -->
+	<select id="user.getUserGroupList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT   USER_GROUP_ID
+				,USER_ID
+				,GROUP_NM
+				,GROUP_ORD
+				,ENABLE
+				,CREATE_DATE
+				,CREATED_BY
+				,UPDATE_DATE
+				,UPDATED_BY
+				,(SELECT COUNT(*) FROM BS_USER_GROUP_DETAIL X WHERE X.USER_GROUP_ID = A.USER_GROUP_ID) AS GROUP_USER_CNT
+		  FROM BS_USER_GROUP A
+		 WHERE 1=1
+		  AND A.USER_ID = #userId#
+		  AND A.ENABLE = 'Y'
+		<isNotEmpty property="searchOrder">
+			ORDER BY $searchOrder$
+		</isNotEmpty>
+		<isEmpty property="searchOrder">
+			ORDER BY GROUP_ORD ASC
+		</isEmpty>
+
+		  /* user.getUserGroupList */
+	</select>
+	<!-- 유저 그룹별 사용자 리스트 조회 -->
+	<select id="user.getGroupDetailUserList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT C.USER_ID
+			  ,C.NAME
+			  ,F.KOR_NAME AS DEPT_NM
+			  ,(SELECT Y.VALUE_MEAN_KOR
+                 FROM   BS_CODE_GV Y
+                 WHERE  Y.ORG_ID = C.ORG_ID
+                 AND    Y.CODE_NAME = 'RANK'
+                 AND    Y.CODE_VALUE = (SELECT X.RANK FROM BS_USER_MASTER X WHERE X.USER_ID = C.USER_ID)) AS USER_RANK_NM
+              ,E.CPN_NM
+		  FROM BS_USER_GROUP A , BS_USER_GROUP_DETAIL B ,BS_USER_MASTER C , BS_ORG D ,IB_COMPANY E,BS_DEPARTMENT F,BS_USER_DEPARTMENT G
+		 WHERE A.USER_GROUP_ID = #userGroupId#
+		   AND A.ENABLE = 'Y'
+		   AND A.USER_GROUP_ID = B.USER_GROUP_ID
+		   AND B.USER_ID = C.USER_ID
+		   AND C.USER_STATUS NOT IN ('F','R')
+		   AND C.ORG_ID = D.ORG_ID
+		   AND C.DELETE_FLAG != 'Y'
+		   AND D.USE_YN = 'Y'
+		   AND D.COMPANY_SNB = E.S_NB
+		   AND G.USER_ID = C.USER_ID
+		   AND G.DEPT_ID = F.DEPT_ID
+		   AND G.MAIN_YN = 'Y'
+		   AND G.ENABLE = 'Y'
+		   AND G.DELETE_FLAG != 'Y'
+		   AND F.ENABLE = 'Y'
+		   AND F.DELETE_FLAG != 'Y'
+		   <isNotEmpty property="searchOrder">
+			ORDER BY $searchOrder$
+		</isNotEmpty>
+		  /* user.getGroupDetailUserList */
+	</select>
+	<!-- 유저 그룹 삭제-->
+	<delete id="user.deleteUserGroup" parameterClass="HashMap">
+		DELETE FROM BS_USER_GROUP
+		 WHERE USER_GROUP_ID = #userGroupId#
+		/* user.user.deleteUserGroup */
+	</delete>
+	<!-- 유저 그룹 내역 삭제-->
+	<delete id="user.deleteUserGroupDetail" parameterClass="HashMap">
+		DELETE FROM BS_USER_GROUP_DETAIL
+		 WHERE USER_GROUP_ID = #userGroupId#
+		/* user.user.deleteUserGroup */
+	</delete>
+	<!-- 유저 그룹 유저 저장-->
+	<insert id="user.insertUserGroupUserList" parameterClass="HashMap">
+		INSERT INTO BS_USER_GROUP_DETAIL (
+									 USER_GROUP_ID
+									,USER_ID
+									,ORG_ID
+									,CREATE_DATE
+									,CREATED_BY
+									,UPDATE_DATE
+									,UPDATED_BY
+								   ) VALUES
+									<iterate property="userIdArr" conjunction=",">
+										(
+											#userGroupId#
+										   ,#userIdArr[]#
+										   ,(SELECT X.ORG_ID FROM BS_USER_MASTER X WHERE X.USER_ID = #userIdArr[]#)
+							               ,NOW()
+							                ,#userId#
+							               ,NOW()
+							                ,#userId#
+							               )
+							        </iterate>
+		/* user.insertUserGroupUserList */
+	</insert>
+	<!-- 유저 그룹 복사-->
+	<insert id="user.insertCopyUserGroup" parameterClass="HashMap">
+		INSERT INTO BS_USER_GROUP (
+									 USER_ID
+									,GROUP_NM
+									,GROUP_ORD
+									,ENABLE
+									,CREATE_DATE
+									,CREATED_BY
+									,UPDATE_DATE
+									,UPDATED_BY
+								   )
+									SELECT   USER_ID
+											,CONCAT(GROUP_NM,' Copy')
+											,(SELECT COUNT(*)+1 FROM BS_USER_GROUP X WHERE X.USER_ID = #userId# AND ENABLE='Y')
+											,ENABLE
+											,NOW()
+											,#userId#
+											,NOW()
+											,#userId#
+									 FROM BS_USER_GROUP
+									WHERE USER_GROUP_ID = #userGroupId#
+		/* user.insertCopyUserGroup */
+		<selectKey resultClass="int" type="post" keyProperty="userGroupIdNew">
+				SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+	<!-- 유저 그룹 유저 복사-->
+	<insert id="user.insertCopyUserGroupDetail" parameterClass="HashMap">
+		INSERT INTO BS_USER_GROUP_DETAIL (
+									 USER_GROUP_ID
+									,USER_ID
+									,ORG_ID
+									,CREATE_DATE
+									,CREATED_BY
+									,UPDATE_DATE
+									,UPDATED_BY
+								   )
+								   SELECT 	 #userGroupIdNew#
+								         	,USER_ID
+											,ORG_ID
+											,NOW()
+											,#userId#
+											,NOW()
+											,#userId#
+									FROM BS_USER_GROUP_DETAIL
+								   WHERE USER_GROUP_ID = #userGroupId#
+
+		/* user.insertCopyUserGroupDetail */
+	</insert>
+	<!-- 유저 그룹 순서변경 -->
+	<update id="user.procUserGroupSortOrder" parameterClass="HashMap">
+		UPDATE BS_USER_GROUP A ,BS_USER_GROUP B
+   		   SET
+				 A.GROUP_ORD    = B.GROUP_ORD
+				,B.GROUP_ORD    = A.GROUP_ORD
+				,A.UPDATE_DATE  = NOW()
+				,A.UPDATED_BY   = #userId#
+				,B.UPDATE_DATE  = NOW()
+				,B.UPDATED_BY   = #userId#
+   		 WHERE A.USER_GROUP_ID = #userGroupId#
+   		   AND B.USER_GROUP_ID = #targetUserGroupId#
+		/* user.targetUserGroupId */
+	</update>
+	<!-- 유저 그룹 삭제시 순서변경 -->
+	<update id="user.updateUserGroupForDelete" parameterClass="HashMap">
+		UPDATE BS_USER_GROUP
+   		   SET
+				 GROUP_ORD    = GROUP_ORD -1
+				,UPDATE_DATE  = NOW()
+				,UPDATED_BY   = #userId#
+   		 WHERE USER_ID = #userId#
+   		   AND GROUP_ORD > #groupOrd#
+		/* user.targetUserGroupId */
+	</update>
+	<!-- 유저 프로필박스 -->
+	<select id="user.getUserProfile" parameterClass="HashMap" resultClass="egovMap">
+		SELECT C.CPN_NM AS  ORG_NM
+			  ,A.NAME
+			  ,A.USER_ID
+			  ,A.COMPANY_TEL
+			  ,A.MOBILE_TEL
+			  ,A.EMAIL
+			  ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = A.ORG_ID)	AS RANK_NM				<!-- 직급명 -->
+		  	  , G.KOR_NAME  					AS DEPT_NM  			<!-- 부서명 -->
+		  	  ,IFNULL((SELECT CONCAT(SUBSTRING_INDEX(FL.file_path, '/', -3), FL.NEW_FILE_NM)
+                  FROM bs_file_list FL
+                 WHERE upload_id = A.USER_ID
+                   AND UPLOAD_TYPE = 'PROFILEIMG'
+                   AND DELETE_FLAG = 'N'),'')	AS PHOTO_NM			<!-- 내 사진 -->
+		  FROM BS_USER_MASTER A
+		INNER JOIN BS_ORG B ON A.ORG_ID = B.ORG_ID
+		INNER JOIN IB_COMPANY C ON B.COMPANY_SNB = C.S_NB
+		LEFT JOIN BS_USER_DEPARTMENT 	D	ON A.USER_ID = D.USER_ID
+		LEFT JOIN BS_DEPARTMENT       G   ON G.DEPT_ID = D.DEPT_ID
+
+		WHERE
+			<isEqual property="type" compareValue="empId">
+				A.EMP_NO = #userProfileId#
+			</isEqual>
+			<isNotEqual property="type" compareValue="empId">
+				A.USER_ID = #userProfileId#
+			</isNotEqual>
+
+		  AND D.DELETE_FLAG = 'N'
+		  AND D.ENABLE = 'Y'
+		  AND D.MAIN_YN = 'Y'
+	</select>
+
+</sqlMap>

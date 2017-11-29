@@ -1,0 +1,229 @@
+package ib.approve.service.impl;
+
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.codehaus.jackson.map.ObjectMapper;
+import org.springframework.stereotype.Service;
+
+import egovframework.rte.fdl.cmmn.AbstractServiceImpl;
+import egovframework.rte.fdl.string.EgovStringUtil;
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+import ib.approve.service.ApproveSetService;
+import ib.approve.service.ApproveVo;
+import ib.approve.service.ApproveVoList;
+import ib.file.service.FileService;
+import ib.personnel.service.impl.ManagementDAO;
+import ib.schedule.service.ScheduleService;
+
+@Service("approveSetService")
+public class ApproveSetServiceImpl  extends AbstractServiceImpl implements ApproveSetService {
+
+    @Resource(name="approveSetDAO")
+    private ApproveSetDAO approveSetDao;
+
+    @Resource(name="approveDAO")
+    private ApproveDAO approveDao;
+
+
+  //필수수신참조자설정 리스트
+  	public List<EgovMap> getAppvReceiverSetupList(Map<String,Object> paramMap) throws Exception{
+  		return approveSetDao.getAppvReceiverSetupList(paramMap);
+  	}
+
+  //필수수신참조자설정 저장
+    public Integer processAppvReceiverSetup(Map<String,Object> map) throws Exception{
+    	int cnt = 0;
+
+    	//필수수신참조자 삭제
+    	approveSetDao.deleteAppvReceiverUser(map);
+    	//orgId : 필수수신참조자설정 삭제
+    	approveSetDao.deleteAppvReceiverSetup(map);
+
+    	String keyChk = "";
+    	Map<String,Object> insertMap = new HashMap<String,Object>();
+    	insertMap.put("orgId", map.get("orgId"));
+		insertMap.put("sessionUserId", map.get("sessionUserId"));
+    	for(String key : map.keySet()){
+
+    		if(key.indexOf("|")<0) continue;
+
+    		String[] keyBuf = key.split("[|]");
+
+    		if(keyChk.equals("")) keyChk = keyBuf[1];
+
+    		if(!keyChk.equals(keyBuf[2])){
+    			keyChk = keyBuf[2];
+    			approveSetDao.insertAppvReceiverSetup(insertMap);
+
+        		//초기화
+        		insertMap = new HashMap<String,Object>();
+            	insertMap.put("orgId", map.get("orgId"));
+            	insertMap.put("sessionUserId", map.get("sessionUserId"));
+    		}
+    		insertMap.put("appvDocClass", keyBuf[1]);
+    		if("COMPANY".equals(keyBuf[1])){
+    			insertMap.put("appvDocType", null);
+    			insertMap.put("appvCompanyFormId", keyBuf[2]);
+    		}else{
+    			insertMap.put("appvDocType", keyBuf[2]);
+    			insertMap.put("appvCompanyFormId", null);
+    		}
+    		insertMap.put(keyBuf[0], map.get(key));
+		 }
+    	approveSetDao.insertAppvReceiverSetup(insertMap);
+
+    	//필수수신참조자 넣기 값 : userId|APPV_DOC_CLASS|APPV_DOC_TYPE[또는 APPV_COMPANY_FORM_ID(사내서직인경우)]|RECEIVER[또는CC]|USER_ID값
+    	String[] arrUserId = (String[])map.get("arrUserId");
+    	for(String userId : arrUserId){
+    		String splitUserId[] = userId.split("[|]");
+    		insertMap = new HashMap<String,Object>();
+    		insertMap.put("orgId", map.get("orgId"));
+    		insertMap.put("sessionUserId", map.get("sessionUserId"));
+
+    		insertMap.put("userId", splitUserId[4]);
+    		insertMap.put("appvDocClass", splitUserId[1]);
+    		if("COMPANY".equals(splitUserId[1])){
+    			insertMap.put("appvDocType", null);
+    			insertMap.put("appvCompanyFormId", splitUserId[2]);
+    		}else{
+    			insertMap.put("appvDocType", splitUserId[2]);
+    			insertMap.put("appvCompanyFormId", null);
+    		}
+    		insertMap.put("userRoleType", splitUserId[3]);
+
+    		EgovMap setupMap = approveSetDao.getAppvReceiverSetupKey(insertMap);
+    		insertMap.put("appvReceiverSetupId", setupMap.get("appvReceiverSetupId"));
+    		approveSetDao.insertAppvReceiverUser(insertMap);
+    	}
+    	return cnt;
+    }
+
+  //종결전 문서열람설정 리스트
+  	public List<EgovMap> getAppvReadSetupList(Map<String,Object> paramMap) throws Exception{
+  		return approveSetDao.getAppvReadSetupList(paramMap);
+  	}
+
+  //종결전 문서열람설정 저장
+    public Integer processAppvReadSetup(Map<String,Object> map) throws Exception{
+    	int cnt = 0;
+
+    	//orgId : 필수수신참조자설정 삭제
+    	approveSetDao.deleteAppvReadSetup(map);
+
+    	String keyChk = "";
+    	Map<String,Object> insertMap = new HashMap<String,Object>();
+    	insertMap.put("orgId", map.get("orgId"));
+		insertMap.put("sessionUserId", map.get("sessionUserId"));
+    	for(String key : map.keySet()){
+
+    		if(key.indexOf("|")<0) continue;
+
+    		String[] keyBuf = key.split("[|]");
+
+    		if(keyChk.equals("")) keyChk = keyBuf[1];
+
+    		if(!keyChk.equals(keyBuf[2])){
+    			keyChk = keyBuf[2];
+    			approveSetDao.insertAppvReadSetup(insertMap);
+
+        		//초기화
+        		insertMap = new HashMap<String,Object>();
+            	insertMap.put("orgId", map.get("orgId"));
+            	insertMap.put("sessionUserId", map.get("sessionUserId"));
+    		}
+    		insertMap.put("appvDocClass", keyBuf[1]);
+    		if("COMPANY".equals(keyBuf[1])){
+    			insertMap.put("appvDocType", null);
+    			insertMap.put("appvCompanyFormId", keyBuf[2]);
+    		}else{
+    			insertMap.put("appvDocType", keyBuf[2]);
+    			insertMap.put("appvCompanyFormId", null);
+    		}
+    		insertMap.put(keyBuf[0], map.get(key));
+		 }
+    	approveSetDao.insertAppvReadSetup(insertMap);
+
+    	return cnt;
+    }
+
+  //지출결의서설정 리스트
+  	public EgovMap getAppvExpenseSetupDetail(Map<String,Object> paramMap) throws Exception{
+  		return approveSetDao.getAppvExpenseSetupDetail(paramMap);
+  	}
+
+  //지출담당자설정 리스트
+  	public List<EgovMap> getAppvManagerSetupList(Map<String,Object> paramMap) throws Exception{
+  		return approveSetDao.getAppvManagerSetupList(paramMap);
+  	}
+
+  //지출일설정 리스트
+  	public List<EgovMap> getAppvDaySetupList(Map<String,Object> paramMap) throws Exception{
+  		return approveSetDao.getAppvDaySetupList(paramMap);
+  	}
+
+  //지출결의서설정 저장
+    public Integer processAppvExpenseSetup(Map<String,Object> map) throws Exception{
+    	int cnt = 0;
+
+    	//orgId : 지출결의서설정 삭제
+    	approveSetDao.deleteAppvExpenseSetup(map);
+    	//orgId : 지출담당자설정 삭제
+    	approveSetDao.deleteAppvManagerSetup(map);
+    	//orgId : deleteAppvDaySetup 삭제
+    	approveSetDao.deleteAppvDaySetup(map);
+
+    	//orgId : 지출결의서설정 등록
+    	approveSetDao.insertAppvExpenseSetup(map);
+
+    	Map<String,Object> insertMap = new HashMap<String,Object>();
+		//지출담당자설정 등록
+    	String[] arrUserId = (String[])map.get("arrUserId");
+    	if(arrUserId!=null){
+	    	for(String userId : arrUserId){
+	    		insertMap = new HashMap<String,Object>();
+	    		insertMap.put("orgId", map.get("orgId"));
+	    		insertMap.put("sessionUserId", map.get("sessionUserId"));
+	    		insertMap.put("userId", userId);
+	    		insertMap.put("createdBy", map.get("createdBy"));
+	    		insertMap.put("createDate", map.get("createDate"));
+	    		approveSetDao.insertAppvManagerSetup(insertMap);
+	    	}
+    	}
+
+    	//지출일설정 등록
+    	String[] arrExpenseDay = (String[])map.get("arrExpenseDay");
+    	for(String expenseDay : arrExpenseDay){
+    		insertMap = new HashMap<String,Object>();
+    		insertMap.put("orgId", map.get("orgId"));
+    		insertMap.put("sessionUserId", map.get("sessionUserId"));
+    		insertMap.put("expenseDay", expenseDay);
+    		insertMap.put("createdBy", map.get("createdBy"));
+    		insertMap.put("createDate", map.get("createDate"));
+    		approveSetDao.insertAppvDaySetup(insertMap);
+    	}
+
+    	return cnt;
+    }
+
+    //필수 수신자 , 참가자 리스트 조회
+  	public List<EgovMap> getOrgReceiverSetupList(Map<String,Object> paramMap) throws Exception{
+  		String docStatus = paramMap.get("docStatus").toString();
+
+  		if(docStatus.equals("WORKING")){
+  			return approveSetDao.getOrgReceiverSetupList(paramMap);
+  		}else{
+  			return approveDao.getOrgReceiverSetupList(paramMap);
+  		}
+
+  	}
+
+}

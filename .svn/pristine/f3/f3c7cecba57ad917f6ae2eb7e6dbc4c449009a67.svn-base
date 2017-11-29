@@ -1,0 +1,283 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ include file="./js/EventNotice_JS.jsp"%>
+
+<div id="wrap" class="content_box">
+
+	<jsp:scriptlet>
+		pageContext.setAttribute("cr", "\r");
+		pageContext.setAttribute("lf", "\n");
+		pageContext.setAttribute("crlf", "\r\n");
+	</jsp:scriptlet>
+
+<input type="hidden" id="rgstId" value="<c:out value='${baseUserLoginInfo.loginId}'/>">
+
+	<section>
+		<article>
+
+		<c:set var="now" value="<%= new java.util.Date() %>"/>
+		<fmt:formatDate var="cur_day" value='${now}' pattern='yyyy-MM-dd'/>
+
+		<form name="modifyRec" action="<c:url value='/work/selectEventPublicNotice.do' />" method="post"><input type="hidden" name="sorting" id="sorting" value="${sorting}"><input type="hidden" id="ttT" name="total" value="${ttT}"></form>
+		<input type="hidden" id="SendReceive" value="MR">
+
+		<div class="fixed-top" style="z-index:10;">
+
+			<header>
+				<form name="dayForm" id="dayForm" method="post" action="<c:url value='/work/selectEventPublicNotice.do' />">
+				<input type="hidden" name="total" id="total">
+				<div class="year_wrap" style="top:0px"><h2 class="headerTitle">
+
+					<c:set var="now" value="<%= new java.util.Date() %>"/>
+					<fmt:formatDate var="cur_year" value='${now}' pattern='yyyy'/>
+
+					행사공시
+					&nbsp;&nbsp;<span class="btn s green"><a onclick="javascript:view('tbl00',this,event);">공시입력</a></span>
+					<%--
+					&nbsp;&nbsp;<span class="btn s"><a onclick="javascript:excelDownload(this,event);">엑셀 다운로드</a></span>
+					--%>
+					<select id="selCategory" name="selCategory" onchange="sortTable(this.value,'total');">
+                        <option value=""  ${empty ttT ? 'selected' : ''}>전체</option>
+                        <c:forEach var="ct" items="${CategoryList}" varStatus="cateS">
+                            <option value="${ct.categoryCd}" ${ttT eq ct.categoryCd ? 'selected' : ''}>${ct.categoryCd}</option>
+                        </c:forEach>
+                        <option value="event" ${ttT eq 'event' ? 'selected' : ''}>행사공시</option>
+                    </select>
+				</h2>
+				</div>
+				</form>
+				<h2 class="headerTitle">&nbsp;</h2>
+			</header>
+<br/>
+<div>
+    <div class="clear" style="float:left;width:10px;height:15px;">&nbsp;</div>
+    <div style="height:16px;line-height:15px;"class="1st subTab" onclick="openTab('selectPublicNoticeIncCap.do');">증자</div>
+    <div style="height:16px;line-height:15px;"class="1st subTabon" onclick="openTab('selectPublicNoticeMezzaine.do');">메자닌</div>
+    <div style="height:16px;line-height:15px;"class="1st subTab" onclick="openTab('selectPublicNoticeSh.do');">주주변경</div>
+</div>
+
+
+			<table class="t_skinR00" style="table-layout: fixed;">
+				<colgroup>
+					<col width="70">
+					<col width="100">
+
+					<col width="30">
+					<col width="50">
+					<col width="60">
+					<col width="60">
+					<col width="100">
+
+					<col width="70">
+					<col width="60">
+					<col width="100">
+
+					<col width="60">
+					<col width="60">
+					<col width="60">
+
+					<col width="100">
+					<col width="">
+				</colgroup>
+				<thead>
+					<tr>
+						<th onclick="sortTable(${(sortBtn==1||sortBtn==-1)?sortBtn:1});" class="hand">청구일자<br/><div id="sortBtn1"></div></th>
+						<th onclick="sortTable(${(sortBtn==2||sortBtn==-2)?sortBtn:2});" class="hand pd0">회사명<br/><div id="sortBtn2"></div></th>
+
+						<th class="pd0">회차</th>
+						<th class="pd0">행사내용</th>
+						<th class="pd0">행사<br/>주식수</th>
+						<th class="pd0">행사가격</th>
+						<th class="pd0">행사금액</th>
+
+						<th class="pd0">상장<br/>예정일</th>
+						<th class="pd0">현재가</th>
+						<th class="pd0">현재가<br/>적용금액</th>
+
+						<th class="pd0">미전환<br/>주식수</th>
+						<th class="pd0">발행주식<br/>총수</th>
+						<th class="pd0">발행주식<br/>총수대비</th>
+
+						<th class="pd0">행사자</th>
+						<th class="pd0">비고</th>
+					</tr>
+				</thead>
+				</table></div>
+			<div style="padding-top:97px;">
+			<table class="t_skinR00" style="table-layout: fixed;">
+				<colgroup>
+					<col width="70">
+					<col width="100">
+
+					<col width="30">
+					<col width="50">
+					<col width="60">
+					<col width="60">
+					<col width="100">
+
+					<col width="70">
+					<col width="60">
+					<col width="100">
+
+					<col width="60">
+					<col width="60">
+					<col width="60">
+
+					<col width="100">
+					<col width="">
+				</colgroup>
+				<tbody>
+					<c:forEach var="nt" items="${NoticeList}" varStatus="ntS">
+						<tr>
+							<td class="cent" style="padding: 5px 0px;">${nt.tmDt}</td>
+							<td class="cent pd0">${nt.cpnNm}</td>
+
+							<td class="cent pd0">${nt.rank}</td>
+							<td class="cent pd0"><nobr>${nt.categoryNm}</nobr></td>
+							<td class="cent pd0"><fmt:formatNumber value="${nt.eventStock}" groupingUsed="true"/></td>
+							<td class="won"><fmt:formatNumber value="${nt.eventPrice}" groupingUsed="true"/></td>
+							<td class="won"><fmt:formatNumber value="${nt.eventStock * nt.eventPrice}" groupingUsed="true"/></td>
+
+							<td class="cent pd0">${nt.ipoDt}</td>
+							<td class="won"><fmt:formatNumber value="${nt.curPrice}" groupingUsed="true"/></td>
+							<td class="won"><fmt:formatNumber value="${nt.eventStock * nt.curPrice}" groupingUsed="true"/></td>
+
+							<td class="cent pd0"><fmt:formatNumber value="${nt.unchangeStock}" groupingUsed="true"/></td>
+							<td class="cent pd0"><fmt:formatNumber value="${nt.outstandingStock}" groupingUsed="true"/></td>
+							<td class="cent pd0"><fmt:formatNumber value="${nt.eventStock / nt.outstandingStock}" groupingUsed="true" type="percent"/></td>
+
+							<td class="cent pd0">${nt.eventUser}</td>
+							<td class="pd0 overflowHide" title="${nt.comment}"><nobr>${nt.comment}</nobr>
+								<span class="btn s orange" style="float:left;margin-left:5px;"><a onclick="javascript:view('tbl${ntS.count}',this,event)">내용수정</a></span>
+								<c:if test="${cur_day eq nt.rgDt}"></c:if>
+								<span class="btn s red" style="float:left;margin-left:5px;"><a onclick="javascript:deleteNotice('${nt.sNb}')">삭제</a></span>
+							</td>
+						</tr>
+					</c:forEach>
+				</tbody>
+			</table>
+			</div>
+		</article>
+	</section>
+	<div class="popUpMenu" style="width:500px;display:none" id="tbl00">
+		<p class="closePopUpMenu" name="textR" title="닫기">ⅹ닫기</p>
+		<table class="t_skinR00">
+			<thead>
+				<tr>
+						<th class="pd0">청구일자</th>
+						<th class="pd0">회사명</th>
+
+						<th class="pd0">회차</th>
+						<th class="pd0">행사내용</th>
+						<th class="pd0">행사<br/>주식수</th>
+						<th class="pd0">행사가격</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td class="cent bgWht pd0" style="width:70px;border-radius:0px;"><input type="text" class="cent w96" id="tm"/></td>
+					<td class="cent bgWht pd0"><input type="hidden" class="cent w96" id="AP_cpnId_00"><span class="btn s orange" style="vertical-align:top;"><a onclick="popUp('00','c')" id="AP_cpnNm_00" class="c_title">회사선택</a></span></td>
+
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id="rank"/></td>
+					<td class="cent bgWht pd0"><input type="hidden" class="cent w96" id="cate" value="00001"/>
+						<select class="processResult" id="processResult_0">
+							<c:forEach var="cmmCd" items="${cmmCdCategoryList}" varStatus="status">
+							<option value="${cmmCd.cd}">${cmmCd.nm}</option>
+							</c:forEach>
+						</select>
+					</td>
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id=""/></td>
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id=""/></td>
+				</tr>
+			</tbody>
+		</table>
+		<table class="t_skinR00">
+			<thead>
+				<tr>
+						<th class="pd0">상장<br/>예정일</th>
+
+						<th class="pd0">미전환<br/>주식수</th>
+						<th class="pd0">발행주식<br/>총수</th>
+
+						<th class="pd0">행사자</th>
+						<th class="pd0">비고</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id=""/></td>
+
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id=""/></td>
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id=""/></td>
+
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id=""/></td>
+					<td class="cent bgWht pd0" style="border-radius:0px;"><input type="text" class="cent w96" id=""/></td>
+				</tr>
+			</tbody>
+		</table>
+		<p class="cent" style="margin:3px 0px;"><span class="btn s green" onclick="javascript:insertNotice(this);"><a>저장</a></span></p>
+	</div>
+
+	<c:forEach var="nt" items="${NoticeList}" varStatus="ntS">
+	<div class="popUpMenu" style="width:600px;display:none" id="tbl${ntS.count}">
+		<p class="closePopUpMenu" name="textR" title="닫기">ⅹ닫기</p>
+		<table class="t_skinR00">
+			<thead>
+				<tr>
+						<th class="pd0">청구일자</th>
+						<th class="pd0">회사명</th>
+
+						<th class="pd0">회차</th>
+						<th class="pd0">행사내용</th>
+						<th class="pd0">행사<br/>주식수</th>
+						<th class="pd0">행사가격</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td class="cent bgWht pd0" style="width:70px;border-radius:0px;"><input type="text" class="cent w96" id="tm" value="${nt.tmDt}"/></td>
+					<td class="cent bgWht pd0"><input type="hidden" class="cent w96" id="AP_cpnId_${ntS.count}" value="${nt.cpnId}">${nt.cpnNm}</td>
+
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id="rank" value="${nt.rank}"/></td>
+					<td class="cent bgWht pd0"><input type="hidden" class="cent w96" id="cate" value="${nt.categoryCd}"/>
+						<select class="processResult" id="processResult_${nt.sNb}">
+							<c:forEach var="cmmCd" items="${cmmCdCategoryList}" varStatus="status">
+								<option value="${cmmCd.cd}"<c:if test="${nt.categoryCd == cmmCd.cd}"> selected</c:if>>${cmmCd.nm}</option>
+							</c:forEach>
+						</select>
+					</td>
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id="" value="${nt.eventStock}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id="" value="${nt.eventPrice}"/></td>
+				</tr>
+			</tbody>
+		</table>
+		<table class="t_skinR00">
+			<thead>
+				<tr>
+						<th class="pd0">상장<br/>예정일</th>
+
+						<th class="pd0">미전환<br/>주식수</th>
+						<th class="pd0">발행주식<br/>총수</th>
+
+						<th class="pd0">행사자</th>
+						<th class="pd0">비고</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id="" value="${nt.ipoDt}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id="" value="${nt.unchangeStock}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id="" value="${nt.outstandingStock}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="cent w96" id="" value="${nt.eventUser}"/></td>
+					<td class="cent bgWht pd0" style="border-radius:0px;"><input type="text" class="cent w96" id="" value="${nt.comment}"/></td>
+					<input type="hidden" value="${nt.sNb}"/>
+				</tr>
+			</tbody>
+		</table>
+		<p class="cent" style="margin:3px 0px;"><span class="btn s orange" onclick="javascript:modifyNotice(this);"><a>수정</a></span></p>
+	</div>
+	</c:forEach>
+</div>

@@ -1,0 +1,3790 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="system">
+
+	<!--
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="carVO" type="ib.car.service.CarVO"/>
+	 -->
+	<typeAlias  alias="menuVO" type="ib.basic.interceptor.MenuVO"/>
+
+	<!-- ############################ 권한등록 :S ############################ -->
+
+	<!-- 권한코드(콤보박스용) -->
+	<select id="system.selectRoleCodeCombo" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.ROLE_ID			AS #code#
+			  ,A.ROLE_CODE			AS roleCode
+
+			<isEqual property="lang" compareValue="ENG">
+			  ,A.ROLE_ENG			AS #name#
+			</isEqual>
+			<isNotEqual property="lang" compareValue="ENG">
+			  ,A.ROLE_KOR			AS #name#
+			</isNotEqual>
+
+			  ,A.ROLE_ENG			AS nameEng
+			  ,A.ROLE_DESC			AS valueDesc
+
+		 FROM BS_ROLE_LIST	A
+ 		WHERE 1=1
+
+ 		<isNotEmpty prepend="AND" property="orgId">
+			 A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="enable">
+			 A.ENABLE = 'Y'
+		</isNotEmpty>
+
+ 		ORDER BY A.SORT ASC
+		/* system.selectRoleCodeCombo */
+	</select>
+
+
+	<!-- 권한코드 리스트 -->
+	<select id="system.selectRoleCodeList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			   A.ORG_ID					As orgId
+			  ,(SELECT C.CPN_NM
+		 		  FROM IB_COMPANY C, BS_ORG O
+		 		 WHERE C.S_NB = O.COMPANY_SNB
+				   AND O.ORG_ID = A.ORG_ID)		AS orgNm
+
+			  ,A.ROLE_ID				AS roleId
+			  ,A.ROLE_CODE				AS roleCode
+			  ,A.ROLE_KOR				AS roleKor
+			  ,A.ROLE_ENG				AS roleEng
+			  ,A.ROLE_DESC				AS roleDesc
+			  ,A.SORT					AS sort
+			  ,A.ROLE_TYPE				AS roleType
+			  ,A.P_ROLE_CODE			AS pRoleCode
+			  ,A.ENABLE					AS enable
+			  ,A.ATTR1					AS attr1
+			  ,A.ATTR2					AS attr2
+			  ,A.ATTR3					AS attr3
+			  ,A.ATTR4					AS attr4
+			  ,A.ATTR5					AS attr5
+
+			  ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")		AS createDate
+			  ,A.CREATED_BY				AS createdBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")		AS updateDate
+			  ,A.UPDATED_BY				AS updatedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+		 FROM BS_ROLE_LIST	A
+ 		WHERE 1=1
+
+		<isNotEmpty prepend="AND" property="orgId">
+			 A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+ 		<isNotEmpty prepend="AND" property="search">
+			(A.ROLE_CODE LIKE concat('%', #search#, '%')	OR
+			 A.ROLE_KOR LIKE concat('%', #search#, '%')	OR
+			 A.ROLE_ENG LIKE concat('%', #search#, '%')	OR
+			 A.ROLE_DESC LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="enable">
+			 A.ENABLE = #enable#
+		</isNotEmpty>
+
+ 		ORDER BY A.SORT ASC
+		/* system.selectRoleCodeList */
+	</select>
+
+
+	<!-- 권한등록(신규) -->
+	<insert id="system.insertRole" parameterClass="HashMap">
+		INSERT INTO BS_ROLE_LIST(
+								 ORG_ID
+								,ROLE_CODE
+								,ROLE_KOR
+								,ROLE_ENG
+								,ROLE_DESC
+								,SORT
+								,ENABLE
+								,ATTR1
+								,ATTR2
+								,ATTR3
+								,ATTR4
+								,ATTR5
+
+								,CREATE_DATE
+								,CREATED_BY
+								,UPDATE_DATE
+								,UPDATED_BY
+								)
+
+					VALUES(
+							 #orgId#
+							,(SELECT IF( MAX(A.ROLE_ID) IS NULL, 0, MAX(A.ROLE_ID)+ 1) FROM BS_ROLE_LIST A)
+							,#roleKor#
+							,#roleEng#
+							,#roleDesc#
+							,CASE WHEN #sort# = '' THEN NULL ELSE #sort# END
+							,#enable#
+							,#attr1#
+							,#attr2#
+							,#attr3#
+							,#attr4#
+							,#attr5#
+
+							,now()
+							,#userSeq#
+							,now()
+							,#userSeq#
+					)
+
+		<selectKey resultClass="int" type="post" keyProperty="roleId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* system.insertRole */
+	</insert>
+
+	<!-- 권한저장(수정) -->
+	<update id="system.updateRole" parameterClass="HashMap">
+		UPDATE BS_ROLE_LIST
+   		   SET
+   		   	   ROLE_KOR 		= #roleKor#
+   		   	  ,ROLE_ENG 		= #roleEng#
+			  ,ROLE_DESC 		= #roleDesc#
+			  ,SORT 			= (CASE WHEN #sort# = '' THEN NULL ELSE #sort# END)
+			  ,ENABLE			= #enable#
+			  ,UPDATE_DATE		= now()
+			  ,UPDATED_BY		= #userSeq#
+
+ 		 WHERE ROLE_ID = #roleId#
+ 		   AND ORG_ID = #orgId#
+		/* system.updateRole */
+	</update>
+
+	<!-- 권한삭제(ENABLE 수정) -->
+	<update id="system.deleteRole" parameterClass="HashMap">
+		UPDATE BS_ROLE_LIST
+   		   SET ENABLE			= 'N'
+			  ,UPDATE_DATE		= now()
+			  ,UPDATED_BY		= #userSeq#
+
+ 		 WHERE ROLE_ID = #roleId#
+		/* system.deleteRole */
+	</update>
+
+	<!-- ############################ 권한등록 :E ############################ -->
+
+
+	<!-- ############################ 부서 등록 :S ############################ -->
+	<!-- 부서 리스트 -->
+	<select id="system.selectDeptList" parameterClass="HashMap" resultClass="HashMap">
+	    /* system.selectDeptList */
+		SELECT   A.DEPT_ID					AS deptId
+				,A.DEPT_ID					AS id			<!-- 트리 코드 -->
+				,A.DEPT_CLASS 				AS deptClass
+		  		,(SELECT B.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV B
+				 WHERE B.CODE_NAME = 'DEPT_CLASS'
+		  		   AND B.CODE_VALUE = A.DEPT_CLASS
+		  		   AND B.ORG_ID = #orgId#) 	AS deptClassName
+				,A.DEPT_CODE				AS deptCode
+				,A.DEPT_SEQ					AS deptSeq
+				,A.KOR_NAME					AS korName
+				,A.KOR_NAME					AS text			<!-- 트리 부서명 -->
+				,A.ENG_NAME					AS engName
+				,A.DESCRIPTION				AS deptDesc
+				,(SELECT MANAGER_NAME FROM BS_DEPT_MANAGER_VIEW WHERE DEPT_ID=A.DEPT_ID AND DELETE_FLAG = 'N')			AS manager
+				,A.DEPT_LEVEL				AS level
+				,(SELECT B.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV B
+				 WHERE B.CODE_NAME = 'DEPT_LEVEL'
+		  		   AND B.CODE_VALUE = A.DEPT_LEVEL
+		  		   AND B.ORG_ID = #orgId# ) AS levelName
+		  		,A.LEVEL_SEQ				AS levelSeq
+				,A.DUMMY					AS dummy
+				,A.APPROVE_YN				AS approveYn
+				,A.PROJECT_YN				AS projectYn
+				,A.ACTIVITY_YN				AS activityYn
+				,A.COSTING_YN				AS costingYn
+				,A.PARENT_DEPT_ID			AS parentDeptId
+				,(SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = A.PARENT_DEPT_ID)	AS parentDeptNm
+				,A.PARENT_DEPT_ID			AS parent		<!-- 트리 부모코드 -->
+				,A.ENABLE					AS enable
+				,A.ATTR1					AS attr1
+				,A.ATTR2					AS attr2
+				,A.ATTR3					AS attr3
+				,A.ATTR4					AS attr4
+				,A.ATTR5					AS attr5
+				,A.DELETE_FLAG				AS deleteFlag
+				,A.CREATED_BY				AS createdBy
+				,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")		AS createDate
+				,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+				,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")		AS updateDate
+				,A.UPDATED_BY				AS updatedBy
+				,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+				,(SELECT COUNT(1) FROM BS_DEPARTMENT J WHERE J.PARENT_DEPT_ID = A.DEPT_ID AND J.DELETE_FLAG = 'N')	AS childCount
+				,(SELECT COUNT(1)
+				    FROM BS_USER_DEPARTMENT userDept
+				    	,BS_USER_MASTER 	user
+				   WHERE userDept.DEPT_ID = A.DEPT_ID
+				  	 AND userDept.DELETE_FLAG = 'N'
+				  	 AND user.user_id = userDept.user_id
+				  	 AND (user.FIRED_DATE is NULL or user.FIRED_DATE = '')
+				  )							AS userCount
+
+		 		,A.ORG_ID 					AS orgId
+
+		 FROM BS_DEPARTMENT	A
+ 		 WHERE 1=1 AND A.DELETE_FLAG = 'N'
+
+ 		 <isNotEmpty prepend="AND" property="deptClass">
+			<isNotEqual property="deptClass" compareValue="NOTTREE">
+				A.DEPT_CLASS = #deptClass#
+			</isNotEqual>
+		</isNotEmpty>
+
+		 <isNotEmpty prepend="AND" property="orgId">
+		     <isNotEmpty prepend="AND"  property="applyOrgId" >       <!-- 검색조건 : applyOrgId, 부서레벨:회장(L00) 은 포함 -->
+             <isEqual property="hasDeptTopLevel" compareValue="Y">
+                 (A.ORG_ID = #orgId#  OR A.DEPT_LEVEL = 'L00')
+             </isEqual>
+             <isNotEqual property="hasDeptTopLevel" compareValue="Y">
+                 A.ORG_ID = #orgId#
+             </isNotEqual>
+         </isNotEmpty>
+		 	A.ORG_ID = #orgId#
+		 </isNotEmpty>
+
+		 <isNotEmpty prepend="AND" property="selDeptId">
+		 	A.DEPT_ID = #selDeptId#
+		 </isNotEmpty>
+
+ 		 <isNotEmpty prepend="AND" property="search">
+			(A.DEPT_CODE LIKE concat('%', #search#, '%')	OR
+			 A.KOR_NAME	 LIKE concat('%', #search#, '%')	OR
+			 A.ENG_NAME LIKE concat('%', #search#, '%')	OR
+			 A.DESCRIPTION LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+
+ 		 ORDER BY A.DEPT_LEVEL ASC, A.DEPT_SEQ ASC
+	</select>
+
+	<!-- 부서 조회 -->
+	<select id="system.selectDept" parameterClass="String" resultClass="HashMap">
+		SELECT A.DEPT_ID			AS deptId
+				,A.DEPT_ID			AS id
+				,A.DEPT_CLASS 		AS deptClass
+		  		,(SELECT B.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV B
+				 WHERE B.CODE_NAME = 'DEPT_CLASS'
+		  		   AND B.CODE_VALUE = A.DEPT_CLASS
+		  		   AND B.ORG_ID = #orgId#) AS deptClassName
+				,A.DEPT_CODE		AS deptCode
+				,A.DEPT_SEQ			AS deptSeq
+				,A.KOR_NAME			AS korName
+				,A.KOR_NAME			AS text
+				,A.ENG_NAME			AS engName
+				,A.DESCRIPTION		AS deptDesc
+				,(SELECT MANAGER_NAME FROM BS_DEPT_MANAGER_VIEW WHERE DEPT_ID=A.DEPT_ID)			AS manager
+				,A.DEPT_LEVEL		AS level
+				,(SELECT B.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV B
+				 WHERE B.CODE_NAME = 'DEPT_LEVEL'
+		  		   AND B.CODE_VALUE = A.DEPT_LEVEL
+		  		   AND B.ORG_ID = #orgId# ) AS levelName
+		  		,A.LEVEL_SEQ		AS levelSeq
+				,A.DUMMY			AS dummy
+				,A.APPROVE_YN		AS approveYn
+				,A.PROJECT_YN		AS projectYn
+				,A.ACTIVITY_YN		AS activityYn
+				,A.COSTING_YN		AS costingYn
+				,A.PARENT_DEPT_ID		AS parentDeptId
+				,A.PARENT_DEPT_ID		AS parent
+                ,(SELECT X.KOR_NAME FROM BS_DEPARTMENT X WHERE X.DEPT_ID = A.PARENT_DEPT_ID) AS parentDeptName
+				,A.ENABLE			AS enable
+				,A.ATTR1			AS attr1
+				,A.ATTR2			AS attr2
+				,A.ATTR3			AS attr3
+				,A.ATTR4			AS attr4
+				,A.ATTR5			AS attr5
+				,A.DELETE_FLAG		AS deleteFlag
+				,A.CREATED_BY		AS createdBy
+				,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")		AS createDate
+				,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+				,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")		AS updateDate
+				,A.UPDATED_BY		AS updatedBy
+				,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+		 		,A.ORG_ID 			AS orgId
+
+		 FROM   BS_DEPARTMENT	A
+ 		 WHERE  1=1
+         AND    A.DEPT_ID = #deptId#
+ 		/* system.selectDept */
+	</select>
+
+	<!-- 부서등록(신규) -->
+	<insert id="system.insertDept" parameterClass="HashMap">
+			INSERT INTO BS_DEPARTMENT(DEPT_CLASS
+										,DEPT_CODE
+										,KOR_NAME
+										,ENG_NAME
+										,DESCRIPTION
+										,DEPT_LEVEL
+										,LEVEL_SEQ
+										,DUMMY
+										,APPROVE_YN
+										,PROJECT_YN
+										,ACTIVITY_YN
+										,COSTING_YN
+										,PARENT_DEPT_ID
+										,ENABLE
+										,ORG_ID
+										,CREATE_DATE
+										,CREATED_BY
+										,DEPT_SEQ
+										)
+
+								VALUES(#deptClass#
+										,(SELECT IF( MAX(BB.DEPT_ID) IS NULL, 0, MAX(BB.DEPT_ID)+ 1) FROM BS_DEPARTMENT BB)
+										,#korName#
+										,#engName#
+										,#deptDesc#
+										,#level#
+										,IFNULL((SELECT (BB.LEVEL_SEQ)+1 FROM BS_DEPARTMENT BB WHERE DEPT_ID = #parentDeptId#),1)
+										,#dummy#
+										,#approveYn#
+										,#projectYn#
+										,#activityYn#
+										,#costingYn#
+										,#parentDeptId#
+										,#enable#
+										,#orgId#
+										,now()
+										,#userSeq#
+										,(SELECT IF( MAX(BS.DEPT_SEQ) IS NULL, 0, MAX(BS.DEPT_SEQ)+ 1) FROM BS_DEPARTMENT BS WHERE BS.ORG_ID = #orgId#)
+								)
+		<selectKey resultClass="int" type="post" keyProperty="deptId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+
+	<!-- 부서정보 수정 -->
+	<update id="system.updateDept" parameterClass="HashMap">
+		UPDATE BS_DEPARTMENT
+   		   SET DEPT_CLASS 		= #deptClass#
+   		  <!--  	  ,DEPT_CODE 		= #deptCode# -->
+			  ,KOR_NAME 		= #korName#
+			  ,ENG_NAME 		= #engName#
+			  ,DESCRIPTION 		= #deptDesc#
+			  ,ENABLE 			= #enable#
+			  ,DUMMY			= #dummy#
+			  ,DEPT_LEVEL		= #level#
+			  ,LEVEL_SEQ		= IFNULL((SELECT * FROM (SELECT (BB.LEVEL_SEQ)+1 FROM BS_DEPARTMENT BB WHERE DEPT_ID = #parentDeptId#)AS A),1)
+			  ,APPROVE_YN		= #approveYn#
+			  ,PROJECT_YN		= #projectYn#
+			  ,ACTIVITY_YN		= #activityYn#
+			  ,COSTING_YN		= #costingYn#
+			  ,PARENT_DEPT_ID	= #parentDeptId#
+			  ,UPDATE_DATE		= now()
+			  ,UPDATED_BY		= #userSeq#
+ 		 WHERE DEPT_ID = #deptId#
+	</update>
+
+
+	<!-- 부서 삭제 -->
+	<delete id="system.deleteDept" parameterClass="HashMap">
+		UPDATE BS_DEPARTMENT
+		   SET
+			   DELETE_FLAG='Y'
+			  ,DELETE_DATE		= now()
+			  ,DELETED_BY		= #userSeq#
+		 WHERE DEPT_ID = #deptId#
+
+	</delete>
+
+
+	<!-- 부서목록(콤보박스용) -->
+	<select id="system.selectDeptListCombo" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.DEPT_ID			AS #code#
+			  ,A.DEPT_CODE			AS deptCode
+
+			<isEqual property="lang" compareValue="ENG">
+			  ,A.ENG_NAME			AS #name#
+			</isEqual>
+			<isEqual property="lang" compareValue="KOR">
+			  ,A.KOR_NAME			AS #name#
+			</isEqual>
+			  ,A.DEPT_LEVEL			AS level
+			  ,A.DESCRIPTION		AS deptDesc
+
+		 FROM BS_DEPARTMENT	A
+ 		WHERE 1=1
+ 		  AND A.ENABLE = 'Y'
+ 		  AND A.DELETE_FLAG = 'N'
+ 		  AND A.ORG_ID = #orgId#
+ 		ORDER BY A.DEPT_SEQ ASC
+		/* system.selectDeptListCombo */
+	</select>
+
+
+	<!-- 부서 사용자 리스트 -->
+	<select id="system.selectUserListOfDept" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				A.USER_ID								AS userId
+			   ,A.PASSWORD								AS password
+			   ,A.EMP_NO								AS empNo
+			   ,SUBSTRING_INDEX(A.EMP_NO, '_', -1)		AS showEmpNo
+			   ,A.LOGIN_ID								AS loginId
+			   ,A.NAME									AS name
+			   ,A.EMP_TYPE								AS empType
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'EMP_TYPE'
+		  		   AND G.CODE_VALUE = A.EMP_TYPE
+		  		   AND G.ORG_ID = #orgId#)		AS empTypeNm
+		  	   ,(SELECT G.SORT
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'EMP_TYPE'
+		  		   AND G.CODE_VALUE = A.EMP_TYPE
+		  		   AND G.ORG_ID = #orgId#)		AS empTypeSort
+
+			   ,A.COMPANY								AS company
+			   ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY)	AS companyNm
+
+			   ,A.RANK									AS rank
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BASE.BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = #orgId#)			AS rankNm
+		  	   ,(SELECT G.SORT
+		 		  FROM BASE.BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = #orgId#)			AS rankSort
+
+		  	   ,(SELECT 'Y' FROM BS_DEPT_MANAGER WHERE USER_ID = A.USER_ID AND DEPT_ID = B.DEPT_ID) AS isManager
+			   ,(SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = B.DEPT_ID)	AS deptNm
+
+			   ,A.COMPANY_TEL		AS companyTel
+			   ,A.COMPANY_FAX		AS companyFax
+			   ,A.MOBILE_TEL		AS mobileTel
+			   ,A.EMAIL				AS email
+			   ,DATE_FORMAT(A.HIRED_DATE, '%Y-%m-%d')	AS hiredDate
+			   ,DATE_FORMAT(A.JOIN_DATE, '%Y-%m-%d')	AS joinDate
+
+			   ,A.USER_STATUS		AS userStatus
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'USER_STTS'
+		  		   AND G.CODE_VALUE = A.USER_STATUS
+		  		   AND G.ORG_ID = #orgId#) 	AS userStatusNm
+			   ,DATE_FORMAT(A.FIRED_DATE, '%Y-%m-%d')	AS firedDate
+
+			   ,B.MAIN_YN								AS mainYn
+
+			   ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			   ,A.CREATED_BY			AS createdBy
+			   ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			   ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			   ,A.UPDATED_BY			AS updatedBy
+			   ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+			   ,DATE_FORMAT(A.DELETE_DATE, "%Y-%m-%d")	AS deleteDate
+			   ,A.DELETED_BY			AS deletedBy
+			   ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.DELETED_BY)	AS deleteNm
+			   ,A.DELETE_FLAG
+
+		   FROM BS_USER_MASTER			A
+		   LEFT JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID
+		  WHERE 1=1
+		  <isEqual property="hideSynergyUserYn" compareValue="Y">     /* 관계사 시너지 유저 목록 활성화여부 */
+            AND A.CUS_ID != 1133368
+          </isEqual>
+		    AND B.DEPT_ID = #deptId#
+		    AND B.DELETE_FLAG = 'N'
+		    AND B.ENABLE = 'Y'
+		    <!-- AND B.MAIN_YN = 'Y' -->
+
+		<isNotEmpty prepend="AND" property="firedType">
+			<isEqual property="firedType" compareValue="1">		<!-- 유효사용자 -->
+				(A.FIRED_DATE is NULL or A.FIRED_DATE = '')
+			</isEqual>
+			<isEqual property="firedType" compareValue="0">		<!-- 퇴사자 -->
+				A.FIRED_DATE > DATE_FORMAT('1999-01-01', '%Y-%m-%d')
+			</isEqual>
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="search">
+			(A.EMP_NO LIKE concat('%', #search#, '%')		OR
+			 A.LOGIN_ID LIKE concat('%', #search#, '%')		OR
+			 A.NAME LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+
+		ORDER BY isManager DESC, empTypeSort ASC, rankSort ASC, A.NAME ASC
+
+		/* system.selectUserListOfDept */
+	</select>
+
+	<!-- 부서장 지정 -->
+	<update id="system.doSaveManager" parameterClass="HashMap">
+		INSERT INTO BS_DEPT_MANAGER(
+							DEPT_ID,
+							USER_ID,
+							CREATED_BY,
+							CREATE_DATE,
+							UPDATED_BY,
+							UPDATE_DATE)
+					VALUES (
+							#deptId#,
+							#manager#,
+							#userSeq#,
+							now(),
+							#userSeq#,
+							now()
+							)
+			ON DUPLICATE KEY
+					UPDATE
+							USER_ID = #manager#,
+							UPDATED_BY = #userSeq#,
+							UPDATE_DATE=now()
+	</update>
+
+	<!-- 상위부서 지정 -->
+	<update id="system.doSaveParentDept" parameterClass="HashMap">
+		UPDATE BS_DEPARTMENT
+			SET PARENT_DEPT_ID	= #parentDeptId#
+ 		 	WHERE DEPT_ID = #deptId#
+	</update>
+
+
+	<!-- 상위부서 지정 -->
+	<update id="system.updateLevelSeqDept" parameterClass="HashMap">
+		UPDATE BS_DEPARTMENT
+			SET LEVEL_SEQ = #depth#
+ 		 	WHERE DEPT_ID = #deptId#
+	</update>
+
+
+	<!-- 부서 트리 정보 저장 -->
+	<update id="system.updateMoveDeptInfo" parameterClass="HashMap">
+		UPDATE BS_DEPARTMENT
+
+		   SET DEPT_SEQ = #sort#
+		   	  ,LEVEL_SEQ = #depth#
+		   	  ,PARENT_DEPT_ID = #parent#
+
+ 		 WHERE DEPT_ID = #deptId#
+
+ 		 /* system.updateMoveDeptInfo */
+	</update>
+
+
+	<!-- ############################ 부서 등록 :E ############################ -->
+
+
+
+	<!-- ############################ 메뉴등록 :S ############################ -->
+
+	<!-- 권한별 메뉴위치별 메뉴정보(로그인시 실행...메뉴보여주기위해 사용) -->
+	<!-- <select id="system.selectMenuByRole" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.MENU_ID			AS menuId
+			  ,B.MENU_CLASS			AS menuClass
+			  ,B.MENU_NUM			AS menuNum
+			  ,B.MENU_TYPE			AS menuType
+			  ,B.MENU_KOR			AS menuKor
+  			  ,B.MENU_ENG			AS menuEng
+  			  ,B.MENU_TITLE_KOR		AS menuTitleKor
+  			  ,B.MENU_TITLE_ENG		AS menuTitleEng
+  			  ,B.MENU_ENG			AS menuEng
+			  ,B.MENU_DESC			AS menuDesc
+			  ,B.MENU_PATH			AS menuPath
+			  ,B.MENU_SUB_PATH		AS menuSubPath
+			  ,B.CSS_NM				AS cssNm
+
+			  ,A.MENU_LOC			AS menuLoc
+			  ,A.MENU_LEVEL			AS depth
+			  ,A.MENU_PARENT_ID		AS menuUpId
+			  ,A.MENU_ROOT_ID		AS menuRootId
+			  ,A.SORT				AS sort
+			  ,A.BASIC_TREE_YN		AS basicTreeYn
+
+			  ,(SELECT BASIC_TREE_YN FROM BS_ROLE_MENU_LIST WHERE MENU_ID = A.MENU_PARENT_ID AND ROLE_ID = A.ROLE_ID)	AS parentBasicTreeYn	부모메뉴 eable 'Y'
+  		   	  ,(SELECT BASIC_TREE_YN FROM BS_ROLE_MENU_LIST WHERE MENU_ID = A.MENU_ROOT_ID AND ROLE_ID = A.ROLE_ID )	AS rootBasicTreeYn		루트메뉴 eable 'Y'
+
+			  ,(SELECT CONCAT(K.MENU_ID, '|', K.MENU_PARENT_ID, '|', K.MENU_ROOT_ID, '|', K.MENU_LEVEL, '|', (SELECT MENU_ENG FROM BS_MENU_LIST WHERE MENU_ID = K.MENU_ROOT_ID))
+				  FROM BS_ROLE_MENU_LIST	K
+				  JOIN BS_MENU_LIST		L ON K.MENU_ID = L.MENU_ID
+				  JOIN BS_ORG_MENU_LIST O ON O.MENU_ID = L.MENU_ID
+				 WHERE 1=1
+				   AND L.MENU_PATH = B.MENU_PATH
+				   AND L.MENU_PATH IS NOT NULL
+				   AND L.MENU_PATH != ''
+				   AND O.ORG_ID = #orgId#
+				<isNotEmpty prepend="AND" property="userRoleId">
+					K.ROLE_ID = #userRoleId#
+				</isNotEmpty>
+				<isEmpty prepend="AND" property="userRoleId">
+					K.ROLE_ID = (SELECT ROLE_ID FROM BS_USER_ROLE_LIST WHERE USER_ID = #userId# AND ORG_ID = #orgId#)
+				</isEmpty>
+
+				   AND K.MENU_LOC = #menuLoc#
+				   AND K.ENABLE  = 'Y'
+				   AND L.ENABLE  = 'Y'
+				   AND O.ENABLE  = 'Y'
+				   AND L.MENU_TYPE = 'TREE'
+				 ORDER BY MENU_LEVEL DESC
+				 LIMIT 1)			AS openPageTrgt		열리는 페이지의 페이지정보(해당메뉴 열림 표시 위해)
+
+		  FROM BS_ROLE_MENU_LIST	A
+		  JOIN BS_MENU_LIST			B ON A.MENU_ID = B.MENU_ID
+		  JOIN BS_ORG_MENU_LIST 	C ON C.MENU_ID = B.MENU_ID
+		 WHERE 1=1
+		 	AND C.ORG_ID = #orgId#
+		<isNotEmpty prepend="AND" property="userRoleId">
+			A.ROLE_ID = #userRoleId#
+		</isNotEmpty>
+		<isEmpty prepend="AND" property="userRoleId">
+			A.ROLE_ID = (SELECT ROLE_ID FROM BS_USER_ROLE_LIST WHERE USER_ID = #userId# AND ORG_ID = #orgId#)
+		</isEmpty>
+
+
+		   AND A.MENU_LOC	= #menuLoc#		menu location
+		   AND A.ENABLE = 'Y'
+		   AND A.BASIC_TREE_YN = 'Y'		 기본 트리 메뉴 표시 여부 'Y'
+		   AND B.ENABLE = 'Y'
+		   AND B.MENU_TYPE = 'TREE'
+		   AND C.ENABLE = 'Y'
+		   AND IFNULL((SELECT ENABLE FROM BS_MENU_LIST WHERE MENU_ID = A.MENU_PARENT_ID	),'Y') = 'Y'	부모메뉴 eable 'Y'
+  		   AND IFNULL((SELECT ENABLE FROM BS_MENU_LIST WHERE MENU_ID = A.MENU_ROOT_ID	),'Y') = 'Y'	루트메뉴 eable 'Y'
+
+         ORDER BY A.SORT
+		/* system.selectMenuByRole */
+	</select> -->
+
+	<select id="system.selectMenuByRole" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.MENU_ID			AS menuId
+			  ,B.MENU_CLASS			AS menuClass
+			  ,B.MENU_NUM			AS menuNum
+			  ,B.MENU_TYPE			AS menuType
+			  ,B.MENU_KOR			AS menuKor
+  			  ,B.MENU_ENG			AS menuEng
+  			  ,B.MENU_TITLE_KOR		AS menuTitleKor
+  			  ,B.MENU_TITLE_ENG		AS menuTitleEng
+  			  ,B.MENU_ENG			AS menuEng
+			  ,B.MENU_DESC			AS menuDesc
+			  ,B.MENU_PATH			AS menuPath
+			  ,B.MENU_SUB_PATH		AS menuSubPath
+			  ,B.CSS_NM				AS cssNm
+
+			  ,A.MENU_LOC			AS menuLoc
+			  ,A.MENU_LEVEL			AS depth
+			  ,A.MENU_PARENT_ID		AS menuUpId
+			  ,A.MENU_ROOT_ID		AS menuRootId
+			  ,A.SORT				AS sort
+			  ,A.BASIC_TREE_YN		AS basicTreeYn
+
+			  ,(SELECT BASIC_TREE_YN FROM BS_ROLE_MENU_LIST WHERE MENU_ID = A.MENU_PARENT_ID AND ROLE_ID = A.ROLE_ID)	AS parentBasicTreeYn	<!-- 부모메뉴 eable 'Y' -->
+  		   	  ,(SELECT BASIC_TREE_YN FROM BS_ROLE_MENU_LIST WHERE MENU_ID = A.MENU_ROOT_ID AND ROLE_ID = A.ROLE_ID )	AS rootBasicTreeYn		<!-- 루트메뉴 eable 'Y' -->
+
+			  ,(SELECT CONCAT(K.MENU_ID, '|', K.MENU_PARENT_ID, '|', K.MENU_ROOT_ID, '|', K.MENU_LEVEL, '|', (SELECT MENU_ENG FROM BS_MENU_LIST WHERE MENU_ID = K.MENU_ROOT_ID))
+				  FROM BS_ROLE_MENU_LIST	K
+				  JOIN BS_MENU_LIST		L ON K.MENU_ID = L.MENU_ID
+				  JOIN BS_ORG_MENU_LIST O ON O.MENU_ID = L.MENU_ID
+				 WHERE 1=1
+				   AND L.MENU_PATH = B.MENU_PATH
+				   AND L.MENU_PATH IS NOT NULL
+				   AND L.MENU_PATH != ''
+				   AND O.ORG_ID = #orgId#
+				<isNotEmpty prepend="AND" property="userRoleId">
+					K.ROLE_ID = #userRoleId#
+				</isNotEmpty>
+				<isEmpty prepend="AND" property="userRoleId">
+					K.ROLE_ID = (SELECT ROLE_ID FROM BS_USER_ROLE_LIST WHERE USER_ID = #userId# AND ORG_ID = #orgId#)
+				</isEmpty>
+
+				   AND K.MENU_LOC = #menuLoc#
+				   AND K.ENABLE  = 'Y'
+				   AND L.ENABLE  = 'Y'
+				   AND O.ENABLE  = 'Y'
+
+				<isEmpty prepend="AND" property="mobileYn">
+					 L.MENU_TYPE = 'TREE'
+				</isEmpty>
+				<isNotEmpty prepend="AND" property="mobileYn">
+					 L.MENU_TYPE = 'M_TREE'
+				</isNotEmpty>
+
+				 ORDER BY MENU_LEVEL DESC
+				 LIMIT 1)			AS openPageTrgt		<!-- 열리는 페이지의 페이지정보(해당메뉴 열림 표시 위해) -->
+
+
+		 FROM
+				(SELECT
+						menu_tree_sort(
+
+						<isNotEmpty property="userRoleId">
+							#userRoleId#
+						</isNotEmpty>
+						<isEmpty property="userRoleId">
+							(SELECT ROLE_ID FROM BS_USER_ROLE_LIST WHERE USER_ID = #userId# AND ORG_ID = #orgId#)
+						</isEmpty>
+
+
+						) AS aid,
+						@level AS level
+
+					FROM (select * from BS_ROLE_MENU_LIST order by menu_id) K
+					JOIN (SELECT @start_with := 0,
+								 @id := @start_with,
+								 @level := 0) vars
+
+					WHERE @id IS NOT NULL
+					  AND K.ROLE_ID =
+
+					 <isNotEmpty property="userRoleId">
+						#userRoleId#
+					</isNotEmpty>
+					<isEmpty property="userRoleId">
+						(SELECT ROLE_ID FROM BS_USER_ROLE_LIST WHERE USER_ID = #userId# AND ORG_ID = #orgId#)
+					</isEmpty>
+
+				) func
+
+		 JOIN BS_ROLE_MENU_LIST AS A ON func.aid = A.menu_id
+
+
+         JOIN BS_MENU_LIST			B ON A.MENU_ID = B.MENU_ID
+		 JOIN BS_ORG_MENU_LIST 	C ON C.MENU_ID = B.MENU_ID
+
+		 WHERE 1=1
+		 	AND C.ORG_ID = #orgId#
+		<isNotEmpty prepend="AND" property="userRoleId">
+			A.ROLE_ID = #userRoleId#
+		</isNotEmpty>
+		<isEmpty prepend="AND" property="userRoleId">
+			A.ROLE_ID = (SELECT ROLE_ID FROM BS_USER_ROLE_LIST WHERE USER_ID = #userId# AND ORG_ID = #orgId#)
+		</isEmpty>
+
+
+		   AND A.MENU_LOC	= #menuLoc#		<!-- menu location -->
+		   AND A.ENABLE = 'Y'
+		   <!--AND A.BASIC_TREE_YN = 'Y'		 기본 트리 메뉴 표시 여부 'Y' -->
+		   AND B.ENABLE = 'Y'
+
+		   <isEmpty prepend="AND" property="mobileYn">
+				 B.MENU_TYPE = 'TREE'
+		   </isEmpty>
+		   <isNotEmpty prepend="AND" property="mobileYn">
+			 	 B.MENU_TYPE = 'M_TREE'
+		   </isNotEmpty>
+		   AND C.ENABLE = 'Y'
+		   AND IFNULL((SELECT ENABLE FROM BS_MENU_LIST WHERE MENU_ID = A.MENU_PARENT_ID	),'Y') = 'Y'	<!-- 부모메뉴 eable 'Y' -->
+  		   AND IFNULL((SELECT ENABLE FROM BS_MENU_LIST WHERE MENU_ID = A.MENU_ROOT_ID	),'Y') = 'Y'	<!-- 루트메뉴 eable 'Y' -->
+
+		/* system.selectMenuByRole */
+	</select>
+
+
+	<!-- 권한별 메뉴위치별 메뉴정보(로그인시 실행...메뉴보여주기위해 사용) -->
+	<select id="system.selectMenuPosInfo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			   K.MENU_ID			as me
+			  ,K.MENU_PARENT_ID		as mu
+			  ,K.MENU_ROOT_ID		as mr
+
+		  FROM BS_ROLE_MENU_LIST	K
+		  JOIN BS_MENU_LIST			L ON K.MENU_ID = L.MENU_ID
+		  JOIN BS_ORG_MENU_LIST		O ON O.MENU_ID = L.MENU_ID
+		 WHERE 1=1
+		   AND L.MENU_PATH = #menuPath#
+		   AND K.ROLE_ID  = #userRoleId#
+		   AND K.ENABLE  = 'Y'
+		   AND L.ENABLE  = 'Y'
+		   AND O.ENABLE  = 'Y'
+		   AND O.ORG_ID  = (SELECT ORG_ID FROM BS_ROLE_LIST WHERE ROLE_ID = #userRoleId#)
+		 ORDER BY MENU_LEVEL DESC
+		 LIMIT 1
+		/* system.selectMenuPosInfo */
+	</select>
+
+
+	<!-- 메뉴리스트 -->
+	<select id="system.selectMenuList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.MENU_ID			AS menuId
+			  ,A.MENU_CLASS			AS menuClass
+			  ,A.MENU_TYPE			AS menuType
+			  ,(SELECT B.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV B
+				 WHERE B.CODE_NAME = 'MENU_TYPE'
+		  		   AND B.CODE_VALUE = A.MENU_TYPE
+		  		   AND B.ORG_ID = #orgId#) AS menuTypeNm
+		  	  ,A.MENU_NUM			AS menuNum
+			  ,A.MENU_KOR			AS menuKor
+			  ,A.MENU_ENG			AS menuEng
+			  ,A.MENU_DESC			AS menuDesc
+			  ,A.MENU_PATH			AS menuPath
+			  ,A.MENU_SUB_PATH		AS menuSubPath
+			  ,A.MENU_TITLE_KOR		AS menuTitleKor
+			  ,A.MENU_TITLE_ENG		AS menuTitleEng
+			  ,A.CSS_NM				AS cssNm
+			  ,A.ENABLE				AS enable
+			  ,A.ATTR1				AS attr1
+			  ,A.ATTR2				AS attr2
+			  ,A.ATTR3				AS attr3
+			  ,A.ATTR4				AS attr4
+			  ,A.ATTR5				AS attr5
+			  ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			  ,A.CREATED_BY			AS createdBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			  ,A.UPDATED_BY			AS updatedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+			  ,0 					AS chk	<!-- checkbox 사용 위해 -->
+
+			  ,IFNULL(ROLE.ROLE_MENU_ID,'0') AS roleMenuId
+			  ,IFNULL(ROLE.MENU_PARENT_ID,'') AS menuParentId
+			  ,IFNULL(ROLE.MENU_ROOT_ID,'') AS menuRootId
+			  ,IFNULL((SELECT MENU_TITLE_KOR FROM BS_MENU_LIST WHERE ROLE.MENU_PARENT_ID = MENU_ID) ,'') AS menuTitle
+
+		FROM BS_MENU_LIST					AS A
+		LEFT OUTER JOIN  BS_ROLE_MENU_LIST  AS ROLE ON A.MENU_ID = ROLE.MENU_ID AND ROLE.ROLE_ID = '-1'
+
+		WHERE 1=1
+
+		<isNotEmpty prepend="AND" property="menuType">
+			A.MENU_TYPE = #menuType#
+		</isNotEmpty>
+
+		<isEqual prepend="AND" property="allTree" compareValue="Y">
+			(A.MENU_TYPE = 'TREE' OR A.MENU_TYPE ='M_TREE')
+		</isEqual>
+
+		<isEqual prepend="AND" property="isNotTree" compareValue="Y">
+			A.MENU_TYPE != 'TREE'
+		</isEqual>
+
+		<isNotEmpty prepend="AND" property="search">
+			(A.MENU_KOR LIKE concat('%', #search#, '%')			OR
+			 A.MENU_ENG LIKE concat('%', #search#, '%')			OR
+			 A.MENU_TITLE_KOR LIKE concat('%', #search#, '%')	OR
+			 A.MENU_TITLE_ENG LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="enable">
+			 A.ENABLE = #enable#
+		</isNotEmpty>
+
+		<isNotEmpty  property="allTree">
+			ORDER BY A.MENU_TYPE DESC
+		</isNotEmpty>
+
+		<isEmpty  property="allTree">
+			ORDER BY A.MENU_ID ASC
+		</isEmpty>
+
+
+		/* system.selectMenuList */
+	</select>
+
+	<!-- 메뉴리스트 -->
+	<select id="system.selectMenuListByOrg" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.MENU_ID			AS menuId
+			  ,A.MENU_CLASS			AS menuClass
+			  ,A.MENU_TYPE			AS menuType
+			  ,(SELECT B.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV B
+				 WHERE B.CODE_NAME = 'MENU_TYPE'
+		  		   AND B.CODE_VALUE = A.MENU_TYPE
+		  		    AND B.ORG_ID = #orgId#) AS menuTypeNm
+		  	  ,A.MENU_NUM			AS menuNum
+			  ,A.MENU_KOR			AS menuKor
+			  ,A.MENU_ENG			AS menuEng
+			  ,A.MENU_DESC			AS menuDesc
+			  ,A.MENU_PATH			AS menuPath
+			  ,A.MENU_SUB_PATH		AS menuSubPath
+			  ,A.MENU_TITLE_KOR		AS menuTitleKor
+			  ,A.MENU_TITLE_ENG		AS menuTitleEng
+			  ,A.CSS_NM				AS cssNm
+			  ,A.ENABLE				AS enable
+			  ,B.ENABLE				AS orgEnable
+			  ,A.ATTR1				AS attr1
+			  ,A.ATTR2				AS attr2
+			  ,A.ATTR3				AS attr3
+			  ,A.ATTR4				AS attr4
+			  ,A.ATTR5				AS attr5
+			  ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			  ,A.CREATED_BY			AS createdBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			  ,A.UPDATED_BY			AS updatedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+			  ,0 					AS chk	<!-- checkbox 사용 위해 -->
+
+		FROM BS_MENU_LIST	A
+		LEFT JOIN BS_ORG_MENU_LIST B ON B.MENU_ID = A.MENU_ID
+		WHERE 1=1
+		AND B.ENABLE = 'Y'
+
+		<isNotEmpty prepend="AND" property="menuType">
+			A.MENU_TYPE = #menuType#
+		</isNotEmpty>
+
+		<isEqual prepend="AND" property="allTree" compareValue="Y">
+			(A.MENU_TYPE = 'TREE' OR A.MENU_TYPE ='M_TREE')
+		</isEqual>
+
+		<isEqual prepend="AND" property="isNotTree" compareValue="Y">
+			A.MENU_TYPE != 'TREE'
+		</isEqual>
+
+		<isNotEmpty prepend="AND" property="search">
+			(A.MENU_KOR LIKE concat('%', #search#, '%')			OR
+			 A.MENU_ENG LIKE concat('%', #search#, '%')			OR
+			 A.MENU_TITLE_KOR LIKE concat('%', #search#, '%')	OR
+			 A.MENU_TITLE_ENG LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="orgId">
+			B.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="enable">
+			 A.ENABLE = #enable#
+		</isNotEmpty>
+
+		<isNotEmpty  property="allTree">
+			ORDER BY A.MENU_TYPE DESC
+		</isNotEmpty>
+
+		<isEmpty  property="allTree">
+			ORDER BY A.MENU_ID ASC
+		</isEmpty>
+
+		/* system.selectMenuListByOrg */
+	</select>
+
+
+	<!-- 메뉴등록(신규) -->
+	<insert id="system.insertMenu" parameterClass="HashMap">
+		INSERT INTO BS_MENU_LIST(
+									 MENU_CLASS
+									,MENU_TYPE
+									,MENU_NUM
+									,MENU_KOR
+									,MENU_ENG
+									,MENU_DESC
+									,MENU_PATH
+									,MENU_SUB_PATH
+									,MENU_TITLE_KOR
+									,MENU_TITLE_ENG
+									,CSS_NM
+									,CREATE_DATE
+									,CREATED_BY
+									,UPDATE_DATE
+									,UPDATED_BY
+
+						)VALUES(
+									 #menuClass#
+									,#menuType#
+									,#menuNum#
+									,#menuKor#
+									,#menuEng#
+									,#menuDesc#
+									,#menuPath#
+									,#menuSubPath#
+									,#menuTitleKor#
+									,#menuTitleEng#
+									,#cssNm#
+									,NOW()
+									,#userSeq#
+									,NOW()
+									,#userSeq#
+
+							)
+
+		<selectKey resultClass="int" type="post" keyProperty="menuId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* system.insertMenu */
+	</insert>
+
+	<!-- 메뉴 등록시 탭등록 -->
+	<insert id="system.insertTabToRole" parameterClass="HashMap">
+		INSERT INTO BS_ROLE_MENU_LIST(
+										   ROLE_ID
+										 , MENU_ID
+
+										 , MENU_LEVEL
+
+										 , MENU_PARENT_ID
+										 , SORT
+										 , MENU_ROOT_ID
+
+										 , CREATE_DATE
+										 , CREATED_BY
+										 , UPDATE_DATE
+										 , UPDATED_BY
+									)
+
+							SELECT
+										  #roleId#
+										, #menuId#
+
+										, '0'
+
+										, CASE WHEN #menuParentId# is null || #menuParentId# = '' THEN '0' ELSE #menuParentId# END
+										, MAX(SORT)+100
+										, CASE WHEN #menuRootId# = '' THEN NULL ELSE #menuRootId# END
+
+										, now()
+										, #userSeq#
+										, now()
+										, #userSeq#
+
+							FROM BS_ROLE_MENU_LIST WHERE ROLE_ID = '-1'
+
+		<selectKey resultClass="int" type="post" keyProperty="menuId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/*system.insertTabToRole */
+	</insert>
+
+
+	<!-- 메뉴저장(수정) -->
+	<update id="system.updateMenu" parameterClass="HashMap">
+		UPDATE BS_MENU_LIST
+   		   SET MENU_TYPE 		= #menuType#
+   		   	  ,MENU_NUM			= #menuNum#
+   		   	  ,MENU_KOR 		= #menuKor#
+			  ,MENU_ENG 		= #menuEng#
+			  ,MENU_DESC 		= #menuDesc#
+			  ,MENU_PATH 		= #menuPath#
+			  ,MENU_TITLE_KOR 	= #menuTitleKor#
+			  ,MENU_TITLE_ENG 	= #menuTitleEng#
+			  ,CSS_NM			= #cssNm#
+			  ,ENABLE			= #enable#
+			  ,UPDATE_DATE		= now()
+			  ,UPDATED_BY		= #userSeq#
+
+ 		 WHERE MENU_ID = #menuId#
+		/* system.updateMenu */
+	</update>
+
+
+	<!-- 메뉴 수정시 탭등록 -->
+	<update id="system.updateTabToRole" parameterClass="HashMap">
+		UPDATE BS_ROLE_MENU_LIST
+   		   SET
+   		   	   MENU_PARENT_ID	= CASE WHEN #menuParentId# is null || #menuParentId# = '' THEN '0' ELSE #menuParentId# END
+   		   <!-- 	  ,MENU_ROOT_ID 	= CASE WHEN #menuRootId# = '' THEN NULL ELSE #menuRootId# END -->
+			  ,UPDATE_DATE		= now()
+			  ,UPDATED_BY		= #userSeq#
+
+ 		 WHERE ROLE_MENU_ID = #roleMenuId#
+
+		/* system.updateTabToRole*/
+	</update>
+
+	<!-- 메뉴삭제(ENABLE 수정) -->
+	<update id="system.deleteMenu" parameterClass="HashMap">
+		UPDATE BS_MENU_LIST
+   		   SET ENABLE			= 'N'
+			  ,UPDATE_DATE		= now()
+			  ,UPDATED_BY		= #userSeq#
+
+ 		 WHERE MENU_ID = #menuId#
+		/* system.deleteMenu */
+	</update>
+
+	<!-- 탭/버튼/팝업 상위메뉴 설정 시 검색 -->
+	<select id="system.selectMenuForTabRegisterNew"  parameterClass="menuVO" resultClass="menuVO">
+		SELECT
+			   IFNULL(L.MENU_ID,0)			as menuId
+			  ,IFNULL(K.MENU_PARENT_ID,0)	as menuParentId
+			  ,IFNULL(K.MENU_ROOT_ID,0)		as menuRootId
+			  ,L.MENU_PATH					as menuPath
+              ,L.MENU_KOR					as menuKor
+              ,L.MENU_ENG 					as menuEng
+              ,IFNULL(K.MENU_LEVEL ,0)		as menuLevel
+              ,L.MENU_TYPE					as menuType
+              ,IFNULL(K.ROLE_ID ,0)			as roleId
+		  FROM BS_MENU_LIST	 L
+		  LEFT OUTER JOIN BS_ROLE_MENU_LIST	K  ON K.MENU_ID = L.MENU_ID
+		 WHERE 1=1
+		   AND L.ENABLE  = 'Y'
+		    <isNotEmpty property="menuType" prepend="AND">
+		    	L.MENU_TYPE = #menuType#
+		    </isNotEmpty>
+		     <isGreaterThan property="roleId" prepend="AND" compareValue="0">
+		    	K.ROLE_ID = #roleId#
+		    </isGreaterThan>
+		    <isGreaterThan prepend="AND" property="menuId" compareValue="0">
+		      L.MENU_ID = #menuId#
+		   </isGreaterThan>
+		   <isGreaterThan prepend="AND" property="menuParentId" compareValue="0">
+		      L.MENU_PARENT_ID = #menuParentId#
+		   </isGreaterThan>
+		   <isGreaterThan prepend="AND" property="menuRootId" compareValue="0">
+		      L.MENU_ROOT_ID = #menuRootId#
+		   </isGreaterThan>
+		 ORDER BY K.SORT ASC
+	/* system.selectMenuForTabRegisterNew */
+	</select>
+
+	<!-- 메뉴등록(탭 선택시 메뉴 정보 반환 -->
+	<select id="system.selectMenuForTabAuthRegister" parameterClass="menuVO" resultClass="menuVO">
+		SELECT
+			   IFNULL(K.MENU_ID,0)			as menuId
+			  ,IFNULL(K.MENU_PARENT_ID,0)	as menuParentId
+			  ,IFNULL(K.MENU_ROOT_ID,0)		as menuRootId
+			  ,L.MENU_PATH					as menuPath
+              ,L.MENU_KOR					as menuKor
+              ,L.MENU_ENG 					as menuEng
+              ,K.MENU_LEVEL					as menuLevel
+              ,L.MENU_TYPE					as menuType
+              ,K.ROLE_ID					as roleId
+		  FROM BS_ROLE_MENU_LIST	K
+		  JOIN BS_MENU_LIST			L ON K.MENU_ID = L.MENU_ID
+
+		 WHERE 1=1
+		   AND K.ROLE_ID  = #roleId#
+		   AND K.ENABLE  = 'Y'
+		   AND L.ENABLE  = 'Y'
+
+		   AND K.MENU_LEVEL = #menuLevel#
+		    <isNotEmpty property="menuType" prepend="AND">
+		    	L.MENU_TYPE = #menuType#
+		    </isNotEmpty>
+		    <isGreaterThan prepend="AND" property="menuId" compareValue="0">
+		      K.MENU_ID = #menuId#
+		   </isGreaterThan>
+		   <isGreaterThan prepend="AND" property="menuParentId" compareValue="0">
+		      K.MENU_PARENT_ID = #menuParentId#
+		   </isGreaterThan>
+		   <isGreaterThan prepend="AND" property="menuRootId" compareValue="0">
+		      K.MENU_ROOT_ID = #menuRootId#
+		   </isGreaterThan>
+		 ORDER BY K.SORT ASC
+	/* system.selectMenuForRegister */
+	</select>
+
+	<select id="system.selectUserRoleId" parameterClass="String" resultClass="int">
+		SELECT ROLE_ID FROM BS_ROLE_LIST WHERE ROLE_CODE = #value# LIMIT 1
+		/* system.selectUserRoleId */
+	</select>
+
+	<select id="system.selectMenuForTabForSecondDepth" parameterClass="menuVo" resultClass="menuVo">
+		SELECT
+			   IFNULL(K.MENU_ID,0)			as menuId
+			  ,IFNULL(K.MENU_PARENT_ID,0)	as bottomMenuId
+			  ,IFNULL(K.MENU_ROOT_ID,0)		as menuRootId
+			  ,L.MENU_PATH					as menuPath
+              ,L.MENU_KOR					as menuKor
+              ,L.MENU_ENG 					as menuEng
+              ,K.MENU_LEVEL					as menuLevel
+              ,L.MENU_TYPE					as menuType
+              ,K.ROLE_ID				    as roleId
+              ,IFNULL((CASE WHEN M.CASE_ = 1 THEN M.MENU_ID ELSE M.MENU_PARENT_ID END),0) AS middleMenuId
+		  FROM BS_ROLE_MENU_LIST	K
+		  JOIN BS_MENU_LIST			L ON K.MENU_ID = L.MENU_ID
+          LEFT OUTER JOIN (
+			SELECT A.MENU_PARENT_ID, A.MENU_ID, A.MENU_ROOT_ID,
+			( CASE WHEN A.MENU_PARENT_ID = A.MENU_ROOT_ID THEN 1 ELSE 2 END) AS CASE_
+			FROM BS_ROLE_MENU_LIST	A
+			JOIN BS_MENU_LIST	    B ON A.MENU_ID = B.MENU_ID
+            WHERE 1=1 AND A.ROLE_ID = #roleId#
+            AND A.ENABLE  = 'Y' AND B.ENABLE  = 'Y'
+          ) M ON M.MENU_ID = K.MENU_PARENT_ID
+		  WHERE 1=1
+		   AND K.ROLE_ID  = #roleId#
+           AND K.MENU_ID = #menuId#
+		   AND K.ENABLE  = 'Y'
+		   AND L.ENABLE  = 'Y'
+
+		/* system.selectMenuForTabForSecondDepth */
+	</select>
+
+
+	<select id="system.selectMenuCodeExistYn" parameterClass="HashMap" resultClass="String">
+		SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END
+		  FROM BS_MENU_LIST
+		 WHERE 1=1
+		   AND MENU_ENG = #menuCode#
+		/* system.selectMenuCodeExistYn */
+	</select>
+
+
+	<!-- ############################ 메뉴등록 :E ############################ -->
+
+
+	<!-- ############################ 모듈등록 :S ############################ -->
+
+	<!-- 권한별 모듈정보(모듈보여주기위해 사용) -->	 <!-- 이거 로그인 시 세션에 저장하기 위한 쿼리..만들자....바서 권한별 모듈 에 있는쿼리와 통합여부 보자 -->
+	<select id="system.selectModuleByRole" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.MENU_ID			AS menuId
+			  ,B.MENU_CLASS			AS menuClass
+			  ,B.MENU_TYPE			AS menuType
+			  ,B.MENU_KOR			AS menuKor
+  			  ,B.MENU_ENG			AS menuEng
+  			  ,B.MENU_TITLE_KOR		AS menuTitleKor
+  			  ,B.MENU_TITLE_ENG		AS menuTitleEng
+  			  ,B.MENU_ENG			AS menuEng
+			  ,B.MENU_DESC			AS menuDesc
+			  ,B.MENU_PATH			AS menuPath
+			  ,B.MENU_SUB_PATH		AS menuSubPath
+
+			  ,A.MENU_LOC			AS menuLoc
+			  ,A.MENU_LEVEL			AS depth
+			  ,A.MENU_PARENT_ID		AS menuUpId
+			  ,A.MENU_ROOT_ID		AS menuRootId
+			  ,A.SORT				AS sort
+
+		  FROM BS_ROLE_MENU_LIST	A
+		  JOIN BS_MENU_LIST		B ON A.MENU_ID = B.MENU_ID
+		 WHERE A.ROLE_ID	= #userRoleId#
+		   AND A.MENU_LOC	= #menuLoc#		<!-- menu location -->
+		   AND A.ENABLE = 'Y'
+		   AND B.ENABLE = 'Y'
+		   AND B.MENU_TYPE = 'TREE'
+         ORDER BY A.SORT
+		/* system.selectModuleByRole */
+	</select>
+
+	<!-- 모듈리스트 -->
+	<select id="system.selectModuleList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.MODULE_ID			AS moduleId
+			  ,A.MODULE_CODE		AS moduleCode
+			  ,A.MODULE_NAME		AS moduleName
+			  ,A.MODULE_DESC		AS moduleDesc
+			  ,A.MODULE_INC_URL		AS moduleIncUrl
+			  ,A.THEME				AS theme
+			  ,A.WIDTH				AS width
+			  ,A.HEIGHT				AS height
+			  ,A.ENABLE				AS enable
+			  ,A.MODULE_GROUP		AS moduleGroup
+			  ,A.ATTR2				AS attr2
+			  ,A.ATTR3				AS attr3
+			  ,A.ATTR4				AS attr4
+			  ,A.ATTR5				AS attr5
+			  ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			  ,A.CREATED_BY			AS createdBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			  ,A.UPDATED_BY			AS updatedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+			  ,0 					AS chk	<!-- checkbox 사용 위해 -->
+
+		  FROM BS_MODULE_LIST A
+		 WHERE 1=1
+
+		<isNotEmpty prepend="AND" property="search">
+			(A.MODULE_CODE LIKE concat('%', #search#, '%')	OR
+			 A.MODULE_NAME LIKE concat('%', #search#, '%')	OR
+			 A.MODULE_DESC LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="enable">
+			 A.ENABLE = #enable#
+		</isNotEmpty>
+
+		ORDER BY A.MODULE_ID ASC
+		/* system.selectModuleList */
+	</select>
+
+
+	<!-- 모듈등록(신규) -->
+	<insert id="system.insertModule" parameterClass="HashMap">
+		INSERT INTO BS_MODULE_LIST(MODULE_CODE
+										,MODULE_NAME
+										,MODULE_DESC
+										,MODULE_INC_URL
+										,THEME
+										,WIDTH
+										,HEIGHT
+										,ENABLE
+										,MODULE_GROUP
+										,ATTR2
+										,ATTR3
+										,ATTR4
+										,ATTR5
+										,CREATE_DATE
+										,CREATED_BY
+										,UPDATE_DATE
+										,UPDATED_BY
+										)
+
+							VALUES(#moduleCode#
+									,#moduleName#
+									,#moduleDesc#
+									,#moduleIncUrl#
+									,#theme#
+									,#width#
+									,#height#
+									,#enable#
+									,#moduleGroup#
+									,#attr2#
+									,#attr3#
+									,#attr4#
+									,#attr5#
+									,now()
+									,#userSeq#
+									,now()
+									,#userSeq#
+							)
+
+		<selectKey resultClass="int" type="post" keyProperty="moduleId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* system.insertModule */
+	</insert>
+
+
+	<!-- 모듈저장(수정) -->
+	<update id="system.updateModule" parameterClass="HashMap">
+		UPDATE BS_MODULE_LIST
+   		   SET MODULE_CODE 		= #moduleCode#
+   		   	  ,MODULE_NAME 		= #moduleName#
+
+			  ,MODULE_DESC 		= #moduleDesc#
+			  ,MODULE_INC_URL 	= #moduleIncUrl#
+			  ,THEME 			= #theme#
+			  ,WIDTH			= #width#
+			  ,HEIGHT			= #height#
+			  ,MODULE_GROUP		= #moduleGroup#
+
+			  ,ENABLE			= #enable#
+			  ,UPDATE_DATE		= now()
+			  ,UPDATED_BY		= #userSeq#
+
+ 		 WHERE MODULE_ID = #moduleId#
+		/* system.updateModule */
+	</update>
+
+	<!-- 모듈삭제(ENABLE 수정) -->
+	<update id="system.deleteModule" parameterClass="HashMap">
+		UPDATE BS_MODULE_LIST
+   		   SET ENABLE			= 'N'
+			  ,UPDATE_DATE		= now()
+			  ,UPDATED_BY		= #userSeq#
+
+ 		 WHERE MODULE_ID = #moduleId#
+		/* system.deleteModule */
+	</update>
+	<!-- ############################ 모듈등록 :E ############################ -->
+
+
+	<!-- ############################ 코드등록 :S ############################ -->
+
+
+	<!-- 공통코드 코드SET 리스트 -->
+	<select id="system.selectCodeSet" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.CODE_SET_ID			AS codeSetId
+			  ,A.CODE_SET_NAME			AS codeSetName
+		      ,A.MEANING_KOR			AS meaningKor
+		      ,A.MEANING_ENG			AS meaningEng
+		      ,A.CODE_TYPE				AS codeType
+		      ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'CODE_TYPE'
+		  		   AND G.CODE_VALUE = A.CODE_TYPE
+		  		   AND G.ORG_ID = #orgId#)		AS codeTypeNm
+		      ,A.CODE_GROUP				AS codeGroup
+		      ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'CODE_GROUP'
+		  		   AND G.CODE_VALUE = A.CODE_GROUP
+		  		   AND G.ORG_ID = #orgId#)		AS codeGroupNm
+		      ,A.DESCRIPTION			AS description
+
+		      ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")							AS createDate
+			  ,A.CREATED_BY														AS createdBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")							AS updateDate
+			  ,A.UPDATED_BY														AS updatedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+			  ,DATE_FORMAT(A.DELETE_DATE, "%Y-%m-%d")							AS deleteDate
+			  ,A.DELETED_BY														AS deletedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.DELETED_BY)	AS deleteNm
+
+		      ,A.DELETE_FLAG		AS deleteFlag
+		      ,A.PARENT_SET_ID		AS parentSetId
+
+		      ,B.CODE_SET_NAME		AS parentSetName
+		      ,B.MEANING_KOR		AS parentMeaningKor
+		      ,B.MEANING_ENG		AS parentMeaningEng
+
+
+		FROM BS_CODE_SET	A
+		LEFT JOIN BS_CODE_SET	B ON A.PARENT_SET_ID = B.CODE_SET_ID
+		WHERE 1=1
+
+		  AND A.ORG_ID = #orgId#
+
+		<isNotEqual prepend="AND" property="codeGroup" compareValue="SYSTEM">
+			 A.CODE_GROUP  = 'COMMON'
+		</isNotEqual>
+		<isEqual prepend="AND" property="codeGroup" compareValue="SYSTEM">
+			 A.CODE_GROUP = 'SYSTEM'
+		</isEqual>
+
+ 		<isNotEmpty prepend="AND" property="search">
+			(A.CODE_SET_NAME LIKE concat('%', #search#, '%')	OR
+			 A.MEANING_KOR LIKE concat('%', #search#, '%')		OR
+			 A.MEANING_ENG LIKE concat('%', #search#, '%')		OR
+			 A.DESCRIPTION LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="deleteFlag">
+			 A.DELETE_FLAG = #deleteFlag#
+		</isNotEmpty>
+
+ 		ORDER BY A.CODE_SET_ID DESC
+		/* system.selectCodeSet */
+	</select>
+
+	<!-- 코드SET 등록(신규) -->
+	<insert id="system.insertCodeSet" parameterClass="HashMap">
+		INSERT INTO BS_CODE_SET(ORG_ID, CODE_SET_NAME
+									, MEANING_KOR
+									, MEANING_ENG
+									, CODE_TYPE
+									, CODE_GROUP
+									, DESCRIPTION
+									, CREATE_DATE
+									, CREATED_BY
+									, UPDATE_DATE
+									, UPDATED_BY
+									, PARENT_SET_ID
+									)
+							VALUES(
+							 		#orgId#
+									, #codeSetName#
+									, #meaningKor#
+									, #meaningEng#
+									, #codeType#
+									, #codeGroup#
+									, #description#
+									, now()
+									, #userSeq#
+									, now()
+									, #userSeq#
+									,(CASE WHEN #parentSetId# = '' THEN NULL ELSE #parentSetId# END)
+									)
+
+		<selectKey resultClass="int" type="post" keyProperty="codeSetId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* system.insertCodeSet */
+	</insert>
+
+	<!-- 코드SET 저장(수정) -->
+	<update id="system.updateCodeSet" parameterClass="HashMap">
+		UPDATE BS_CODE_SET
+   		   SET CODE_SET_NAME 	= #codeSetName#
+   		   	  ,MEANING_KOR 		= #meaningKor#
+   		   	  ,MEANING_ENG 		= #meaningEng#
+			  ,CODE_TYPE 		= #codeType#
+			  ,CODE_GROUP 		= #codeGroup#
+			  ,DESCRIPTION		= #description#
+			  ,UPDATE_DATE		= now()
+			  ,UPDATED_BY		= #userSeq#
+			  ,DELETE_FLAG		= #deleteFlag#
+
+			<isEqual property="deleteFlag" compareValue="Y">
+			  ,DELETE_DATE		= now()
+			  ,DELETED_BY		= #userSeq#
+			</isEqual>
+			<isEqual property="deleteFlag" compareValue="N">
+			  ,DELETE_DATE		= null
+			  ,DELETED_BY		= null
+			</isEqual>
+
+			  ,PARENT_SET_ID	= (CASE WHEN #parentSetId# = '' THEN NULL ELSE #parentSetId# END)
+
+ 		 WHERE CODE_SET_ID	= #codeSetId#
+		/* system.updateCodeSet */
+	</update>
+
+	<!-- 공통 코드 set 정보 org 별로 반환 -->
+	<select id="system.selectCodeSetForSystem" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			ORG_ID AS orgId, CODE_SET_NAME AS codeSetName, CODE_SET_ID AS codeSetId
+		FROM BS_CODE_SET
+		WHERE ORG_ID = #orgId#
+		AND CODE_SET_NAME = #parentSetName#
+		/* system.selectCodeSetForSystem */
+	</select>
+
+	<!-- 공통 코드 List 정보 org 별로 반환 -->
+	<select id="system.selectCodeListForSystem" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.CODE_LIST_ID			AS codeListId
+			  ,A.CODE_SET_ID			AS codeSetId
+			  ,(SELECT CODE_SET_NAME FROM BS_CODE_SET WHERE CODE_SET_ID = A.CODE_SET_ID)	AS codeSetName
+			  ,A.VALUE					AS value
+			  ,(SELECT ORG_ID FROM BS_CODE_SET WHERE CODE_SET_ID = A.CODE_SET_ID)	AS orgId
+
+		  FROM BS_CODE_LIST A
+		 WHERE VALUE = #value#
+		/* system.selectCodeListForSystem */
+	</select>
+
+	<!-- 공통 코드 set 정보 org 별로 update함.  -->
+	<update id="system.updateCodeSetForSystem" parameterClass="HashMap">
+		UPDATE BS_CODE_SET
+   		   SET CODE_SET_NAME 	= #codeSetName#
+   		   	  ,MEANING_KOR 		= #meaningKor#
+   		   	  ,MEANING_ENG 		= #meaningEng#
+			  ,CODE_TYPE 		= #codeType#
+			  ,CODE_GROUP 		= #codeGroup#
+			  ,DESCRIPTION		= #description#
+			  ,UPDATE_DATE		= now()
+			  ,UPDATED_BY		= #userSeq#
+			  ,DELETE_FLAG		= #deleteFlag#
+
+			<isEqual property="deleteFlag" compareValue="Y">
+			  ,DELETE_DATE		= now()
+			  ,DELETED_BY		= #userSeq#
+			</isEqual>
+			<isEqual property="deleteFlag" compareValue="N">
+			  ,DELETE_DATE		= null
+			  ,DELETED_BY		= null
+			</isEqual>
+
+			  ,PARENT_SET_ID	= (CASE WHEN #parentSetId# = '' THEN NULL ELSE #parentSetId# END)
+
+ 		 WHERE CODE_SET_NAME = #codeSetNameBefore#
+ 		 AND ORG_ID = #orgId#
+		/* system.updateCodeSetForSystem */
+	</update>
+
+
+	<!-- 공통코드 코드LIST 리스트 -->
+	<select id="system.selectCodeList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.CODE_LIST_ID		AS codeListId
+			  ,A.CODE_SET_ID		AS codeSetId
+			  ,(SELECT CODE_SET_NAME FROM BS_CODE_SET WHERE CODE_SET_ID = A.CODE_SET_ID)	AS codeSetName
+			  ,A.VALUE				AS value
+			  ,A.MEANING_KOR		AS meaningKor
+			  ,A.MEANING_ENG		AS meaningEng
+			  ,A.SORT				AS sort
+			  ,A.DESCRIPTION		AS description
+
+			  ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")							AS createDate
+			  ,A.CREATED_BY														AS createdBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")							AS updateDate
+			  ,A.UPDATED_BY														AS updatedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+			  ,DATE_FORMAT(A.DELETE_DATE, "%Y-%m-%d")							AS deleteDate
+			  ,A.DELETED_BY														AS deletedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.DELETED_BY)	AS deleteNm
+
+			  ,A.DELETE_FLAG		AS deleteFlag
+			  ,B.CODE_SET_ID		AS sonSetId
+			  ,B.CODE_SET_NAME		AS sonSetName
+			  ,B.MEANING_KOR		AS sonMeaningKor
+		      ,B.MEANING_ENG		AS sonMeaningEng
+
+		 FROM BS_CODE_LIST	A
+		 LEFT JOIN BS_CODE_SET	B ON A.SON_SET_ID = B.CODE_SET_ID
+		 WHERE 1=1
+		 AND A.CODE_SET_ID = #codeSetId#
+
+ 		ORDER BY A.DELETE_FLAG ASC, A.SORT ASC, A.CODE_SET_ID ASC
+		/* system.selectCodeList */
+	</select>
+
+
+	<!-- 코드LIST 등록(신규) -->
+	<insert id="system.insertCodeList" parameterClass="HashMap">
+		INSERT INTO BS_CODE_LIST(CODE_SET_ID
+									 ,VALUE
+									 ,MEANING_KOR
+									 ,MEANING_ENG
+									 ,SORT
+									 ,DESCRIPTION
+									 ,SON_SET_ID
+									 ,CREATE_DATE
+									 ,CREATED_BY
+									 ,UPDATE_DATE
+									 ,UPDATED_BY
+
+									 )
+							   VALUES(
+									  #codeSetId#
+									 ,#value#
+									 ,#meaningKor#
+									 ,#meaningEng#
+									 ,#sort#
+									 ,#description#
+									 ,(CASE WHEN #sonSetId# = '' THEN NULL ELSE #sonSetId# END)
+									 ,now()
+									 ,#userSeq#
+									 ,now()
+									 ,#userSeq#
+
+									 )
+
+		<selectKey resultClass="int" type="post" keyProperty="codeListId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* system.insertCodeList */
+	</insert>
+
+	<!-- 코드LIST 저장(수정) -->
+	<update id="system.updateCodeList" parameterClass="HashMap">
+		UPDATE BS_CODE_LIST
+   		   SET VALUE 			= #value#
+   		   	  ,MEANING_KOR 		= #meaningKor#
+   		   	  ,MEANING_ENG 		= #meaningEng#
+			  ,SORT	 			= #sort#
+			  ,DESCRIPTION		= #description#
+
+			  ,UPDATE_DATE		= now()
+			  ,UPDATED_BY		= #userSeq#
+			  ,DELETE_FLAG		= #deleteFlag#
+
+			<isEqual property="deleteFlag" compareValue="Y">
+			  ,DELETE_DATE		= now()
+			  ,DELETED_BY		= #userSeq#
+			</isEqual>
+			<isEqual property="deleteFlag" compareValue="N">
+			  ,DELETE_DATE		= null
+			  ,DELETED_BY		= null
+			</isEqual>
+
+			  ,SON_SET_ID		= (CASE WHEN #sonSetId# = '' THEN NULL ELSE #sonSetId# END)
+
+ 		 WHERE CODE_LIST_ID	= #codeListId#
+		/* system.updateCodeList */
+	</update>
+
+	<!-- ############################ 코드등록 :E ############################ -->
+
+
+	<!-- ############################ 사용자별 권한 :S ############################ -->
+
+	<!-- 사용자리스트 - 권한설정을 위한  -->
+	<select id="system.selectUserListByRole" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			   A.ORG_ID									As oriOrgId
+			  ,(SELECT CPN_NM
+		 		  FROM IB_COMPANY IC, BS_ORG IO
+		 		 WHERE IC.S_NB = IO.COMPANY_SNB
+				   AND IO.ORG_ID = A.ORG_ID)			AS oriOrgNm
+
+			  ,B.ORG_ID									As orgId
+			  ,(SELECT CPN_NM
+		 		  FROM IB_COMPANY IC, BS_ORG IO
+		 		 WHERE IC.S_NB = IO.COMPANY_SNB
+				   AND IO.ORG_ID = B.ORG_ID	)			AS orgNm
+
+			  ,IFNULL((SELECT SORT FROM BS_ROLE_LIST
+						WHERE ROLE_ID = D.ROLE_ID), 1000) AS SORT
+
+			  ,A.USER_ID								AS userId
+			  ,D.ROLE_ID								AS roleId
+			  ,D.ROLE_CODE								AS roleCode
+			  ,A.EMP_NO									AS empNo
+			  ,A.NAME 									AS name
+
+			  ,A.RANK									AS rank
+			  ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = A.ORG_ID)				AS rankNm
+
+			  ,DATE_FORMAT(A.HIRED_DATE, "%Y-%m-%d")	AS hiredDate
+			  ,A.LOGIN_ID								AS loginId
+			  ,A.MOBILE_TEL								AS mobileTel
+			  ,A.EMAIL									AS email
+
+			  ,B.ORG_ACCESS_AUTH_TYPE					AS orgAccessAuthType
+
+		  FROM BS_USER_MASTER 					A
+		  JOIN BS_RELATION_COMPANY_ACCESS_AUTH	B ON A.USER_ID = B.USER_ID
+		  LEFT JOIN BS_USER_ROLE_LIST 			C ON A.USER_ID = C.USER_ID AND C.ORG_ID = B.ORG_ID
+		  LEFT JOIN BS_ROLE_LIST				D ON C.ROLE_ID = D.ROLE_ID
+
+		  WHERE 1=1
+		   AND A.DELETE_FLAG != 'Y'
+
+		<isNotEmpty prepend="AND" property="orgId">
+			B.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="" property="search">
+			<isEqual prepend="AND" property="knd" compareValue="userName">
+				A.NAME LIKE concat('%', #search#, '%')
+			</isEqual>
+			<isEqual prepend="AND" property="knd" compareValue="empNo">
+				A.EMP_NO LIKE concat('%', #search#, '%')
+			</isEqual>
+			<isEqual prepend="AND" property="knd" compareValue="userId">
+				A.LOGIN_ID LIKE concat('%', #search#, '%')
+			</isEqual>
+			<isEmpty prepend="AND" property="knd">
+				(  A.NAME LIKE concat('%', #search#, '%')
+				OR A.EMP_NO LIKE concat('%', #search#, '%')
+				OR A.LOGIN_ID LIKE concat('%', #search#, '%'))
+			</isEmpty>
+		</isNotEmpty>
+		ORDER BY A.ORG_ID, SORT, A.NAME
+
+		/* system.selectUserListByRole */
+	</select>
+
+
+	<!-- 사용자리스트 -->
+	<select id="system.selectUserList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			   A.ORG_ID						As orgId
+			  ,(SELECT CPN_NM
+		 		  FROM IB_COMPANY IC, BS_ORG IO
+		 		 WHERE IC.S_NB = IO.COMPANY_SNB
+				   AND IO.ORG_ID = A.ORG_ID)			AS orgNm
+
+			  ,IFNULL((SELECT SORT FROM BS_ROLE_LIST
+						WHERE ROLE_ID = C.ROLE_ID), 1000) AS SORT
+
+			  ,A.USER_ID					AS userId
+			  ,C.ROLE_ID					AS roleId
+			  ,C.ROLE_CODE					AS roleCode
+			  ,A.EMP_NO						AS empNo
+			  ,A.NAME 						AS name
+
+			  ,A.RANK						AS rank
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = #orgId#)			AS rankNm
+
+			  ,DATE_FORMAT(A.HIRED_DATE, "%Y-%m-%d")	AS hiredDate
+			  ,A.LOGIN_ID					AS loginId
+			  ,A.MOBILE_TEL					AS mobileTel
+			  ,A.EMAIL						AS email
+
+		  FROM BS_USER_MASTER A
+		  LEFT JOIN BS_USER_ROLE_LIST B ON A.USER_ID = B.USER_ID  AND B.ORG_ID = A.ORG_ID
+		  LEFT JOIN BS_ROLE_LIST	C ON B.ROLE_ID = C.ROLE_ID
+		  WHERE 1=1
+		   AND A.DELETE_FLAG != 'Y'
+
+		<isNotEmpty prepend="AND" property="orgId">
+			A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="" property="search">
+			<isEqual prepend="AND" property="knd" compareValue="userName">
+				A.NAME LIKE concat('%', #search#, '%')
+			</isEqual>
+			<isEqual prepend="AND" property="knd" compareValue="empNo">
+				A.EMP_NO LIKE concat('%', #search#, '%')
+			</isEqual>
+			<isEqual prepend="AND" property="knd" compareValue="userId">
+				A.LOGIN_ID LIKE concat('%', #search#, '%')
+			</isEqual>
+		</isNotEmpty>
+		ORDER BY SORT, A.NAME
+
+		/* system.selectUserList */
+	</select>
+
+
+	<!-- 권한변경 -->
+	<insert id="system.mergeRoleCode" parameterClass="HashMap">
+		INSERT INTO BS_USER_ROLE_LIST(USER_ID, ROLE_ID, ORG_ID, CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY)
+					VALUES(#userId#
+							,#userRole#
+							,#orgId#
+							,NOW()
+							,#userSeq#
+							,NOW()
+							,#userSeq#
+							)
+					ON DUPLICATE KEY
+					UPDATE
+							 ROLE_ID = #userRole#
+							,UPDATE_DATE = NOW()
+							,UPDATED_BY = #userSeq#
+							,ENABLE = (CASE WHEN #userRole# IS NULL OR #userRole# = "0" THEN 'N' ELSE 'Y' END)
+		/* system.mergeRoleCode */
+	</insert>
+
+	<!-- 사용자 권한삭제 -->
+	<delete id="system.deleteUserRole" parameterClass="HashMap">
+		DELETE FROM BS_USER_ROLE_LIST
+
+		WHERE user_id = #userId#
+
+		<isEmpty property="allDelete">
+			AND org_id != #orgId#
+		</isEmpty>
+		/* system.deleteUserRole */
+	</delete>
+
+
+	<!-- 권한 관계사 접근 권한 타입 변경 -->
+	<insert id="system.updateOrgAccessAuthType" parameterClass="HashMap">
+		UPDATE BS_RELATION_COMPANY_ACCESS_AUTH
+
+		   SET ORG_ACCESS_AUTH_TYPE = #userRoleRW#
+		      ,UP_DT = NOW()
+		      ,UP_ID = #userSeq#
+		      ,RG_DT = NOW()
+		      ,RG_ID = #userSeq#
+		 WHERE ORG_ID = #orgId#
+		   AND USER_ID = #userId#
+
+		/* system.updateOrgAccessAuthType */
+	</insert>
+
+	<!-- ############################ 사용자별 권한 :E ############################ -->
+
+
+	<!-- ############################ 권한별 메뉴 :S ############################ -->
+	 <!-- 권한별 메뉴위치별 메뉴리스트 (TREE 메뉴) -->
+	<!--<select id="system.selectMenuTreeByRole" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.MENU_ID			AS menuId
+			  ,B.MENU_CLASS			AS menuClass
+			  ,B.MENU_TYPE			AS menuType
+			  ,B.MENU_KOR			AS menuKor
+  			  ,B.MENU_ENG			AS menuEng
+  			  ,B.MENU_TITLE_KOR		AS menuTitleKor
+  			  ,B.MENU_TITLE_ENG		AS menuTitleEng
+  			  ,B.MENU_ENG			AS menuEng
+			  ,B.MENU_DESC			AS menuDesc
+			  ,B.MENU_PATH			AS menuPath
+			  ,B.MENU_SUB_PATH		AS menuSubPath
+			  ,B.ENABLE				AS enable
+			  ,(IF(
+			  		(SELECT COUNT(1)
+			  		FROM BS_ORG_MENU_LIST AS ORG
+			  		WHERE A.MENU_ID = ORG.MENU_ID AND ORG_ID = A.ORG_ID AND ENABLE = 'Y') &gt; 0 , 'Y' ,'N'))	AS  orgEnable
+
+			  ,B.ATTR1				AS attr1
+			  ,B.ATTR2				AS attr2
+			  ,B.ATTR3				AS attr3
+			  ,B.ATTR4				AS attr4
+			  ,B.ATTR5				AS attr5
+
+			  ,A.MENU_LOC			AS menuLoc
+			  ,A.MENU_LEVEL			AS depth
+			  ,A.MENU_PARENT_ID		AS menuUpId
+			  ,A.MENU_ROOT_ID		AS menuRootId
+			  ,A.SORT				AS sort
+			  ,A.BASIC_TREE_YN		AS basicTreeYn
+
+			  ,0 					AS chk	checkbox 사용 위해
+
+			  ,(SELECT COUNT(1) FROM BS_ROLE_MENU_LIST AS MENU WHERE MENU.MENU_PARENT_ID = A.MENU_ID AND MENU.MENU_LOC	= #menuLoc# AND  MENU.ROLE_ID	= #roleId#)	AS childCount
+
+		  FROM BS_ROLE_MENU_LIST	A
+		  JOIN BS_MENU_LIST			B ON A.MENU_ID = B.MENU_ID
+
+		 WHERE A.ROLE_ID	= #roleId#
+		   AND A.MENU_LOC	= #menuLoc#		menu location
+		   AND B.MENU_TYPE	= 'TREE'
+         ORDER BY A.SORT
+		/* system.selectMenuTreeByRole */
+	</select> -->
+
+	<!-- 권한별 메뉴 에서 오른쪽 사용 -->
+	<select id="system.selectMenuTreeByRole" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+		   <!--   CONCAT(REPEAT('  ', func.level ), (SELECT MENU_KOR FROM BS_MENU_LIST WHERE MENU_ID = roleMenu.MENU_ID)) AS nm -->
+
+		     menu.MENU_CLASS			AS menuClass
+		    ,menu.MENU_TYPE				AS menuType
+		    ,menu.MENU_KOR				AS menuKor
+		    ,menu.MENU_ENG				AS menuEng
+		    ,menu.MENU_NUM				AS menuNum
+			,menu.MENU_TITLE_KOR		AS menuTitleKor
+			,menu.MENU_TITLE_ENG		AS menuTitleEng
+			,menu.MENU_ENG				AS menuEng
+			,menu.MENU_DESC				AS menuDesc
+			,menu.MENU_PATH				AS menuPath
+			,menu.MENU_SUB_PATH			AS menuSubPath
+			,menu.ENABLE				AS enable
+
+		    ,roleMenu.MENU_LOC				AS menuLoc
+		    ,roleMenu.ROLE_MENU_ID			AS roleMenuId
+		    ,roleMenu.MENU_ID				AS menuId
+		    ,roleMenu.MENU_PARENT_ID		AS menuUpId
+		    ,roleMenu.MENU_PARENT_ID		AS menuParentId
+		    ,func.level						AS level
+		    ,roleMenu.MENU_LEVEL			AS depth
+
+		    ,roleMenu.MENU_ROOT_ID			AS menuRootId
+		    ,roleMenu.SORT					AS sort
+		    ,roleMenu.BASIC_TREE_YN			AS basicTreeYn
+			,(SELECT B.VALUE_MEAN_KOR
+		 		 	FROM BS_CODE_GV B
+				 	WHERE B.CODE_NAME = 'MENU_TYPE'
+		  		   	AND B.CODE_VALUE = menu.MENU_TYPE
+		  		   	AND B.ORG_ID = roleMenu.ORG_ID) AS menuTypeNm
+
+		    ,0 								AS chk
+		    ,'N' 							AS newYn
+
+		    ,(SELECT COUNT(1) FROM BS_ROLE_MENU_LIST AS A WHERE A.MENU_PARENT_ID = menu.MENU_ID AND A.MENU_LOC	= #menuLoc# AND  A.ROLE_ID	= #roleId#)	AS childCount
+
+
+
+
+			,(IF(
+					(SELECT COUNT(1)
+					FROM BS_ORG_MENU_LIST AS ORG
+					WHERE roleMenu.MENU_ID = ORG.MENU_ID AND ORG_ID = roleMenu.ORG_ID AND ENABLE = 'Y') &gt; 0 , 'Y' ,'N'))	AS  orgEnable
+
+
+
+
+		FROM
+			(	SELECT
+					menu_tree_sort(#roleId#) AS aid, @level AS level
+
+				FROM (select * from BS_ROLE_MENU_LIST order by menu_id) K
+				JOIN (SELECT @start_with := 0,
+							 @id := @start_with,
+		                     @level := 0) vars
+
+
+				WHERE
+					@id IS NOT NULL AND K.ROLE_ID =#roleId#
+			) func
+
+		JOIN	BS_ROLE_MENU_LIST AS roleMenu 	ON func.aid = roleMenu.MENU_ID
+		JOIN 	BS_MENU_LIST	  AS menu 		ON roleMenu.MENU_ID = menu.MENU_ID
+
+		WHERE roleMenu.ROLE_ID		= #roleId#
+			AND roleMenu.MENU_LOC	= #menuLoc#
+
+
+		<isEqual prepend="AND" property="allTree" compareValue="Y">
+			(menu.MENU_TYPE = 'TREE' OR menu.MENU_TYPE ='M_TREE')
+		</isEqual>
+
+		<isEmpty prepend="AND" property="allTree">
+			menu.MENU_TYPE		= 'TREE'
+		</isEmpty>
+
+
+		<isNotEmpty property="enable">
+			AND roleMenu.ENABLE = 'Y'
+
+            AND (
+				EXISTS (
+					(SELECT 1 FROM BS_ORG_MENU_LIST WHERE ENABLE = 'Y' AND MENU_ID = roleMenu.MENU_ID AND ORG_ID = roleMenu.ORG_ID)
+                )
+                AND
+
+                EXISTS (
+					(SELECT 1 FROM BS_MENU_LIST WHERE ENABLE = 'Y' AND MENU_ID = roleMenu.MENU_ID )
+                )
+
+			)
+			AND
+			IF( roleMenu.menu_level  = 1 or 2 ,
+
+				   (
+					EXISTS (
+						(SELECT 1 FROM BS_ORG_MENU_LIST WHERE ENABLE = 'Y' AND MENU_ID = roleMenu.MENU_ROOT_ID AND ORG_ID = roleMenu.ORG_ID)
+					)
+					AND
+
+					EXISTS (
+						(SELECT 1 FROM BS_MENU_LIST WHERE ENABLE = 'Y' AND MENU_ID = roleMenu.MENU_ROOT_ID )
+					)
+
+				),1=1
+			)
+            AND
+			IF( roleMenu.menu_level  = 2 ,
+
+					(
+					EXISTS (
+						(SELECT 1 FROM BS_ORG_MENU_LIST WHERE ENABLE = 'Y' AND MENU_ID = roleMenu.MENU_PARENT_ID AND ORG_ID = roleMenu.ORG_ID)
+					)
+					AND
+
+					EXISTS (
+						(SELECT 1 FROM BS_MENU_LIST WHERE ENABLE = 'Y' AND MENU_ID = roleMenu.MENU_PARENT_ID )
+					)
+				),1=1
+
+			)
+		</isNotEmpty>
+
+		/* system.selectMenuTreeByRole */
+	</select>
+
+	<!-- 권한별 메뉴 삭제(저장전 삭제) -->
+	<delete id="system.deleteRoleMenuList" parameterClass="HashMap">
+		DELETE FROM BS_ROLE_MENU_LIST
+		 WHERE ROLE_ID = #roleId#
+		   AND MENU_LOC = #menuLoc#
+		/* system.deleteRoleMenuList */
+	</delete>
+
+
+	<!-- 권한별 메뉴 등록 -->
+	<insert id="system.insertRoleMenuList" parameterClass="HashMap">
+		INSERT INTO BS_ROLE_MENU_LIST(ROLE_ID
+										 , MENU_ID
+										 , MENU_LOC
+										 , MENU_LEVEL
+										 , MENU_SEQ
+										 , MENU_PARENT_ID
+										 , SORT
+										 , MENU_ROOT_ID
+										 , ORG_ID
+										 , BASIC_TREE_YN
+
+										 , CREATE_DATE
+										 , CREATED_BY
+										 , UPDATE_DATE
+										 , UPDATED_BY
+									)
+							<dynamic>
+								<iterate prepend="VALUES" conjunction="," property="pList">
+									(
+										  #roleId#
+										, #pList[].menuId#
+										, #menuLoc#
+										, #pList[].depth#
+										, #pList[].menuSeq#
+										, CASE WHEN #pList[].menuParentId# = '0' || #pList[].menuParentId# = '' || #pList[].menuParentId# IS NULL THEN 0 ELSE #pList[].menuParentId# END
+										, #pList[].sort#
+										, CASE WHEN #pList[].menuRootId# = '' THEN NULL ELSE #pList[].menuRootId# END
+										, #orgId#
+										, CASE WHEN #pList[].basicTreeYn# = '' || #pList[].basicTreeYn# IS NULL THEN 'Y' ELSE #pList[].basicTreeYn# END
+
+										, now()
+										, #userSeq#
+										, now()
+										, #userSeq#
+									)
+								</iterate>
+							</dynamic>
+
+		/* system.insertRoleMenuList */
+	</insert>
+
+
+	<!-- 권한별 메뉴 삭제(권한복사 위해 대상권한 전체 메뉴 삭제) -->
+	<delete id="system.deleteRoleMenuListAll" parameterClass="HashMap">
+		DELETE FROM BS_ROLE_MENU_LIST
+		 WHERE ROLE_ID = #roleCodeTrgt#
+
+		<isEmpty property="menuType">	<!-- isEmpty 인 경우는 권한별메뉴 복사 의 경우 -->
+			AND LENGTH(MENU_LOC) > 0		<!-- MENU_LOC 의 유무에 따라 트리메뉴 와 탭,버튼 을 구분! -->
+		</isEmpty>
+		<isNotEmpty property="menuType">	<!-- isNotEmpty 인 경우는 'NOTTREE'(권한별탭 복사) 인경우 한가지다 -->
+			AND (  LENGTH(MENU_LOC) = 0
+		   		OR LENGTH(MENU_LOC) IS NULL )  <!-- MENU_LOC 의 유무에 따라 트리메뉴 와 탭,버튼 을 구분! -->
+		</isNotEmpty>
+
+		/* system.deleteRoleMenuListAll */
+	</delete>
+
+
+	<!-- 권한별 메뉴 복사 -->
+	<insert id="system.copyRoleMenuList" parameterClass="HashMap">
+		INSERT INTO BS_ROLE_MENU_LIST(ROLE_ID
+										 , MENU_ID
+										 , MENU_LOC
+										 , MENU_LEVEL
+										 , MENU_SEQ
+										 , MENU_PARENT_ID
+										 , SORT
+										 , MENU_ROOT_ID
+										 , ORG_ID
+										 , BASIC_TREE_YN
+
+										 , CREATE_DATE
+										 , CREATED_BY
+										 , UPDATE_DATE
+										 , UPDATED_BY
+									)
+
+						SELECT #roleCodeTrgt#
+								,MENU_ID, MENU_LOC, MENU_LEVEL, MENU_SEQ, MENU_PARENT_ID, SORT, MENU_ROOT_ID,(SELECT ORG_ID FROM BS_ROLE_LIST WHERE ROLE_ID = #roleCodeTrgt#), BASIC_TREE_YN, NOW(), #userSeq#, NOW(), #userSeq#
+						  FROM BS_ROLE_MENU_LIST	A
+						 WHERE ROLE_ID = #roleCodeOri#
+
+						<isEmpty property="menuType">	<!-- isEmpty 인 경우는 권한별메뉴 복사 의 경우 -->
+							AND LENGTH(MENU_LOC) > 0		<!-- MENU_LOC 의 유무에 따라 트리메뉴 와 탭,버튼 을 구분! -->
+						</isEmpty>
+						<isNotEmpty property="menuType">	<!-- isNotEmpty 인 경우는 'NOTTREE'(권한별탭 복사) 인경우 한가지다 -->
+							AND (  LENGTH(MENU_LOC) = 0
+						   		OR LENGTH(MENU_LOC) IS NULL )  <!-- MENU_LOC 의 유무에 따라 트리메뉴 와 탭,버튼 을 구분! -->
+						</isNotEmpty>
+
+						  AND EXISTS(
+						   				SELECT 1
+						   				  FROM BS_ORG_MENU_LIST
+						   				 WHERE ORG_ID = (SELECT ORG_ID FROM BS_ROLE_LIST WHERE ROLE_ID = #roleCodeTrgt#)
+						   				   AND MENU_ID = A.MENU_ID
+						   		)
+
+		/* system.copyRoleMenuList */
+	</insert>
+
+
+	<!-- 권한별 ,메뉴위치별 메뉴 삭제('상단메뉴와 동일하게 복사' 기능... 복사위해 먼저 좌측메뉴 삭제) -->
+	<delete id="system.deleteRoleMenuListAllByTop" parameterClass="HashMap">
+		DELETE FROM BS_ROLE_MENU_LIST
+		 WHERE ROLE_ID = #roleId#
+		   AND MENU_LOC = 'LEFT'	<!-- #menuLoc# -->
+
+		/* system.deleteRoleMenuListAllByTop */
+	</delete>
+
+
+	<!-- 권한별 ,메뉴위치별 메뉴 복사(상단메뉴 >> 좌측메뉴 ...복사) -->
+	<insert id="system.copyRoleMenuListByTop" parameterClass="HashMap">
+		INSERT INTO BS_ROLE_MENU_LIST(ROLE_ID
+										 , MENU_ID
+										 , MENU_LOC
+										 , MENU_LEVEL
+										 , MENU_SEQ
+										 , MENU_PARENT_ID
+										 , SORT
+										 , MENU_ROOT_ID
+										 , ORG_ID
+										 , BASIC_TREE_YN
+
+										 , CREATE_DATE
+										 , CREATED_BY
+										 , UPDATE_DATE
+										 , UPDATED_BY
+									)
+
+						SELECT ROLE_ID
+							 , MENU_ID
+							 , 'LEFT'
+							 , MENU_LEVEL, MENU_SEQ, MENU_PARENT_ID, SORT, MENU_ROOT_ID,#orgId#,BASIC_TREE_YN, NOW(), #userSeq#, NOW(), #userSeq#
+						  FROM BS_ROLE_MENU_LIST
+						 WHERE ROLE_ID = #roleId#
+						   AND MENU_LOC = 'TOP'
+
+		/* system.copyRoleMenuListByTop */
+	</insert>
+
+
+	<!-- 관계사별 권한코드(콤보박스용) -->
+	<select id="system.selectRoleCodeByOrgCombo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.ORG_ID 		AS orgId
+			 , D.CPN_NM			AS orgNm
+			 , A.ROLE_ID		AS roleId
+			 , A.ROLE_KOR		AS roleNm
+
+		  FROM BS_ROLE_LIST						A
+		  JOIN BS_RELATION_COMPANY_ACCESS_AUTH	B ON A.ORG_ID = B.ORG_ID
+		  LEFT JOIN BS_ORG 						C ON A.ORG_ID = C.ORG_ID
+		  LEFT JOIN IB_COMPANY					D ON C.COMPANY_SNB = D.S_NB
+
+		 WHERE 1=1
+		   AND B.USER_ID = #userId#
+		   AND A.ENABLE = 'Y'
+		 ORDER BY A.ORG_ID ASC, SORT ASC
+
+		/* system.selectRoleCodeByOrgCombo */
+	</select>
+
+
+	<!-- ////////////////////권한별 메뉴 등록 : 선택 복사시 사용///////////////////////// -->
+
+	<!-- 권한별 메뉴 등록 -->
+	<insert id="system.insertRoleMenuCopyList" parameterClass="HashMap">
+		INSERT INTO BS_ROLE_MENU_LIST(
+										   ROLE_ID
+										 , MENU_ID
+										 , MENU_LOC
+										 , MENU_LEVEL
+										 , MENU_SEQ
+										 , MENU_PARENT_ID
+										 , SORT
+										 , MENU_ROOT_ID
+										 , ORG_ID
+										 , BASIC_TREE_YN
+
+										 , CREATE_DATE
+										 , CREATED_BY
+										 , UPDATE_DATE
+										 , UPDATED_BY
+									)
+							 VALUES (
+										  #roleId#
+										, #menuId#
+										, 'TOP'
+										, #depth#
+										, #menuSeq#
+										, CASE WHEN #menuParentId# = '0' || #menuParentId# = '' || #menuParentId# IS NULL THEN 0 ELSE #menuParentId# END
+										, #sort#
+										, CASE WHEN #menuRootId# = '' THEN NULL ELSE #menuRootId# END
+										, #orgId#
+										, CASE WHEN #basicTreeYn# = '' || #basicTreeYn# IS NULL THEN 'Y' ELSE #basicTreeYn# END
+
+										, now()
+										, #userSeq#
+										, now()
+										, #userSeq#
+									)
+
+		<selectKey resultClass="int" type="post" keyProperty="menuRoleId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+
+		/* system.insertRoleMenuCopyList */
+	</insert>
+
+	<!-- 정렬값 변경 -->
+	<update id="system.updateRoleMenuSort" parameterClass="HashMap">
+		UPDATE BS_ROLE_MENU_LIST
+   		   SET
+   		   	   SORT  		= #sort#
+   		   	  ,UPDATED_BY   = #userSeq#
+   		   	  ,UPDATE_DATE  = now()
+
+		WHERE 	ORG_ID 			= #orgId#
+			AND ROLE_ID 		= #roleId#
+			AND MENU_ID 		= #menuId#
+
+		/* system.updateRoleMenuSort */
+	</update>
+
+	<!-- 메뉴 등록 전 검증-->
+	<select id="system.getRoleMenuByMenuId" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+
+		     roleMenu.MENU_LOC				AS menuLoc
+		    ,roleMenu.ROLE_MENU_ID			AS roleMenuId
+		    ,roleMenu.MENU_ID				AS menuId
+		    ,roleMenu.MENU_PARENT_ID		AS menuParentId
+		    ,roleMenu.MENU_LEVEL			AS depth
+
+		    ,roleMenu.MENU_ROOT_ID			AS menuRootId
+		    ,roleMenu.SORT					AS sort
+		    ,roleMenu.BASIC_TREE_YN			AS basicTreeYn
+		    ,0 								AS chk
+		    ,'N' 							AS newYn
+
+
+
+		FROM BS_ROLE_MENU_LIST AS roleMenu
+
+		WHERE roleMenu.ROLE_ID		= #roleId#
+			AND roleMenu.MENU_ID	= #menuId#
+
+		/* system.getRoleMenuByMenuId */
+	</select>
+
+
+
+
+	<!-- ############################ 권한별 메뉴 :E ############################ -->
+
+
+	<!-- ############################ 권한별 모듈 :S ############################ -->
+	<!-- 권한별 모듈리스트 -->
+	<select id="system.selectModulePerRole" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.MODULE_ID			AS moduleId
+			  ,B.MODULE_CODE		AS moduleCode
+			  ,B.MODULE_NAME		AS moduleName
+			  ,B.MODULE_DESC		AS moduleDesc
+  			  ,B.MODULE_INC_URL		AS moduleIncUrl
+  			  ,B.ENABLE				AS enable
+			  ,B.MODULE_GROUP		AS moduleGroup
+			  ,B.ATTR2				AS attr2
+			  ,B.ATTR3				AS attr3
+			  ,B.ATTR4				AS attr4
+			  ,B.ATTR5				AS attr5
+			  ,C.ENABLE				AS moduleOrgEnable
+
+			  ,A.POSITION			AS position
+			  ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'MODULE_POS_TYPE'
+		  		   AND G.CODE_VALUE = A.POSITION
+		  		   AND G.ORG_ID = #orgId#) AS positionNm
+
+			  ,A.SORT				AS sort
+			  ,A.LEFT_POS_X			AS leftPosX
+			  ,A.LEFT_POS_Y			AS leftPosY
+
+			  ,0 					AS chk	<!-- checkbox 사용 위해 -->
+
+		  FROM BS_ROLE_MODULE_LIST	A
+		  JOIN BS_MODULE_LIST		B ON A.MODULE_ID = B.MODULE_ID
+		  JOIN BS_ORG_MODULE_LIST	C ON B.MODULE_ID = C.MODULE_ID
+
+		 WHERE A.ROLE_ID	= #roleId# AND C.ORG_ID = #orgId# AND C.ENABLE = 'Y'
+       	 ORDER BY A.SORT
+		/* system.selectModulePerRole */
+	</select>
+
+
+	<!-- 권한별 모듈 삭제(저장전 삭제) -->
+	<delete id="system.deleteRoleModuleList" parameterClass="HashMap">
+		DELETE FROM BS_ROLE_MODULE_LIST
+		 WHERE ROLE_ID = #roleId#
+
+		/* system.deleteRoleModuleList */
+	</delete>
+
+
+	<!-- 권한별 모듈 등록 -->
+	<insert id="system.insertRoleModuleList" parameterClass="HashMap">
+		INSERT INTO BS_ROLE_MODULE_LIST(ROLE_ID
+											,ORG_ID
+											,MODULE_ID
+											,POSITION
+											,SORT
+											,LEFT_POS_X
+											,LEFT_POS_Y
+											,CREATE_DATE
+											,CREATED_BY
+										 	,UPDATE_DATE
+										 	,UPDATED_BY
+										 	)
+							<dynamic>
+								<iterate prepend="VALUES" conjunction="," property="pList">
+									(
+										  #roleId#
+										, #orgId#
+										, #pList[].moduleId#
+										, #pList[].position#
+										, #pList[].sort#
+										, CASE WHEN #pList[].leftPosX# = '' THEN NULL ELSE #pList[].leftPosX# END
+										, CASE WHEN #pList[].leftPosY# = '' THEN NULL ELSE #pList[].leftPosY# END
+										, now()
+										, #userSeq#
+										, now()
+										, #userSeq#
+									)
+								</iterate>
+							</dynamic>
+		/* system.insertRoleModuleList */
+	</insert>
+
+
+	<!-- 권한별 모듈 삭제 -->
+	<delete id="system.deleteRoleModuleListAll" parameterClass="HashMap">
+		DELETE FROM BS_ROLE_MODULE_LIST
+		 WHERE ROLE_ID = (SELECT ROLE_ID FROM BS_ROLE_LIST WHERE ROLE_CODE = #roleCodeTrgt# LIMIT 1)
+
+		/* system.deleteRoleModuleListAll */
+	</delete>
+
+
+	<!-- 권한별 모듈 복사 -->
+	<insert id="system.copyRoleModuleList" parameterClass="HashMap">
+		INSERT INTO BS_ROLE_MODULE_LIST( ROLE_ID
+											 ,ORG_ID
+										     ,MODULE_ID
+										     ,POSITION
+										     ,SORT
+										     ,LEFT_POS_X
+										     ,LEFT_POS_Y
+										     ,CREATE_DATE
+										     ,CREATED_BY
+										     ,UPDATE_DATE
+										     ,UPDATED_BY
+											)
+
+						SELECT    #roleCodeTrgt#
+								, (SELECT ORG_ID FROM BS_ROLE_LIST WHERE ROLE_ID = #roleCodeTrgt#)
+								, MODULE_ID
+								, POSITION
+								, SORT
+								, LEFT_POS_X
+								, LEFT_POS_Y
+								, NOW()
+								, #userSeq#
+								, NOW()
+								, #userSeq#
+						  FROM BS_ROLE_MODULE_LIST	A
+						 WHERE ROLE_ID = #roleCodeOri#
+						   AND EXISTS(
+						   				SELECT 1
+						   				  FROM BS_ORG_MODULE_LIST
+						   				 WHERE ORG_ID = (SELECT ORG_ID FROM BS_ROLE_LIST WHERE ROLE_ID = #roleCodeTrgt#)
+						   				   AND MODULE_ID = A.MODULE_ID
+						   		)
+
+		/* system.copyRoleModuleList */
+	</insert>
+
+	<!-- ############################ 권한별 모듈 :E ############################ -->
+
+
+	<!-- ############################ 권한별 탭 :S ############################ -->
+
+	<!-- 메뉴별 탭 리스트 -->
+	<select id="system.selectTabPerMenu" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.MENU_ID			AS menuId
+			  ,B.MENU_CLASS			AS menuClass
+			  ,B.MENU_TYPE			AS menuType
+			  ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'MENU_TYPE'
+		  		   AND G.CODE_VALUE = B.MENU_TYPE
+		  		   AND G.ORG_ID = #orgId#) AS menuTypeNm
+			  ,B.MENU_KOR			AS menuKor
+  			  ,B.MENU_ENG			AS menuEng
+  			  ,B.MENU_TITLE_KOR		AS menuTitleKor
+  			  ,B.MENU_TITLE_ENG		AS menuTitleEng
+  			  ,B.MENU_ENG			AS menuEng
+			  ,B.MENU_DESC			AS menuDesc
+			  ,B.MENU_PATH			AS menuPath
+			  ,B.MENU_SUB_PATH		AS menuSubPath
+			  ,B.ATTR1				AS attr1
+			  ,B.ATTR2				AS attr2
+			  ,B.ATTR3				AS attr3
+			  ,B.ATTR4				AS attr4
+			  ,B.ATTR5				AS attr5
+
+			  ,A.MENU_LOC			AS menuLoc
+			  ,A.MENU_LEVEL			AS depth
+			  ,A.MENU_PARENT_ID		AS menuUpId
+			  ,A.MENU_ROOT_ID		AS menuRootId
+			  ,A.SORT				AS sort
+
+			  ,0 					AS chk	<!-- checkbox 사용 위해 -->
+			  ,IFNULL(CONCAT(C.MENU_KOR ," > ", D.MENU_KOR),"") AS menuRootStr
+
+		  FROM BS_ROLE_MENU_LIST	A		<!-- 권한별메뉴 테이블을 사용하지만 권한은 공통(-1...권한없이)으로 쓰므로 '메뉴별 탭' 리스트의 의미로 사용 -->
+		  JOIN BS_MENU_LIST			B ON A.MENU_ID = B.MENU_ID
+		  LEFT JOIN BS_MENU_LIST	C ON C.MENU_ID = A.MENU_ROOT_ID
+          LEFT JOIN BS_MENU_LIST	D ON D.MENU_ID = A.MENU_PARENT_ID
+
+		 WHERE 1=1
+		   AND B.MENU_TYPE	!= 'TREE'
+         ORDER BY B.MENU_TYPE, A.SORT
+		/* system.selectTabPerMenu */
+	</select>
+
+
+	<!-- 권한별 탭 리스트(로그인시) -->
+	<select id="system.selectTabPerRole" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.MENU_ID			AS menuId
+			  ,B.MENU_CLASS			AS menuClass
+			  ,B.MENU_TYPE			AS menuType
+			  ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'MENU_TYPE'
+		  		   AND G.CODE_VALUE = B.MENU_TYPE
+		  		   AND G.ORG_ID = #orgId#) AS menuTypeNm
+			  ,B.MENU_KOR			AS menuKor
+  			  ,B.MENU_ENG			AS menuEng
+  			  ,B.MENU_TITLE_KOR		AS menuTitleKor
+  			  ,B.MENU_TITLE_ENG		AS menuTitleEng
+  			  ,B.MENU_ENG			AS menuEng
+			  ,B.MENU_DESC			AS menuDesc
+			  ,B.MENU_PATH			AS menuPath
+			  ,B.MENU_SUB_PATH		AS menuSubPath
+			  ,B.ATTR1				AS attr1
+			  ,B.ATTR2				AS attr2
+			  ,B.ATTR3				AS attr3
+			  ,B.ATTR4				AS attr4
+			  ,B.ATTR5				AS attr5
+
+			  ,A.MENU_LOC			AS menuLoc
+			  ,A.MENU_LEVEL			AS depth
+			  ,A.MENU_PARENT_ID		AS menuUpId
+			  ,A.MENU_ROOT_ID		AS menuRootId
+			  ,A.SORT				AS sort
+
+			  ,0 					AS chk	<!-- checkbox 사용 위해 -->
+			  ,IFNULL(CONCAT(C.MENU_KOR ," > ", D.MENU_KOR),"") AS menuRootStr
+
+		  FROM BS_ROLE_MENU_LIST	A
+		  JOIN BS_MENU_LIST			B ON A.MENU_ID = B.MENU_ID
+		  LEFT JOIN BS_MENU_LIST	C ON C.MENU_ID = A.MENU_ROOT_ID
+          LEFT JOIN BS_MENU_LIST	D ON D.MENU_ID = A.MENU_PARENT_ID
+
+		 WHERE 1 = 1
+		   AND B.MENU_TYPE != 'TREE'
+		   AND (
+		   		EXISTS(
+		   				SELECT 1
+		   				  FROM BS_ROLE_MENU_LIST
+		   				 WHERE 1=1
+
+		   				<isNotEmpty prepend="AND" property="roleId">
+							ROLE_ID = #roleId#
+						</isNotEmpty>
+						<isEmpty prepend="AND" property="roleId">
+							ROLE_ID = (SELECT ROLE_ID FROM BS_USER_ROLE_LIST WHERE USER_ID = #userId# AND ORG_ID = #orgId#)
+						</isEmpty>
+
+		   				   AND MENU_ID = A.MENU_PARENT_ID
+		   			)
+				OR
+				EXISTS(
+		   				SELECT 1
+		   				  FROM BS_ROLE_MENU_LIST
+		   				 WHERE 1=1
+		   				   AND MENU_ID = B.MENU_ID
+		   				   AND B.MENU_TYPE IN ('ALONE')
+		   				   AND ROLE_ID = -1
+		   			)
+				)
+         ORDER BY A.SORT
+		/* system.selectTabPerRole */
+	</select>
+
+
+	<!-- 메뉴별 탭 삭제(저장전 삭제) -->
+	<delete id="system.deleteTabPerMenuList" parameterClass="HashMap">
+		DELETE FROM BS_ROLE_MENU_LIST
+		 WHERE ROLE_ID = #roleId#
+		   AND (   LENGTH(MENU_LOC) = 0
+		   		OR LENGTH(MENU_LOC) IS NULL )  <!-- MENU_LOC 의 유무에 따라 트리메뉴 와 탭,버튼 을 구분! -->
+		/* system.deleteTabPerMenuList */
+	</delete>
+
+	<!-- ############################ 권한별 탭 :E ############################ -->
+
+
+	<!-- ############################ 권한별 화면권한 :S ############################ -->
+
+	<!-- 권한별 화면권한 리스트 -->
+	<select id="system.selectPageRoleList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT  DISTINCT
+			   A.MENU_ID			AS menuId
+			  ,B.MENU_CLASS			AS menuClass
+			  ,B.MENU_TYPE			AS menuType
+			  ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'MENU_TYPE'
+		  		   AND G.CODE_VALUE = B.MENU_TYPE
+		  		   AND G.ORG_ID = #orgId#) AS menuTypeNm
+			  ,B.MENU_KOR			AS menuKor
+  			  ,B.MENU_ENG			AS menuEng
+  			  ,B.MENU_TITLE_KOR		AS menuTitleKor
+  			  ,B.MENU_TITLE_ENG		AS menuTitleEng
+  			  ,B.MENU_ENG			AS menuEng
+			  ,B.MENU_DESC			AS menuDesc
+			  ,B.MENU_PATH			AS menuPath
+			  ,B.MENU_SUB_PATH		AS menuSubPath
+
+			  ,A.ROLE_ID			AS roleId
+
+			  ,C.`OPEN`				AS `open`
+			  ,C.`SELECT`			AS `select`
+			  ,C.`INSERT`			AS `insert`
+			  ,C.`UPDATE`			AS `update`
+			  ,C.`DELETE`			AS `delete`
+
+			  ,0 					AS chk
+
+		  FROM BS_ROLE_MENU_LIST			A
+		  JOIN BS_MENU_LIST				B ON A.MENU_ID = B.MENU_ID
+		  LEFT JOIN BS_ROLE_ACCESS_LIST	C ON A.ROLE_ID = C.ROLE_ID AND A.MENU_ID = C.MENU_ID
+
+		 WHERE A.ROLE_ID	= #roleId#
+
+		<isNotEmpty prepend="AND" property="menuType">
+			B.MENU_TYPE = #menuType#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="enable">
+			B.ENABLE = #enable#
+		</isNotEmpty>
+
+		/* system.selectPageRoleList */
+	</select>
+
+
+	<!-- 화면권한 변경 -->
+	<insert id="system.mergePageRole" parameterClass="HashMap">
+		INSERT INTO BS_ROLE_ACCESS_LIST(
+											MENU_TYPE,
+											ROLE_ID,
+											MENU_ID,
+											`OPEN`,
+											`SELECT`,
+											`INSERT`,
+											`UPDATE`,
+											`DELETE`,
+											ENABLE,
+											ORG_ID,
+											CREATE_DATE,
+											CREATED_BY,
+											UPDATE_DATE,
+											UPDATED_BY
+										)
+									VALUES(
+											#menuType#
+										   ,#roleId#
+										   ,#menuId#
+										   ,(CASE WHEN #open# IS NULL OR #open# = '' THEN 'N' ELSE #open# END)
+										   ,(CASE WHEN #select# IS NULL OR #select# = '' THEN 'N' ELSE #select# END)
+										   ,(CASE WHEN #insert# IS NULL OR #insert# = '' THEN 'N' ELSE #insert# END)
+										   ,(CASE WHEN #update# IS NULL OR #update# = '' THEN 'N' ELSE #update# END)
+										   ,(CASE WHEN #delete# IS NULL OR #delete# = '' THEN 'N' ELSE #delete# END)
+										   ,'Y'
+										   ,#orgId#
+										   ,NOW()
+										   ,#userSeq#
+										   ,NOW()
+										   ,#userSeq#
+											)
+
+									ON DUPLICATE KEY
+									UPDATE
+											MENU_TYPE = #menuType#
+
+										<isNotEmpty prepend="" property="open">
+										   ,`OPEN` = #open#
+										</isNotEmpty>
+										<isNotEmpty prepend="" property="select">
+										   ,`SELECT` = #select#
+										</isNotEmpty>
+										<isNotEmpty prepend="" property="insert">
+										   ,`INSERT` = #insert#
+										</isNotEmpty>
+										<isNotEmpty prepend="" property="update">
+										   ,`UPDATE` = #update#
+										</isNotEmpty>
+										<isNotEmpty prepend="" property="delete">
+										   ,`DELETE` = #delete#
+										</isNotEmpty>
+										<isNotEmpty prepend="" property="enable">
+										   ,ENABLE = #enable#
+										</isNotEmpty>
+
+										   ,UPDATE_DATE = NOW()
+										   ,UPDATED_BY = #userSeq#
+
+		/* system.mergePageRole */
+	</insert>
+
+
+	<!-- 화면권한 일괄변경(컬럼헤더 체크박스) -->
+	<update id="system.changePageRoleAll" parameterClass="HashMap">
+
+		UPDATE BS_ROLE_ACCESS_LIST
+		   SET
+			    $chkCol$ = #chkVal#
+
+			   ,UPDATE_DATE = NOW()
+			   ,UPDATED_BY = #userSeq#
+
+		WHERE ROLE_ID = #roleId#
+			<isNotEmpty prepend="AND" property="menuType">
+			  MENU_TYPE = #menuType#
+			</isNotEmpty>
+
+		/* system.changePageRoleAll */
+	</update>
+
+	<!-- ############################ 권한별 화면권한 :E ############################ -->
+
+
+	<!-- ############################ 권한별 코드 :S ############################ -->
+
+	<!-- 권한별 코드SET,값 리스트 -->
+	<select id="system.selectCodeSetValuePerRole" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				 A.CODE_ID								AS codeSetId
+				,A.VALUE_ID								AS codeListId
+				,A.CODE_NAME							AS codeSetName
+				,A.CODE_TYPE							AS codeType
+				,A.CODE_GROUP							AS codeGroup
+				,A.SET_MEAN_KOR							AS codeSetNmKor
+				,A.SET_MEAN_ENG							AS codeSetNmEng
+				,A.CODE_DESC							AS codeSetDesc
+				,A.CODE_VALUE							AS value
+				,A.VALUE_MEAN_KOR						AS valueNmKor
+				,A.VALUE_MEAN_ENG						AS valueNmEng
+				,A.SORT									AS sort
+				,A.VALUE_DESC							AS valueDesc
+
+				,IF(B.ROLE_ACCESS_ID IS NULL,"0","1") 	AS chk
+
+				,#roleId#								AS roleId
+
+			FROM BS_CODE_GV				A
+			LEFT JOIN BS_ROLE_CODE_LIST	B
+				  ON B.ROLE_ID = #roleId#
+				<isNotEmpty prepend="AND" property="orgId">
+					B.ORG_ID = #orgId#
+				</isNotEmpty>
+				   AND A.CODE_NAME = B.CODE_SET_NAME
+				   AND A.CODE_VALUE = B.VALUE
+		   WHERE 1=1
+			 AND A.ORG_ID = #orgId#
+			 AND A.DELETE_FLAG = 'N'
+	 	<isNotEmpty prepend="AND" property="search">
+			(A.CODE_NAME 		LIKE concat('%', #search#, '%')	OR
+			 A.SET_MEAN_KOR 	LIKE concat('%', #search#, '%')	OR
+			 A.CODE_VALUE 		LIKE concat('%', #search#, '%')	OR
+			 A.VALUE_MEAN_KOR 	LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+
+		ORDER BY chk desc, A.CODE_ID, A.SORT, A.VALUE_ID
+
+		/* system.selectCodeSetValuePerRole */
+	</select>
+
+
+	<!-- 권한별 코드 제외대상 등록 -->
+	<insert id="system.insertCodeSetValuePerRole" parameterClass="HashMap">
+		INSERT INTO BS_ROLE_CODE_LIST(
+
+									ROLE_ID
+								   ,CODE_SET_NAME
+								   ,VALUE
+								   ,ENABLE
+								   ,ORG_ID
+								   ,CREATE_DATE
+								   ,CREATED_BY
+								   ,UPDATE_DATE
+								   ,UPDATED_BY
+								)
+							VALUES(
+									#roleId#
+								   ,#codeSetName#
+								   ,#value#
+								   ,'Y'
+								   ,#orgId#
+								   ,NOW()
+								   ,#userSeq#
+								   ,NOW()
+								   ,#userSeq#
+									)
+
+							ON DUPLICATE KEY
+							UPDATE
+								    UPDATE_DATE = NOW()
+								   ,UPDATED_BY = #userSeq#
+
+								<isNotEmpty prepend="" property="enable">
+								   ,ENABLE = #enable#
+								</isNotEmpty>
+
+		/* system.insertCodeSetValuePerRole */
+	</insert>
+
+
+	<!-- 권한제외대상 삭제 -->
+	<delete id="system.deleteCodeSetValuePerRole" parameterClass="HashMap">
+		DELETE FROM BS_ROLE_CODE_LIST
+ 		 WHERE ROLE_ID 			= #roleId#
+ 		   AND CODE_SET_NAME 	= #codeSetName#
+ 		   AND VALUE 			= #value#
+
+ 		/* system.deleteCodeSetValuePerRole */
+	</delete>
+
+
+	<!-- ############################ 권한별 코드 :E ############################ -->
+
+	<!-- ############################ 사용자별 모듈  :S ############################ -->
+
+	<!-- 사용자별 모듈리스트 -->
+	<select id="system.getUserModuleList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT
+				  A.MODULE_CODE			AS moduleCode
+				, A.MODULE_ID  			AS moduleId
+				, A.MODULE_NAME			AS moduleName
+				, A.MODULE_DESC			AS moduleDesc
+				, A.MODULE_INC_URL		AS moduleIncUrl
+				, A.THEME				AS theme
+				, A.WIDTH				AS width
+				, A.HEIGHT				AS height
+		        , B.POSITION			AS position
+		        , B.LEFT_POS_X			AS leftPosX
+		        , B.LEFT_POS_Y			AS leftPosY
+		        , C.SORT				AS sort
+
+		FROM  BS_USER_MODULE_LIST  C
+		LEFT OUTER JOIN BS_ROLE_MODULE_LIST B	ON C.MODULE_ID = B.MODULE_ID
+		LEFT OUTER JOIN BS_MODULE_LIST      A	ON A.MODULE_ID = C.MODULE_ID
+
+
+		WHERE   A.MODULE_ID = B.MODULE_ID
+			AND     A.ENABLE = 'Y'
+			AND     B.ENABLE = 'Y'
+
+			AND     B.POSITION = 'RELATIVE'
+			AND 	C.USER_ID = #userId#
+
+		<isNotEmpty property="applyOrgId">
+			AND     C.ORG_ID= #applyOrgId#
+		</isNotEmpty>
+		<isNotEmpty property="roleId">
+			AND     B.ROLE_ID= #roleId#
+		</isNotEmpty>
+		ORDER BY C.SORT
+
+		/* system.getUserModuleList */
+	</select>
+
+
+
+
+
+	<!-- 사용자별 모듈 -->
+	<insert id="system.insertUserModule" parameterClass="HashMap">
+		INSERT INTO BS_USER_MODULE_LIST(
+
+								    ORG_ID
+								   ,USER_ID
+								   ,MODULE_ID
+								   ,SORT
+
+								   ,CREATE_DATE
+								   ,CREATED_BY
+								   ,UPDATE_DATE
+								   ,UPDATED_BY
+								)
+
+			<dynamic>
+				<iterate prepend="VALUES" conjunction="," property="list">
+							(
+
+									#orgId#
+								   ,#userId#
+								   ,#list[].moduleId#
+								   ,#list[].sort#
+
+								   ,NOW()
+								   ,#userId#
+								   ,NOW()
+								   ,#userId#
+
+							)
+				</iterate>
+			</dynamic>
+
+
+		/* system.insertUserModule */
+	</insert>
+
+
+	<!--사용자 모듈 삭제 -->
+	<delete id="system.deleteUserModule" parameterClass="HashMap">
+		DELETE FROM BS_USER_MODULE_LIST
+ 		 WHERE ORG_ID 			= #orgId#
+ 		   AND USER_ID 			= #userId#
+
+ 		/* system.deleteUserModule */
+	</delete>
+
+	<!-- ############################ 사용자별 모듈  :E ############################ -->
+
+	<!-- ############################ 달력등록 탭 :S ############################ -->
+
+	<!-- 달력 리스트 -->
+	<select id="system.selectCalendarList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT DATE_FORMAT(SYS_DATE, '%Y-%m-%d')				 	AS sysDate
+				,CAL_YEAR				AS calYear
+				,MM				 		AS mm
+				,DD				 		AS dd
+				,MONTH				 	AS month
+				,MON_AB					AS monAb
+				,WEEK_NUM				AS weekNum
+				,WEEK_KOR				AS weekKor
+				,WEEK_ENG				AS weekEng
+				,WEEK_AB				AS weekAb
+				,YEAR_WEEK				AS yearWeek
+				,MONTH_WEEK				AS monthWeek
+				,IN_TIME				AS inTime
+				,OUT_TIME				AS outTime
+				,WORK_TIME				AS workTime
+				,HOLIDAY				AS holiday
+				,FORMAL_HOL				AS formalHol
+				,NATIONAL_HOL			AS nationalHol
+				,HOL_PAID				AS holPaid
+				,HOL_TYPE				AS holType
+				,COSTING_YN				AS costingYn
+				,TIMESHEET_YN			AS timesheetYn
+				,FISCAL_YEAR			AS fiscalYear
+				,CREATED_BY				AS createdBy
+				,CREATE_DATE			AS createDate
+				,UPDATED_BY				AS updatedBy
+				,UPDATE_DATE			AS updateDate
+				,IFNULL((SELECT hol_type from BS_HOLIDAY WHERE ( DATE_FORMAT(holiday, '%Y-%m-%d') = DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d')) AND org_id = A.ORG_ID AND ENABLE ='Y' ),'') as formalHolType
+				,IFNULL((SELECT hol_type from BS_NATIONAL_HOLIDAY WHERE ( DATE_FORMAT(holiday, '%Y-%m-%d') = DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d') OR  (REPEAT_YN= 'Y' AND ENABLE='Y' AND A.MM = HOL_MM AND A.DD = HOL_DD ) ) ),'') as nationalHolType
+
+		  FROM BS_CALENDAR A
+		  WHERE 1=1
+		  	<isEqual prepend="AND" property="option" compareValue="holiday">
+		  		HOLIDAY = 'Y'
+		  	</isEqual>
+
+			<isNotEmpty prepend="AND" property="calYear">
+				CAL_YEAR = #calYear#
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="mm">
+				MM = CONVERT( #mm#,UNSIGNED INTEGER)
+			</isNotEmpty>
+
+			<isNotEmpty property="calendarType">
+				<isEqual prepend="AND" property="calendarType" compareValue="user">
+	                ORG_ID = (SELECT ORG_ID FROM BS_USER_MASTER WHERE USER_ID = #userId# LIMIT 1)
+	            </isEqual>
+	        </isNotEmpty>
+            <isEmpty property="calendarType">
+                <isNotEmpty prepend="AND" property="orgId">
+	                ORG_ID = #orgId#
+	            </isNotEmpty>
+            </isEmpty>
+
+         ORDER BY SYS_DATE ASC
+
+		/* system.selectCalendarList */
+	</select>
+
+	<!-- 달력등록(신규) -->
+	<insert id="system.insertCalendar" parameterClass="HashMap">
+		INSERT INTO BS_CALENDAR (SYS_DATE
+						,ORG_ID
+						,CAL_YEAR
+						,MM
+						,DD
+						,MONTH
+						,MON_AB
+						,WEEK_NUM
+						,WEEK_KOR
+						,WEEK_ENG
+						,WEEK_AB
+						,YEAR_WEEK
+						,MONTH_WEEK
+						,IN_TIME
+						,OUT_TIME
+						,WORK_TIME
+						,HOLIDAY
+						,NATIONAL_HOL
+						,FORMAL_HOL
+						,HOL_PAID
+						,HOL_TYPE
+						,COSTING_YN
+						,TIMESHEET_YN
+						,FISCAL_YEAR
+						,CREATE_DATE
+						,CREATED_BY
+						)
+						VALUES( #sysDate#
+						,#orgId#
+						,#calYear#
+						,#mm#
+						,#dd#
+						,#month#
+						,#monAb#
+						,#weekNum#
+						,#weekKor#
+						,#weekEng#
+						,#weekAb#
+						,#yearWeek#
+						,#monthWeek#
+						,#inTime#
+						,#outTime#
+						,#workTime#
+						,#holiday#
+						,#nationalHol#
+						,#formalHol#
+						,#holPaid#
+						,#holType#
+						,#costingYn#
+						,#timesheetYn#
+						,#fiscalYear#
+						, now()
+						, #userSeq#
+						)
+	ON DUPLICATE KEY
+		UPDATE
+			<isNotEmpty property="holiday">
+	  			HOLIDAY				= #holiday#
+			</isNotEmpty>
+			<isNotEmpty property="formalHol">
+				,FORMAL_HOL				= #formalHol#
+			</isNotEmpty>
+			<isNotEmpty property="nationalHol">
+				,NATIONAL_HOL				= #nationalHol#
+			</isNotEmpty>
+			<isNotEmpty property="holType">
+				,HOL_TYPE				= #holType#
+			</isNotEmpty>
+				,UPDATE_DATE=now()
+				,UPDATED_BY=#userSeq#
+	</insert>
+
+
+
+	<!-- 달력 수정 -->
+	<update id="system.updateCalendar" parameterClass="HashMap">
+		UPDATE BS_CALENDAR
+   		   SET
+   		   	   UPDATE_DATE  		= NOW()
+   		   	  ,UPDATED_BY   		= #userSeq#
+
+			<isNotEmpty property="holiday">
+			  ,HOLIDAY				= #holiday#
+			</isNotEmpty>
+			<isNotEmpty property="nationalHol">
+			  ,NATIONAL_HOL			= #nationalHol#
+			</isNotEmpty>
+			<isNotEmpty property="formalHol">
+			  ,FORMAL_HOL			= #formalHol#
+			</isNotEmpty>
+			<isNotEmpty property="holPaid">
+			  ,HOL_PAID				= #holPaid#
+			</isNotEmpty>
+			<isNotEmpty property="holType">
+			  ,HOL_TYPE				= #holType#
+			</isNotEmpty>
+			<isNotEmpty property="costingYn">
+			  ,COSTING_YN			= #costingYn#
+			</isNotEmpty>
+			<isNotEmpty property="timesheetYn">
+			  ,TIMESHEET_YN			= #timesheetYn#
+			</isNotEmpty>
+
+ 		 WHERE
+ 		 	ORG_ID = #orgId#
+ 		 <isNotEmpty property="sysDate" prepend="AND">
+ 		 	SYS_DATE = #sysDate#
+ 		 </isNotEmpty>
+ 		 <isNotEmpty property="mm" prepend="AND">
+ 		 	MM	= #mm# AND DD	=	#dd#
+ 		 </isNotEmpty>
+
+		/* system.updateCalendar */
+	</update>
+
+	<!-- 휴일 업데이트 전 등록 여부 체크 -->
+	<select id="system.selectCalendarInfo"  parameterClass="HashMap" resultClass="int">
+		SELECT COUNT(CALENDAR_ID)
+		FROM BS_CALENDAR
+		WHERE ORG_ID = #orgId# AND SYS_DATE = DATE_FORMAT(#sysDate#, '%y-%m-%d')
+
+		/* system.selectCalendarInfo */
+	</select>
+
+	<!-- 법적 공휴일 리스트 -->
+	<select id="system.selectNationalHolidayList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT HOL_ID				 	AS holId
+				,DATE_FORMAT(HOLIDAY, '%Y-%m-%d')		AS holiday
+				,HOL_YYYY		 		AS holYyyy
+				,HOL_MM			 		AS holMm
+				,HOL_DD				 	AS holDd
+				,HOL_TYPE				AS holType
+				,REPEAT_YN				AS repeatYn
+				,HOL_PAID				AS holPaid
+				,ENABLE					AS enable
+				,ATTR1					AS attr1
+				,ATTR2					AS attr2
+				,ATTR3					AS attr3
+				,ATTR4					AS attr4
+				,ATTR5					AS attr5
+				,CREATED_BY				AS createdBy
+				,CREATE_DATE			AS createDate
+				,UPDATED_BY				AS updatedBy
+				,UPDATE_DATE			AS updateDate
+
+			FROM BS_NATIONAL_HOLIDAY
+			WHERE 1=1 AND ENABLE = 'Y'
+			<isNotEmpty prepend="AND" property="calYear">
+				(HOL_YYYY = #calYear# OR REPEAT_YN = 'Y')
+			</isNotEmpty>
+			ORDER BY HOLIDAY ASC
+
+		/* system.selectNationalHolidayList */
+	</select>
+
+	<!-- 재량 휴일 리스트 -->
+	<select id="system.selectHolidayList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT HOL_ID				 	AS holId
+				,DATE_FORMAT(HOLIDAY, '%Y-%m-%d')	AS holiday
+				,HOL_YYYY		 		AS holYyyy
+				,HOL_MM			 		AS holMm
+				,HOL_DD				 	AS holDd
+				,HOL_TYPE				AS holType
+				,ALL_HALF				AS allHalf
+				,REPEAT_YN				AS repeatYn
+				,HOL_PAID				AS holPaid
+				,ENABLE					AS enable
+				,ATTR1					AS attr1
+				,ATTR2					AS attr2
+				,ATTR3					AS attr3
+				,ATTR4					AS attr4
+				,ATTR5					AS attr5
+				,CREATED_BY				AS createdBy
+				,CREATE_DATE			AS createDate
+				,UPDATED_BY				AS updatedBy
+				,UPDATE_DATE			AS updateDate
+
+			FROM BS_HOLIDAY
+			WHERE 1=1
+			AND ORG_ID = #orgId#
+			AND ENABLE = 'Y'
+			<isNotEmpty prepend="AND" property="calYear">
+				(HOL_YYYY = #calYear# OR REPEAT_YN = 'Y')
+			</isNotEmpty>
+			ORDER BY HOLIDAY ASC
+
+		/* system.selectHolidayList */
+	</select>
+
+
+	<!--  휴일 전체 리스트 (법정, 재량 포함) -->
+	<select id="system.selectHolidayAllList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				  FROMT			AS fromt
+				, HOL_ID 		AS holId
+				, ALL_HALF 		AS allHalf
+				, HOL_YYYY 		AS holYyyy
+				, HOL_DD 		AS holDd
+				, HOL_TYPE 		AS holType
+				, REPEAT_YN 	AS repeatYn
+				, ENABLE		AS enable
+				, HOL_PAID		AS holPaid
+
+				, DATE_FORMAT(HOLIDAY, "%Y-%m-%d") 		AS holiday
+				, DATE_FORMAT(HOLIDAY, "%m-%d") 		AS holidayDay
+				, DATE_FORMAT(HOLIDAY, "%Y년 %m월 %d일") AS holidayTxt
+				, DATE_FORMAT(HOLIDAY, "%m-%d") 		AS repeatHoliday
+				, DATE_FORMAT(HOLIDAY, "%m월 %d일") 		AS repeatHolidayTxt
+
+
+		FROM
+			(
+				SELECT
+						'N' 		AS fromt
+					  , HOL_ID
+					  , ''			AS ALL_HALF
+					  , HOLIDAY
+					  , HOL_YYYY
+					  , HOL_MM
+					  , HOL_DD
+					  , HOL_TYPE
+					  , REPEAT_YN
+					  , ENABLE
+					  , HOL_PAID
+
+				FROM BS_NATIONAL_HOLIDAY
+
+				WHERE ( HOL_YYYY= #calYear#  OR REPEAT_YN = 'Y')
+				AND ENABLE = 'Y'
+
+				UNION ALL
+
+				SELECT
+						'H' 		AS fromt
+					   , HOL_ID
+					   , ALL_HALF
+					   , HOLIDAY
+					   , HOL_YYYY
+					   , HOL_MM
+					   , HOL_DD
+					   , HOL_TYPE
+					   , REPEAT_YN
+					   , ENABLE
+					   , HOL_PAID
+
+				FROM BS_HOLIDAY
+
+				WHERE ORG_ID = #orgId#
+				AND ENABLE = 'Y' AND HOL_YYYY= #calYear#
+
+				<isNotEmpty prepend="AND" property="mm">
+						HOL_MM= #mm#
+				</isNotEmpty>
+
+			) T
+
+		ORDER BY holidayDay ASC
+
+	 /*system.selectHolidayAllList */
+	</select>
+
+
+	<!-- 휴일등록(신규) -->
+	<insert id="system.insertHoliday" parameterClass="HashMap">
+		INSERT INTO BS_HOLIDAY(
+		  							HOLIDAY
+		  							,ORG_ID
+									,HOL_YYYY
+									,HOL_MM
+									,HOL_DD
+									,HOL_TYPE
+									,ALL_HALF
+									,REPEAT_YN
+									,HOL_PAID
+									,ENABLE
+									,CREATE_DATE
+									,CREATED_BY
+									)
+
+							VALUES(#holidayDate#
+									,#orgId#
+									,#holYyyy#
+									,#holMm#
+									,#holDd#
+									,#holType#
+									,#allHalf#
+									,#repeatYn#
+									,#holPaid#
+									,#enable#
+									, now()
+									, #userSeq#
+							)
+		<selectKey resultClass="int" type="post" keyProperty="holId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* system.insertHoliday */
+	</insert>
+
+	<!-- 중복된 날짜가 있는지 검색 -->
+	<select id="system.selectDupHoliday" parameterClass="HashMap" resultClass="int">
+		SELECT COUNT(HOL_ID)
+		FROM BS_HOLIDAY
+		WHERE ORG_ID = #orgId#
+		AND ENABLE = 'Y'
+		AND HOLIDAY = DATE_FORMAT(#holidayDate#, '%y-%m-%d')
+	</select>
+
+	<!-- 법정 공휴일로 되어있는지 체크하기 (토, 일, 법정공휴일)-->
+	<select id="system.checkHoliday" parameterClass="HashMap" resultClass="HashMap">
+		SELECT CALENDAR_ID AS calendarId, NATIONAL_HOL AS nationalHol
+		FROM BS_CALENDAR
+		WHERE ORG_ID = #orgId#
+		AND SYS_DATE = DATE_FORMAT(#holidayDate#, '%y-%m-%d')
+	</select>
+
+	<!-- 휴일정보 수정 -->
+	<update id="system.updateHoliday" parameterClass="HashMap">
+		UPDATE BS_HOLIDAY
+   		SET
+   				  ENABLE 		= #enable#
+
+   			<isNotEmpty property="holType">
+   				, HOL_TYPE 		= #holType#
+   			</isNotEmpty>
+
+	   		<isNotEmpty property="repeatYn">
+	   			, REPEAT_YN 	= #repeatYn#
+	   		</isNotEmpty>
+
+	   		<isNotEmpty property="orgId">
+	   			, ORG_ID		= #orgId#
+	   		</isNotEmpty>
+
+   				, UPDATE_DATE		= now()
+			  	, UPDATED_BY		= #userSeq#
+
+ 		 WHERE 1=1
+
+
+ 		<isEmpty prepend="AND" property="allChange">
+ 		 	HOL_ID = #holId#
+ 		</isEmpty>
+
+
+ 		<isNotEmpty prepend="AND" property="allChange">
+ 			holiday &gt; DATE_FORMAT(#holidayDate#,'%Y-%m-%d') AND hol_mm = #holMm# AND hol_dd = #holDd# AND ENABLE = 'Y'
+
+ 		</isNotEmpty>
+
+ 		/* system.updateHoliday */
+	</update>
+
+
+	<!-- 휴일삭제 수정 -->
+	<update id="system.deleteHoliday" parameterClass="HashMap">
+		DELETE FROM BS_HOLIDAY
+ 		 WHERE 1=1
+
+ 		 <isEmpty prepend="AND" property="allChange">
+ 		 	HOL_ID = #holId#
+ 		 </isEmpty>
+
+ 		 <isNotEmpty prepend="AND" property="allChange">
+ 			holiday &gt; DATE_FORMAT(#holidayDate#,'%Y-%m-%d') AND hol_mm = #holMm# AND hol_dd = #holDd# AND ENABLE = 'Y'
+ 		</isNotEmpty>
+
+ 		/* system.deleteHoliday */
+	</update>
+
+
+	<!-- 주말 달력 리스트 -->
+	<select id="system.selectCalendarWeekList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				CAL_YEAR				AS calYear
+			   ,WEEK					AS week
+			   ,MONTH					AS month
+			   ,OPEN					AS open
+			   ,FISCAL_YEAR				AS fiscalYear
+			   ,WEEK_CAL_ID				AS weekCalId
+
+			   ,DATE_FORMAT(START_DATE, "%Y-%m-%d")	AS startDate
+			   ,DATE_FORMAT(END_DATE, "%Y-%m-%d")	AS endDate
+
+
+			   FROM BS_WEEK_CAL
+			WHERE 1=1
+			AND ORG_ID = #orgId#
+			<isNotEmpty prepend="AND" property="calYear">
+				CAL_YEAR = #calYear#
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="week">
+				WEEK = #week#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="month">
+				<isNotEqual property="month" compareValue="ALL">
+					MONTH = #month#
+				</isNotEqual>
+			</isNotEmpty>
+
+			ORDER BY CAL_YEAR ASC, WEEK ASC
+
+		/* system.system.selectWeekList */
+	</select>
+
+
+	<!-- 달력등록(신규) -->
+	<insert id="system.insertCalendarWeek" parameterClass="HashMap">
+		INSERT INTO BS_WEEK_CAL (
+						CAL_YEAR
+						,ORG_ID
+						,WEEK
+						,MONTH
+						,START_DATE
+						,END_DATE
+						,OPEN
+						,FISCAL_YEAR
+						,CREATE_DATE
+						,CREATED_BY
+						)
+						VALUES(
+						#calYear#
+						,#orgId#
+						,#week#
+						,#month#
+						,#startDate#
+						,#endDate#
+						,#open#
+						,#fiscalYear#
+						, now()
+						, #userSeq#
+						)
+	</insert>
+
+	<!-- 달력 차차차오픈여부 수정 -->
+	<update id="system.updateCalendarWeek" parameterClass="HashMap">
+		UPDATE BS_WEEK_CAL
+   		  SET
+   		  		OPEN			= #open#
+			  , UPDATE_DATE		= now()
+			  , UPDATED_BY		= #userSeq#
+
+ 		 WHERE 1=1
+
+ 		 <isEmpty prepend="AND" property="idArr">
+ 		 	CAL_YEAR = #calYear# AND WEEK = #week# AND ORG_ID = #orgId#
+ 		 </isEmpty>
+
+ 		 <isNotEmpty prepend="AND" property="idArr">
+ 		 	WEEK_CAL_ID in ($idArr$)
+ 		 </isNotEmpty>
+
+ 		 /* system.updateCalendarWeek*/
+	</update>
+
+	<!-- 해당 일자의 달력이 마감되었는지 체크 -->
+	<select id="system.selectCalendarOpenChk" parameterClass="HashMap" resultClass="Integer">
+			SELECT COUNT(1)
+
+			FROM BS_WEEK_CAL
+			WHERE 1=1
+
+			AND org_id = #orgId#
+
+			<isNotEmpty prepend="AND" property="selectDate">
+				#selectDate# BETWEEN start_date AND end_date AND open !='O'
+			</isNotEmpty>
+
+
+		/* system.selectCalendarOpenChk */
+	</select>
+
+	<!-- 달력 변경으로인한 신규 달력 로직 추가 -->
+
+	<!-- 해당일의 휴일 정보 가저오기 -->
+	<select  id="system.selectHolidayInfo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				  HOL_ID		AS	holId
+				, ORG_ID		AS	orgId
+				, HOLIDAY		AS	holiday
+				, HOL_YYYY		AS	holYyyy
+				, HOL_MM		AS	holMm
+				, HOL_DD		AS	holDd
+				, HOL_TYPE		AS	holType
+				, REPEAT_YN		AS	repeatYn
+
+
+		FROM BS_HOLIDAY
+
+		WHERE 	ORG_ID = #orgId#
+			AND HOLIDAY = #holidayDate#
+			AND ENABLE = 'Y'
+
+	</select>
+
+
+
+
+	<!-- 해당 관계사의 기록된 가장 마지막 년도 -->
+	<select id="system.selectMaxCalendarYear" parameterClass="HashMap" resultClass="Integer">
+		SELECT MAX(cal_year) FROM BS_CALENDAR
+
+		WHERE ORG_ID = #orgId#
+	</select>
+
+	<!-- 달력 변경 sjy -->
+	<update id="system.updateCalendarForHoli" parameterClass="HashMap">
+
+		UPDATE BS_CALENDAR
+		SET
+			  formal_hol 	= #formalHol#
+			, holiday 		= (CASE WHEN national_hol = 'Y' OR #formalHol# = 'Y' THEN 'Y'
+							 	ELSE 'N' END)
+
+		WHERE org_id = #orgId#
+
+		<isEqual property="range" compareValue="after"> 			<!-- 해당일 이후 -->
+			AND sys_date &gt; DATE_FORMAT(#holidayDate#,'%Y-%m-%d')
+		</isEqual>
+
+		<isEqual property="range" compareValue="contain"> 			<!-- 해당일 포함 -->
+			AND sys_date &gt;= DATE_FORMAT(#holidayDate#,'%Y-%m-%d')
+		</isEqual>
+
+		<isEqual property="range" compareValue="equal"> 			<!-- 해당일만-->
+			AND sys_date = DATE_FORMAT(#holidayDate#,'%Y-%m-%d')
+		</isEqual>
+
+		AND MM = #holMm# AND DD = #holDd#
+
+	</update>
+
+
+	<!-- 관계사 정보 반환. -->
+	<select id="system.selectOrgComInfo" parameterClass="HashMap" resultClass="HashMap">
+			SELECT
+			ORG_ID AS orgId,
+			ORG_CODE AS orgCode,
+			COMPANY_SNB AS companySnb,
+			DATE_FORMAT( IN_TIME, '%H:%i') AS inTime,
+			DATE_FORMAT( OUT_TIME, '%H:%i') AS outTime,
+			BO.BUSINESS_GRP_SEQ AS businessGrpSeq,
+			BO.DESCRIPTION AS description,
+			CASE WHEN ORG_LOGO IS NULL THEN 'N' ELSE 'Y' END AS orgLogo,
+			DATE_FORMAT(BO.CREATE_DATE , '%Y-%m-%d') AS createDate,
+			BO.ADDR AS addr, IC.GROUPING_ORG_YN AS groupingOrgYn,
+			IC.REF_ORG_ID AS refOrgId, IC.CPN_NM AS cpnNm,
+			BO.CODE_MGMT_ADMIN_YN AS comdeMgmtAdminYn
+		FROM BS_ORG BO
+		LEFT JOIN IB_COMPANY IC ON IC.S_NB = BO.COMPANY_SNB
+		WHERE 1=1 AND
+		ORG_ID = #orgId#
+		/* system.selectOrgComInfo */
+	</select>
+	<!-- ############################ 달력등록 탭 :E ############################ -->
+
+	<!-- 관계사  그룹카운트-->
+    <select id="system.getBusinessGroupCnt" parameterClass="HashMap" resultClass="int">
+        SELECT (SELECT COUNT(*) FROM BS_ORG C WHERE A.BUSINESS_GRP_SEQ = C.BUSINESS_GRP_SEQ) AS BUSINESS_GROUP_CNT
+		FROM BS_ORG A
+		    , BS_BUSINESS_GROUP B
+		WHERE A.BUSINESS_GRP_SEQ = B.BUSINESS_GRP_SEQ
+		AND A.ORG_ID = #orgId#
+		AND A.USE_YN = 'Y'
+		AND B.DEL_FLAG = 'N'
+        /* system.getBusinessGroupCnt */
+    </select>
+
+    <!-- 등록하려는 휴일의 마감여부 체크 -->
+    <select id="system.getCloseChkCnt" parameterClass="HashMap" resultClass="int">
+        SELECT
+        		CASE /*달력이 없는경우*/
+        			WHEN COUNT(*) = 0 THEN -1
+        			/*등록가능*/
+        			WHEN IFNULL(B.END_YN, 'N') = 'N' THEN 0
+        			/*마감됨*/
+        			WHEN IFNULL(B.END_YN, 'N') = 'Y' THEN 1
+        		END
+		FROM    BS_CALENDAR A
+		LEFT JOIN BS_WORKTIME_END B ON A.ORG_ID = B.ORG_ID AND A.SYS_DATE = B.WORK_DATE
+		WHERE   A.ORG_ID =  #orgId#
+		  AND   A.CAL_YEAR = #holYyyy#
+		  AND   A.MM = #holMm#
+		  AND   A.DD = #holDd#
+    </select>
+    <!-- 공통코드,시스템코드 통합 dup chk-->
+	<select id="system.getCodeDupChkCnt" parameterClass="HashMap" resultClass="Integer">
+		SELECT COUNT(*)
+		  FROM BS_CODE_SET A
+		 WHERE CODE_SET_NAME = #codeSetName#
+		   AND CODE_GROUP != #codeGroup#
+		/* system.getCodeDupChkCnt */
+	</select>
+
+	<!-- 관계사별 결재자공개 삭제 -->
+	<delete id="system.deleteOrgCommonAppvLine" parameterClass="HashMap">
+		DELETE FROM BS_APPROVE_OPENER
+		 WHERE OPEN_ORG_ID = #searchOrgId#
+		/* system.deleteOrgCommonAppvLine */
+	</delete>
+
+	<!--관계사별 결재자공개 저장 -->
+	<insert id="system.insertOrgCommonAppvLine" parameterClass="HashMap">
+		INSERT /* system.insertOrgCommonAppvLine */
+		  INTO BS_APPROVE_OPENER (
+		  						 OPEN_ORG_ID
+								,ORG_ID
+								,USER_ID
+								,CREATED_BY
+								,CREATE_DATE
+								,UPDATED_BY
+								,UPDATE_DATE
+		  			) VALUES (
+								#searchOrgId#
+		  						,#applyOrgId#
+								,#inUserId#
+								,#userSeq#
+								,NOW()
+								,#userSeq#
+								,NOW()
+		  						)
+	</insert>
+
+	<!-- 관계사별 결재자공개 조회-->
+	<select id="system.searchOrgCommonAppvLineList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT   A.APPROVE_OPENER_ID
+				,A.OPEN_ORG_ID
+				,A.ORG_ID
+				,A.USER_ID
+				,A.CREATED_BY
+				,A.CREATE_DATE
+				,A.UPDATED_BY
+				,A.UPDATE_DATE
+		FROM 	BS_APPROVE_OPENER A
+	   WHERE A.OPEN_ORG_ID = #searchOrgId#
+	     AND A.ORG_ID = #applyOrgId#
+	</select>
+
+	<!-- 사용자 부서정보 가져오기 -->
+	<select id="system.getUserDepartmentListByDept" parameterClass="HashMap" resultClass="egovMap">
+	    /*  system.getUserDepartmentListByDept */
+        SELECT   A.USER_ID
+        FROM    BS_USER_DEPARTMENT A
+       WHERE A.DEPT_ID = #deptId#
+       AND A.ENABLE = 'Y'
+       AND A.DELETE_FLAG='N'
+    </select>
+
+	<!-- 이전 부서 내용 지우기 -->
+    <update id="system.updateUserDepartmentForMove" parameterClass="HashMap">
+        /* system.updateUserDepartmentForMove */
+        UPDATE BS_USER_DEPARTMENT
+           SET MAIN_YN = 'N'
+              ,ENABLE = 'N'
+              ,DELETE_FLAG='Y'
+              ,UPDATED_BY = #userSeq#
+              ,UPDATE_DATE = NOW()
+         WHERE DEPT_ID = #oldDeptId#
+           AND USER_ID = #userId#
+    </update>
+
+    <!-- 사용자 부서장 초기화(없애기)  -->
+    <delete id="system.deleteDeptManageForMove" parameterClass="HashMap">
+        /* system.deleteDeptManageForMove */
+        DELETE
+        FROM BS_DEPT_MANAGER
+         WHERE DEPT_ID = #oldDeptId#
+           AND USER_ID = #userId#
+    </delete>
+    
+	<!-- 인수인계자 설정 리스트 조회-->
+	<select id="system.transferUserList" parameterClass="HashMap" resultClass="egovMap">
+		
+		/*system.transferUserList*/
+		SELECT * 
+		
+		FROM(
+			SELECT   
+					 A.USER_TRANSFER_ID
+					,A.ORG_ID
+					,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = B.COMPANY_SNB)	AS orgNm
+					,A.GIVE_USER_ID
+					,A.TAKE_USER_ID
+					,(
+						SELECT 
+							CONCAT(
+								 X.NAME
+								,' '
+								,(SELECT 
+									VALUE_MEAN_KOR 
+								 FROM BS_CODE_GV 
+								 WHERE CODE_NAME = 'RANK' 
+								 	AND CODE_VALUE = X.RANK 
+								 	AND ORG_ID = X.ORG_ID)
+								,' ' 	
+								,'(' 	
+								,IF(
+									(X.DELETE_FLAG = 'Y' OR
+			  	 	 				 X.USER_STATUS  IN ('F','R')) , CONCAT(DATE_FORMAT(X.FIRED_DATE, '%Y/%m/%d'),' ') ,''
+								
+								 )
+								 			
+						  		   
+								,(SELECT 
+									G.VALUE_MEAN_KOR
+						 		 FROM BS_CODE_GV G
+								 WHERE G.CODE_NAME = 'USER_STTS'
+						  		   AND G.CODE_VALUE = X.USER_STATUS
+						  		   AND X.ORG_ID = G.ORG_ID)
+						  		   
+						  		,')'   
+							
+							) 
+					  
+					  	FROM BS_USER_MASTER AS X 
+					  	WHERE X.USER_ID = A.GIVE_USER_ID 
+					  	
+					  	
+					  
+					  ) AS giveName
+					,(
+						SELECT 
+							CONCAT(
+								 X.NAME
+								,' '
+								,(SELECT 
+									VALUE_MEAN_KOR 
+								 FROM BS_CODE_GV 
+								 WHERE CODE_NAME = 'RANK' 
+								 	AND CODE_VALUE = X.RANK 
+								 	AND ORG_ID = X.ORG_ID)
+								,' ' 	
+								,'(' 	
+								,CONCAT(DATE_FORMAT(X.JOIN_DATE, '%Y/%m/%d'),' ')
+								   
+						  		,'입사)'   
+							
+							) 
+					  
+					  	FROM BS_USER_MASTER AS X 
+					  	WHERE X.USER_ID = A.TAKE_USER_ID 
+					  	
+					  	
+					  
+					 ) AS takeName
+					
+					,A.COMMENT
+					,A.USE_YN
+					,(SELECT Y.NAME FROM BS_USER_MASTER AS Y WHERE Y.USER_ID = A.CREATED_BY ) AS createdName
+					,A.CREATED_BY
+					,DATE_FORMAT(A.CREATE_DATE, '%Y-%m-%d') AS createDateFormat
+					,A.CREATE_DATE
+					,A.UPDATED_BY
+					,A.UPDATE_DATE
+					
+			FROM BS_USER_TRANSFER 	AS A
+			LEFT OUTER JOIN BS_ORG 	AS B	ON A.ORG_ID = B.ORG_ID 
+			
+		   	WHERE 1=1
+		   	
+		   	<isNotEmpty property="applyOrgId">
+		   		 AND A.ORG_ID = #applyOrgId#
+		   	</isNotEmpty>
+	   	
+	   	) AS B
+	   	
+	   	WHERE 1 = 1
+	   	<isNotEmpty property="searchText">
+		   	AND (
+		   			B.giveName LIKE CONCAT('%', #searchText#, '%')	
+		   		 	OR  B.takeName LIKE CONCAT('%', #searchText#, '%')
+		   		 	OR  B.COMMENT  LIKE CONCAT('%', #searchText#, '%')
+		   		 )
+		</isNotEmpty>
+	   	
+	   	ORDER BY B.CREATE_DATE DESC
+	    
+	</select>
+	
+	<!-- 인수인계자 수정  -->
+	<update id="system.modifyTransferUseYn" parameterClass="HashMap">
+		/* system.modifyTransferUseYn */
+		
+		UPDATE BS_USER_TRANSFER
+   		  SET
+   		  		USE_YN			= #useYn#
+			  , UPDATE_DATE		= now()
+			  , UPDATED_BY		= #userId#
+
+ 		 WHERE 1=1
+
+ 		 AND USER_TRANSFER_ID = #userTransferId#
+
+ 		
+	</update>
+	
+	<!--인수인계자 저장 -->
+	<insert id="system.createTransferUser" parameterClass="HashMap">
+		/* system.createTransferUser */
+	
+		INSERT INTO BS_USER_TRANSFER (
+		  						 
+								 ORG_ID
+								,GIVE_USER_ID
+								,TAKE_USER_ID
+								,COMMENT
+								,USE_YN
+								,CREATED_BY
+								,CREATE_DATE
+								,UPDATED_BY
+								,UPDATE_DATE
+		  			) VALUES (
+								 #orgId#
+		  						,#giveUserId#
+		  						,#takeUserId#
+		  						,#comment#
+								,#useYn#
+								,#userId#
+								,NOW()
+								,#userId#
+								,NOW()
+		  			)
+		  <selectKey resultClass="int" type="post" keyProperty="userTransferId">
+			SELECT LAST_INSERT_ID()
+		  </selectKey>
+		  
+	</insert>
+	
+	
+</sqlMap>

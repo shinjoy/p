@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="pass">
+
+	
+
+	<!-- 사용자 패스워드 -->
+	<select id="pass.selectUserPwdByLoginId" parameterClass="HashMap" resultClass="String">
+		SELECT PASSWORD
+		  FROM BS_USER_MASTER
+		 WHERE LOGIN_ID = #loginId#
+
+		/* pass.selectUserPwdByLoginId */
+	</select>
+
+
+	<!-- 각종 신규 정보 (개선요청게시판 신규건 등..) -->
+	<select id="pass.selectNewArticleList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT '개선요청'	AS name
+			  ,COUNT(*) 	AS cnt
+			  ,#srchDt#		AS `start`
+			  ,(CASE WHEN COUNT(*) > 0 THEN 'RED' ELSE 'BLACK' END)	AS bgcolor
+			  
+		  FROM BS_CBOARD_CONTENT A
+		 WHERE 1=1
+		   AND DELETE_FLAG = 'N'
+		   AND CBOARD_ID = 2
+		   AND (NOT EXISTS (SELECT 1
+							  FROM BS_CBOARD_COMMENT
+							 WHERE A.CONTENT_ID  = CONTENT_ID)
+				OR
+                        
+				CREATED_DATE LIKE CONCAT(LEFT(NOW(), 10), '%')
+                        
+				OR
+                        
+				EXISTS (SELECT 1
+	                      FROM BS_CBOARD_COMMENT
+				 		 WHERE A.CONTENT_ID  = CONTENT_ID
+	                       AND CREATED_DATE LIKE CONCAT(LEFT(NOW(), 10), '%')
+	                    )
+			)
+			
+		/* pass.selectNewArticleList */
+	</select>
+
+
+	<!-- 시너지 사용자 상태 정보 -->
+	<select id="pass.selectSynergyUserStatusList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT LOGIN_ID			AS loginId
+			  ,NAME				AS name
+			  ,USER_STATUS		AS userStatus
+			  
+		  FROM BS_USER_MASTER
+		 WHERE ORG_ID = 1
+
+		/* pass.selectSynergyUserStatusList */
+	</select>
+
+	<!-- 공통코드 (base.BS_CODE_GV) -->
+	<select id="pass.selectSynergyUserBaseCodeList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT CODE_VALUE		as #code#
+			  ,VALUE_MEAN_KOR	as #name#
+			  ,CODE_NAME		as codeName
+			  ,CODE_TYPE		as codeType
+			  ,SET_MEAN_KOR		as setMeanKor
+			  ,SET_MEAN_ENG		as setMeanEng
+			  ,CODE_DESC		as codeDesc
+			  ,CODE_VALUE		as codeValue
+			  ,VALUE_MEAN_KOR	as valueMeanKor
+			  ,VALUE_MEAN_ENG	as valueMeanEng
+			  ,SORT				as sort
+			  ,VALUE_DESC		as valueDesc
+			  ,PARENT_CODE_NAME	as parentCodeName		/* 중분류 부모 이름 */
+			  ,SON_CODE_NAME	as sonCodeName			/* 소분류 이름 */
+
+		FROM BS_CODE_GV
+		WHERE 1=1  
+		AND DELETE_FLAG = 'N'
+		AND ORG_ID = 1
+		<isNotEmpty prepend="AND" property="codeSetNm">
+			CODE_NAME = #codeSetNm#
+		</isNotEmpty>
+		
+		ORDER BY SORT ASC, VALUE_ID ASC
+		
+		/* pass.selectSynergyUserBaseCodeList */
+	</select>
+	
+	<!-- 권한코드(콤보박스용) -->
+	<select id="pass.selectSynergyUserRoleCodeCombo" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.ROLE_ID			AS #code#
+			  ,A.ROLE_CODE			AS roleCode
+			  ,A.ROLE_KOR			AS #name#
+			  ,A.ROLE_ENG			AS nameEng
+			  ,A.ROLE_DESC			AS valueDesc
+
+		 FROM BS_ROLE_LIST	A
+ 		WHERE 1=1
+ 		<isNotEmpty prepend="AND" property="orgId">
+			 A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="enable">
+			 A.ENABLE = 'Y'
+		</isNotEmpty>
+
+ 		ORDER BY A.SORT ASC
+ 		
+		/* pass.selectSynergyUserRoleCodeCombo */
+	</select>
+	
+	<!-- 관계사(시너지)에 속하는 소속회사 반환(콤보박스용)  -->
+	<select id="pass.selectSynergyUserCompanyCombo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT T.cpnNm			 	AS #name#
+			  ,T.cpnId				AS cpnId
+			  ,T.sNb				AS #code#
+		
+		FROM (
+				SELECT S_NB AS sNb, CPN_NM AS cpnNm, CPN_ID as cpnId, GROUPING_ORG_YN as groupingOrgYn
+				FROM IB_COMPANY
+				WHERE REF_ORG_ID = 1
+				AND GROUPING_ORG_YN = 'N'
+		) T
+		
+		/* pass.selectSynergyUserCompanyCombo */
+	</select>
+	
+	<!-- 부서(콤보박스용) -->
+	<select id="pass.selectSynergyDeptCombo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.DEPT_ID				AS #code#
+			  ,A.KOR_NAME				AS #name#	
+
+		FROM BS_DEPARTMENT	A
+		 
+		WHERE 1=1
+		AND ENABLE = 'Y'
+		AND DELETE_FLAG = 'N'
+		AND A.ORG_ID = 1
+		
+		ORDER BY A.DEPT_SEQ ASC, A.DEPT_ID ASC
+
+		/* pass.selectSynergyDeptCombo */
+	</select>
+	
+	<!-- 사용자 정보 -->
+	<select id="pass.selectUserInfoByLoginId" parameterClass="HashMap" resultClass="HashMap">
+		SELECT USER_ID				    AS userId
+			  ,LOGIN_ID					AS loginId	
+			  ,CUS_ID					AS cusId
+			  ,ORG_ID					AS orgId
+			   
+		FROM BS_USER_MASTER
+		WHERE LOGIN_ID = #saveLoginId#
+
+		/* pass.selectUserInfoByLoginId */
+	</select>
+</sqlMap>

@@ -1,0 +1,75 @@
+package ib.car.service;
+
+import java.util.List;
+import java.util.Map;
+
+public interface Car2Service {
+	
+	
+	
+	/**
+	 * 차량 목록을 조회한다.
+	 * @param 
+	 * @return List
+	 */
+	public List<Map> selectCarList(Map<String, Object> map)throws Exception;
+	
+	/**
+	 * 차량 로그 기록을 조회한다.
+	 * @param 
+	 * @return List
+	 */
+	
+	public List<Map> selectCarLogList(Map<String, Object> map)throws Exception;
+	
+	
+	/**
+	 * 차량 로그 기록을 조회한다.(갯수)
+	 * @param 
+	 * @return List
+	 */
+	
+	public List<Map> selectLimitCarLogList(Map<String, Object> map)throws Exception;
+	
+	/**
+	 * 스케쥴을 조회한다.
+	 * @param 
+	 * @return List
+	 */
+	
+	public List<Map> selectScheList(Map<String, Object> map)throws Exception;
+	/**
+	 * 운행 등록 한다.
+	 * @param 
+	 * @return int
+	 */
+	
+	public int insertCarLog(Map<String, Object> map) throws Exception;
+	
+	/**
+	 * 판별 한다.
+	 * @param 
+	 * @return int
+	 */
+	
+	public List<Map> chkDistance(Map<String, Object> map) throws Exception;
+
+	/**
+	 * 차량이름.
+	 * @param 
+	 * @return int
+	 */
+	
+	public String selectCarName(Map<String, Object> map) throws Exception;
+	
+	/**
+	 * 최종거리
+	 * @param 
+	 * @return int
+	 */
+	
+	public  String maxDistance(Map<String, Object> map) throws Exception;
+	
+	
+	
+}

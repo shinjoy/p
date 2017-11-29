@@ -1,0 +1,945 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+	pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+
+<%
+     //치환 변수 선언합니다.
+      pageContext.setAttribute("crcn", "\n"); //Space, Enter
+      pageContext.setAttribute("br", "<br/>"); //br 태그
+%>
+
+
+<!-- <style>
+.btnZoneBox {
+    text-align: center;
+    margin-bottom: 10px;
+}
+</style> -->
+
+
+<script>
+
+//Global variables :S ---------------
+
+var g_groupId 	= ''; //게시판 그룹ID
+var g_cboardId 	= '${cboardId}';
+var g_infoId	= '${businessDetail.infoId}';//o
+var fromPage = "${fromPage}"; // 어느 페이지에서 이동한 것인지 확인
+
+var fileList = '';
+var downFileList =new Array();
+var g_idx =0;
+var delArray=new Array();
+var commentList = new Array();
+var g_boardFileYn="Y";
+var g_boardReplyYn="Y";
+var g_boardNoticeYn;
+//Global variables :E ---------------
+
+/*================================================= 댓글 기능 : S ==============================================*/
+var fnObj = {
+		/*================================================= 파일 기능 : S ==============================================*/
+
+	  	//댓글 파일 다운로드
+	    fileDownComment : function(fileSeq){
+	    	url = contextRoot + "/file/downFile.do?uploadType=INFO_COMMENT&downFileList="+fileSeq;
+	    	var frm = document.downForm;
+	    	frm.action = url;
+	    	frm.method = "POST";
+	    	frm.submit();
+
+	    },
+
+	    //파일 바로 삭제
+	    newFileDelete : function(newFileNm,filePath,idx){
+	    	var url = contextRoot + "/file/deleteFile.do";
+	    	var param = { newFileNm : newFileNm , filePath : filePath};
+	    	var callback = function(result){
+	    		var obj = JSON.parse(result);
+	    		var cnt = obj.resultVal;
+	    		if(cnt>0){
+	    			$("#li_"+idx).remove();
+	    			if($('#commentUploadFileList').children().length==0)$('#commentUploadFileList').hide();
+	    		}
+	    	};
+	    	commonAjax("POST", url, param, callback, false);
+	    },
+
+	    //수정시 db 에 이미 저장된 파일삭제 할땐. 바로삭제하지않고 리스트를 만든다.
+	    setDelFile: function(fileSeq,idx){
+	    	delArray.push(fileSeq);
+	    	if($("#li_"+idx).parent().children().length<2) $("#li_"+idx).parent().hide();		//지우려는 파일이 마지막일 경우 파일을 지우기전에 첨부파일 구분선을 숨긴다.
+	    	$("#li_"+idx).remove();
+	    },//end setDelFile
+
+	    //신규 파일 등록시
+	    newFileUpload : function(recommentId,commentId){		//엄마, 나
+
+			var url = contextRoot+"/file/uploadFiles.do"
+
+
+	   		var callback = function(result){
+
+
+
+	   			var list = result.resultList;
+	   			var str='';
+	   			for(var i=0;i<list.length;i++){
+	   				var fileObj = list[i];
+	   				str +='<li id="li_'+g_idx+'">' + fileObj.orgFileNm ;
+	   				str +='<input type="hidden" name="commentFileSeq" value="0">' ;
+	   				str +='<input type="hidden" name="commentOrgFileNm" value="'+fileObj.orgFileNm+'">' ;
+	   				str +='<input type="hidden" name="commentNewFileNm" value="'+fileObj.newFileNm+'">' ;
+	   				str +='<input type="hidden" name="commentFilePath" value="'+fileObj.filePath+'">' ;
+	   				str +='<input type="hidden" name="commentFileSize" value="'+fileObj.fileSize+'">' ;
+	   				str +='<span class="num_st">' + parseInt(fileObj.fileSize/1024) + 'KB</span><a href="javascript:fnObj.newFileDelete(\''+fileObj.newFileNm+'\',\''+fileObj.filePath+'\','+g_idx+');" class="fileDelete"><em>삭제</em></a></li>';
+	   				g_idx++;
+
+
+	   			}
+
+	   			//파일 태그 재 생성.
+	   			$('#fileInputArea'+commentId).append('<input name="upFile'+commentId+'" type="file" multiple class="file_btn_cover"  onchange="fnObj.newFileUpload(\''+recommentId+'\',\''+commentId+'\');">');
+
+
+	   			$('#commentUploadFileList'+commentId).append(str);
+	   			$('#commentUploadFileList'+commentId).show();
+
+
+	   		}
+
+	   		commonAjaxForFileCreateForm(url,"",'upFile'+commentId,"100","commentFileSize", callback , "");
+
+	    },
+
+
+   	/*================================================= 파일 기능 : E ==============================================*/
+	 // 댓글 정보를 가져와서 화면에 출력한다
+	    getCommentList : function(){
+	    	var url = contextRoot + "/business/getCommentList.do";
+	    	var param = {
+	    			infoId: g_infoId
+	    				}
+
+	    	var callback = function(result){
+
+	    		var obj = JSON.parse(result);
+	    		var resultList = obj.resultList;
+	    		commentList = resultList;
+	    		var rootList = [];
+
+
+
+	    		var commentCnt=0;
+	    		for(var i=0; i < resultList.length; i++){
+
+	    			var commentMap = resultList[i];
+					var commentObj = commentMap['commentList'];			//하나의 첫 댓글
+					var fileList = commentMap['fileList'];				//
+
+					//처음에 depth 가  0 일때 새로운 0이 나타날때까지 count 를 해서 그 글에 엮인 댓글 수를 판단.
+	    			//댓글수가 0이면 삭제시 남길 필요가 없고,
+	    			//0이 아니면 남겨야 함...
+
+	    			var childCount =0;
+	    			var chk =-1;
+	    			for(var k=0; k < resultList.length; k++){
+	    				var commentMap2 = resultList[k];
+	    				var commentObj2 = commentMap2['commentList'];
+	    				if(commentObj['commentId'] == commentObj2['commentId'] && commentObj2['commentIdx'] == 0 ){	//첫 판단
+	    					chk =0;
+	    				}
+	    				if(chk ==0 && commentObj2['commentIdx'] != 0 && commentObj2['deleteFlag'] == 'N'){	//해당 글의 하위 글일때
+	    					childCount++;
+	    				}
+	    				if(commentObj['commentId'] != commentObj2['commentId'] && commentObj2['commentIdx'] == 0 ){	//두번째 판단
+	    					chk =-1;
+	    				}
+
+	        		}
+
+					var customStyle = "";
+					var isRoot = false;
+					var replyClass ="ripple";
+
+					if( commentObj['recommentId'] == 0 || commentObj['recommentId'] == null){
+						customStyle = "";
+						isRoot = true;
+						replyClass = "";
+					}
+
+					var htmlTmp = '';
+
+
+					//if(commentObj['deleteFlag'] == 'Y' && commentObj['recommentCount'] >0){							//하위 글이 있고 본글 삭제시
+					if(childCount != 0 && commentObj['deleteFlag'] == 'Y' ){											//하위 글이 있고 본글 삭제시
+						htmlTmp += "<dl class='normal " + replyClass + "' id='comment" + commentObj['commentId'] + "'>";
+						htmlTmp += "	<dd class='comment' id='commentBox" + commentObj['commentId'] +"'><font color='gray'>삭제된 댓글 입니다.</font></dd>";
+						htmlTmp += "</dl>";
+						htmlTmp += "</div>";
+			            //htmlTmp += '<span id="ddd'+ commentObj['commentId'] +'"></span>';
+					}else if(commentObj['deleteFlag'] == 'N'){														//삭제 안된 글
+						htmlTmp += "<dl class='normal " + replyClass + " commentGrp" + commentObj['recommentId'] + "' id='comment" + commentObj['commentId'] + "'>";
+		    			htmlTmp += '<div id="editDiv'+commentObj['commentId']+'" class="editFormDiv" style="display: none;"></div>';		//수정 폼 영역
+		    			htmlTmp += "<div class='commentDiv' id='commentDiv" + commentObj['commentId'] + "'>";
+		    			/*=============================== 이름,날짜,내용 영역 : S ================================*/
+
+		    			htmlTmp += "	<dt>";
+		    			htmlTmp += "	<span class='name2'>"+"<span class='userProfileTargetArea' onmousedown = 'openUserProfileBox(\""+commentObj['createdBy']+"\",$(this),\"mouseover\",null,5,0,0)'>" + commentObj['createNm'] +"</span>";
+
+		    			if(parseInt(commentObj['createOrgId']) != parseInt("${baseUserLoginInfo.applyOrgId}")){
+		    				htmlTmp += "(" + commentObj['createdCpnNm'] + ")";
+		    			}
+
+		    			htmlTmp += "</span>";
+
+		    			htmlTmp += "	<span class='date'>" + commentObj['createdDate'] + "</span>";
+		    			htmlTmp += "	</dt>";
+
+		    			var content = commentObj['content'].replace(/(?:\r\n|\r|\n)/g, '<br>');
+
+		    			htmlTmp += "	<dd class='comment' id='commentBox" + commentObj['commentId'] + "'><span class='reply_target'>" + (commentObj['pUserNm'].length>0?'@':'') +  commentObj['pUserNm'] + '</span>' + content + "</dd>";
+
+		    			/*=============================== 이름,날짜,내용 영역 : E ================================*/
+
+		    			/*=============================== 답글 수정 삭제 버튼 영역 : S ================================*/
+		    			htmlTmp += "<dd class='btnZone' id='reply" + commentObj['commentId'] + "' style='" + customStyle + "'>";
+		    			htmlTmp += "<span><a href='#' onclick='javascript:fnObj.showRecommentForm(0," + commentObj['commentId'] +"," + commentObj['commentIdx'] +");return false;' class='btn_re_ripple'><em>답글</em></a></span>";
+
+		    			if('${baseUserLoginInfo.userId}'== commentObj['createdBy']){ //내가쓴 글일때만 수정 삭제
+		    				htmlTmp += '<span><a href="#" onclick="javascript:fnObj.editRecommentForm(' + commentObj["commentId"] +','+ commentObj["recommentId"] +','+ commentObj["commentIdx"] +',\''+commentObj["createdDate"]+'\');return false;" class="btn_re_edit"><em>수정</em></a></span>';
+		    				htmlTmp += "<span><a href='#' onclick='javascript:fnObj.deleteRecomment(" + commentObj['commentId'] +"," + childCount + ");return false;' class='btn_re_delete'><em>삭제</em></a></span>";
+		    			}
+		                htmlTmp += "</dd>";
+		                /*=============================== 답글 수정 삭제 버튼 영역 : E ================================*/
+
+		                if(fileList.length>0){
+		                	//게시판에 파일기능 사용에만
+		                	if(g_boardFileYn == 'Y'){
+
+			                	htmlTmp += '<dd class="addFileList fileDisplay">';
+			                	//htmlTmp += '<table>';
+			                	//htmlTmp += '<th>첨부파일</th>';
+			                	//htmlTmp += '<td>';
+			                	if(fileList.length>0){
+			                		htmlTmp += '<ul class="in_fileList">';
+			                	}
+			    				for(var k=0;k<fileList.length;k++){
+
+			    					//htmlTmp += "<label><li class='fileDiv' id='file" + commentObj['commentId'] + "' >" + fileList[k].orgFileNm ;
+			    					htmlTmp += "<label><li class='fileDiv' id='file" + commentObj['commentId'] + "'><a href='#' onclick='fnObj.fileDownComment("+fileList[k].fileSeq+");'>" + fileList[k].orgFileNm + "</a>";
+			    					htmlTmp += '<span class="num_st">' + parseInt(fileList[k].fileSize/1024) + 'KB</span></li></label>';
+			    				}
+			    				if(fileList.length>0){
+			    					htmlTmp += "</ul>";
+			                	}
+			    				//htmlTmp += '</td>';
+			    				htmlTmp += "</dd>";
+		                	}
+		    			}
+		                htmlTmp += "</dl>";
+		                htmlTmp += "</div>";
+		                commentCnt++;
+		          	}
+					htmlTmp += '<span id="ddd'+ commentObj['commentId'] +'"></span>';
+		    		if( isRoot ){
+		            	$('#commentList').append(htmlTmp);
+						rootList.push(commentObj['commentId']);
+					}
+					else{
+						if(rootList.indexOf(commentObj['recommentId']) >= 0){
+							rootList.push(commentObj['commentId']);
+	                		$('#ddd' + commentObj['recommentId'] ).append(htmlTmp);
+		                }else{
+		                	$('#ddd' + commentObj['recommentId'] ).parent().append(htmlTmp);
+		                }
+
+		                //$('#comment' + commentObj['recommentId']).after(htmlTmp);
+
+						/* if( rootList.indexOf(commentObj['recommentId']) >= 0){
+		                	$('#comment' + commentObj['recommentId'] ).append(htmlTmp);
+		                }else{
+		                	$('#comment' + commentObj['recommentId'] ).parent().append(htmlTmp);
+		                } */
+					}
+	    		}
+	    		$("#commentCount").text("("+commentCnt+")");
+	    	};
+
+	    	commonAjax("POST", url, param, callback,false);
+	    },
+
+	//댓글 등록
+	saveComment	: function(commentId,recommentId,commentIdx,frm){
+
+		var fileList ='';
+    	var delFileList='';
+    	var frm =$('form[name='+frm+']');
+    	var commentText =frm.find('textarea[name=commentText]').val();
+
+    	if(commentText==''){
+    		alert("내용을 입력해주세요.");
+    		frm.find('textarea[name=commentText]').focus();
+    		return false;
+    	}
+
+    	/*=========== 첨부파일 : S =========== */
+    	var fileSeqList 	= frm.find("input[name=commentFileSeq]");			//시퀀스 리스트
+    	var orgFileNmList 	= frm.find("input[name=commentOrgFileNm]");			//파일명 리스트
+    	var newFileNmList 	= frm.find("input[name=commentNewFileNm]");			//새로운 저장 파일명 리스트
+    	var filePathList 	= frm.find("input[name=commentFilePath]");			//경로 리스트
+    	var fileSizeList 	= frm.find("input[name=commentFileSize]");			//파일 크기 리스트
+    	var jArray = new Array();
+
+    	if(fileSeqList != undefined){
+
+	    	for(var i=0;i<fileSeqList.length;i++){
+
+	    		var fileSeq		 = fileSeqList[i].value;
+	    		var orgFileNm 	 = orgFileNmList[i].value;
+	    		var newFileNm  	 = newFileNmList[i].value;
+	    		var filePath 	 = filePathList[i].value;
+	    		var fileSize 	 = fileSizeList[i].value;
+
+	    		if(fileSeq == 0){										//신규 등록건만 추가
+		    		var jobj = new Object();
+					jobj.fileSeq=fileSeq;
+					jobj.orgFileNm=orgFileNm;
+					jobj.newFileNm=newFileNm;
+					jobj.filePath=filePath;
+					jobj.fileSize=fileSize;
+					jobj.uploadType='INFO_COMMENT';
+					jArray.push(jobj);
+	    		}
+	    	}
+
+	    	var totalObj = new Object();
+			totalObj.items=jArray;										//items 란 키값으로 totalObj에 jobj를 담은 jArray를 세팅
+			fileList = JSON.stringify(totalObj);						//totalObj 를 string 변환
+    	}
+
+		if(jArray.length ==0) fileList = '';							//파일이 없을때는 빈값
+
+		if(delArray.length !=0){										//수정시 삭제한 파일들의 리스트
+
+			delFileList = delArray.join(",");
+		}
+
+		var url = contextRoot + "/business/saveComment.do";
+		/*=========== 첨부파일 : E =========== */
+
+		var param = {
+				commentId		:	commentId,
+    			infoId			:	g_infoId,
+    			recommentId		:	recommentId,
+    			commentIdx		:	commentIdx,
+    			content			: 	commentText,
+    			fileList		:   fileList,				//신규 파일 리스트
+    			delFileList		:   delFileList				//수정시 삭제한 파일들의 시퀀스 리스트
+		}
+
+
+		var callback = function(result){
+			var obj = JSON.parse(result);
+    		var cnt = obj.resultVal;
+    		if(cnt>0){
+    			//opener.fnObj.doSearch(opener.curPageNo);	//목록화면 재조회 호출.
+    			alert("코멘트가 등록되었습니다.");
+    			$('#commentList').empty();
+                fnObj.getCommentList("fromComment");
+                $("#commentText").val("");
+                $("#commentText").focus();
+    			//document.location.reload();
+    		}else{
+    			alert("코멘트등록이 실패하였습니다. 담당자에게 문의하시기 바랍니다.");
+    		}
+
+    		//유저프로필 이벤트 셋팅
+    		initUserProfileEvent();
+    	};
+    	commonAjax("POST", url, param, callback,false);
+	},
+
+	//댓글 삭제
+	deleteRecomment : function(commentId,childCount){
+
+		if(childCount!=undefined&&childCount!=""&&childCount!="0"){
+			alert("답글이 등록되어 삭제할수 없습니다.");
+			return;
+		}
+
+		if(confirm("삭제하시겠습니까?")){
+			var param = {commentId : commentId , uploadId : commentId};
+			var url = contextRoot + "/business/deleteComment.do";
+			var callback = function(result){
+				var obj = JSON.parse(result);
+				var cnt = obj.resultVal;
+				if(cnt>0){
+					$('#commentList').empty();
+					fnObj.getCommentList("fromComment");
+					$("#commentText").val("");
+					$("#commentText").focus();
+				}
+			}
+
+			commonAjax("POST", url, param, callback, false);
+		}
+	},
+
+	/*================================================= 댓글 기능 : E ==============================================*/
+
+	/*================================================= 댓글 폼 : S ==============================================*/
+
+	//답글 신규 폼
+		showRecommentForm : function(commentId,recommentId,commentIdx){
+
+			fnObj.removeEditForm();
+	    	var typeSeq ='';
+
+	    	commentIdx++;
+	    	var htmlTmp ='';
+
+	    	htmlTmp += '<div name="recommentForm" class="recommentForm">';
+	    	htmlTmp += '<form name="fileForm'+recommentId+'" id="fileForm'+recommentId+'" method="post">';
+	    	//htmlTmp += '<div class="RippleGroup bg_on">';
+	    	//htmlTmp += '<div class="RippleCon">';
+	    	htmlTmp += "<dl class='normal bg_on ripple' id='recommentForm" + recommentId + "'>";
+	    	htmlTmp += '<dt><span class="name2">${baseUserLoginInfo.userName}</span><span class="date">'+new Date().yyyy_mm_dd().replace(/-/gi,'.')+'</span></dt>';
+
+	    	htmlTmp += "<dd class='commentBox'>";
+	    	htmlTmp += "	<div class='txtArea'>";
+			htmlTmp += "	<textarea class='txtArea_b'  placeholder='내용을 입력해주세요' title='내용입력' name='commentText' id='recommentText' ></textarea>";
+			htmlTmp += "	<button type='button' onclick='javascript:fnObj.saveComment("+commentId+"," + recommentId + "," + commentIdx + ",this.form.name);return false;' class='btn_comment'>Comment</button>";
+			htmlTmp += "	</div>";
+			htmlTmp += "</dd>";
+
+			htmlTmp += "<dd class='btnZone'><span><a href='#' onclick='javascript:fnObj.removeEditForm();return false;' class='btn_re_cancel2'><em>답글취소</em></a></span></dd>";		//"</form></dl>";
+
+			//게시판에 파일기능 사용에만
+			if(g_boardFileYn == 'Y'){
+
+				htmlTmp += '<dd class="addFileList fileDisplay" id="fileTr">';
+		    	htmlTmp += '	<p class="titleZone">';
+		    	htmlTmp += '<span id="fileInputArea'+commentId+'" class="file_btn_bg"><input name="upFile'+commentId+'" type="file" multiple onchange="fnObj.newFileUpload('+recommentId+','+commentId+');" class="file_btn_cover"></span>';
+		    	//htmlTmp += '	<input type="file" multiple="true" name="shadowFile" id="shadowFile'+commentId+'" onchange="fnObj.upLoadFile('+commentId+',this.form.id);" style="display:none;">';
+		    	//htmlTmp += '	<span class="title"><a href="#" class="btn_s_type_g" onclick="document.getElementById(\'shadowFile'+commentId+'\').click();return false;" ><em class="icon_file">파일첨부</em></a></span>';
+		    	htmlTmp += '	</p>';
+		    	htmlTmp += '	<ul id="commentUploadFileList'+commentId+'" style="display:none;"></ul>';
+		   		htmlTmp += '</dd>';
+			}
+	   		htmlTmp += '</dl>';
+	   		//htmlTmp += '</div>';
+	    	//htmlTmp += '</div>';
+	    	htmlTmp += '</form>';
+	    	htmlTmp += '</div>';
+
+	    	$('#comment' + recommentId).after(htmlTmp);
+
+	},
+
+	//취소
+	cancleRecomment:function(){
+		$("dl[name=recommentForm]").remove();
+	},
+
+
+	//댓글 수정 폼
+	editRecommentForm : function(commentId,recommentId,commentIdx){
+
+		fnObj.removeEditForm();	//수정폼 초기화
+
+		var c = $('#commentBox' + commentId);
+		var htmlTmp = '<form name="fileForm'+commentId+'" id="fileForm'+commentId+'" method="post" enctype="multipart/form-data" action="${pageContext.request.contextPath}/file/uploadFiles.do";>';
+		htmlTmp += '<div class="RippleGroup bg_on">';
+		htmlTmp += '<div class="RippleCon">';
+		htmlTmp += '<dl class="normal bg_on">';
+		htmlTmp += '<dt><span class="name">${baseUserLoginInfo.userName}</span><span class="date"></span></dt>';
+		htmlTmp += '<dd class="commentBox">';
+		htmlTmp += "<div class='txtArea'>";
+
+		var c_copy = c.clone();
+   		$(c_copy).find('span').remove();   		//수정시 상위 댓글 입력자 이름 제거
+
+   		var c_copy_text =  c_copy.html();
+   		var c_copy_text2 = c_copy_text.split("<br>").join("\r\n");
+
+		htmlTmp += "<textarea class='txtArea_b' placeholder='내용을 입력해주세요' title='내용입력' name='commentText' id='commentEditText'>" + c_copy_text2 + "</textarea>";
+		htmlTmp += "<button type='button' onclick='javascript:fnObj.saveComment("+commentId+"," + recommentId + "," + commentIdx + ",this.form.name);return false;' class='btn_comment'>Comment</button></div>";
+		htmlTmp += '</dd>';
+
+		htmlTmp += "<dd class='btnZone'>";
+		htmlTmp += "<span><a href='#' onclick='javascript:fnObj.removeEditForm();return false;' class='btn_re_modi_cancel'><em>수정취소</em></a></span>";
+		htmlTmp += "</dd>";
+
+		//게시판에 파일기능 사용에만
+		if(g_boardFileYn == 'Y'){
+
+	    	htmlTmp += '<dd class="addFileList fileDisplay" id="fileTr">';
+	    	htmlTmp += '<p class="titleZone">';
+	    	htmlTmp += '<span id="fileInputArea'+commentId+'" class="file_btn_bg"><input name="upFile'+commentId+'" type="file" multiple onchange="fnObj.newFileUpload('+recommentId+','+commentId+');" class="file_btn_cover"></span>';
+
+
+	    	//htmlTmp += '<input type="file" multiple="true" name="shadowFile" id="shadowFile'+commentId+'" onchange="fnObj.upLoadFile('+commentId+',this.form.id);" style="display:none;">';
+	    	//htmlTmp += '<span class="title"><a href="#" class="btn_s_type_g" onclick="document.getElementById(\'shadowFile'+commentId+'\').click();return false;" ><em class="icon_file">파일첨부</em></a></span>';
+	    	htmlTmp += '</p>';
+	    	htmlTmp += '<ul id="commentUploadFileList'+commentId+'">';
+	    	for(var i=0; i < commentList.length; i++){
+				var commentMap = commentList[i];
+				var commentObj = commentMap['commentList'];
+				var fileList = commentMap['fileList'];
+				for(k=0;k<fileList.length;k++){
+					if(fileList[k]['uploadId'] == commentId){
+						var fileObj = fileList[k];
+						htmlTmp +='<li id="li_'+g_idx+'">' + fileObj.orgFileNm ;
+						htmlTmp +='<input type="hidden" name="commentFileSeq" value="'+fileObj.fileSeq+'">' ;
+						htmlTmp +='<input type="hidden" name="commentOrgFileNm" value="'+fileObj.orgFileNm+'">' ;
+						htmlTmp +='<input type="hidden" name="commentNewFileNm" value="'+fileObj.newFileNm+'">' ;
+						htmlTmp +='<input type="hidden" name="commentFilePath" value="'+fileObj.filePath+'">' ;
+						htmlTmp +='<input type="hidden" name="commentFileSize" value="'+fileObj.fileSize+'">' ;
+						htmlTmp +='<span class="num_st">' + parseInt(fileObj.fileSize/1024) + 'KB</span><a href="javascript:fnObj.setDelFile('+fileObj.fileSeq+','+g_idx+');" class="fileDelete"><em>삭제</em></a></li>';
+		    			g_idx++;
+					}
+				}
+	    	}
+			htmlTmp += '</ul>';
+				htmlTmp += '</dd>';
+		}
+			htmlTmp += '</dl>';
+		htmlTmp += '</div>';
+		htmlTmp += '</div>';
+		htmlTmp += '</form>';
+		$('#editDiv' + commentId).show();
+		$('#editDiv' + commentId).html(htmlTmp);
+		$('#commentDiv' + commentId).hide();
+		$('#file'+commentId).hide();
+	},
+
+	//수정 폼 초기화
+	removeEditForm : function(){
+
+		$(".editFormDiv").hide();
+		$(".editFormDiv").empty();
+		$(".commentDiv").show();
+		$(".fileDiv").show();
+		delArray=new Array();
+		$("div[name=recommentForm]").remove();
+
+	},
+
+	//코멘트 영역 숨기기 보이기
+	displayComment : function(){
+		if( $('#rippleSum').hasClass('close') ){
+			$('#rippleSum').removeClass('close');
+			$('#commentListDiv').show();
+		}
+		else{
+			$('#rippleSum').addClass('close');
+			$('#commentListDiv').hide();
+		}
+	},
+	//코멘트전체 영역 숨기기 보이기
+	displayCommentAll : function(){
+		if( $('#btnCommentAllToggle').hasClass('close') ){
+			$('#btnCommentAllToggle').removeClass('close');
+			$('#RippleZone').show();
+		}
+		else{
+			$('#btnCommentAllToggle').addClass('close');
+			$('#RippleZone').hide();
+		}
+	}
+}
+/*================================================= 댓글 폼 : E ==============================================*/
+</script>
+
+
+
+<!-- -------------- body resize :S ------------- -->
+<!-- ** 사용자 설정 화면 사이즈를 위한 스크립트 ** -->
+<script type="text/javascript">
+$(document).ready(function(){
+	commonAjax("POST", url, param, callback, false);
+	fnObj.getCommentList("fromList");
+
+
+	//팝업 타이틀 변경
+	document.title = "${businessDetail.title} | <c:out value="${currentMenuKorTitle}"></c:out> - PASS";
+
+	//유저프로필 이벤트 셋팅
+	initUserProfileEvent();
+
+
+});
+
+var url = contextRoot + "/file/getFileList.do";
+var param = {
+        uploadId 	: "${businessDetail.infoId}",
+        uploadType  : "INFO_FILE"
+    }
+
+var callback = function(result){
+    var obj = JSON.parse(result);
+    var list = obj.resultList;
+    fileList = list;
+
+    var fileSize = 0;
+    var fileHtml = '';
+    if(list.length>0){
+        for(var i=0;i<list.length;i++){
+        	//console.log(list[i]);
+            fileHtml+='<li><a href=javascript:downLoadFile("'+list[i].fileSeq+'")>' + list[i].orgFileNm + '</a></li>'
+            fileSize += list[i].fileSize;
+            $('#fileArea').html(fileHtml);
+        }
+    }else{
+        //$('#fileArea').html('<li>첨부된 파일이 없습니다.</li>');
+        $("#fileDiv").hide();
+    }
+
+    //모두 저장은 파일이 1개이상인 경우에만
+    if(list.length <2){
+        $("#filedownloadAll").hide();
+    }else{
+        $("#filedownloadAll").show();
+    }
+
+
+    $("span.count").html(list.length+"개<em>"+   checkFileSize(fileSize) +"</em>");
+
+}
+
+//파일 사이즈 체크해서 단위와 함께 표시
+function checkFileSize(fSize){
+	var fSExt = new Array('Bytes', 'KB', 'MB', 'GB');
+	var j=0;
+	while(fSize>900){fSize/=1024;j++;}
+	var fileSize = (Math.round(fSize*100)/100)+fSExt[j];
+	return fileSize;
+}
+
+//파일다운
+function downLoadFile(fileSeq){
+    var downFileList =new Array();
+    downFileList.push(fileSeq);
+    if(downFileList.length ==0){
+        alert("파일을 선택해 주세요");
+        return false;
+    }else if(downFileList.length > 1){		//다중다운로드일때
+        url = contextRoot + "/file/downFilesTozip.do?uploadType=${detailMap.appvDocClass}&downFileList="+downFileList.join(",");
+    }else{
+        url = contextRoot + "/file/downFile.do?uploadType=${detailMap.appvDocClass}&downFileList="+downFileList.join(",");
+    }
+	var frm = document.downForm;
+	frm.action = url;
+	frm.method = "POST";
+	frm.submit();
+}
+//전체파일다운로드
+function fileDown (type){
+	downFileList = new Array();
+	//전체다운로드
+	for(var i=0;i<fileList.length;i++){
+		if(type == 'ALL'){									//전체다운로드
+			downFileList.push(fileList[i].fileSeq);
+		}
+	}
+	if(downFileList.length ==0){
+		alert("파일이 없습니다.");
+		return false;
+	}else if(downFileList.length > 1){		//다중다운로드일때
+		url = contextRoot + "/file/downFilesTozip.do?uploadType=${detailMap.appvDocClass}&downFileList="+downFileList.join(",");
+	}else{
+		url = contextRoot + "/file/downFile.do?uploadType=${detailMap.appvDocClass}&downFileList="+downFileList.join(",");
+	}
+	var frm = document.downForm;
+	frm.action = url;
+	frm.method = "POST";
+	frm.submit();
+}
+//수정페이지 이동
+function goModifyPage(){
+	$("#frm").attr("action",contextRoot+"/business/businessInfoUpdate.do");
+	$("#frm").submit();
+}
+
+</script>
+
+
+
+<!-- -------------- body resize :E ------------- -->
+
+
+	<form name="downForm" id="downForm"></form>
+	<form id = "frm" name="frm" method="post">
+		<input type="hidden" id = "infoId" name = "infoId" value="${businessDetail.infoId }">
+	</form>
+
+	<div class="modalWrap2">
+		<h1><strong>[영업정보]</strong></h1>
+		<div class="mo_container">
+			<!--정보정리(타이틀)-->
+			<table class="tb_title_basic" summary="업무일지상세보기 (제목, 중요도, 내용)">
+				<caption>업무일지상세보기</caption>
+				<colgroup>
+					<col width="*" />
+					<col width="*" />
+				</colgroup>
+				<thead>
+					<tr>
+						<th class="title">
+						    <c:choose>
+						        <c:when test="${businessDetail.infoLevel eq 'G'}"><span class="icon_important_L3"></span></c:when>
+						        <c:when test="${businessDetail.infoLevel eq 'E'}"><span class="icon_important_L2"></span></c:when>
+						    </c:choose>
+						    <span class="mgl2">
+								<c:if test="${businessDetail.infoTypeNm ne null}">
+								[${businessDetail.infoTypeNm }]
+								</c:if>
+								<c:if test="${businessDetail.infoClassNm ne null}">
+								${businessDetail.infoClassNm } _
+								</c:if>
+								[${businessDetail.cpnNm1 }] ${businessDetail.title }
+						    </span><!-- <span class="icon_new"><em>new</em></span> --></th>
+						<th class="writerZone">작성자: <span class="writer"><span class='userProfileTargetArea' onmousedown = 'openUserProfileBox("${businessDetail.createdBy}",$(this),"mouseover",null,5,-300,300)'>${businessDetail.createdByNm }</span><c:if test = "${baseUserLoginInfo.applyOrgId != businessDetail.orgId }">(${businessDetail.createdCpnNm })</c:if></span> <span class="date">(<fmt:formatDate value="${businessDetail.createDate }" pattern="yyyy-MM-dd" />)</span></th>
+					</tr>
+				</thead>
+			</table>
+			<!--//정보정리(타이틀)//-->
+			<!--정보정리(내용안내)-->
+			<table class="tb_view_basic2 tb_fixed" summary="정보정리내용안내 (제목, 작성자, 작성일, 경로, 금액, 일자, 직원, 내용, 진행상태)">
+				<caption>정보정리내용안내</caption>
+				<colgroup>
+					<col width="130">
+					<col width="*">
+					<col width="130">
+					<col width="*">
+					<col width="130">
+					<col width="*">
+				</colgroup>
+				<tbody>
+					<c:if test="${businessDetail.custUse1 eq 'Y' or businessDetail.custUse2 eq 'Y'}">
+					<tr>
+						<th>${businessDetail.pathLabel }</th>
+						<td colspan="5">${businessDetail.infoPathNm }</td>
+					</tr>
+					</c:if>
+
+					<!-- 금액 -->
+					<c:if test="${businessDetail.priceUse1 eq 'Y'}">
+					<tr>
+						<c:if test="${businessDetail.priceUse1 eq 'Y'}">
+							<th>${businessDetail.priceLabel1 }</th>
+							<td class="txt_money"
+								<c:choose>
+									<c:when test = "${businessDetail.priceUse2 eq 'N' and businessDetail.priceUse3 eq 'N'}">colspan="5"</c:when>
+									<c:when test = "${businessDetail.priceUse2 eq 'N' or businessDetail.priceUse3 eq 'N'}">colspan="3"</c:when>
+								</c:choose>
+							>
+							<c:if test="${businessDetail.infoPrice1 ne '0.00'}"><c:out value="${businessDetail.infoPrice1 }" />${businessDetail.priceUnit1 }</c:if>
+							</td>
+						</c:if>
+						<c:if test="${businessDetail.priceUse2 eq 'Y'}">
+							<th>${businessDetail.priceLabel2 }</th>
+							<td class="txt_money"
+								<c:choose>
+									<c:when test = "${businessDetail.priceUse1 eq 'N' and businessDetail.priceUse3 eq 'N'}">colspan="5"</c:when>
+									<c:when test = "${businessDetail.priceUse1 eq 'N' or businessDetail.priceUse3 eq 'N'}">colspan="1"</c:when>
+
+								</c:choose>
+							>
+							<c:if test="${businessDetail.infoPrice2 ne '0.00'}"><c:out value="${businessDetail.infoPricse2 }" />${businessDetail.priceUnit2 }</c:if>
+							</td>
+						</c:if>
+						<c:if test="${businessDetail.priceUse3 eq 'Y'}">
+							<th>${businessDetail.priceLabel3 }</th>
+							<td class="txt_money"
+								<c:choose>
+									<c:when test = "${businessDetail.priceUse1 eq 'N' and businessDetail.priceUse2 eq 'N'}">colspan="5"</c:when>
+									<c:when test = "${businessDetail.priceUse1 eq 'N' or businessDetail.priceUse2 eq 'N'}">colspan="1"</c:when>
+								</c:choose>
+							>
+							<c:if test="${businessDetail.infoPrice3 ne '0.00'}"><c:out value="${businessDetail.infoPrice3 }" />${businessDetail.priceUnit3 }</c:if>
+							</td>
+						</c:if>
+					</tr>
+					</c:if>
+					<!-- //금액// -->
+
+					<!-- 일자 -->
+					<c:if test="${businessDetail.dateUse1 eq 'Y' or businessDetail.dateUse2 eq 'Y' or businessDetail.dateUse3 eq 'Y'}">
+						<tr>
+							<c:if test="${businessDetail.dateUse1 eq 'Y' }">
+								<th>${businessDetail.dateLabel1 }</th>
+								<td class="txt_date"
+									<c:choose>
+										<c:when test = "${businessDetail.dateUse2 eq 'N' and businessDetail.dateUse3 eq 'N'}">colspan="5"</c:when>
+										<c:when test = "${businessDetail.dateUse2 eq 'N' or businessDetail.dateUse3 eq 'N'}">colspan="3"</c:when>
+									</c:choose>
+								><fmt:formatDate value='${businessDetail.infoDate1}' pattern='yyyy-MM-dd'/></td>
+							</c:if>
+							<c:if test="${businessDetail.dateUse2 eq 'Y' }">
+								<th>${businessDetail.dateLabel2 }</th>
+								<td class="txt_date"
+									<c:choose>
+										<c:when test = "${businessDetail.dateUse1 eq 'N' and businessDetail.dateUse3 eq 'N'}">colspan="5"</c:when>
+										<c:when test = "${businessDetail.dateUse1 eq 'N' or businessDetail.dateUse3 eq 'N'}">colspan="1"</c:when>
+									</c:choose>
+								><fmt:formatDate value='${businessDetail.infoDate2}' pattern='yyyy-MM-dd'/></td>
+							</c:if>
+							<c:if test="${businessDetail.dateUse3 eq 'Y' }">
+								<th>${businessDetail.dateLabel3 }</th>
+								<td class="txt_date"
+									<c:choose>
+										<c:when test = "${businessDetail.dateUse2 eq 'N' and businessDetail.dateUse1 eq 'N'}">colspan="5"</c:when>
+										<c:when test = "${businessDetail.dateUse2 eq 'N' or businessDetail.dateUse1 eq 'N'}">colspan="1"</c:when>
+									</c:choose>
+								><fmt:formatDate value='${businessDetail.infoDate3}' pattern='yyyy-MM-dd'/></td>
+							</c:if>
+						</tr>
+					</c:if>
+					<!--// 일자 // -->
+
+					<tr>
+						<th>고객</th>
+						<td colspan="5" class="code_c_title">
+							<c:if test="${businessDetail.custUse1 eq 'Y' }">
+								<c:if test="${not empty businessDetail.custId1Nm }">
+									<span class="title">
+									${businessDetail.custLabel1 } :</span> ${businessDetail.custId1Nm }
+									(${businessDetail.custId1Position })
+								</c:if>
+							</c:if>
+							<c:if test="${businessDetail.custUse2 eq 'Y' }">
+								<c:if test="${not empty businessDetail.custId2Nm }">
+									<span class="title">${businessDetail.custLabel2 } :</span> ${businessDetail.custId2Nm }
+									(${businessDetail.custId2Position })
+								</c:if>
+							</c:if>
+						</td>
+					</tr>
+
+					<c:if test="${businessDetail.cpnUse2 eq 'Y' }">
+						<tr>
+							<th>회사</th>
+							<td colspan="5" class="code_c_title"><span class="title">${businessDetail.cpnLabel1 } :</span> ${businessDetail.cpnNm1 }<span class="title">${businessDetail.cpnLabel2 } :</span> ${businessDetail.cpnNm2 }</td>
+						</tr>
+					</c:if>
+
+					<c:if test="${businessDetail.staffUse1 eq 'Y' or businessDetail.staffUse2 eq 'Y' }">
+						<tr>
+							<th>직원</th>
+							<td colspan="5" class="code_c_title">
+							<span>
+							<c:if test="${businessDetail.staffUse1 eq 'Y'}">
+								<span class="title">${businessDetail.staffLabel1 } :</span>
+								<ul>
+									<c:forTokens items="${businessDetail.staff1Str }" delims="," var="data" varStatus="i">
+										<c:set var = "dataBuf" value="${fn:split(data,'|')}"></c:set>
+										<span class='userProfileTargetArea' onmousedown = 'openUserProfileBox("${dataBuf[1]}",$(this),"mouseover",null,0,-80,100)'>
+											${dataBuf[0] }
+										</span>
+										${dataBuf[2]}
+										<c:if test = "${not i.last }">,</c:if>
+										<c:if test="${(i.index+1)%3 eq 0}"><br></c:if>
+									</c:forTokens>
+								</ul>
+							</c:if>
+							</span>
+							<span>
+								<c:if test="${businessDetail.staffUse2 eq 'Y' }">
+									<span class="title"><br>${businessDetail.staffLabel2 } : </span>
+									<ul>
+										<c:forTokens items="${businessDetail.staff2Str }" delims="," var="data" varStatus="i">
+										<c:set var = "dataBuf" value="${fn:split(data,'|')}"></c:set>
+										<span class='userProfileTargetArea' onmousedown = 'openUserProfileBox("${dataBuf[1]}",$(this),"mouseover",null,0,-80,100)'>
+											${dataBuf[0] }
+										</span>
+										${dataBuf[2]}
+										<c:if test = "${not i.last }">,</c:if>
+										<c:if test="${(i.index+1)%3 eq 0}"><br></c:if>
+										</c:forTokens>
+									</ul>
+								</c:if>
+							</span>
+							</td>
+						</tr>
+					</c:if>
+
+					<tr>
+						<th>내용</th>
+						<td colspan="5">
+							<div class="conview_Box">
+								<div>${fn:replace(businessDetail.memo, crcn, br)}</div>
+							</div>
+							<!--첨부파일-->
+							<div class="fileAddList_b" id="fileDiv">
+								<p class="title"><strong>첨부파일</strong>
+								<span class="count">3개<em>(2MB)</em></span>
+								<a href="javascript:fileDown('ALL')" class="s_white01_btn" id="filedownloadAll" style="display:none;">모두저장</a></p>
+								<ul id = "fileArea">
+								</ul>
+							</div>
+							<!--//첨부파일//-->
+						</td>
+					</tr>
+
+					<c:if test="${businessDetail.progressUse eq 'Y' }">
+					<tr>
+						<th>${businessDetail.progressLabel }</th>
+						<td colspan="5">
+							<span class="state_business">${businessDetail.progressNm }</span>
+						</td>
+					</tr>
+					</c:if>
+
+				</tbody>
+			</table>
+			<!--//정보정리(내용안내)//-->
+			<!--댓글-->
+			<div class="e_doc_rippleWrap">
+				<!--//댓글요약//-->
+				<!--댓글리스트-->
+				<div class="board_rippleWrap commentDisplay">
+	        	<div class="rippleSum">
+	        		<span class="opinion_control"><a href="#" onclick="javascript:fnObj.displayComment();return false;" class="" id="rippleSum">코멘트<span class="count" id="commentCount"></span></a></span><!--댓글닫기-->
+				</div>
+			    <div id="RippleZone">
+			        <!--일반 답글입력폼-->
+			        <div id="commentListDiv">
+			        	<div id="commentList" class="RippleCon"></div>
+			        </div>
+			     	<form name="fileForm" id="fileForm" method="post" enctype="multipart/form-data" action="${pageContext.request.contextPath}/file/uploadFiles.do";>
+		        	<div class="RippleGroup">
+		        		<dl class="normal bg_on">
+		        			<dt><span class="name">댓글 입력</span><span class="date"></span></dt>
+							<dd class="commentBox">
+						    	<div class="txtArea">
+						            <textarea class="txtArea_b" placeholder="내용을 입력해주세요" title="내용입력" id="commentText" name="commentText"></textarea><button type="button"  onclick="javascrit:fnObj.saveComment(0,0,0,this.form.name);return false;" class="btn_comment">Comment</button>
+						        </div>
+						    </dd>
+						    <dd class="addFileList fileDisplay" id="fileTr">
+				    			<p class="titleZone">
+				    				<span class="title">
+				    					<span id="fileInputArea" class="file_btn_bg"><input name="upFile" type="file" multiple onchange="fnObj.newFileUpload('','');" class="file_btn_cover"></span>
+				    				</span>
+								</p>
+								<ul id="commentUploadFileList" style="display:none;"></ul>
+				            </dd>
+						</dl>
+					</div>
+					</form>
+				</div><!-- RippleZone -->
+			</div><!-- 	board_rippleWrap -->
+		</div>
+			<!--//댓글//-->
+
+		<div class="btnZoneBox">
+		<a href="javascript:goModifyPage()" class="p_blueblack_btn btn_auth" style="display:${baseUserLoginInfo.userId != businessDetail.createdBy?'none':''} "><strong>수정</strong></a>
+		<a href="javascript:window.close()" class="p_withelin_btn">닫기</a></div>
+	</div>
+
+

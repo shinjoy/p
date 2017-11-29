@@ -1,0 +1,210 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<script type="text/JavaScript" src="../js/base.js"></script>
+
+<!-- ** 사용자 설정 화면 사이즈를 위한 스크립트 ** -->
+
+
+<!--부서별 비교-->
+<div class="pro_statsBox mgt30" id="bottomDept">
+	<h4 class="box_title center">부서별 비교</h4>
+
+	<div class="pro_tbWrap bline_radi">
+		<ul class="pro_layoutList case03">
+			<li class="w01">
+				<div class="pro_tbbox">
+					<table class="pro_stats_tb tline bline" summary="부서별비교 (구분, 참여프로젝트, 참여액티비티, 팀업무, 개인업무)">
+						<caption>부서별비교</caption>
+						<colgroup>
+							<col width="170" />
+							<col width="*" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col">구분</th>
+								<th scope="col">참여 프로젝트</th>
+								<th scope="col">참여 액티비티</th>
+								<th scope="col">팀업무</th>
+								<th scope="col">개인업무</th>
+							</tr>
+						</thead>
+						<tbody>
+						<c:set var="projectAttendCntSum" value="0"/>
+						<c:set var="activityAttendCntSum" value="0"/>
+						<c:set var="workTeamCntSum" value="0"/>
+						<c:set var="workPrivateCntSum" value="0"/>
+						<c:choose>
+							<c:when test="${not empty deptCompareList }">
+								<c:forEach items="${deptCompareList }" var="data" varStatus="i">
+								<c:set var="projectAttendCntSum"  value="${data.projectAttendCnt + projectAttendCntSum}"></c:set>
+								<c:set var="activityAttendCntSum"  value="${data.activityAttendCnt + activityAttendCntSum}"></c:set>
+								<c:set var="workTeamCntSum"  value="${data.workTeamCnt + workTeamCntSum}"></c:set>
+								<c:set var="workPrivateCntSum"  value="${data.workTeamCnt + workPrivateCntSum}"></c:set>
+								<tr scope="row" name="deptCompareTr_${data.deptId }">
+									<th >
+										${data.deptNm }
+									</th>
+									<td>
+										${data.projectAttendCnt }
+										<input type="hidden" name = "deptProjectAttendCnt_${data.deptId }" value="${data.projectAttendCnt }">
+									</td>
+									<td>
+										${data.activityAttendCnt }
+										<input type="hidden" name = "deptActivityAttendCnt_${data.deptId }" value="${data.activityAttendCnt }">
+									</td>
+									<td>
+										${data.workTeamCnt }
+										<input type="hidden" name = "deptWorkTeamCnt_${data.deptId }" value="${data.workTeamCnt }">
+									</td>
+									<td>
+										${data.workPrivateCnt }
+										<input type="hidden" name = "deptWorkPrivateCnt_${data.deptId }" value="${data.workPrivateCnt }">
+									</td>
+								</tr>
+								</c:forEach>
+							</c:when>
+							<c:otherwise>
+								<td colspan="5" align="center" style="height:45px; border-left:#c3cad5 solid 1px;">조회된 데이터가 없습니다.</td>
+							</c:otherwise>
+						</c:choose>
+						</tbody>
+						<tfoot>
+                            <tr>
+                                <th scope="row">계</th>
+                                <td>${projectAttendCntSum }</td>
+                                <td>${activityAttendCntSum }</td>
+                                <td>${workTeamCntSum }</td>
+                                <td>${workPrivateCntSum }</td>
+                            </tr>
+                        </tfoot>
+					</table>
+					<table class="pro_stats_tb2 tline mgt20" summary="직원별 개인업무 참여도 (담당자, 참여건, 참여도)">
+						<caption>직원별 개인업무 참여도</caption>
+						<colgroup>
+							<col width="100" />
+							<col width="70" />
+							<col width="*" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col">팀</th>
+								<th scope="col">참여건</th>
+								<th scope="col">참여도</th>
+							</tr>
+						</thead>
+						<tbody>
+						<c:choose>
+							<c:when test="${not empty deptCompareList }">
+								<c:forEach items="${deptCompareList }" var="data" varStatus="i">
+								    <fmt:parseNumber var="activityAttendCntSum" value="${activityAttendCntSum}" pattern="#.##"/>
+                                    <fmt:parseNumber var="activityAttendCnt" value="${data.activityAttendCnt}" pattern="#.##"/>
+                                    <c:choose>
+			                            <c:when test="${activityAttendCntSum> 0}"><fmt:formatNumber var="activityAttendRate"  pattern="#.#"  value="${(activityAttendCnt/activityAttendCntSum)*100}"/></c:when>
+			                            <c:otherwise><fmt:formatNumber var="activityAttendRate" value="0"/></c:otherwise>
+			                        </c:choose>
+
+									<tr scope="row" name="deptGraphTr_${data.deptId }">
+										<th scope="row"><!-- 부서명 -->
+											${data.deptNm }
+										</th>
+										<td><!-- 액티비티참여건 -->
+											${data.activityAttendCnt }
+											<input type="hidden" name = "activityAttendCnt_${data.deptId }" value="${data.activityAttendCnt }">
+										</td>
+										<td><!-- 액티비티(프로젝트)참여도 -->
+										    <div class="partiGage">
+				                                <div class="bg_bar"><span class="gage_bar"  style="width:${activityAttendRate}%;"></span></div>
+				                                <span class="perNum">${activityAttendRate}%
+				                            </div>
+										</td>
+									</tr>
+								</c:forEach>
+							</c:when>
+							<c:otherwise>
+								<tr>
+									<td colspan="3" align="center" style="height:45px; border-left:#c3cad5 solid 1px; border-bottom:#c3cad5 solid 1px;">조회된 데이터가 없습니다.</td>
+								</tr>
+							</c:otherwise>
+						</c:choose>
+						</tbody>
+						<tfoot>
+							<tr>
+								<th>계</th>
+								<td>${activityAttendCntSum }</td>
+								<td>
+									<div class="partiGage">
+										<div class="bg_bar"><span class="gage_bar" style="width:100%;"></span></div>
+										<span class="perNum">100%</span>
+									</div>
+								</td>
+							</tr>
+						</tfoot>
+
+					</table>
+				</div>
+			</li>
+			<li class="w02">
+				<div class="pro_tbbox" id="barChart">
+				    <div class="gra_ex_title" style="text-align:center"><strong>부서별 참여도</strong></div>
+
+					<div class="pro_stats_graWrap" id="deptCompareBarChart" style="padding:20px 20px 20px 20px;">해당내역이 없습니다.</div>
+				</div>
+			</li>
+		</ul>
+	</div>
+</div>
+<!--//부서별 비교//-->
+<!--참여프로젝트 목록-->
+<div class="pro_statsBox mgt30" id="bottomUsr">
+	<table class="pro_stats_tb tline bline" id="listTable" summary="참여프로젝트 목록 (프로젝트, 액티비티, 개인업무, 팀업무, 계)">
+		<caption>참여프로젝트 목록</caption>
+		<colgroup>
+			<col width="*" />
+			<col width="15%" />
+		</colgroup>
+		<thead>
+			<tr>
+				<th scope="col">프로젝트</th>
+				<th scope="col">액티비티</th>
+				<th scope="col">개인업무</th>
+				<th scope="col">팀업무</th>
+				<th scope="col">계</th>
+			</tr>
+
+		</thead>
+		<tbody>
+            <c:forEach var="item" items="${projectInfoList}" varStatus="i">
+			<tr>
+				<th scope="row" name="compareProjectTr_${item.projectId }"><a href="javascript:openProjectStatus('${item.projectId }');" class="icon_wbs"</a>
+					${item.projectName }
+				</th>
+				<td>${item.activityName }</td>
+				<td>
+					${item.workPrivateCnt }
+					<input type="hidden" name = "workPrivateCnt_${item.projectId }" value="${item.workPrivateCnt }">
+				</td>
+				<td>
+					${item.workTeamCnt }
+					<input type="hidden" name = "workTeamCnt_${item.projectId }" value="${item.workTeamCnt }">
+				</td>
+				<td>
+					${item.workPrivateTeamTotCnt }
+					<input type="hidden" name = "workPrivateTeamTotCnt_${item.projectId }" value="${item.workPrivateTeamTotCnt }">
+				</td>
+			</tr>
+			</c:forEach>
+			<c:if test="${fn:length(projectInfoList)<=0 }">
+			<tr>
+           		<td colspan="5" class="no_result" style="border-left:#c3cad5 solid 1px;">
+               		<p class="nr_des">조회된 데이터가 없습니다.</p>
+           		</td>
+       		</tr>
+			</c:if>
+		</tbody>
+	</table>
+</div>
+<!--//참여프로젝트 목록//-->

@@ -1,0 +1,141 @@
+package ib.system.service.impl;
+
+
+import ib.system.service.RoleRegService;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Service;
+
+import egovframework.rte.fdl.cmmn.AbstractServiceImpl;
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+
+
+@Service("roleRegService")
+public class RoleRegServiceImpl extends AbstractServiceImpl implements RoleRegService {
+
+    @Resource(name="roleRegDAO")
+    private RoleRegDAO roleRegDAO;
+
+    protected static final Log logger = LogFactory.getLog(RoleRegServiceImpl.class);
+
+
+    //권한코드(콤보박스용)
+    public List<Map> getRoleCodeCombo(Map<String, String> map) throws Exception {
+
+    	return roleRegDAO.getRoleCodeCombo(map);
+	}
+
+
+  	//권한코드
+	public List<Map> getRoleCodeList(Map<String, String> map) throws Exception {
+
+		return roleRegDAO.getRoleCodeList(map);
+	}
+
+
+	//권한등록(신규)
+	public int insertRole(Map<String, Object> map) throws Exception {
+
+		int boardSeq = roleRegDAO.insertRole(map);			//권한등록
+
+		return boardSeq;
+	}
+
+
+	//권한등록(수정)
+	public int updateRole(Map<String, Object> map) throws Exception {
+
+		int svCnt = roleRegDAO.updateRole(map);				//권한수정
+
+		return svCnt;
+	}
+
+
+	//권한삭제
+	public int deleteRole(Map<String, Object> param) throws Exception {
+
+		return roleRegDAO.deleteRole(param);
+	}
+
+
+	//관계사별 권한코드(콤보박스용)
+	public List<Map> getRoleCodeByOrgCombo(Map<String, String> map) throws Exception {
+		return roleRegDAO.getRoleCodeByOrgCombo(map);
+	}
+
+	//관계사별 결재자공개(삭제 / 저장)
+	public int processOrgCommonAppvLine(Map<String, Object> param) throws Exception{
+		Integer cnt = 0;
+
+		cnt = roleRegDAO.deleteOrgCommonAppvLine(param);
+
+		String inUserIdStr = param.get("inUserIdStr").toString();
+		if(!inUserIdStr.equals("")){
+			String[] inUserIdStrBuf = inUserIdStr.split(",");
+
+			for(String inUserId:inUserIdStrBuf){
+				param.put("inUserId", inUserId);
+				cnt = roleRegDAO.insertOrgCommonAppvLine(param);
+			}
+		}
+
+		return 1;
+	}
+
+	//관계사별 결재자공개 조회
+	public List<EgovMap> searchOrgCommonAppvLineList(Map<String, Object> map) throws Exception{
+		return roleRegDAO.searchOrgCommonAppvLineList(map);
+	}
+	
+	/**
+	* 인수인계자 설정 페이지 리스트 
+	*
+	* @param		:
+	* @return		:
+	* @exception	:
+	* @author		: sjy
+	* @date			: 2017. 10. 12.
+	*/
+	
+	public List<EgovMap> transferUserList(Map<String, Object> map) throws Exception{
+		
+		return roleRegDAO.transferUserList(map);
+	}
+	
+	/**
+	* 인수인계자 설정 페이지 - 사용여부 수정 
+	*
+	* @param		:
+	* @return		:
+	* @exception	:
+	* @author		: sjy
+	* @date			: 2017. 10. 13.
+	*/
+	
+	public int modifyTransferUseYn(Map<String, Object> map) throws Exception{
+		
+		return roleRegDAO.modifyTransferUseYn(map);
+	}
+	
+	/**
+	* 인수인계자 설정 등록
+	*
+	* @param		:
+	* @return		:
+	* @exception	:
+	* @author		: sjy
+	* @date			: 2017. 10. 16.
+	*/
+	
+	public int createTransferUser(Map<String, Object> map) throws Exception{
+		
+		return roleRegDAO.createTransferUser(map);
+	}
+
+}

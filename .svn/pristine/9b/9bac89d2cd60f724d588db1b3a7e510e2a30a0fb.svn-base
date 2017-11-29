@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="approveLine">
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="approveVo" type="ib.approve.service.ApproveVo"/>
+
+
+	<!-- 결재선관리 조회 -->
+    <select id="approveLine.selectApproveHeaderList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT  /*+ 결재선관리 */
+		         APPV_HEADER_ID
+		        ,ORG_ID
+		        ,A.APPV_DOC_CLASS
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = #applyOrgId# AND X.CODE_NAME = 'APPV_DOC_CLASS' AND X.CODE_VALUE = A.APPV_DOC_CLASS) AS APPV_DOC_CLASS_NM
+		        ,A.APPV_DOC_TYPE
+		        ,IF(A.APPV_DOC_CLASS = 'COMPANY' ,A.APPV_DOC_TYPE
+		        								 ,(SELECT X.VALUE_MEAN_KOR
+										            FROM BS_CODE_GV X
+										           WHERE X.ORG_ID = #applyOrgId#
+										             AND X.CODE_ID = (SELECT SON_CODE_ID FROM BS_CODE_GV Z WHERE Z.ORG_ID = #applyOrgId# AND Z.CODE_NAME = 'APPV_DOC_CLASS' AND Z.CODE_VALUE = A.APPV_DOC_CLASS)
+										             AND X.CODE_VALUE = A.APPV_DOC_TYPE)
+					) AS APPV_DOC_TYPE_NM
+		        ,APPV_HEADER_NAME
+		        ,MIN_AMOUNT
+		        ,MAX_AMOUNT
+		        ,ENABLE
+		        ,CLOSED
+		        ,DECISION_YN
+		        ,A.CREATED_BY
+		        ,(SELECT X.NAME FROM BASE.BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY)  AS CREATED_NM
+		        ,A.CREATE_DATE
+		        ,A.UPDATED_BY
+		        ,(SELECT X.NAME FROM BASE.BS_USER_MASTER X WHERE X.USER_ID = A.UPDATED_BY)  AS UPDATED_NM
+		        ,A.UPDATE_DATE
+		FROM    BS_APPROVE_HEADER A
+		WHERE   A.ORG_ID = #applyOrgId#
+		<isNotEmpty prepend="AND" property="searchAppvDocClass">
+		    A.APPV_DOC_CLASS = #searchAppvDocClass#
+		</isNotEmpty>
+		  AND IF(A.APPV_DOC_CLASS = 'COMPANY' ,
+		  			(SELECT COUNT(*) FROM BS_APPV_COMPANY_FORM X WHERE A.APPV_DOC_TYPE = X.APPV_DOC_TYPE_NAME AND X.OPEN_YN = 'Y' AND X.DELETE_FLAG = 'N')=1
+		  			,1=1
+		  		)
+		ORDER BY IF(A.APPV_DOC_CLASS = 'COMPANY' , 1 , 0), A.APPV_DOC_CLASS, A.APPV_DOC_TYPE, A.MIN_AMOUNT
+    </select>
+
+    <!-- 결재선중복 체크 -->
+    <select id="approveLine.getApproveHeaderDupCnt" parameterClass="HashMap" resultClass="int">
+        SELECT
+                 COUNT(*) AS DUP_CNT
+        FROM    BS_APPROVE_HEADER
+        WHERE   ORG_ID = #applyOrgId#
+        AND     APPV_DOC_CLASS = #appvDocClass#
+        AND     APPV_DOC_TYPE = #appvDocType#
+        AND     APPV_HEADER_NAME = #appvHeaderName#
+        <isNotEmpty prepend="" property="appvHeaderId">
+            AND APPV_HEADER_ID != #appvHeaderId#
+        </isNotEmpty>
+    </select>
+
+    <!-- 구매결재해더 중복 체크 -->
+    <select id="approveLine.getBuyAmountApproveHeaderDupCnt" parameterClass="HashMap" resultClass="int">
+        SELECT
+                 COUNT(*) AS DUP_CNT
+        FROM    BS_APPROVE_HEADER
+        WHERE   ORG_ID = #applyOrgId#
+        AND     APPV_DOC_CLASS = #appvDocClass#
+        AND     APPV_DOC_TYPE = #appvDocType#
+        AND     ENABLE = 'Y'
+        AND     CLOSED = 'N'
+        AND     (
+                #minAmount# BETWEEN MIN_AMOUNT AND MAX_AMOUNT
+                OR
+                #maxAmount# BETWEEN MIN_AMOUNT AND MAX_AMOUNT
+                OR
+                <![CDATA[ (#minAmount# <= MIN_AMOUNT AND #maxAmount# >= MAX_AMOUNT) ]]>
+                )
+        <isNotEmpty prepend="" property="appvHeaderId">
+            AND APPV_HEADER_ID != #appvHeaderId#
+        </isNotEmpty>
+    </select>
+
+    <!-- 결재선 등록 -->
+    <insert id="approveLine.insertApproveHeader" parameterClass="HashMap">
+		INSERT INTO BASE.BS_APPROVE_HEADER
+		            (ORG_ID
+		            ,APPV_DOC_CLASS
+		            ,APPV_DOC_TYPE
+		            ,APPV_HEADER_NAME
+		            ,MIN_AMOUNT
+		            ,MAX_AMOUNT
+		            ,ENABLE
+		            ,CLOSED
+		            ,DECISION_YN
+		            ,CREATED_BY
+		            ,CREATE_DATE
+		            ,UPDATED_BY
+		            ,UPDATE_DATE
+		            )
+		VALUES     ( #applyOrgId#
+		            ,#appvDocClass#
+		            ,#appvDocType#
+		            ,IFNULL(#appvHeaderName#,'')
+		            ,#minAmount#
+		            ,#maxAmount#
+		            ,#enable#
+		            ,#closed#
+		            ,#decisionYn#
+		            ,#userId#
+		            ,NOW()
+		            ,#userId#
+		            ,NOW()
+		            )
+		<selectKey resultClass="int" type="post" keyProperty="appvHeaderId">
+		SELECT LAST_INSERT_ID()
+		</selectKey>
+    </insert>
+
+    <!-- 결재선 수정 -->
+    <update id="approveLine.updateApproveHeader"  parameterClass="HashMap">
+		UPDATE BASE.BS_APPROVE_HEADER
+		SET  ORG_ID = ORG_ID
+		    ,APPV_DOC_CLASS    = #appvDocClass#
+		    ,APPV_DOC_TYPE     = #appvDocType#
+		    ,APPV_HEADER_NAME  = IFNULL(#appvHeaderName#,'')
+		    ,MIN_AMOUNT        = #minAmount#
+		    ,MAX_AMOUNT        = #maxAmount#
+		    ,ENABLE            = #enable#
+		    ,CLOSED            = #closed#
+		    ,DECISION_YN	   = #decisionYn#
+		    ,UPDATED_BY        = #userId#
+		    ,UPDATE_DATE       = NOW()
+		WHERE APPV_HEADER_ID = #appvHeaderId#
+		AND   ORG_ID         = #applyOrgId#
+    </update>
+
+    <!-- 결재순서 목록 조회 -->
+    <select id="approveLine.selectApproveLineList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT  /*+ 결재순서 */
+		         A.APPV_LINE_ID
+		        ,A.APPV_HEADER_ID
+		        ,A.ORG_ID
+		        ,A.APPV_SEQ
+		        ,A.APPV_CLASS
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = #applyOrgId# AND X.CODE_NAME = 'APPV_CLASS' AND X.CODE_VALUE = A.APPV_CLASS) AS APPV_CLASS_NM
+		        ,A.APPV_LINE_TYPE
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = #applyOrgId# AND X.CODE_NAME = 'APPV_LINE_TYPE' AND X.CODE_VALUE = A.APPV_LINE_TYPE) AS APPV_LINE_TYPE_NM
+		        ,A.DEPT_ID
+		        ,(SELECT X.KOR_NAME FROM BASE.BS_DEPARTMENT X WHERE X.DEPT_ID = A.DEPT_ID) AS DEPT_NM
+		        ,A.DEPT_LEVEL
+		        ,A.APPV_USER_ID
+		        ,(SELECT X.NAME FROM BASE.BS_USER_MASTER X WHERE X.USER_ID = A.APPV_USER_ID)    AS APPV_USER_NM
+		        ,A.CREATED_BY
+		        ,(SELECT X.NAME FROM BASE.BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY)  AS CREATED_NM
+		        ,A.CREATE_DATE
+		        ,A.UPDATED_BY
+		        ,(SELECT X.NAME FROM BASE.BS_USER_MASTER X WHERE X.USER_ID = A.UPDATED_BY)  AS UPDATED_NM
+		        ,A.UPDATE_DATE
+		FROM    BS_APPROVE_LINE A
+		WHERE   A.APPV_HEADER_ID = #appvHeaderId#
+		AND     A.ORG_ID = #applyOrgId#
+		ORDER BY A.APPV_SEQ
+    </select>
+
+    <!-- 결재순서 등록 -->
+    <insert id="approveLine.insertApproveLine" parameterClass="approveVo">
+		INSERT INTO BASE.BS_APPROVE_LINE
+		            (
+		             APPV_HEADER_ID
+		            ,ORG_ID
+		            ,APPV_SEQ
+		            ,APPV_CLASS
+		            ,APPV_LINE_TYPE
+		            ,DEPT_ID
+		            ,DEPT_LEVEL
+		            ,APPV_USER_ID
+		            ,CREATED_BY
+		            ,CREATE_DATE
+		            ,UPDATED_BY
+		            ,UPDATE_DATE
+		            )
+		VALUES      (
+		             #appvHeaderId#
+		            ,#orgId#
+		            ,#appvSeq#
+		            ,#appvClass#
+		            ,#appvLineType#
+		            <isEmpty  property="deptId">
+		                ,NULL
+		            </isEmpty>
+		            <isNotEmpty  property="deptId">
+                        ,#deptId#
+                    </isNotEmpty>
+		            ,#deptLevel#
+		            <isEmpty property="appvUserId">
+		                ,NULL
+		            </isEmpty>
+		            <isNotEmpty property="appvUserId">
+                        ,#appvUserId#
+                    </isNotEmpty>
+		            ,#userId#
+		            ,NOW()
+		            ,#userId#
+		            ,NOW()
+		            );
+    </insert>
+
+    <!-- 결재순서 삭제 -->
+	<delete id="approveLine.deleteApproveLine" parameterClass="HashMap">
+		DELETE  FROM BASE.BS_APPROVE_LINE
+		WHERE   APPV_HEADER_ID = #appvHeaderId#
+        AND     ORG_ID = #applyOrgId#
+	</delete>
+
+	<!-- 사내서식 문서타입 조회 -->
+    <select id="approveLine.appvCompanyListForLine" parameterClass="HashMap" resultClass="egovMap">
+    	SELECT   /* approveLine.appvCompanyListForLine */
+				 A.APPV_COMPANY_FORM_ID
+				,A.ORG_ID
+				,A.APPV_DOC_TYPE_NAME
+		FROM    BS_APPV_COMPANY_FORM A
+		WHERE   1=1
+		  AND   A.ORG_ID = #applyOrgId#
+		  AND   A.OPEN_YN = 'Y'
+		  AND   A.DELETE_FLAG = 'N'
+    </select>
+	<!-- 결재선복사저장 -->
+    <insert id="approveLine.insertCopyApproveLine" parameterClass="HashMap">
+    	INSERT /* approveLine.insertCopyApproveLine */
+    	  INTO BS_APPROVE_LINE ( APPV_HEADER_ID
+								,ORG_ID
+								,APPV_SEQ
+								,APPV_CLASS
+								,APPV_LINE_TYPE
+								,DEPT_ID
+								,DEPT_LEVEL
+								,APPV_USER_ID
+								,CREATED_BY
+								,CREATE_DATE
+								,UPDATED_BY
+								,UPDATE_DATE
+    	  					)
+    	  	SELECT   #targetAppvHeaderId#
+					,X.ORG_ID
+					,X.APPV_SEQ
+					,X.APPV_CLASS
+					,X.APPV_LINE_TYPE
+					,X.DEPT_ID
+					,X.DEPT_LEVEL
+					,X.APPV_USER_ID
+					,#userId#
+		            ,NOW()
+		            ,#userId#
+		            ,NOW()
+		    FROM BS_APPROVE_LINE X
+		   WHERE X.APPV_HEADER_ID = #oriAppvHeaderId#
+    </insert>
+
+    <!-- 결재자 리스트 -->
+    <select id="approveLine.getApproveUserList" parameterClass="HashMap" resultClass="HashMap">
+
+    	SELECT
+			     A.USER_ID		AS staffSnb
+			  	,B.NAME			AS usrNm
+		      	,B.LOGIN_ID		AS usrId
+		      	,B.MOBILE_TEL	AS phone
+		      	,B.CUS_ID		AS cusId
+		      	,B.EMP_NO		AS sabun
+		      	,SUBSTRING_INDEX(B.EMP_NO, '_', -1)		AS showEmpNo
+		      	,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = B.RANK AND ORG_ID = B.ORG_ID)		AS position
+		      	,B.ORG_ID		AS division
+
+		     	,D.DEPT_ID		AS deptSeq
+		     	,D.KOR_NAME		AS deptNm
+
+		     	,D.DEPT_ID		AS deptId
+		     	,B.USER_ID		AS userId
+		      	,B.NAME			AS userName
+		      	,B.NAME			AS userNm
+		      	,B.MOBILE_TEL   AS mobileTel
+		      	,B.EMP_NO		AS empNo
+		      	,B.ORG_ID		AS orgId
+		      	,B.RANK			AS rank
+		      	,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = B.RANK AND ORG_ID = B.ORG_ID)		AS rankNm
+		      	,(SELECT CPN_NM FROM IB_COMPANY IC, BS_ORG IO WHERE IC.S_NB = IO.COMPANY_SNB AND IO.ORG_ID = B.ORG_ID)	AS orgNm
+
+
+
+		FROM BASE.BS_APPROVE_OPENER 		AS A
+		LEFT JOIN BS_USER_MASTER			AS B	ON A.USER_ID = B.USER_ID
+		LEFT JOIN BS_USER_DEPARTMENT		AS C	ON A.USER_ID = C.USER_ID
+		LEFT JOIN BS_DEPARTMENT				AS D	ON C.DEPT_ID = D.DEPT_ID
+		LEFT JOIN BS_ORG					AS E	ON B.ORG_ID  = E.ORG_ID
+		LEFT JOIN BS_CODE_GV				AS F	ON F.CODE_VALUE = B.RANK AND F.CODE_NAME = 'RANK' AND F.ORG_ID = B.ORG_ID
+
+		WHERE 1=1
+
+		<isEmpty property="userStatus"> 						<!-- 빈값 재직자 -->
+			AND B.DELETE_FLAG = 'N'
+		  	AND B.USER_STATUS IN ('W','H','L')
+			AND D.DEPT_ID IS NOT NULL
+			AND D.ENABLE = 'Y' AND D.DELETE_FLAG = 'N'
+		</isEmpty>
+
+		<isNotEmpty prepend="AND" property="userId">			<!--  userId에따른 유저검색(snb) -->
+			B.USER_ID IN ($userId$)
+		</isNotEmpty>
+
+		<isNotEmpty property="userStatus"> 						<!-- 값이있음 퇴직자 -->
+			AND (B.DELETE_FLAG = 'Y' OR
+		  	 	 B.USER_STATUS IN ('F','R'))
+
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="mainYn">			<!--  메인 팀에따른 유저검색 -->
+			C.MAIN_YN  = #mainYn#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="applyOrgId">
+			A.OPEN_ORG_ID = #applyOrgId#
+		</isNotEmpty>
+
+
+    	<isNotEqual property="deptOrder" compareValue="Y">
+		   ORDER BY B.NAME ASC
+		</isNotEqual>
+		<isEqual property="deptOrder" compareValue="Y">
+		   ORDER BY D.DEPT_LEVEL ASC, D.ORG_ID ASC, D.LEVEL_SEQ ASC, D.DEPT_SEQ ASC, B.NAME ASC
+		</isEqual>
+
+    </select>
+
+</sqlMap>

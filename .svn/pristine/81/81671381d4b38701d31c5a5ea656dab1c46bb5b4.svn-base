@@ -1,0 +1,197 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ include file="./js/NoticeSh_JS.jsp"%>
+
+<div id="wrap" class="content_box">
+
+	<jsp:scriptlet>
+		pageContext.setAttribute("cr", "\r");
+		pageContext.setAttribute("lf", "\n");
+		pageContext.setAttribute("crlf", "\r\n");
+	</jsp:scriptlet>
+
+<input type="hidden" id="rgstId" value="<c:out value='${baseUserLoginInfo.loginId}'/>">
+
+		<article>
+
+		<c:set var="now" value="<%= new java.util.Date() %>"/>
+		<fmt:formatDate var="cur_day" value='${now}' pattern='yyyy-MM-dd'/>
+		<input type="hidden" id="CurDay" value="${cur_day}"/>
+
+		<form name="modifyRec" action="<c:url value='/work/selectPublicNoticeSh.do' />" method="post"><input type="hidden" name="sorting" id="sorting"><input type="hidden" name="total" value="${ttT}"></form>
+		<input type="hidden" id="SendReceive" value="MR">
+
+		<div class="fixedTop" style="z-index:10;">
+
+			<header>
+				<form name="dayForm" id="dayForm" method="post" action="<c:url value='/work/selectPublicNoticeSh.do' />">
+				<input type="hidden" name="total" id="total">
+				<div class="year_wrap" style="top:0px"><h2 class="headerTitle">
+
+					<fmt:formatDate var="cur_year" value='${now}' pattern='yyyy'/>
+
+					<%-- <span class="year">
+						<select id='deal_select_year' name='choiceYear'>
+							<c:forEach var="year" begin="2011" end="${cur_year}">
+								<option value="${year}"
+								<c:choose>
+									<c:when test="${choiceYear == null}">
+										<c:if test="${year == cur_year}">selected</c:if>>
+									</c:when>
+									<c:otherwise>
+										<c:if test="${year == choiceYear}">selected</c:if>>
+									</c:otherwise>
+								</c:choose>
+								${year}</option>
+							</c:forEach>
+						</select>
+					</span>
+					<span class="btn s red"><a onclick="totalView('total');">전체</a></span> --%>
+				공시 <small>(최대주주변경과 관련)</small>
+					&nbsp;&nbsp;<span class="btn s green"><a onclick="fnObj.noticeShPopup('new');">공시입력</a></span>
+					&nbsp;&nbsp;<!-- <span class="btn s"><a onclick="javascript:excelDownload(this,event);">엑셀 다운로드</a>  -->
+				</h2>
+				</div>
+				</form>
+				<h2 class="headerTitle">&nbsp;</h2>
+			</header>
+<div>
+    <div class="clear" style="float:left;width:10px;height:15px;">&nbsp;</div>
+    <div style="height:16px;line-height:15px;"class="1st subTab" onclick="openTab('selectPublicNoticeIncCap.do');">증자</div>
+    <div style="height:16px;line-height:15px;"class="1st subTab" onclick="openTab('selectPublicNoticeMezzaine.do');">메자닌</div>
+    <div style="height:16px;line-height:15px;"class="1st subTabon" onclick="openTab('selectPublicNoticeSh.do');">주주변경</div>
+</div>
+			<table class="t_skinR00">
+				<thead>
+					<tr>
+						<th class="hand pd0" style="width:70px">공시일자<br/><div id="sortBtn1"></div></th>	<%--▽ --%>
+						<th class="hand pd0" style="width:120px">회사명<br/></th>
+						<th class="hand pd0" style="width:150px">채무자<br/><div id="sortBtn2"></div></th>
+						<th class="hand pd0" style="width:150px">담보제공자<br/></th>
+						<th class="hand pd0" style="width:40px">내역<br/></th>
+						<th class="hand pd0" style="width:250px">담보권자<br/></th>
+						<th class="hand pd0" style="width:110px">담보설정금액<br/></th>
+						<th class="hand pd0" style="width:60px">담보권<br/>종류</th>
+						<th class="hand pd0" style="width:70px">담보제공<br/>주식수<br/></th>
+						<th class="hand pd0" style="width:40px">보호<br/>예수</th>
+						<th class="hand pd0" style="width:150px">담보제공기간<br/></th>
+						<th class="hand pd0">기타</th>
+					</tr>
+				</thead>
+				</table></div>
+			<div>
+			<table class="t_skinR00">
+				<tbody>
+					<c:forEach var="nt" items="${NoticeShList}" varStatus="ntS">
+
+						<tr
+							<%-- <c:choose>
+								<c:when test="${offer.progressCd == '10000'}"> style="background-color:#B9B9B9" </c:when>
+								<c:otherwise> <c:if test="${offer.progressCd == '00002'}">style="background-color:#E7E7E7"</c:if><c:if test="${offer.progressCd == '00003'}">style="background-color:#A9F5BC"</c:if><c:if test="${fn:length(offer.cpnId) == 7}"> style="background-color:#CEF6EC"</c:if></c:otherwise>
+							</c:choose> --%>
+						>
+							<td class="cent" style="width:69px;padding: 5px 0px;"><a onclick="javascript:fnObj.noticeShPopup('edit', '${nt.sNb}')">${nt.tmDt}</a></td>
+							<td class="cent pd0" style="width:120px"><a onclick="popUp('','rcmdCpn','','${nt.cpnSnb}')" style="cursor:pointer;">${nt.cpnNm}</a></td>
+							<td class="cent pd0" style="width:150px"><a onclick="javascript:fnObj.noticeShPopup('edit', '${nt.sNb}')">${nt.debtor}</a></td>
+							<td class="cent pd0" style="width:150px"><a onclick="javascript:fnObj.noticeShPopup('edit', '${nt.sNb}')">${nt.majorSh}</a></td>
+							<td class="cent pd0" style="width:40px">${nt.totalCount}</td>
+							<td class="cent pd0" style="width:250px">${nt.creditor}</td>
+							<td class="cent pd0" style="width:110px">${nt.securityAmount}</td>
+							<td class="cent pd0" style="width:60px">${nt.securityType}</td>
+							<td class="cent pd0" style="width:70px">${nt.securityShareCnt}</td>
+							<td class="cent pd0" style="width:40px">${nt.keepYn}</td>
+							<td class="cent pd0" style="width:150px">${nt.securityDt}</td>
+							<td class="cent pd0 w100p">${nt.comment}</td>
+						</tr>
+					</c:forEach>
+				</tbody>
+			</table>
+			</div>
+		</article>
+		<div class="popUpMenu" style="width:1250px;display:none" id="tblSh00">
+			<p id="closeTab" class="closeTab" style="display:block;"><span class="closePopUpMenu" name="textR" title="닫기">ⅹ닫기</span></p>
+			<table class="t_skinR00">
+				<thead>
+					<tr>
+						<th class="" style="width:60px;border-radius:0px;">공시일자</th>
+						<th class="pd0 w120p">회사명</th>
+						<th class="pd0 w80p">채무자</th>
+						<th class="pd0 w80p">담보제공자</th>
+						<th class="pd0 w40p">내역</th>
+						<th class="pd0 w120p">담보권자</th>
+						<th class="pd0 w80p">담보설정금액</th>
+						<th class="pd0 w40p">담보권<br>종류</th>
+						<th class="pd0 w120p">담보제공<br>주식수</th>
+						<th class="pd0 w40p">보호<br>예수</th>
+						<th class="pd0 w120p">담보제공기간</th>
+						<th class="" style="width:300px;border-radius:0px;">기타</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td class="cent pd0" ><input type="text" class="w96" id="tm"></td>
+						<td class="cent pd0"><input type="hidden" class="w96" id="AP_cpnId_00"><span class="btn s orange" style="vertical-align:top;"><a onclick="popUp('00','c')" id="AP_cpnNm_00" class="c_title">회사선택</a></span></td>
+						<td class="cent pd0"><input type="text" class="w96" id="cate"></td>
+						<td class="cent pd0"><input type="text" class="w96" id="way"></td>
+						<td class="won"><input type="text" class="w96 intNum" id="price00" onKeyPress="return numbersonly(event, false)"/></td>
+						<td class="cent pd0"><input type="text" class="w96" id=""></td>
+						<td class="cent pd0"><input type="text" class="w96" id=""></td>
+						<td class="cent pd0"><input type="text" class="w96" id="subdt"></td>
+						<td class="cent pd0"><input type="text" class="w96" id="ratio00"></td>
+						<td class="cent pd0"><input type="text" class="w96" id=""></td>
+						<td class="cent pd0"><input type="text" class="w96" id=""></td>
+						<td class="cent pd0"><input type="text" class="w96" id=""></td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="cent" style="margin:3px 0px;"><span class="btn s green" onclick="javascript:insertNoticeSh(this);"><a>저장</a></span></p>
+		</div>
+		<c:forEach var="nt" items="${NoticeShList}" varStatus="ntS">
+		<div class="popUpMenu" style="width:1250px;display:none" id="tblSh${ntS.count}">
+			<p id="closeTab" class="closeTab"><span class="closePopUpMenu" name="textR" title="닫기">ⅹ닫기</span></p>
+			<table class="t_skinR00">
+				<thead>
+					<tr>
+						<th class="" style="width:60px;border-radius:0px;">공시일자</th>
+						<th class="pd0 w120p">회사명</th>
+						<th class="pd0 w80p">채무자</th>
+						<th class="pd0 w80p">담보제공자</th>
+						<th class="pd0 w40p">내역</th>
+						<th class="pd0 w120p">담보권자</th>
+						<th class="pd0 w80p">담보설정금액</th>
+						<th class="pd0 w40p">담보권<br>종류</th>
+						<th class="pd0 w120p">담보제공<br>주식수</th>
+						<th class="pd0 w40p">보호<br>예수</th>
+						<th class="pd0 w120p">담보제공기간</th>
+						<th class="" style="width:300px;border-radius:0px;">기타</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<input type="hidden" value="${nt.sNb}"/>
+						<td class="cent pd0" style="width:69px;padding: 5px 0px;"><input type="text" class="w96" id="tm" value="${nt.tmDt}"></td>
+						<td class="cent pd0" style="width:120px">${nt.cpnNm}</td>
+						<td class="cent pd0" style="width:150px"><input type="text" class="w96" id="way" value="${nt.debtor}"></td>
+						<td class="cent pd0" style="width:150px"><input type="text" class="w96" id="way" value="${nt.majorSh}"></td>
+						<td class="cent pd0" style="width:50px"><input type="text" class="w96" id="way" value="${nt.totalCount}"></td>
+						<td class="cent pd0" style="width:250px"><input type="text" class="w96" id="way" value="${nt.creditor}"></td>
+						<td class="cent pd0" style="width:120px"><input type="text" class="w96" id="way" value="${nt.securityAmount}"></td>
+						<td class="cent pd0" style="width:120px"><input type="text" class="w96" id="way" value="${nt.securityType}"></td>
+						<td class="cent pd0" style="width:70px"><input type="text" class="w96" id="way" value="${nt.securityShareCnt}"></td>
+						<td class="cent pd0" style="width:120px"><input type="text" class="w96" id="way" value="${nt.keepYn}"></td>
+						<td class="cent pd0" style="width:80px"><input type="text" class="w96" id="way" value="${nt.securityDt}"></td>
+						<td class="cent pd0" style="width:80px"><input type="text" class="w96" id="way" value="${nt.comment}"></td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="cent" style="margin:3px 0px;"><span class="btn s orange" onclick="javascript:modifyNoticeSh(this);"><a>수정</a></span></p>
+		</div>
+		<script>
+			$( "#tblSh${ntS.count}" ).draggable();
+		</script>
+		</c:forEach>
+</div>
+

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="pass">
+
+	
+
+	<!-- 사용자 패스워드 -->
+	<select id="pass.selectUserPwdByLoginId" parameterClass="HashMap" resultClass="String">
+		SELECT PASSWORD
+		  FROM BS_USER_MASTER
+		 WHERE LOGIN_ID = #loginId#
+
+		/* pass.selectUserPwdByLoginId */
+	</select>
+
+
+	<!-- 각종 신규 정보 (개선요청게시판 신규건 등..) -->
+	<select id="pass.selectNewArticleList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT '개선요청'	AS name
+			  ,COUNT(*) 	AS cnt
+			  ,#srchDt#		AS `start`
+			  ,(CASE WHEN COUNT(*) > 0 THEN 'RED' ELSE 'BLACK' END)	AS bgcolor
+			  
+		  FROM BS_CBOARD_CONTENT A
+		 WHERE 1=1
+		   AND DELETE_FLAG = 'N'
+		   AND CBOARD_ID = 2
+		   AND (NOT EXISTS (SELECT 1
+							  FROM BS_CBOARD_COMMENT
+							 WHERE A.CONTENT_ID  = CONTENT_ID)
+				OR
+                        
+				CREATED_DATE LIKE CONCAT(LEFT(NOW(), 10), '%')
+                        
+				OR
+                        
+				EXISTS (SELECT 1
+	                      FROM BS_CBOARD_COMMENT
+				 		 WHERE A.CONTENT_ID  = CONTENT_ID
+	                       AND CREATED_DATE LIKE CONCAT(LEFT(NOW(), 10), '%')
+	                    )
+			)
+			
+		/* pass.selectNewArticleList */
+	</select>
+
+
+	<!-- 시너지 사용자 상태 정보 -->
+	<select id="pass.selectSynergyUserStatusList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT LOGIN_ID			AS loginId
+			  ,NAME				AS name
+			  ,USER_STATUS		AS userStatus
+			  
+		  FROM BS_USER_MASTER
+		 WHERE ORG_ID = 1
+
+		/* pass.selectSynergyUserStatusList */
+	</select>
+
+
+
+</sqlMap>

@@ -1,0 +1,509 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%
+response.setHeader("Cache-Control","no-cache");
+response.setHeader("Pragma","no-cache");
+response.setDateHeader("Expires",0);
+%>
+
+<form name="downForm" id="downForm"></form>
+<div id="progressTxtArea" style="display:none;"></div>
+
+
+	<div id="compnay_dinfo">
+		<!--업무일지등록-->
+		<div class="modalWrap2">
+
+			<div class="mo_container">
+				<!--업무일지상세보기-->
+				<h4 class="h4_view_title">
+					<span id="important"></span>
+					<span id="title">(주)미래경영자문 M&amp;A자문</span>
+					<span class="icon_new"><em>new</em></span>
+					<span class="writerinfo"><em class="writer" id="createdNmTxt">작성자</em><em class="teamname" id = "rankTxt">(부서명)</em></span>
+				</h4>
+
+
+
+				<table class="tb_view_simple2" id="SGridTarget" summary="일정등록 (기안자, 흐름도, 요약) 안내">
+					<caption>업무일지상세보기</caption>
+					<colgroup>
+						<col width="80" />
+						<col width="*" />
+					</colgroup>
+
+					<tbody>
+					</tbody>
+				</table>
+				<!--//업무일지상세보기//-->
+				<div class="btnZoneBox">
+					<!-- <a id="endBtn" href="javascript:fnObj.endWorkDaily('Y');" class="p_blueblack_btn"><strong>종료처리</strong></a>
+					<a id="cancleBtn" href="javascript:fnObj.endWorkDaily('N');" class="p_withelin_btn"><strong>종료처리취소</strong></a> -->
+					<a id="editBtn" href="javascript:fnObj.editGo();" class="p_blueblack_btn btn_auth"><strong>수정</strong></a>
+					<a id="deleteBtn" href="javascript:fnObj.deleteWorkDaily();" class="p_blueblack2_btn btn_auth"><strong>삭제</strong></a>
+					<a href="javascript:parent.myModal.close();" class="p_withelin_btn">닫기</a>
+				</div>
+			</div>
+
+		</div>
+	</div>
+
+
+<script type="text/javascript">
+
+//Global variables :S ---------------
+
+//공통코드
+
+var myModal = new AXModal();		// instance
+
+
+var myGrid = new SGrid();		// instance		new sjs
+var myPaging = new SPaging();	// instance		new sjs
+//var mySorting = new SSorting();	// instance		new sjs
+
+
+var loginUserId = '${baseUserLoginInfo.userId}';
+var g_workUserId = '${workUserId}';				//업무일지 유저아이디
+var g_listId = '${listId}';						//업무일지 아이디(seq)
+var g_memoList = [];
+
+var g_workDate = '${workDate}';					//선택 날짜
+var g_idx =0;
+
+var g_entryUserList = []; 						//선택한 유저 리스트.
+
+//Global variables :E ---------------
+
+
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+ var fnObj = {
+
+	preloadCode : function(){
+		var progress = getBaseCommonCode('WORK_PROGRESS', '', 'CD', 'NM', null, '', '', { orgId : "${baseUserLoginInfo.applyOrgId}"} );
+		if(progress == null){
+			progress = [{ 'CD': '', 'NM' :'선택'}];
+		}
+		var progressSelect = createSelectTag('progress', progress, 'CD', 'NM', null, '', {}, '', 'select_b w_st15');	//select tag creator 함수 호출 (common.js)
+		$("#progressArea").html(progressSelect);
+	},
+
+	pageStart : function(){
+
+		//-------------------------- 그리드 설정 :S ----------------------------
+		/* 그리드 설정정보 */
+		var configObj = {
+
+
+			targetID : "SGridTarget", //테이블아이디
+
+
+			//그리드 컬럼 정보
+			colGroup : [
+
+			{key : "project"	 	 , formatter : function(obj) {
+				var str = "<div><strong>";
+				str += "["+obj.item.projectNm+"-";
+				str += obj.item.activityNm+"]</strong> 기간 : "+obj.item.activityStartDate+" ~ "+obj.item.lastDate+"</div>";
+
+				return str;
+			}},
+			{key : "workDate"	 , formatter : function(obj) {
+
+										var workDate = obj.item.workDate;			//시작일
+										var completeDate = obj.item.completeDate;	//종료일
+										var nowDate = new Date().yyyy_mm_dd();
+
+										var lastDay = '';
+
+										var workDateInt = parseInt(workDate.split("-").join(""));
+										var nowDateInt = parseInt(nowDate.split("-").join(""));
+										var str ='<strong>'+workDate.replace(/-/gi,'/')+'</strong><span class="fontst mgl6">(등록일)</span>';
+										if((completeDate == '' || obj.item.complete == 'N')&&(workDateInt<=nowDateInt)){ //작업 완료일이 없으면,
+											str +=' ~ <strong>'+nowDate.replace(/-/gi,'/')+'</strong><span class="fontst mgl6">(오늘)</span>';
+											lastDay = nowDate;
+
+										}else if(workDateInt<=nowDateInt){
+											str +=' ~ <strong>'+completeDate.replace(/-/gi,'/')+'</strong><span class="fontst mgl6">(완료일)</span>';
+											lastDay = completeDate;
+										}
+										var diff = diffDay(lastDay,workDate);
+
+										str += '<span class="d_day mgl10">(';
+										if(diff == 0){
+											str += '당일';
+										}else if(diff > 0){
+											str += '+'+diff;
+										}else{
+											if( new Date().yyyy_mm_dd() <= lastDay && obj.item.complete == 'Y'){
+												str += '완료';
+											}else{
+												str += '계획';
+											}
+										}
+
+										str +=')</span>';
+										return str;
+			}},
+			{key : "memo"	 	 , formatter : function(obj) {
+									var memoList = g_memoList;
+									var str ='';
+					                if(memoList.length > 0){
+					                	str +='<div class="conview_Box">';
+	                                    str +='<div>'+devUtil.fn_escapeReplace(memoList[0].memo).replace(/(?:\r\n|\r|\n)/g, '<br />');  + '</div>';
+	                                    str +='</div>';
+
+		                                  //첨부파일(일반)
+		                                  var fileNameStr = memoList[0].fileNameStr;
+		                                  // fileNameStr ->   file_seq,'|',file_size,'|',org_file_nm  , 파일목록은 ":"로 구분
+		                                  if(fileNameStr != ""){
+		                                	  var fileSize = 0;
+                                              var fileHtml = '';
+                                              var downFileList =new Array();
+
+		                                	  var fileList = fileNameStr.split(":");
+		                                	  for(var k=0;k<fileList.length;k++){
+		                                		  var arrFile = fileList[k].split("|");
+		                                		  fileHtml+='<li><a href=javascript:downLoadFile("'+arrFile[0]+'")>' + arrFile[2] + '</a></li>'
+                                                  fileSize += parseInt(arrFile[1]);
+		                                		  downFileList.push(arrFile[0]);
+		                                	  }
+
+                                              str +='<dd class="fileAddList_b">';
+                                              str +='<p class="title"><strong>첨부파일</strong><span class="count">'+fileList.length+'개<em>'+checkFileSize(fileSize) +'</em></span>';
+                                              str += '<a href="javascript:fileDown(\'' + downFileList.join(",") + '\','+ fileList.length +')" class="s_white01_btn" id="filedownloadAll" style="">모두저장</a></p>';
+                                              str +='<ul id="fileArea">';
+                                              str += fileHtml;
+                                              str +='</ul>';
+                                              str +='</dd>';
+                                              str +='</dl>';
+                                              str +='</div>';
+		                                  }
+					                }
+
+				                    return str;
+	         }},
+			{key : "progressTxt" , formatter : function(obj) {
+										var str ='<span class="';
+										if(obj.item.complete == 'D' || obj.item.progress == 'HOLD'){		//보류,드랍
+											str+='st_drop';
+										}else if(obj.item.complete == 'Y'){	//완료
+											str+='st_finish';
+										}else{
+											str+='st_ing';
+										}
+
+										str+='">'+obj.item.progressTxt+'</span>';
+
+										return str;
+			}},
+			{key : "readerTypeNm"      , formatter : function(obj) {
+                var str = obj.item.readerTypeNm;
+                return str;
+            }},
+
+			],
+			body : {
+				onclick : function(obj, e) {
+
+				}
+			}
+		};
+
+		/* 그리드 한건 데이터 HTML 포맷 (** 1.tbody 내에 들어갈 tr 태그,  2.#[n] 의 위치에 colGroup 의 순서대로 데이터 세팅) */
+		var rowHtmlStr = '<tr>';
+		rowHtmlStr += '<th>${baseUserLoginInfo.projectTitle }</th>';
+		rowHtmlStr += '<td>#[0]</td>';
+		rowHtmlStr += '<tr>';
+		rowHtmlStr += '<th>작업기간</th>';
+		rowHtmlStr += '<td class="work_period">#[1]</td>';
+		rowHtmlStr += '</tr>';
+		rowHtmlStr += '<tr>';
+		rowHtmlStr += '<th>내용</th>';
+		rowHtmlStr += '<td><div class="conview_Box">#[2]</div></td>';
+		rowHtmlStr += '</tr>';
+		rowHtmlStr += '<tr >';
+        rowHtmlStr += '    <th scope="row"  id="approveCcTh">열람권한</th>';
+        rowHtmlStr += '    <td><div class="project_state">#[4]</div></td>';
+        rowHtmlStr += '</tr>';
+        rowHtmlStr += '<tr id = "approveCcTr" style="display: none;">';
+        rowHtmlStr += '    <td class="dot_line" id = "approveCcArea">';
+        rowHtmlStr += '    </td>';
+        rowHtmlStr += '</tr>';
+
+		rowHtmlStr += '<tr>';
+		rowHtmlStr += '<th scope="row">진행상태</th>';
+		rowHtmlStr += '<td class="project_state">#[3]</td>';
+		rowHtmlStr += '</tr>';
+		configObj.rowHtmlStr = rowHtmlStr;
+		myGrid.setConfig(configObj);
+
+		//-------------------------- 그리드 설정 :E ----------------------------
+
+		//-------------------------- 모달창 :S -------------------------
+    	myModal.setConfig({
+    		windowID:"myModalCT",
+
+    		width:740,
+            mediaQuery: {
+                mx:{min:0, max:767}, dx:{min:767}
+            },
+    		displayLoading:true,
+            scrollLock: false,
+    		onclose: function(){
+
+    		}
+            ,contentDivClass: "popup_outline"
+
+    	});
+    	//-------------------------- 모달창 :E -------------------------
+
+	},
+
+	//업무일지 (개인) 정보
+	getWorkDaily : function(){
+
+		var url =contextRoot + "/work/getWorkDaily.do";
+
+	   	 var param = {
+	   			 listId	: g_listId,
+	   			 orgId : '${baseUserLoginInfo.applyOrgId}'
+	   	 };
+
+	   	 var callback = function(result){
+	   		var obj = JSON.parse(result);
+            var totalObj = obj.resultObject;
+            var list = totalObj.workList;
+            g_memoList = totalObj.memoList;
+            var workReaderList = totalObj.workReaderList;
+
+    		//var list = obj.resultList;
+
+    		$("#title").html(devUtil.fn_escapeReplace(list[0].title));
+    		var createdNameAreaStr = "<span class='userProfileTargetArea' onmousedown = 'openUserProfileBox(\""+list[0].createdBy+"\",$(this),\"mouseover\",null,-5,-80,100)'>";
+    		createdNameAreaStr += list[0].createdName+"</span>";
+    		$("#createdNmTxt").html(createdNameAreaStr);
+
+    		var createDate = list[0].createDate;
+    		$("#rankTxt").html("("+list[0].position+" "+createDate.split("-").join("/")+")");
+    		$("#important").addClass('icon_important_L'+list[0].important);
+
+    		/* if(list[0].complete == 'N'){		//종료처리 되지않은 업무면
+    			$("#cancleBtn").hide();			//숨김
+    		}else{
+    			$("#endBtn").hide();
+    		}  */
+
+    		//타인이 봤을때,
+    		if(g_workUserId != loginUserId){
+    			$("#editBtn").hide();
+    			$("#deleteBtn").hide();
+			/* 	$("#endBtn").hide();
+				$("#cancleBtn").hide(); */
+			}
+
+    		/* if(g_workDate != new Date().yyyy_mm_dd()){ //오늘 날짜건만 종료처리할수 있다.
+    			$("#endBtn").hide();
+    			$("#cancleBtn").hide();
+    		}  */
+
+    		//그리드 데이터 세팅
+
+			myGrid.setGridData({ 	//그리드 데이터 세팅	*** 2 ***
+				list : list, 		//그리드 테이터
+
+			});
+
+			//열람권한
+            var readerType = list[0].readerType;
+            $("input[type='radio'][name='readerType'][value='"+readerType+"']").prop("checked", true);
+
+            $("#approveCcArea").empty();
+            if(readerType == 'DEPT'){
+                for(var i = 0 ; i <workReaderList.length; i++){
+                    $("#approveCcTh").attr("rowspan","2");
+                    $("#approveCcTr").show();
+                   var usrHtml = '';
+                   usrHtml += '<span class="employee_list" >';
+                   usrHtml += '<strong>'+ workReaderList[i].deptNm +'</strong>';
+                   usrHtml += '</span>';
+                   if(i < workReaderList.length -1){
+                       usrHtml +=',';
+                   }
+
+                   $("#approveCcArea").append(usrHtml);
+                }
+            }else if(readerType == 'USER'){
+                for(var i = 0 ; i <workReaderList.length; i++){
+                    $("#approveCcTh").attr("rowspan","2");
+                    $("#approveCcTr").show();
+                    var usrHtml = '';
+                    usrHtml += '<span class="employee_list" >';
+                    usrHtml += '<strong>';
+                    usrHtml += "<span class='userProfileTargetArea' onmousedown = 'openUserProfileBox(\""+workReaderList[i].userId+"\",$(this),\"mouseover\",null,-5,-80,80)'>";
+                    usrHtml  += workReaderList[i].userNm +'</strong>';
+                    usrHtml += '</span>';
+                    if(i < workReaderList.length -1){
+                        usrHtml +=',';
+
+                        if((i+1)%7==0) usrHtml +='<br>';
+                    }
+                    $("#approveCcArea").append(usrHtml);
+                }
+            }
+    	};
+
+    	commonAjax("POST", url, param, callback, false);
+
+
+	},
+
+	//종료처리
+    endWorkDaily : function(complete){
+    	 var url =contextRoot + "/work/endWorkDaily.do";
+
+	   	 var param = {
+	   			 listId		 	: g_listId,
+	   			 complete 		: complete,
+
+	   	 };
+
+	   	 var callback = function(result){
+    		var obj = JSON.parse(result);
+    		var cnt = obj.resultVal;
+    		if(cnt>0){
+    			if(parent.fnObj == undefined){
+    				parent.sheduleObj.getWorkDailyList();
+    			}else{
+    				parent.fnObj.doSearch(loginUserId,'N');
+    			}
+
+    			parent.myModal.close();
+
+    		}else{
+    			dialog.push({body:"서버 오류!", type:"", onConfirm:function(){}});
+    		}
+    	};
+
+    	commonAjax("POST", url, param, callback, false);
+    },
+
+    //수정이동
+    editGo : function(){
+    	parent.myModal.close();
+
+    	if(parent.fnObj == undefined){
+			parent.sheduleObj.openWorkDaily(g_listId,g_workDate);
+		}else{
+			parent.fnObj.openWorkDaily(g_listId,g_workDate);
+		}
+
+
+    },
+
+  	//업무일지삭제
+    deleteWorkDaily : function(){
+
+    	if(!confirm("해당 업무일지를 삭제하시겠습니까?")){
+    		return;
+    	}
+    	var url =contextRoot + "/work/deleteWorkDaily.do";
+
+    	var param = {
+	   			 listId		 	: g_listId,
+	   			 workType		: ''
+
+	   	};
+
+	   	var callback = function(result){
+    		var obj = JSON.parse(result);
+    		var cnt = obj.resultVal;
+    		if(cnt>0){
+    			//fnObj.doSearch(loginUserId);
+    			parent.myModal.close();
+
+    			if(parent.fnObj == undefined){
+    				parent.sheduleObj.getWorkDailyList();
+    			}else{
+    				parent.fnObj.doSearch(loginUserId,'N');
+    			}
+
+    		}else{
+    			dialog.push({body:"서버 오류!", type:"", onConfirm:function(){}});
+    		}
+    	};
+
+    	commonAjax("POST", url, param, callback, false);
+    },
+
+
+
+
+};//end fnObj.
+
+//파일 사이즈 체크해서 단위와 함께 표시
+function checkFileSize(fSize){
+    var fSExt = new Array('Bytes', 'KB', 'MB', 'GB');
+    var j=0;
+    while(fSize>900){fSize/=1024;j++;}
+    var fileSize = (Math.round(fSize*100)/100)+fSExt[j];
+    return fileSize;
+}
+
+//전체파일다운로드
+function fileDown (downFileList, fileCnt){
+    if(fileCnt ==0){
+        alert("파일이 없습니다.");
+        return false;
+    }else if(fileCnt > 1){      //다중다운로드일때
+        url = contextRoot + "/file/downFilesTozip.do?uploadType=${detailMap.appvDocClass}&downFileList="+downFileList;
+    }else{
+        url = contextRoot + "/file/downFile.do?uploadType=${detailMap.appvDocClass}&downFileList="+downFileList;
+    }
+    var frm = document.downForm;
+    frm.action = url;
+    frm.method = "POST";
+    frm.submit();
+}
+
+//파일다운
+function downLoadFile(fileSeq){
+    var downFileList =new Array();
+    downFileList.push(fileSeq);
+    if(downFileList.length ==0){
+        alert("파일을 선택해 주세요");
+        return false;
+    }else if(downFileList.length > 1){      //다중다운로드일때
+        url = contextRoot + "/file/downFilesTozip.do?uploadType=${detailMap.appvDocClass}&downFileList="+downFileList.join(",");
+    }else{
+        url = contextRoot + "/file/downFile.do?uploadType=${detailMap.appvDocClass}&downFileList="+downFileList.join(",");
+    }
+    var frm = document.downForm;
+    frm.action = url;
+    frm.method = "POST";
+    frm.submit();
+}
+/*
+ * 화면로딩완료후, 자바스크립트 화면세팅 과 그외동작들 호출.
+ */
+$(function(){
+	fnObj.preloadCode();	//공통코드 or 각종선로딩코드
+	fnObj.pageStart();
+	fnObj.getWorkDaily();	//업무일지 정보 받아오기
+
+	//유저프로필 이벤트 셋팅
+	initUserProfileEvent();
+
+	//메모영역 url자동링크
+	autolink($(".conview_Box"));
+
+
+});
+</script>
+
+

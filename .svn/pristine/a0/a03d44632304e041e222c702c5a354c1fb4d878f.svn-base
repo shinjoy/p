@@ -1,0 +1,46 @@
+package ib.pass.service.impl;
+
+
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Service;
+
+import egovframework.rte.fdl.cmmn.AbstractServiceImpl;
+import ib.pass.service.PassService;
+
+
+@Service("passService")
+public class PassServiceImpl extends AbstractServiceImpl implements PassService {
+
+    @Resource(name="passDAO")
+    private PassDAO passDAO;
+
+
+
+    protected static final Log logger = LogFactory.getLog(PassServiceImpl.class);
+
+    
+
+	//사용자 패스워드
+	public String getUserPwdByLoginId(Map<String, String> map) throws Exception {		
+		return passDAO.getUserPwdByLoginId(map);
+	}
+
+
+	//각종 신규 정보 (개선요청게시판 신규건 등..)
+	public List<Map> getNewArticleList(Map<String, Object> map) throws Exception {		
+		return passDAO.getNewArticleList(map);
+	}
+
+	
+	//시너지 사용자 상태 정보
+	public List<Map> getSynergyUserStatusList(Map<String, Object> map) throws Exception {		
+		return passDAO.getSynergyUserStatusList(map);
+	}
+	
+}

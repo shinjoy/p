@@ -1,0 +1,428 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<!DOCTYPE html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Main</title>
+<link href="<c:url value='/images/ibB.ico' />" rel="shortcut icon" type="image/x-icon">
+<link href="<c:url value='/css/content.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/css/btn.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/css/memo.css'/>" rel="stylesheet" type="text/css">
+<script type="text/JavaScript" src="<c:url value='/js/html5.js'/>"></script>
+<script type="text/JavaScript" src="<c:url value='/js/jquery.min.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/process.min.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/work.min.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/part/memo.js?ver=0.1'/>" ></script>
+<script>
+$(document).ready(function(){
+	location.hash = $("#bottom").attr('id');
+ });
+function resizeTextarea(th){
+	var obj=$(th);
+	obj.css('min-height','80px');
+	obj.css('min-height',(th.scrollHeight)+'px');
+}
+function linkPage(pageNo){
+	var frm = document.searchCpn;
+	$('#pageIndex').val(pageNo);
+	frm.submit();
+}
+End = function(cpnId,cpnNm){
+	var arg= window.dialogArguments;
+	var rVal = new Object();
+
+	rVal.nm = cpnNm;
+	rVal.snb = cpnId;
+	//rVal.cur = arg;
+
+	if (window.opener) window.opener.returnValue = rVal; //크롬브라우저 대응
+	window.returnValue=rVal;
+	window.close();
+};
+
+</script>
+<style>.vTop{vertical-align:top;} ul{list-style: none;padding-left:10px;margin:5px;} li.mainli,li.mainli li{border: 1px solid darkgrey;padding:5px;border-radius:5px;width:550px;}</style>
+ <base target="_self">
+</head>
+<body>
+	<div id="wrap">
+
+		<jsp:scriptlet>
+		pageContext.setAttribute("cr", "\r");
+		pageContext.setAttribute("lf", "\n");
+		pageContext.setAttribute("crlf", "\r\n");
+	</jsp:scriptlet>
+
+<div id="offerDiv"><div id="offerPr" style="display: none;"></div></div>
+
+<input type="hidden" id="rgstId" value="<c:out value='${baseUserLoginInfo.loginId}'/>">
+<form name="modifyRec" action="<c:url value='/work/popUpMemo.do' />" method="post"></form>
+<form id="insertCpn" name="insertCpn" action="<c:url value='/company/popRgstCpn.do' />" method="post"><input type="hidden" name="searchCpnNm" value="${searchName}"></form>
+
+<!-- 메모 -->
+<div>
+	<c:forEach var="workVO" items="${memoList}" varStatus="memoStatus">
+		<div class="popUpMenu title_area" id="${fn:substring(workVO.tmDt, 8,10)}memoPr${memoStatus.count}" name="textR">
+		<c:choose>
+		<c:when test="${baseUserLoginInfo.userName==workVO.name}">
+			<c:choose>
+			<%-- 타인에게 전달 받은 메모 --%>
+			<c:when test="${workVO.sttsCd=='00001'||workVO.sttsCd=='00002'}">
+				<input type="hidden" id="memoSNb${memoStatus.count}" value="${workVO.sNb }">
+
+				<p class="closePopUpMenu" name="textR" title="닫기">ⅹ닫기</p>
+				<div style="clear:both;height:5px;"></div>
+				<div class="M_basicInfoL Toogle">${workVO.rgNm}<br/>${fn:replace(fn:substring(workVO.tmDt,5,10),'-','.') }<br/></div>
+				<div class="triL">&nbsp;</div>
+				<div class="M_comL">${fn:replace(workVO.comment, lf,"<br/>")}</div>
+				<div style="clear:both;height:5px;"></div>
+				<c:forEach var="cmnt" items="${cmntStaffNm}" varStatus="cmntS"><c:if test="${workVO.mainSnb == cmnt.mainSnb}"><div style="color:navy;font-size:11px">&nbsp;&nbsp;참조인: ${cmnt.cmntStaffs}</div></c:if></c:forEach>
+				<c:forEach var="replyCmt" items="${replyList}" varStatus="rpS">
+					<c:if test="${workVO.mainSnb == replyCmt.mainSnb}">
+						<c:choose>
+						<c:when test="${replyCmt.rgId==baseUserLoginInfo.loginId}">
+					<div>
+						<input type="hidden" id="repSNb${fn:substring(replyCmt.tmDt, 8,10)}_${memoStatus.count}" value="${replyCmt.repSnb}">
+						<input type="hidden" id="memoRPSNb${memoStatus.count}" value="${replyCmt.sNb }">
+						<input type="hidden" id="oldMemoTmdt${memoStatus.count}" value="${fn:substring(replyCmt.tmDt, 0,10)}">
+						<div class="M_basicInfoR bsnsR_btn">나<br/>${fn:replace(fn:substring(replyCmt.tmDt, 5,10),'-','.')}<br/>
+							<span class="repEdit" onclick="replyUpd('${replyCmt.mainSnb}','${replyCmt.sNb}','${replyCmt.rgNm}',this)"><a><img src="<c:url value='/images/recommend/modify.png'/>" title="수정"/></a></span>
+							<span class="repEdit" onclick="replyDel('${replyCmt.sNb}')"><a><img src="<c:url value='/images/recommend/delete.png'/>" title="삭제"/></a></span>
+						</div>
+						<div class="triR">&nbsp;</div>
+						<div class="M_comRinTA"><div class="repEdit"><textarea id="memoarea${memoStatus.count}" style="min-height:40px" onclick="resizeTextarea(this)" onkeyup="resizeTextarea(this)">${replyCmt.comment}</textarea></div></div>
+						<c:if test="${replyCmt.sttsCd!='00002'}"><div style="float:right;color:red;width:14px;font-weight:bold;">1</div></c:if>
+					</div>
+					<div style="clear:both;height:5px;"></div>
+						</c:when>
+						<c:otherwise>
+						<%-- <c:if test="${replyCmt.repSnb == '0'}"> --%>
+					<div style="clear:both;height:5px;"></div>
+					<div class="M_basicInfoL Toogle">${replyCmt.rgNm}<br/>${fn:replace(fn:substring(replyCmt.tmDt,5,10),'-','.') }<br/></div>
+					<div class="triL">&nbsp;</div>
+					<div class="M_comL">${fn:replace(replyCmt.comment, lf,"<br/>")}</div>
+					<c:if test="${replyCmt.sttsCd!='00002'}"><div style="float:left;color:red;width:14px;font-weight:bold;text-align:right;">1</div></c:if>
+					<div style="clear:both;height:5px;"></div>
+						<%-- </c:if> --%>
+						</c:otherwise>
+						</c:choose>
+					</c:if>
+				</c:forEach>
+				<c:if test="${(workVO.sttsCd=='00001' or workVO.sttsCd=='00002') and baseUserLoginInfo.userName==workVO.name}">
+				<div class="M_basicInfoR">나<br/><small>${fn:replace(fn:substring(replyCmt.tmDt, 5,10),'-','.')}</small>
+					<c:if test="${(workVO.sttsCd=='00001' or workVO.sttsCd=='00002') and baseUserLoginInfo.userName==workVO.name}"><span class="btn s green" onclick="reply('${workVO.mainSnb}','${workVO.sNb}','${baseUserLoginInfo.userId}',this)"><a>확인</a></span></c:if>
+					<div class="Impt" style="padding:1px;border-radius:5px;border:1px solid gray;margin:5px 0px;">
+						중요도<br/>
+						<select id="importance${memoStatus.count}">
+							<option value="0" <c:if test="${workVO.importance == 0}">selected</c:if>>하</option>
+							<option value="1" <c:if test="${workVO.importance == 1}">selected</c:if>>중</option>
+							<option value="2" <c:if test="${workVO.importance == 2}">selected</c:if>>상</option>
+						</select>
+					</div>
+				</div>
+				<div class="triRn">&nbsp;</div>
+				<div class="M_comRinTAn"><div><textarea style="min-height:80px" id="memoarea0" onkeyup="resizeTextarea(this)"placeholder="답장을 입력하세요."></textarea></div></div>
+				<div style="clear:both;height:1px;"></div>
+				<%-- <div class="cent">
+					<span class="Impt">
+						중요도
+						<select id="importance${memoStatus.count}">
+							<option value="0" <c:if test="${workVO.importance == 0}">selected</c:if>>하</option>
+							<option value="1" <c:if test="${workVO.importance == 1}">selected</c:if>>중</option>
+							<option value="2" <c:if test="${workVO.importance == 2}">selected</c:if>>상</option>
+						</select>
+					</span>
+					<span class="btn s blue" onclick="chkOk(this)"><a>확인</a></span>
+				</div> --%>
+				</c:if>
+			</c:when>
+			<%-- 타인에게 전달 받은 메모 --%>
+			<%-- 본인이 작성한 메모 --%>
+			<c:otherwise>
+				<input type="hidden" id="memoSNb${memoStatus.count}" value="${workVO.sNb }">
+				<input type="hidden" id="oldMemoComment${memoStatus.count}" value="${workVO.comment}">
+				<input type="hidden" id="oldMemoTmdt${memoStatus.count}" value="${fn:substring(workVO.tmDt, 0,10)}">
+				<p class="closePopUpMenu" name="textR" title="닫기">ⅹ닫기</p>
+				<div style="clear:both;height:5px;"></div>
+				<div class="M_basicInfoR">나<br/>${fn:replace(fn:substring(workVO.tmDt, 5,10),'-','.')}<br/>
+					<span style="margin:3px;" class="" onclick="memo_btnOk(this)"><a><img src="<c:url value='/images/recommend/modify.png'/>" title="수정"/></a></span>
+					<span style="margin:3px;" class="" onclick="memo_btnDel(this)"><a><img src="<c:url value='/images/recommend/delete.png'/>" title="삭제"/></a></span>
+					<div style="padding:1px;border-radius:5px;border:1px solid gray;margin:5px 0px;">
+						중요도<br/>
+						<select id="importance${memoStatus.count}">
+							<option value="0" <c:if test="${workVO.importance == 0}">selected</c:if>>하</option>
+							<option value="1" <c:if test="${workVO.importance == 1}">selected</c:if>>중</option>
+							<option value="2" <c:if test="${workVO.importance == 2}">selected</c:if>>상</option>
+						</select>
+					</div>
+					<div style="padding:1px;border-radius:5px;border:1px solid gray;">
+						비밀<br/>여부<br/>
+						<select id="priv${memoStatus.count}">
+							<option value="N" <c:if test="${workVO.priv == 'N'}">selected</c:if>>N</option>
+							<option value="Y" <c:if test="${workVO.priv == 'Y'}">selected</c:if>>Y</option>
+						</select>
+					</div>
+				</div>
+				<div class="triR">&nbsp;</div>
+				<div class="M_comRinTA"><div><textarea id="memoarea${memoStatus.count}">${workVO.comment}</textarea></div></div>
+
+				<div style="clear:both;height:5px;"></div>
+				<c:set var="chkrpl" value="0"/>
+				<c:forEach var="replyCmt" items="${replyList}" varStatus="rpS">
+					<c:if test="${workVO.sNb == replyCmt.mainSnb}"><c:set var="chkCmt" value="${replyCmt.sttsCd}"/><c:set var="chkrpl" value="1"/>
+						<input type="hidden" id="memoRPSNb${rpS.count}" value="${replyCmt.sNb }">
+							<c:choose>
+							<c:when test="${replyCmt.rgId==baseUserLoginInfo.loginId}">
+						<%--div class="M_basicInfoR">나<br/>${fn:replace(fn:substring(replyCmt.tmDt,5,10),'-','.') }<br/>
+							<span class="repEdit" onclick="replyUpd('${replyCmt.mainSnb}','${replyCmt.sNb}','${replyCmt.rgNm}',this)"><a><img src="<c:url value='/images/recommend/modify.png'/>" title="수정"/></a></span>
+							<span class="repEdit" onclick="replyDel('${replyCmt.sNb}')"><a><img src="<c:url value='/images/recommend/delete.png'/>" title="삭제"/></a></span>
+						</div>
+						<div class="triR">&nbsp;</div>
+						<div class="M_comR">${fn:replace(replyCmt.comment, lf,"<br/>")}</div>
+						<div style="clear:both;height:5px;"></div--%>
+
+						<div>
+							<input type="hidden" id="oldMemoTmdt${memoStatus.count}" value="${fn:substring(replyCmt.tmDt, 0,10)}">
+							<div class="M_basicInfoR bsnsR_btn">나<br/>${fn:replace(fn:substring(replyCmt.tmDt, 5,10),'-','.')}<br/>
+								<span class="repEdit" onclick="replyUpd('${replyCmt.mainSnb}','${replyCmt.sNb}','${replyCmt.rgNm}',this)"><a><img src="<c:url value='/images/recommend/modify.png'/>" title="수정"/></a></span>
+								<span class="repEdit" onclick="replyDel('${replyCmt.sNb}')"><a><img src="<c:url value='/images/recommend/delete.png'/>" title="삭제"/></a></span>
+							</div>
+							<div class="triR">&nbsp;</div>
+							<div class="M_comRinTA"><div class="repEdit"><textarea id="memoarea${memoStatus.count}" style="min-height:40px" onclick="resizeTextarea(this)" onkeyup="resizeTextarea(this)">${replyCmt.comment}</textarea></div></div>
+							<c:if test="${replyCmt.sttsCd!='00002'}"><div style="float:right;color:red;width:14px;font-weight:bold;">1</div></c:if>
+						</div>
+							</c:when>
+							<c:otherwise>
+						<div class="M_basicInfoL">${replyCmt.rgNm}<br/>${fn:replace(fn:substring(replyCmt.tmDt,5,10),'-','.') }<br/>
+						</div>
+						<div class="triL">&nbsp;</div>
+						<div class="M_comL">${fn:replace(replyCmt.comment, lf,"<br/>")}</div>
+						<c:if test="${replyCmt.sttsCd!='00002'}"><div style="float:left;color:red;width:14px;font-weight:bold;text-align:right;">1</div></c:if>
+						<div style="clear:both;height:5px;"></div>
+							</c:otherwise>
+							</c:choose>
+					</c:if>
+				</c:forEach>
+				<c:if test="${chkrpl!=0}">
+					<div class="M_basicInfoR">나<br/><small>${fn:replace(fn:substring(replyCmt.tmDt, 5,10),'-','.')}</small>
+						<c:if test="${baseUserLoginInfo.userName==workVO.name}"><span class="btn s green" onclick="reply('${workVO.sNb}','${workVO.mainSnb}','${baseUserLoginInfo.userId}',this)"><a>확인</a></span></c:if>
+					</div>
+					<div class="triRn">&nbsp;</div>
+					<div class="M_comRinTAn"><div><textarea style="min-height:80px" id="memoarea0" onkeyup="resizeTextarea(this)" placeholder="답장을 입력하세요."></textarea></div></div>
+					<div style="clear:both;height:1px;"></div>
+				</c:if>
+				<%-- <c:if test="${chkrpl!=0 and baseUserLoginInfo.userName==workVO.name}"><div class="cent"><span class="btn s red" onclick="chkRPok(this,'${memoStatus.count}')"><a>확인</a></span></div></c:if> --%>
+			</c:otherwise>
+			<%-- 본인이 작성한 메모 --%>
+			</c:choose>
+		</c:when>
+
+		<%-- 타인의 메모/전달한 사람만 삭제가능 --%>
+		<c:otherwise>
+			<input type="hidden" id="memoSNb${memoStatus.count}" value="${workVO.sNb }">
+			<p class="closePopUpMenu" name="textR" title="닫기">ⅹ닫기</p>
+			<ul>
+				<li class="c_note v-textarea">${fn:replace(workVO.comment, lf,"<br/>")}</li>
+			</ul>
+
+			<c:if test="${ workVO.rgId==baseUserLoginInfo.loginId}">
+			<p class="bsnsR_btn">
+				<span class="btn s red" onclick="memo_btnDel(this,'popUpMemo')"><a>완전삭제</a></span>
+				<input type="text" id="MM_${fn:substring(workVO.tmDt, 8,10)}_${memoStatus.count}" style="line-height:0.5px;height:1px;width:1px;border:0px none;padding:0;vertical-align:bottom;">
+			</p>
+			</c:if>
+		</c:otherwise>
+		<%-- 타인의 메모/전달한 사람만 삭제가능 --%>
+		</c:choose>
+			<input type="text" id="MM_${fn:substring(workVO.tmDt, 8,10)}_${memoStatus.count}" style="height:1px;width:1px;border:0px none;padding:0;vertical-align:bottom;">
+		</div>
+	</c:forEach>
+
+	<c:forEach var="cnt" begin="1" end="${last_day}">
+		<div class="popUpMenu title_area" id="<c:if test='${cnt<10}'>0</c:if>${cnt}memoPr0" name="textR">
+			<input type="hidden" id="memoSNb${cnt}">
+			<p class="closePopUpMenu" name="textR" title="닫기">ⅹ닫기</p>
+			<ul>
+				<li class="c_note"><textarea id="memoarea0" placeholder="메모를 입력하세요."></textarea></li>
+			</ul>
+
+			<div style="padding-left:7px;float:left;">
+				중요도:
+				<select id="importance${memoStatus.count}">
+					<option value="0" <c:if test="${workVO.importance == 0}">selected</c:if>>하</option>
+					<option value="1" <c:if test="${workVO.importance == 1}">selected</c:if>>중</option>
+					<option value="2" <c:if test="${workVO.importance == 2}">selected</c:if>>상</option>
+				</select>
+			</div><div style="padding-left:7px;float:left;">
+				비밀여부:
+				<select id="priv${memoStatus.count}">
+					<option value="N" <c:if test="${workVO.priv == 'N'}">selected</c:if>>N</option>
+					<option value="Y" <c:if test="${workVO.priv == 'Y'}">selected</c:if>>Y</option>
+				</select>
+			</div>
+			<div style="float:right;width:160px;">&nbsp;</div>
+
+			<div class="bsnsR_btn" style="float:center">
+				<span class="btn s green" onclick="memo_btnOk(this,'popUpMemo')"><a><spring:message code="button.save" /></a></span>&nbsp;&nbsp;&nbsp;
+				<%-- <span class="bsnsR_btnDel btn s red"><a>완전삭제</a></span> --%>
+				<input type="text" id="MM_<c:if test='${cnt<10}'>0</c:if>${cnt}_0" style="height:1px;width:1px;border:0px none;padding:0;vertical-align:bottom;">
+			</div>
+		</div>
+	</c:forEach>
+</div>
+<!-- 메모 -->
+
+
+<!-- 메모답장 -->
+<div>
+	<c:forEach var="workVO" items="${replyList}" varStatus="memoStatus">
+	<div class="popUpMenu title_area" id="${fn:substring(workVO.tmDt, 8,10)}replyPr${memoStatus.count}" name="textR">
+		<input type="hidden" id="repSNb${fn:substring(workVO.tmDt, 8,10)}_${memoStatus.count}" value="${workVO.repSnb}">
+		<input type="hidden" id="memoRPSNb${memoStatus.count}" value="${workVO.sNb }">
+		<input type="hidden" id="ajax_${fn:substring(workVO.tmDt, 8,10)}_${memoStatus.count}">
+		<input type="hidden" id="oldMemoTmdt${memoStatus.count}" value="${fn:substring(workVO.tmDt, 0,10)}">
+		<p class="closePopUpMenu" name="textR" title="닫기">ⅹ닫기</p>
+		<ul>
+			<li class="c_note repView v-textarea">${fn:replace(workVO.comment, lf,"<br/>")}</li>
+			<li class="c_note repEdit"><textarea id="memoarea${memoStatus.count}">${workVO.comment}</textarea></li>
+		</ul>
+		<c:if test="${workVO.rgId==baseUserLoginInfo.loginId}">
+		<p class="bsnsR_btn">
+			<span class="repView btn s blue" onclick="chkRPok(this,${memoStatus.count},'popUpMemo')"><a>확인</a></span>&nbsp;&nbsp;
+			<span class="repEdit btn s green" onclick="reply('${workVO.mainSnb}','${workVO.sNb}','${workVO.rgSnb}',this,'popUpMemo')"><a><spring:message code="button.save" /></a></span>&nbsp;&nbsp;&nbsp;
+			<span class="repEdit btn s red" onclick="replyDel('${replyCmt.sNb}','popUpMemo');"><a>완전삭제</a></span>
+			<input type="text" id="MM_${fn:substring(workVO.tmDt, 8,10)}_${memoStatus.count}" style="height:1px;width:1px;border:0px none;padding:0;vertical-align:bottom;">
+		</p>
+		</c:if>
+	</div>
+	</c:forEach>
+</div>
+<!-- 메모답장 -->
+		<c:set var="now" value="<%= new java.util.Date() %>"/>
+		<fmt:formatDate var="cur_day" value='${now}' pattern='yyyy-MM-dd'/>
+		<fmt:formatDate var="cur_year" value='${now}' pattern='yyyy'/>
+		<fmt:formatDate var="cur_month" value='${now}' pattern='MM'/>
+			<div class="_popUpWidth">
+				<div class="fixed-top" style="z-index:10;background-color:white;padding:5px;">
+				<form name="slctYear" method="post" action="<c:url value='/work/popUpMemo.do' />">
+					<select name='choiceYear' onchange="return submit();">
+						<c:forEach var="year" begin="2012" end="${cur_year+1}">
+						<option value="${year}"
+						<c:choose>
+							<c:when test="${choiceYear == null}"><c:if test="${year == cur_year}">selected</c:if>></c:when>
+							<c:otherwise><c:if test="${year == choiceYear}">selected</c:if>></c:otherwise>
+						</c:choose>
+						${year}</option>
+						</c:forEach>
+					</select>
+					<span class="btn s"><a onclick="javascript:$('.mainli').css('display','');">전체</a></span>
+					<span class="btn s navy"><a onclick="javascirpt:$('.mainli').css('display','none');$('.mine').css('display','');">내메모</a></span>
+					<span class="btn s green"><a onclick="javascirpt:$('.mainli').css('display','none');$('.rcv').css('display','');">받은메모</a></span>
+					<span class="btn s orange"><a onclick="javascirpt:$('.mainli').css('display','none');$('.secu').css('display','');">비밀</a></span>
+					<span class="btn s red"><a onclick="javascirpt:$('.mainli').css('display','none');$('.nOk').css('display','');">미확인</a></span>
+				</div><div style="padding-top:25px;">
+<!-- ------------------------------------------------------------------------------------------------------------------ -->
+					<c:set var="tm_count" value="0"/>
+					<c:forEach var="workVO" items="${memoList}" varStatus="status">
+						<c:set var="str">${fn:substring(workVO.tmDt, 8,10)}</c:set>
+						<fmt:formatNumber var="cnt" value="${str}" type="number"/>
+						<c:if test="${fn:contains(str, substr)}">
+							<c:set var="memoYN" value="${str}"/>
+							<c:set var="tb_note" value="${workVO.comment}"/>
+							<c:set var="tm_count" value="${tm_count+1}"/>
+							<c:set var="memoView" value=""/><c:if test="${ baseUserLoginInfo.permission > '00020'  or baseUserLoginInfo.userName==workVO.name or  baseUserLoginInfo.loginId==workVO.rgId}">
+								<c:set var="memoView" value="memoV"/>
+							</c:if>
+			 				<ul class="${cnt}_item_${status.count}_${tm_count}">
+									<c:choose>
+										<%-- login한 사람 메모 --%>
+										<c:when test="${baseUserLoginInfo.userName==workVO.name}">
+											<c:choose>
+												<c:when test="${(workVO.sttsCd == null) || (workVO.sttsCd == '')}">
+												<li class="mainli mine<c:if test='${workVO.priv == "Y"}'> secu</c:if>" onclick="memoDivAjax(this,event,'${workVO.sNb}'<c:if test="${workVO.sttsCd=='00001' or workVO.sttsCd=='00002'}">,'${workVO.mainSnb}'</c:if>);">
+													<span class="spanWidth vTop">
+														<input type="hidden" id="${cnt}priv${status.count}_${tm_count}" value="${workVO.priv }"/>
+														<img class="memoChkIcon" id="${cnt}_btnPass_${status.count}_${tm_count}" src="<c:url value='/images/mail.png'/>">
+														<c:set var="maxRP" value="0"/>
+														<c:forEach var="replyCmt" items="${replyList}" varStatus="rpS">
+															<c:if test="${workVO.sNb == replyCmt.mainSnb && replyCmt.sttsCd == '00001'}"><c:set var="maxRP" value="${maxRP+1}"/></c:if>
+														</c:forEach><c:if test="${maxRP>0}"><span class="repleR">[${maxRP}]</span></c:if>
+													</span>
+													<span style="width:510px;display:inline-block;">
+														<div class="M_basicInfoR">나<br/>${fn:substring(workVO.tmDt, 5,10)}</div>
+														<div class="triR<c:if test='${workVO.priv == "Y"}'>org</c:if>"></div>
+														<a class="memo_n M_comR" id="${cnt}_memo_${status.count}_${tm_count}" style="<c:if test='${workVO.importance == 1}'>color:blue;</c:if><c:if test='${workVO.importance == 2}'>color:red;</c:if><c:if test='${workVO.priv == "Y"}'>background:#FAAC58;</c:if>">
+															${fn:replace(tb_note, lf,"<br/>")}<c:if test="${fn:length(tb_note) < 1}">...</c:if>
+														</a>
+														<div style="clear:both;height:5px;"></div>
+														<c:forEach var="replyCmt" items="${replyList}" varStatus="rpS">
+															<c:if test="${workVO.sNb == replyCmt.mainSnb}">
+															<input type="hidden" id="memoRPSNb${rpS.count}" value="${replyCmt.sNb }">
+															<div class="M_basicInfoL"><span id="rePL${rpS.count}" class="reple<c:if test="${replyCmt.sttsCd!='00002'}">R</c:if><c:if test="${replyCmt.sttsCd=='00002'}">O</c:if>">${replyCmt.rgNm }</span><br/>${fn:substring(replyCmt.tmDt, 5,10)}
+															<div><c:if test="${baseUserLoginInfo.userName==workVO.name && replyCmt.sttsCd!='00002'}"><span class="btn s red" onclick="chkRPok(this,'${rpS.count}','popUpMemo')"><a>미확인</a></span></c:if></div>
+															</div>
+															<div class="triL"></div>
+															<div class="M_comL">${fn:replace(replyCmt.comment, lf,"<br/>")}</div>
+															<c:if test="${replyCmt.sttsCd!='00002'}"><script>$("#${cnt}_memo_${status.count}_${tm_count}").parent().parent('li').addClass('nOk');</script></c:if>
+															<div style="clear:both;height:5px;"></div>
+															</c:if>
+														</c:forEach>
+													</span>
+												</c:when>
+
+												<%-- 타인에게 받은 메모 --%>
+												<c:otherwise>
+												<li class="mainli rcv <c:if test='${workVO.priv == "Y"}'>secu</c:if>">
+													<span class="spanWidth vTop">
+														<c:if test="${workVO.sttsCd=='00001'}"><img class="memoChkIcon" id="${cnt}image${status.count}" src="<c:url value='/images/warning.png'/>" title="미확인"></c:if>
+														<c:if test="${workVO.sttsCd=='00002'}"><img class="memoChkIcon" id="${cnt}image${status.count}" src="<c:url value='/images/accept.png' />" title="확인"></c:if>
+														<c:set var="rpyCnt" value="0"/>
+														<%-- <c:forEach var="replyCmt" items="${replyList}" varStatus="rpS">
+															<c:if test="${workVO.sNb == replyCmt.repSnb}"><c:set var="rpyCnt" value="${rpyCnt +1}"/>
+																<a id="rePLm${rpS.count}" class="reple<c:if test="${replyCmt.sttsCd!='00002'}">R</c:if><c:if test="${replyCmt.sttsCd=='00002'}">O</c:if>" onclick="viewRepl('${fn:substring(replyCmt.tmDt, 8,10)}','${rpS.count}',this,'${workVO.sNb}')">답장[${rpyCnt}]${fn:substring(replyCmt.comment,0,3)}..</a>
+															</c:if>
+														</c:forEach> --%>
+														<c:if test="${workVO.sttsCd=='00001'}"><script>$("#${cnt}image${status.count}").parent().parent('li').addClass('nOk');</script></c:if>
+													</span>
+
+													<span style="width:510px;display:inline-block;">
+														<div class="M_basicInfoL">${workVO.rgNm}<br/>${fn:substring(workVO.tmDt,5,10) }</div>
+														<div class="triL"></div>
+														<a class="memo_n orange M_comL" id="${cnt}_memo_${status.count}_${tm_count}" style="<c:if test='${workVO.importance == 1}'>color:blue;</c:if><c:if test='${workVO.importance == 2}'>color:red;</c:if><c:if test='${workVO.priv == "Y"}'>background:#FAAC58;</c:if>">
+															<c:forEach var="cmnt" items="${cmntStaffNm}" varStatus="cmntS"><c:if test="${workVO.mainSnb == cmnt.mainSnb}"><span style="color:navy;font-size:11px">참조인: ${cmnt.cmntStaffs}</span><br/></c:if></c:forEach>
+															${fn:replace(tb_note, lf,"<br/>")}<c:if test="${fn:length(tb_note) < 1}">...</c:if>
+														</a>
+														<div style="clear:both;height:5px;"></div>
+														<c:forEach var="replyCmt" items="${replyList}" varStatus="rpS">
+															<c:if test="${workVO.sNb == replyCmt.repSnb}">
+															<div class="M_basicInfoR">나<br/>${fn:substring(replyCmt.tmDt, 5,10)}
+															<div><span id="rePL${rpS.count}" class="reple<c:if test="${replyCmt.sttsCd!='00002'}">R</c:if><c:if test="${replyCmt.sttsCd=='00002'}">O</c:if>"></span></div>
+															</div>
+															<div class="triR"></div>
+															<div class="M_comR">${fn:replace(replyCmt.comment, lf,"<br/>")}</div>
+															<div style="float:right;color:red;width:14px;font-weight:bold;"><c:if test="${replyCmt.sttsCd!='00002'}">1</c:if></div>
+															<div style="clear:both;height:5px;"></div>
+															</c:if>
+														</c:forEach>
+													</span>
+												</c:otherwise>
+												<%-- 타인에게 받은 메모 --%>
+											</c:choose>
+										</c:when>
+										<%-- login한 사람 메모 --%>
+									</c:choose>
+								</li>
+							</ul>
+
+						</c:if>
+					</c:forEach>
+<!-- ------------------------------------------------------------------------------------------------------------------ -->
+		</div><div id="bottom"></div>
+	</div>
+</body>
+</html>

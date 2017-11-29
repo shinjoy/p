@@ -1,0 +1,1451 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="management">
+
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+
+	<!-- ////////////park add  :S//////////////////////////////////// -->
+	<select id = "managementDAO.getAccessOrgUserList" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT A.USER_ID
+			  ,A.NAME
+		      ,A.LOGIN_ID
+		      ,A.MOBILE_TEL
+		      ,A.CUS_ID
+		      ,A.EMP_NO
+		      ,SUBSTRING_INDEX(A.EMP_NO, '_', -1) EMP_NO_VIEW	/* 마지막 SELECT절, VIEW USE */
+		      ,X.VALUE_MEAN_KOR AS position
+		      ,A.ORG_ID
+		      ,A.EMAIL
+		      ,A.HIRED_DATE
+		      ,C.DEPT_ID
+		      ,C.KOR_NAME		AS DEPT_NM
+			  ,G.CPN_NM
+			  , (SELECT J.VALUE_MEAN_KOR
+                FROM BS_CODE_GV J
+                        WHERE  J.ORG_ID = A.ORG_ID
+                    AND J.CODE_NAME = 'USER_STTS'
+                    AND J.CODE_VALUE = A.USER_STATUS ) AS USER_STATUS_NM
+               ,(SELECT CPN_NM
+                  FROM IB_COMPANY
+                 WHERE S_NB = A.COMPANY)        AS COMPANY_NM
+              ,(SELECT ROLELIST.ROLE_KOR
+
+					FROM BS_ROLE_LIST AS ROLELIST, BS_USER_ROLE_LIST AS MYROLE, BS_RELATION_COMPANY_ACCESS_AUTH AS MYAUTH
+
+					WHERE MYROLE.USER_ID = A.USER_ID
+						AND MYROLE.ORG_ID = A.ORG_ID
+						AND MYROLE.ROLE_ID = ROLELIST.ROLE_ID
+						AND MYAUTH.ORG_ID = MYROLE.ORG_ID
+						AND MYAUTH.USER_ID = MYROLE.USER_ID
+				 )AS ROLE_NM
+		FROM BS_USER_MASTER				A
+		INNER JOIN BS_ORG 				F 	ON A.ORG_ID = F.ORG_ID
+		INNER JOIN IB_COMPANY 			G 	ON F.COMPANY_SNB = G.S_NB
+		INNER JOIN BS_CODE_GV           X 	ON  X.ORG_ID = A.ORG_ID AND CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK
+		INNER JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID AND B.MAIN_YN = 'Y'
+		INNER JOIN BS_DEPARTMENT		C	ON B.DEPT_ID = C.DEPT_ID
+		WHERE 1=1
+		<isEqual property="hideSynergyUserYn" compareValue="Y">     <!-- 관계사 시너지 유저 목록 활성화여부 -->
+            AND A.CUS_ID != 1133368
+        </isEqual>
+		  AND A.DELETE_FLAG = 'N'
+		  AND F.ENABLE = 'Y'
+		  <isEmpty property="searchOrdId">
+		  	 AND A.ORG_ID IN
+		  	<iterate property="orgIdList" open="(" close=")"  conjunction="," >
+   				#orgIdList[]#
+		  	</iterate>
+		  </isEmpty>
+		  <isNotEmpty property="searchOrdId">
+		  	AND A.ORG_ID = #searchOrdId#
+		  </isNotEmpty>
+		  <isNotEmpty property="searchDeptId">
+		  	AND B.DEPT_ID = #searchDeptId#
+		  </isNotEmpty>
+		  <isNotEmpty property="searchText">
+		  	AND A.NAME LIKE CONCAT('%',#searchText#,'%')
+		  </isNotEmpty>
+		  <isEqual property="searchUserStatus" compareValue="WHL">
+		      AND A.USER_STATUS IN ('W','H','L')
+		  </isEqual>
+		  <isEqual property="searchUserStatus" compareValue="FR">
+              AND A.USER_STATUS IN ('F','R')
+          </isEqual>
+		  ORDER BY
+		  <isNotEmpty property = "searchOrder">
+		  	$searchOrder$
+		  </isNotEmpty>
+		  <isEmpty property = "searchOrder">
+		  	X.SORT, A.EMP_NO
+		  </isEmpty>
+		  <isNotEqual property="recordCountPerPage" compareValue="0">
+			LIMIT #firstIndex#, #recordCountPerPage#
+		  </isNotEqual>
+		/* managementDAO.getAccessOrgUserList */
+	 </select>
+
+	 <select id = "managementDAO.getAccessOrgUserListTotalCnt" parameterClass="HashMap" resultClass = "Integer">
+		SELECT COUNT(*)
+		FROM BS_USER_MASTER				A
+		INNER JOIN BS_ORG 				F 	ON A.ORG_ID = F.ORG_ID
+		INNER JOIN IB_COMPANY 			G 	ON F.COMPANY_SNB = G.S_NB
+		INNER JOIN BS_CODE_GV           X 	ON  X.ORG_ID = A.ORG_ID AND CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK
+		INNER JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID AND B.MAIN_YN = 'Y'
+		INNER JOIN BS_DEPARTMENT		C	ON B.DEPT_ID = C.DEPT_ID
+		WHERE 1=1
+		<isEqual property="hideSynergyUserYn" compareValue="Y">     <!-- 관계사 시너지 유저 목록 활성화여부 -->
+            AND A.CUS_ID != 1133368
+        </isEqual>
+		  AND A.DELETE_FLAG = 'N'
+		  AND F.ENABLE = 'Y'
+		  <isEmpty property="searchOrdId">
+		  	 AND A.ORG_ID IN
+		  	<iterate property="orgIdList" open="(" close=")"  conjunction="," >
+   				#orgIdList[]#
+		  	</iterate>
+		  </isEmpty>
+		  <isNotEmpty property="searchOrdId">
+		  	AND A.ORG_ID = #searchOrdId#
+		  </isNotEmpty>
+		  <isNotEmpty property="searchDeptId">
+		  	AND B.DEPT_ID = #searchDeptId#
+		  </isNotEmpty>
+		  <isNotEmpty property="searchText">
+		  	AND A.NAME LIKE CONCAT('%',#searchText#,'%')
+		  </isNotEmpty>
+		  <isEqual property="searchUserStatus" compareValue="WHL">
+              AND A.USER_STATUS IN ('W','H','L')
+          </isEqual>
+          <isEqual property="searchUserStatus" compareValue="FR">
+              AND A.USER_STATUS IN ('F','R')
+          </isEqual>
+	 </select>
+
+	<!-- 선택 가능한 부서 가져오기 -->
+	<select id = "managementDAO.getAccessOrgDeptUserList" parameterClass="HashMap" resultClass = "egovMap">
+	   /* managementDAO.getAccessOrgDeptUserList */
+		SELECT A.DEPT_ID, A.ORG_ID ,A.KOR_NAME AS DEPT_NM
+		  FROM BS_DEPARTMENT A
+		 WHERE 1=1
+		<isNotEmpty property="orgIdList">
+			  AND A.ORG_ID IN
+			  <iterate property="orgIdList" open="(" close=")"  conjunction="," >
+	   			#orgIdList[]#
+			  </iterate>
+		</isNotEmpty>
+		<isNotEmpty property="applyOrgId">
+		    AND A.ORG_ID = #applyOrgId#
+		</isNotEmpty>
+		AND A.ENABLE = 'Y'
+		AND A.DELETE_FLAG != 'Y'
+		ORDER BY A.KOR_NAME
+	</select>
+
+	<!-- 사용자의 상세정보 조회 -->
+	<select id = "managementDAO.getPersonnelDetail" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT   A.USER_ID
+				,A.EMP_NO
+		        ,SUBSTRING_INDEX(A.EMP_NO, '_', -1) EMP_NO_VIEW	/* 마지막 SELECT절, VIEW USE */
+				,A.LOGIN_ID
+				,A.NAME
+				,A.ENG_NM
+				,A.EMP_TYPE
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE G.ORG_ID =  A.ORG_ID
+                   AND  G.CODE_NAME = 'EMP_TYPE'
+		  		   AND  G.CODE_VALUE = A.EMP_TYPE) AS EMP_NM
+				,A.CUS_ID
+				,A.COMPANY
+				,(SELECT CPN_NM FROM IB_COMPANY X WHERE X.S_NB = A.COMPANY)	AS COMPANY_NM 					/*소속그룹명*/
+				,(SELECT IFNULL(COUNT(S_NB),0) FROM IB_COMPANY WHERE REF_ORG_ID = A.ORG_ID) AS ORG_COMPANY_CNT	/* 관계사 소속 회사수 */
+				,A.ORG_ID
+				,(SELECT Y.CPN_NM FROM BS_ORG X ,IB_COMPANY Y  WHERE X.ORG_ID = A.ORG_ID AND X.COMPANY_SNB = Y.S_NB) ORG_NM /*관계사명*/
+				,A.RANK
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE G.ORG_ID =  A.ORG_ID
+                   AND  G.CODE_NAME = 'RANK'
+		  		   AND  G.CODE_VALUE = A.RANK) AS RANK_NM
+		  	    ,A.WORK
+				,A.COMPANY_TEL
+				,A.COMPANY_FAX
+				,A.HOME_ZIP
+				,A.HOME_ADDR1
+				,A.HOME_ADDR2
+				,A.HOME_TEL
+				,A.MOBILE_TEL
+				,A.EMAIL
+				,A.HOMEPAGE
+				,A.HOBBY
+				,A.HIRED_DATE
+				,A.JOIN_DATE
+				,A.SOLAR
+				,A.SOS_TEL
+				,A.SOS_WHO
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE G.ORG_ID =  A.ORG_ID
+                   AND  G.CODE_NAME = 'SOS_WHO'
+		  		   AND  G.CODE_VALUE = A.SOS_WHO) AS SOS_WHO_NM
+				,A.BLOOD
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE G.ORG_ID =  A.ORG_ID
+                   AND  G.CODE_NAME = 'BLOOD'
+		  		   AND  G.CODE_VALUE = A.BLOOD) AS BLOOD_NM
+				,A.BLOOD_RH
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE G.ORG_ID =  A.ORG_ID
+                   AND  G.CODE_NAME = 'BLOOD_RH'
+		  		   AND  G.CODE_VALUE = A.BLOOD_RH) AS BLOOD_RH_NM
+				,A.RELIGION
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE G.ORG_ID =  A.ORG_ID
+                   AND  G.CODE_NAME = 'RELIGION'
+		  		   AND  G.CODE_VALUE = A.RELIGION) AS RELIGION_NM
+				,A.PASSPORT
+				,A.MARRIED_DATE
+				,A.OUT_OF_OFFICE_TRACKING
+				,A.USER_STATUS
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.ORG_ID = A.ORG_ID
+                   AND G.CODE_NAME = 'USER_STTS'
+		  		   AND G.CODE_VALUE = A.USER_STATUS) 	AS USER_STATUS_NM /*재직상태한글*/
+				,A.FIRED_DATE
+				,A.DELETE_FLAG
+				,A.ATTR1
+				,A.ATTR2
+				,A.ATTR3
+				,A.ATTR4
+				,A.ATTR5
+				,A.ATTR6
+				,A.ATTR7
+				,A.ATTR8
+				,A.ATTR9
+				,A.ATTR10
+				,A.CREATE_DATE
+				,A.CREATED_BY
+				,A.UPDATE_DATE
+				,A.UPDATED_BY
+				,A.DELETE_DATE
+				,A.DELETED_BY
+				,A.BIRTH
+				,(SELECT ROLE_ID FROM BS_USER_ROLE_LIST X WHERE X.USER_ID = A.USER_ID AND X.ORG_ID = A.ORG_ID) AS ROLE_ID
+		 FROM BS_USER_MASTER A
+		 WHERE A.USER_ID = #userId#
+	</select>
+	<!-- 사용자의 직급사항을 조회한다 -->
+	<select id="managementDAO.getuserInsideCareer" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT   A.S_NB
+				,A.USER_ID
+				,A.PROMOTION_DT
+				,A.RANK
+				,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE
+					X.ORG_ID = (SELECT ORG_ID FROM BS_USER_MASTER WHERE USER_ID = #userId#) AND CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK) AS position
+				,A.MEMO
+				,A.UP_DT
+				,A.UP_ID
+				,A.RG_DT
+				,A.RG_ID
+		 FROM BS_USER_INSIDE_CAREER A
+		 WHERE A.USER_ID = #userId#
+		 ORDER BY PROMOTION_DT ASC,RG_DT ASC
+	</select>
+
+	<!-- 사용자의 가족관계를 조회한다.-->
+	<select id = "managementDAO.getUserFamily" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT   A.S_NB
+				,A.USER_ID
+				,A.RELATION
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE 1=1
+                   AND  G.CODE_NAME = 'FAMILY_RELATION'
+		  		   AND  G.CODE_VALUE = A.RELATION LIMIT 1) AS RELATION_NM
+				,A.FAMILY_NM
+				,A.BIRTH_DT
+				,A.JOB
+				,A.LIVEIN_YN
+				,A.UP_DT
+				,A.UP_ID
+				,A.RG_DT
+				,A.RG_ID
+		  FROM BS_USER_FAMILY A
+		 WHERE A.USER_ID = #userId#
+		 ORDER BY S_NB ASC
+	</select>
+
+	<!-- 사용자의 학력사항을 조회한다 -->
+	<select id = "managementDAO.getUserAcademic" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT  A.S_NB
+				,A.USER_ID
+				,A.ENTERED_DT
+				,A.GRADUATE_DT
+				,A.ACADEMIC_NM
+				,A.SCHOOL_TYPE
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE 1=1
+                   AND  G.CODE_NAME = 'SCHOOL_TYPE'
+		  		   AND  G.CODE_VALUE = A.SCHOOL_TYPE LIMIT 1) AS SCHOOL_TYPE_NM
+				,A.MAJOR
+				,A.GRADUATE_TYPE
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE 1=1
+                   AND  G.CODE_NAME = 'GRADUATE_TYPE'
+		  		   AND  G.CODE_VALUE = A.GRADUATE_TYPE LIMIT 1) AS GRADUATE_TYPE_NM
+				,A.UP_DT
+				,A.UP_ID
+				,A.RG_DT
+				,A.RG_ID
+		  FROM BS_USER_ACADEMIC A
+		 WHERE A.USER_ID = #userId#
+		 ORDER BY S_NB ASC
+	</select>
+
+	<!-- 사용자의경력사항을 조회한다 -->
+	<select id = "managementDAO.getUserCareer" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT   A.S_NB
+				,A.USER_ID
+				,A.JOIN_CPN_DT
+				,A.RESIGN_CPN_DT
+				,A.COMPANY_NM
+				,A.RANK
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE G.ORG_ID = B.ORG_ID
+                   AND  G.CODE_NAME = 'RANK'
+		  		   AND  G.CODE_VALUE = A.RANK LIMIT 1) AS RANK_NM
+				,A.JOB
+				,A.UP_DT
+				,A.UP_ID
+				,A.RG_DT
+				,A.RG_ID
+		  FROM BS_USER_CAREER A ,BS_USER_MASTER B
+		 WHERE A.USER_ID = #userId#
+		   AND A.USER_ID = B.USER_ID
+		 ORDER BY S_NB ASC
+	</select>
+	<!--사용자의 자격증을 조회한다 -->
+	<select id = "managementDAO.getUserLicense" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT  A.S_NB
+				,A.USER_ID
+				,A.LICENSE_NM
+				,A.ISSUE
+				,A.OBTAIN_DT
+				,A.UP_DT
+				,A.UP_ID
+				,A.RG_DT
+				,A.RG_ID
+		  FROM BS_USER_LICENSE A
+		 WHERE A.USER_ID = #userId#
+		 ORDER BY S_NB ASC
+	</select>
+	<!--사용자의 재직상태를 Hist 조회 -->
+	<select id = "managementDAO.getUserSttsHist" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT  A.S_NB
+				,A.USER_ID
+				,A.USER_STATUS
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.ORG_ID = (SELECT ORG_ID FROM BS_USER_MASTER WHERE USER_ID = #userId#)
+                   AND G.CODE_NAME = 'USER_STTS'
+		  		   AND G.CODE_VALUE = A.USER_STATUS) 	AS USER_STATUS_NM /*재직상태한글*/
+				,A.STTS_FROM_DT
+				,A.STTS_END_DT
+				,A.MEMO
+				,A.UP_DT
+				,A.UP_ID
+				,A.RG_DT
+				,A.RG_ID
+		  FROM BS_USER_STTS_HIST A
+		 WHERE A.USER_ID = #userId#
+		   AND A.USER_STATUS NOT IN ('F','R')
+		 ORDER BY S_NB ASC
+	</select>
+	<!-- 사용자의 퇴직/해고 정보를 가져온다. -->
+	<select id = "managementDAO.getUserSttsHistFireInfo" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT  A.S_NB
+				,A.USER_ID
+				,A.USER_STATUS
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.ORG_ID = (SELECT ORG_ID FROM BS_USER_MASTER WHERE USER_ID = #userId#)
+                   AND G.CODE_NAME = 'USER_STTS'
+		  		   AND G.CODE_VALUE = A.USER_STATUS) 	AS USER_STATUS_NM /*재직상태한글*/
+				,A.STTS_FROM_DT
+				,A.STTS_END_DT
+				,A.MEMO
+				,A.UP_DT
+				,A.UP_ID
+				,A.RG_DT
+				,A.RG_ID
+		  FROM BS_USER_STTS_HIST A
+		 WHERE A.USER_ID = #userId#
+		   AND A.USER_STATUS IN ('F','R')
+		 ORDER BY S_NB ASC
+	</select>
+	<!--사용자의 부서리스트를 조회한다 -->
+	<select id = "managementDAO.getUserDeptList" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT  A.DEPT_ID
+				,A.USER_ID
+				,A.MAIN_YN
+				,A.REGIST_DATE
+				,B.KOR_NAME AS DEPT_NM
+				,IF(C.DEPT_ID IS NULL,'','DEPT_MGR') AS INCHARGE
+				, '' AS INCHARGE_NM
+		  FROM BS_USER_DEPARTMENT A
+		  INNER JOIN BS_DEPARTMENT B ON A.DEPT_ID = B.DEPT_ID
+		  LEFT OUTER JOIN BS_DEPT_MANAGER C ON A.DEPT_ID = C.DEPT_ID AND C.USER_ID = A.USER_ID
+		 WHERE A.USER_ID = #userId#
+		   AND A.ENABLE = 'Y'
+		   AND A.DELETE_FLAG = 'N'
+		   AND B.ENABLE = 'Y'
+		   AND B.DELETE_FLAG = 'N'
+		 ORDER BY IF(C.DEPT_ID IS NOT NULL, 0,A.DEPT_ID)
+	</select>
+	<!-- 사용자 기본정보 수정 -->
+	<update id = "managementDAO.updatePersonnelInfo"  parameterClass="HashMap">
+		UPDATE BS_USER_MASTER
+		   SET
+			<isNotEqual property="cpnSnb" compareProperty="oriCpnSnb">
+            	COMPANY = #cpnSnb#,
+			</isNotEqual>
+		   	  NAME = #name#
+		     ,ENG_NM = #engNm#
+			 ,EMP_TYPE = #empType#
+			 ,WORK = #work#
+			 ,COMPANY_TEL = #companyTel#
+			 ,HOME_ZIP = #homeZip#
+			 ,HOME_ADDR1 = #homeAddr1#
+			 ,HOME_ADDR2 = #homeAddr2#
+			 ,HOME_TEL = #homeTel#
+			 ,MOBILE_TEL = #mobileTel#
+			 ,EMAIL = #email#
+			 ,HOBBY = #hobby#
+			 ,HIRED_DATE = #hiredDate#
+			 ,JOIN_DATE = #joinDate#
+			 ,SOLAR = #solar#
+			 ,SOS_TEL = #sosTel#
+			 ,SOS_WHO = #sosWho#
+			 ,BLOOD = #blood#
+			 ,BLOOD_RH = #bloodRh#
+			 ,RELIGION = #religion#
+			 ,PASSPORT = #passport#
+			 ,MARRIED_DATE = #marriedDate#
+			 ,OUT_OF_OFFICE_TRACKING = #outOfOfficeTracking#
+			 ,BIRTH = #birth#
+			 ,UPDATE_DATE = NOW()
+			 ,UPDATED_BY = #sessionUserId#
+		 WHERE USER_ID = #userId#
+	</update>
+		<!-- 부서 삭제 플레그 삭제로 업데이트 -->
+	<update id = "managementDAO.updateDeptdeleteFlag"  parameterClass="HashMap">
+		UPDATE BS_USER_DEPARTMENT
+		   SET DELETE_FLAG = 'Y'
+		   	 ,DELETE_DATE = NOW()
+			 ,DELETED_BY = #sessionUserId#
+		 WHERE USER_ID = #userId#
+		  AND  DEPT_ID IN (
+		  	<iterate property="approveCcId" conjunction=",">
+	               #deleteArr[]#
+	        </iterate>
+		  )
+	</update>
+
+	<!-- 사용자 부서 인서트 -->
+	<insert id = "managementDAO.insertUserDept"  parameterClass="HashMap">
+		INSERT INTO BS_USER_DEPARTMENT (
+				DEPT_ID
+				,USER_ID
+				,MAIN_YN
+				,REGIST_DATE
+				,ENABLE
+				,DELETE_FLAG
+				,CREATED_BY
+				,CREATE_DATE
+				,UPDATED_BY
+				,UPDATE_DATE
+				,DELETED_BY
+				,DELETE_DATE
+			) VALUES
+			<iterate property="addDeptArr" conjunction=",">
+				(
+					#addDeptArr[]#
+				   ,#userId#
+				   ,'N'
+				   ,NOW()
+				   ,'Y'
+				   ,'N'
+	               ,#sessionUserId#
+	               ,NOW()
+	                ,#sessionUserId#
+	               ,NOW()
+	                ,#sessionUserId#
+	               ,NOW()
+	               )
+	        </iterate>
+	</insert>
+
+	<!-- 메인부서 업데이트 -->
+	<update id = "managementDAO.updateMainDept"  parameterClass="HashMap">
+		UPDATE BS_USER_DEPARTMENT
+		   SET MAIN_YN = 'Y'
+		   		,UPDATED_BY = #sessionUserId#
+				,UPDATE_DATE =NOW()
+		 WHERE DEPT_ID = #mainDept#
+		  AND USER_ID = #userId#
+	</update>
+	<!-- 직원 직금 사항 삭제 -->
+	<delete id = "managementDAO.deleteUserInsideCareer" parameterClass="HashMap">
+		DELETE FROM BS_USER_INSIDE_CAREER
+		 WHERE USER_ID = #userId#
+	</delete>
+	<!-- 직원 직급사항 저장 -->
+	<insert id = "managementDAO.insertUserInsideCareer" parameterClass="HashMap">
+		INSERT INTO BS_USER_INSIDE_CAREER(
+					USER_ID
+					,PROMOTION_DT
+					,RANK
+					,MEMO
+					,UP_DT
+					,UP_ID
+					,RG_DT
+					,RG_ID
+		) VALUES
+				(
+				    #userId#
+				   ,#promotionDt#
+				   ,#rank#
+				   ,#memo#
+	               ,NOW()
+	               ,#sessionUserId#
+	               ,NOW()
+	               ,#sessionUserId#
+	               )
+	</insert>
+
+	<!-- 직원 master rank 업데이트 -->
+	<update id = "managementDAO.updateUserRank" parameterClass="HashMap">
+		UPDATE  /* 사용자 직급변경 */
+		        BS_USER_MASTER A INNER JOIN (
+		                                        SELECT  A.USER_ID
+		                                               ,A.RANK
+		                                        FROM    BS_USER_INSIDE_CAREER A
+		                                               ,(
+		                                                SELECT X.USER_ID , X.S_NB
+		                                                  FROM BS_USER_INSIDE_CAREER X
+		                                                  	  ,(
+		                                                  	  		SELECT USER_ID ,MAX(PROMOTION_DT) PROMOTION_DT
+						                                                FROM    BS_USER_INSIDE_CAREER
+						                                                WHERE   PROMOTION_DT <![CDATA[<=]]> NOW()
+						                                                <isNotEmpty property="userId">
+						                                                AND     USER_ID = #userId# /* BATCH일 경우는 제거 */
+						                                                </isNotEmpty>
+						                                            GROUP BY USER_ID
+		                                                  	   ) Y
+		                                                  	WHERE X.USER_ID = Y.USER_ID
+		                                                  	  AND X.PROMOTION_DT = Y.PROMOTION_DT
+		                                                  	 ORDER BY RG_DT DESC
+		                                               ) B
+		                                        WHERE   A.USER_ID = B.USER_ID
+		                                        AND     A.S_NB   = B.S_NB
+		                                     ) B ON      A.USER_ID   = B.USER_ID
+		                         LEFT OUTER JOIN IB_CUSTOMER C ON A.CUS_ID = C.S_NB AND A.COMPANY = (SELECT X.S_NB FROM IB_COMPANY X WHERE C.CPN_ID = X.CPN_ID AND X.REF_ORG_ID = A.ORG_ID)
+		SET     A.RANK      = B.RANK
+				,C.POSITION  =
+				(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE
+					X.ORG_ID = A.ORG_ID AND X.CODE_NAME = 'RANK' AND CODE_VALUE = B.RANK)
+		       <isNotEmpty property="batchId">
+		       /* UPDATE 정보는 BATCH일 경우만 적용 */
+		       ,A.UPDATE_DATE = NOW()
+		       ,A.UPDATED_BY  = #batchId#
+		       </isNotEmpty>
+		WHERE   A.USER_ID   = B.USER_ID
+		 AND	A.USER_STATUS NOT IN ('F','R')
+		 AND    A.RANK      != B.RANK
+		 <isNotEmpty property="userId">
+         AND     A.USER_ID = #userId# /* BATCH일 경우는 제거 */
+         </isNotEmpty>
+	</update>
+	<!-- 가족 삭제 -->
+	<delete id = "managementDAO.deleteUserFamily" parameterClass="HashMap">
+		DELETE FROM BS_USER_FAMILY
+		 WHERE USER_ID = #userId#
+	</delete>
+	<!--가족저장 -->
+	<insert id = "managementDAO.insertUserFamily" parameterClass="HashMap">
+		INSERT INTO BS_USER_FAMILY(
+					USER_ID
+					,RELATION
+					,FAMILY_NM
+					<isNotEmpty property="birthDt">
+					,BIRTH_DT
+					</isNotEmpty>
+					,JOB
+					,LIVEIN_YN
+					,UP_DT
+					,UP_ID
+					,RG_DT
+					,RG_ID
+		) VALUES
+				(
+				    #userId#
+				   ,#relation#
+				   ,#familyNm#
+				   <isNotEmpty property="birthDt">
+					,#birthDt#
+					</isNotEmpty>
+				   ,#job#
+				   ,#liveinYn#
+	               ,NOW()
+	               ,#sessionUserId#
+	               ,NOW()
+	               ,#sessionUserId#
+	               )
+	</insert>
+	<!-- 학력 삭제 -->
+	<delete id = "managementDAO.deleteUserAcademic" parameterClass="HashMap">
+		DELETE FROM BS_USER_ACADEMIC
+		 WHERE USER_ID = #userId#
+	</delete>
+	<!-- 학력 저장 -->
+	<insert id = "managementDAO.insertUserAcademic" parameterClass="HashMap">
+		INSERT INTO BS_USER_ACADEMIC(
+					USER_ID
+					,ENTERED_DT
+					,GRADUATE_DT
+					,ACADEMIC_NM
+					,SCHOOL_TYPE
+					,MAJOR
+					,GRADUATE_TYPE
+					,UP_DT
+					,UP_ID
+					,RG_DT
+					,RG_ID
+		) VALUES
+				(
+				    #userId#
+				   ,#enteredDt#
+				   ,#graduateDt#
+				   ,#academicNm#
+				   ,#schoolType#
+				   ,#major#
+				   ,#graduateType#
+	               ,NOW()
+	               ,#sessionUserId#
+	               ,NOW()
+	               ,#sessionUserId#
+	               )
+	</insert>
+	<!-- 경력삭제 -->
+	<delete id = "managementDAO.deleteUserCareer" parameterClass="HashMap">
+		DELETE FROM BS_USER_CAREER
+		 WHERE USER_ID = #userId#
+	</delete>
+	<!-- 경력 저장 -->
+	<insert id = "managementDAO.insertUserCareer" parameterClass="HashMap">
+		INSERT INTO BS_USER_CAREER(
+					USER_ID
+					,JOIN_CPN_DT
+					,RESIGN_CPN_DT
+					,COMPANY_NM
+					,RANK
+					,JOB
+					,UP_DT
+					,UP_ID
+					,RG_DT
+					,RG_ID
+		) VALUES
+				(
+				    #userId#
+				   ,#joinCpnDt#
+				   ,#resignCpnDt#
+				   ,#companyNm#
+				   ,#careerRank#
+				   ,#careerJob#
+	               ,NOW()
+	               ,#sessionUserId#
+	               ,NOW()
+	               ,#sessionUserId#
+	               )
+	</insert>
+	<!-- 자격증삭제 -->
+	<delete id = "managementDAO.deleteUserLicense" parameterClass="HashMap">
+		DELETE FROM BS_USER_LICENSE
+		 WHERE USER_ID = #userId#
+	</delete>
+	<!-- 자격증 저장 -->
+	<insert id = "managementDAO.insertUserLicense" parameterClass="HashMap">
+		INSERT INTO BS_USER_LICENSE(
+					USER_ID
+					,LICENSE_NM
+					,ISSUE
+					,OBTAIN_DT
+					,UP_DT
+					,UP_ID
+					,RG_DT
+					,RG_ID
+		) VALUES
+				(
+				    #userId#
+				   ,#licenseNm#
+				   ,#issue#
+				   ,#obtainDt#
+	               ,NOW()
+	               ,#sessionUserId#
+	               ,NOW()
+	               ,#sessionUserId#
+	               )
+	</insert>
+	<!-- 재직상태 삭제 -->
+	<delete id = "managementDAO.deleteUserSttsHist"  parameterClass="HashMap">
+		DELETE FROM BS_USER_STTS_HIST
+		 WHERE USER_ID = #userId#
+		   AND USER_STATUS = #userStatus#
+		   AND APPV_DOC_ID = #appvDocId#
+	</delete>
+	<!-- 해고정보 삭제 -->
+	<delete id = "managementDAO.deleteUserSttsHistFireInfo"  parameterClass="HashMap">
+		DELETE FROM BS_USER_STTS_HIST
+		 WHERE USER_ID = #userId#
+		   AND USER_STATUS IN ('F','R')
+	</delete>
+
+	<!-- 스케줄에서 삭제 -->
+    <delete id = "managementDAO.deleteUserSttsHistSche"  parameterClass="HashMap">
+        DELETE FROM BS_USER_STTS_HIST
+         WHERE SCHE_SEQ = #scheSeq#
+    </delete>
+
+	<!-- 퇴사시 퇴사일 이후 출근부 삭제 -->
+    <delete id = "managementDAO.deleteWorktimeForFire"  parameterClass="HashMap">
+        <![CDATA[
+        DELETE FROM BS_WORKTIME
+		WHERE USER_ID =   #userId#
+		AND   WORK_DATE > DATE(#sttsFromDt#)
+		]]>
+    </delete>
+
+    <!-- 퇴사시 퇴사일 이후 출근이력 삭제 -->
+    <delete id = "managementDAO.deleteLoginHistForFire"  parameterClass="HashMap">
+        <![CDATA[
+        DELETE FROM BS_LOGIN_HIST
+        WHERE USER_ID =   #userId#
+        AND   LOGIN_TIME > DATE(#sttsFromDt#)
+        ]]>
+    </delete>
+
+	<!-- 재직상태  저장 -->
+	<insert id = "managementDAO.insertUserSttsHist" parameterClass="HashMap">
+		INSERT INTO BS_USER_STTS_HIST(
+					USER_ID
+					,USER_STATUS
+					,STTS_FROM_DT
+					,STTS_END_DT
+					,MEMO
+					,APPV_DOC_ID
+					,SCHE_SEQ
+					,UP_DT
+					,UP_ID
+					,RG_DT
+					,RG_ID
+		) VALUES
+				(
+				<isNotEmpty property="userId">
+				    #userId#
+				</isNotEmpty>
+				<isNotEmpty property="perSabun">
+                    (SELECT USER_ID FROM BS_USER_MASTER WHERE EMP_NO = #perSabun#)
+                </isNotEmpty>
+				   ,#userStatus#
+				   ,#sttsFromDt#
+				   ,#sttsEndDt#
+				   ,#sttsMemo#
+				   ,#appvDocId#
+				   ,#scheSeq#
+	               ,NOW()
+	               ,#sessionUserId#
+	               ,NOW()
+	               ,#sessionUserId#
+	               )
+	   <selectKey resultClass="int" type="post" keyProperty="sttsSNb">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+
+	<!-- 직원 master 상태값 업데이트 -->
+	<update id = "managementDAO.updateUserStatus" parameterClass="HashMap">
+		UPDATE  /* 사용자 상태변경 */
+		        BS_USER_MASTER A INNER JOIN (
+		                                        SELECT  A.USER_ID
+		                                               ,A.USER_STATUS
+		                                               ,A.STTS_FROM_DT
+		                                               ,CASE A.USER_STATUS  WHEN 'H' THEN DATE_ADD(DATE_SUB(DATE(A.STTS_END_DT), INTERVAL 1 SECOND), INTERVAL 1 DAY)
+		                                                                    WHEN 'L' THEN DATE_ADD(DATE_SUB(DATE(A.STTS_END_DT), INTERVAL 1 SECOND), INTERVAL 1 DAY)
+		                                                                    WHEN 'F' THEN NOW()
+		                                                                    WHEN 'R' THEN NOW()
+		                                                END AS STTS_END_DT
+		                                        FROM    BS_USER_STTS_HIST A
+		                                               ,(
+		                                                SELECT  USER_ID, MAX(S_NB) S_NB
+		                                                FROM    BS_USER_STTS_HIST
+		                                                <isNotEmpty property="userId">
+		                                                WHERE   USER_ID = #userId# /* BATCH일 경우는 제거 */
+		                                                </isNotEmpty>
+		                                                GROUP BY USER_ID
+		                                               ) B
+		                                        WHERE   A.USER_ID = B.USER_ID
+		                                        AND     A.S_NB    = B.S_NB
+		                                     ) B
+		SET     A.USER_STATUS = B.USER_STATUS
+		       ,A.FIRED_DATE  = CASE B.USER_STATUS WHEN 'F' THEN B.STTS_FROM_DT WHEN 'R' THEN B.STTS_FROM_DT ELSE NULL END
+		       <isNotEmpty property="batchId">
+		       /* UPDATE 정보는 BATCH일 경우만 적용 */
+		       ,A.UPDATE_DATE = NOW()
+		       ,A.UPDATED_BY  = #batchId#
+		       </isNotEmpty>
+		WHERE   A.USER_ID = B.USER_ID
+		<isNotEmpty property="userId">
+		AND     A.USER_ID = #userId# /* BATCH일 경우는 제거 */
+		</isNotEmpty>
+		AND     NOW() BETWEEN B.STTS_FROM_DT AND B.STTS_END_DT
+	</update>
+
+	<!-- 퇴사자 처리-->
+	<update id = "managementDAO.updateFireUserCpnId" parameterClass="HashMap">
+		UPDATE BS_USER_MASTER A INNER JOIN IB_CUSTOMER B ON A.CUS_ID = B.S_NB AND A.COMPANY = (SELECT X.S_NB FROM IB_COMPANY X WHERE B.CPN_ID = X.CPN_ID AND X.REF_ORG_ID = A.ORG_ID)
+		   SET B.CPN_ID = '67030'
+		    <isNotEmpty property="userId">
+		       , B.UP_ID = #userLoginId#
+		    </isNotEmpty>
+		    <isNotEmpty property="batchId">
+		    	, B.UP_ID = #batchId#
+		    </isNotEmpty>
+		      , B.UP_DT = NOW()
+		 WHERE A.USER_STATUS IN ('F','R')
+		   /* AND (SELECT COUNT(*) FROM BS_USER_MASTER X WHERE A.USER_ID != X.USER_ID AND A.CUS_ID = X.CUS_ID AND X.USER_STATUS NOT IN ('F','R')) = 0 */
+		 <isNotEmpty property="userId">
+           AND   A.USER_ID = #userId# /* BATCH일 경우는 제거 */
+         </isNotEmpty>
+	</update>
+	<!-- 뱅가나 휴가인 유저를 재직으로 업데이트한다. -->
+	<update id = "managementDAO.updateUserStatusBeforeBatch">
+		UPDATE BS_USER_MASTER
+		  SET USER_STATUS = 'W'
+		 WHERE USER_STATUS = 'H' OR USER_STATUS = 'L'
+	</update>
+
+     <!-- 연차정보조회 -->
+	<select id = "managementDAO.getAnnualUserList" parameterClass="HashMap" resultClass = "egovMap">
+	    /* managementDAO.getAnnualUserList */
+        SELECT A.USER_ID
+              ,A.NAME
+              ,A.LOGIN_ID
+              ,A.MOBILE_TEL
+              ,A.CUS_ID
+              ,A.EMP_NO
+		      ,SUBSTRING_INDEX(A.EMP_NO, '_', -1) EMP_NO_VIEW			/* 마지막 SELECT절, VIEW USE */
+              ,X.VALUE_MEAN_KOR AS position
+              ,A.ORG_ID
+              ,A.EMAIL
+              ,A.HIRED_DATE
+              ,C.DEPT_ID
+              ,C.KOR_NAME       AS DEPT_NM
+              ,G.CPN_NM
+              ,(CASE WHEN K.ANNUAL_LEAVE_DAY IS NULL THEN '0' ELSE K.ANNUAL_LEAVE_DAY END) AS ANNUAL_LEAVE_DAY
+              ,(CASE WHEN K.WORK_ANNUAL_LEAVE_DAY IS NULL THEN '0' ELSE K.WORK_ANNUAL_LEAVE_DAY END) AS WORK_ANNUAL_LEAVE_DAY
+              ,(CASE WHEN K.USER_ANNUAL_LEAVE_DAY IS NULL THEN '0' ELSE K.USER_ANNUAL_LEAVE_DAY END) AS USER_ANNUAL_LEAVE_DAY
+              ,(SELECT X.NAME FROM BASE.BS_USER_MASTER X WHERE X.USER_ID = K.CREATED_BY)  AS CREATED_NM
+              ,(SELECT X.NAME FROM BASE.BS_USER_MASTER X WHERE X.USER_ID = K.UPDATED_BY)  AS UPDATED_NM
+              ,K.LEAVE_ID
+        FROM BS_USER_MASTER             A
+	        INNER JOIN BS_ORG               F   ON A.ORG_ID = F.ORG_ID
+	        INNER JOIN IB_COMPANY           G   ON F.COMPANY_SNB = G.S_NB
+	        INNER JOIN BS_CODE_GV           X   ON  X.ORG_ID = A.ORG_ID AND CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK
+	        INNER JOIN BS_USER_DEPARTMENT   B   ON A.USER_ID = B.USER_ID AND B.MAIN_YN = 'Y'
+	        INNER JOIN BS_DEPARTMENT        C   ON B.DEPT_ID = C.DEPT_ID
+	        LEFT OUTER JOIN BS_USER_LEAVE_H K ON A.USER_ID = K.USER_ID AND K.YEAR = #year#
+        WHERE 1=1
+          AND A.DELETE_FLAG = 'N'
+          AND A.USER_STATUS NOT IN ('F','R')
+          AND F.ENABLE = 'Y'
+          AND A.ORG_ID = #applyOrgId#
+
+          <isNotEmpty property="searchDeptId">
+            AND B.DEPT_ID = #searchDeptId#
+          </isNotEmpty>
+          <isNotEmpty property="searchText">
+            AND A.NAME LIKE CONCAT('%',#searchText#,'%')
+          </isNotEmpty>
+          ORDER BY A.EMP_NO
+          <isNotEqual property="recordCountPerPage" compareValue="0">
+            LIMIT #firstIndex#, #recordCountPerPage#
+          </isNotEqual>
+
+     </select>
+
+
+     <select id = "managementDAO.getAnnualUserListTotalCnt" parameterClass="HashMap" resultClass = "Integer">
+        /* managementDAO.getAnnualUserListTotalCnt */
+        SELECT COUNT(*)
+        FROM BS_USER_MASTER             A
+            INNER JOIN BS_ORG               F   ON A.ORG_ID = F.ORG_ID
+            INNER JOIN IB_COMPANY           G   ON F.COMPANY_SNB = G.S_NB
+            INNER JOIN BS_CODE_GV           X   ON  X.ORG_ID = A.ORG_ID AND CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK
+            INNER JOIN BS_USER_DEPARTMENT   B   ON A.USER_ID = B.USER_ID AND B.MAIN_YN = 'Y'
+            INNER JOIN BS_DEPARTMENT        C   ON B.DEPT_ID = C.DEPT_ID
+            LEFT OUTER JOIN BS_USER_LEAVE_H K ON A.USER_ID = K.USER_ID AND K.YEAR = #year#
+        WHERE 1=1
+          AND A.DELETE_FLAG = 'N'
+          AND A.USER_STATUS NOT IN ('F','R')
+          AND F.ENABLE = 'Y'
+          AND A.ORG_ID = #applyOrgId#
+
+          <isNotEmpty property="searchDeptId">
+            AND B.DEPT_ID = #searchDeptId#
+          </isNotEmpty>
+          <isNotEmpty property="searchText">
+            AND A.NAME LIKE CONCAT('%',#searchText#,'%')
+          </isNotEmpty>
+     </select>
+
+     <!-- 연차등록 -->
+    <insert id = "managementDAO.insertUserLeaveH"  parameterClass="HashMap">
+        INSERT INTO BS_USER_LEAVE_H (
+                 ORG_ID
+				,USER_ID
+				,YEAR
+				,ANNUAL_LEAVE_DAY
+				,WORK_ANNUAL_LEAVE_DAY
+				,USER_ANNUAL_LEAVE_DAY
+				,USED_DAY
+				,OVER_USED_DAY
+				,CREATED_BY
+				,CREATE_DATE
+				,UPDATED_BY
+				,UPDATE_DATE
+            ) VALUES (
+                #orgId#
+				,#userId#
+				,#year#
+				,#annualLeaveDay#
+				,#workAnnualLeaveDay#
+				,#userAnnualLeaveDay#
+				,0
+				,0
+				,#updatedBy#
+				,NOW()
+				,#updatedBy#
+				,NOW()
+            )
+    </insert>
+
+     <!-- 연차수정 -->
+    <update id = "managementDAO.updateUserLeaveH" parameterClass="HashMap">
+       /* managementDAO.updateUserLeaveH */
+        UPDATE BS_USER_LEAVE_H
+          SET  ORG_ID  = #orgId#
+				,USER_ID  = #userId#
+				,YEAR  = #year#
+				,ANNUAL_LEAVE_DAY  = #annualLeaveDay#
+				,WORK_ANNUAL_LEAVE_DAY  = #workAnnualLeaveDay#
+				,USER_ANNUAL_LEAVE_DAY  = #userAnnualLeaveDay#
+				,UPDATED_BY  = #updatedBy#
+				,UPDATE_DATE  = NOW()
+         WHERE LEAVE_ID = #leaveId#
+    </update>
+
+    <!-- 출근부생성1 -->
+    <insert id = "managementDAO.insertWorkTime" parameterClass="HashMap">
+		INSERT INTO BS_WORKTIME(ORG_ID, USER_ID, WORK_DATE, WORK_TYPE,IN_TIME_BASE,OUT_TIME_BASE, CREATED_BY, CREATE_DATE, UPDATED_BY, UPDATE_DATE)
+		SELECT  A.ORG_ID, A.USER_ID, B.SYS_DATE, NULL WORK_TYPE,B.IN_TIME,B.OUT_TIME
+		       ,-1, NOW(), -1, NOW()
+		FROM    BS_USER_MASTER  A
+		       ,BS_CALENDAR     B
+               ,BS_USER_PROFILE C
+               ,BS_ORG			D
+		WHERE   A.USER_STATUS NOT IN ('F', 'R')
+		AND     A.ORG_ID = B.ORG_ID
+		AND     B.SYS_DATE = DATE(NOW())
+        AND     C.USER_ID = A.USER_ID
+        AND     C.ATTEND_YN = 'Y'
+        AND     D.ORG_ID = A.ORG_ID
+        AND     D.ENABLE = 'Y'
+        AND     D.USE_YN = 'Y'
+        AND		NOT EXISTS ( SELECT X.WORKTIME_ID FROM BS_WORKTIME X WHERE X.ORG_ID = A.ORG_ID AND X.USER_ID = A.USER_ID AND DATE(X.WORK_DATE)=DATE(NOW()))
+    </insert>
+
+    <!-- 출근부생성2 -->
+    <insert id = "managementDAO.insertWorkTimeEnd" parameterClass="HashMap">
+		INSERT INTO BS_WORKTIME_END(ORG_ID, WORK_DATE, END_YN, CREATED_BY, CREATE_DATE, UPDATED_BY, UPDATE_DATE)
+		SELECT  A.ORG_ID, A.SYS_DATE, A.HOLIDAY, -1, NOW(), -1, NOW()
+		FROM    BS_CALENDAR A
+				,BS_ORG     B
+		WHERE   A.SYS_DATE = DATE(NOW())
+		  AND   B.ORG_ID = A.ORG_ID
+		  AND   B.ENABLE = 'Y'
+          AND   B.USE_YN = 'Y'
+          AND   NOT EXISTS ( SELECT X.WORKTIME_END_ID FROM BS_WORKTIME_END X WHERE X.ORG_ID = A.ORG_ID AND DATE(X.WORK_DATE) = DATE(NOW()))
+    </insert>
+
+    <update id = "managementDAO.updateWorkTimeEnd" parameterClass = "HashMap">
+    	/* 전날 출근기록은 있고 퇴근기록이 없는 경우 각 회사의 퇴근시간을 업데이트 해줌 */
+		UPDATE  BS_WORKTIME A INNER JOIN (
+		                                    SELECT  X.WORKTIME_ID, Y.OUT_TIME, 'auto' OUT_CONTACT_LOC
+		                                    FROM    BS_WORKTIME X
+		                                           ,BS_CALENDAR Y
+		                                           ,BS_ORG	    Z
+		                                    WHERE   X.IN_TIME IS NOT NULL
+		                                    AND     X.OUT_TIME IS NULL
+		                                    AND     X.ORG_ID    = Y.ORG_ID
+		                                    AND     X.WORK_DATE = Y.SYS_DATE
+                                            AND     Y.HOLIDAY != 'Y'
+		                                    AND     X.WORK_DATE = DATE_SUB(DATE(NOW()), INTERVAL 1 DAY)
+		                                    AND     Z.ORG_ID 	= X.ORG_ID
+		                                    AND     Z.ENABLE = 'Y'
+          									AND     Z.USE_YN = 'Y'
+		                                    ) B
+		ON  A.WORKTIME_ID = B.WORKTIME_ID
+		SET A.OUT_TIME  = B.OUT_TIME
+		   ,A.OUT_CONTACT_LOC = B.OUT_CONTACT_LOC
+    </update>
+
+    <!-- 현재시간조회 -->
+    <select id = "managementDAO.getCurTimeInfo" resultClass = "Date">
+    	SELECT NOW()
+    </select>
+
+	<!-- 오늘의 출근기록조회 -->
+    <select id = "managementDAO.getTodayWorkInfo" parameterClass = "HashMap" resultClass = "egovMap">
+    	SELECT   A.WORKTIME_ID
+				,A.ORG_ID
+				,A.USER_ID
+				,A.WORK_DATE
+				,A.IN_TIME
+				,A.IN_CONTACT_LOC
+				,A.IN_CONTACT_IP
+				,A.OUT_TIME
+				,A.OUT_CONTACT_LOC
+				,A.WORK_TYPE
+				,A.WORK_REQ_TYPE
+				,A.WORK_REQ_REASON
+				,A.WORK_REQ_ACCEPT_YN
+				,A.WORK_CONFIRM_DATE
+				,A.WORK_CONFIRM_USER_ID
+				,A.CREATED_BY
+				,A.CREATE_DATE
+				,A.UPDATED_BY
+				,A.UPDATE_DATE
+				,IFNULL((SELECT IF(OUT_TIME <![CDATA[<]]> DATE_FORMAT(NOW(),'%H:%i:%s'), 'N', 'Y') FROM BS_CALENDAR
+							WHERE ORG_ID =#orgId#
+							AND   SYS_DATE = DATE(NOW())
+							),'Y') AS WORK_YN
+    	  FROM BS_WORKTIME A
+    	 WHERE A.ORG_ID = #orgId#
+		   AND A.USER_ID = #userId#
+		   AND A.WORK_DATE = DATE(NOW())
+    </select>
+
+    <!-- 출근 처리 -->
+    <update id = "managementDAO.updateWorkIntime" parameterClass = "HashMap">
+    	UPDATE BS_WORKTIME A
+    	 INNER JOIN BS_USER_MASTER B ON A.USER_ID = B.USER_ID
+    	 LEFT OUTER JOIN
+    	 			( SELECT D.APPV_DOC_CLASS
+    	 					,D.APPV_DOC_TYPE
+    	 					,C.SCHE_E_TIME
+    	 					,C.PER_SABUN
+    	 			    FROM ERP_SCHEDULE C , BS_ACTIVITY D , ERP_SCHEDULE_ENTRY E
+    	 			   WHERE C.PROJECT_ID = D.PROJECT_ID
+    	 			     AND C.ACTIVITY_ID = D.ACTIVITY_ID
+    	 			     AND C.SCHE_SEQ = E.SCHE_SEQ
+    	 			     AND DATE(NOW()) BETWEEN STR_TO_DATE(C.SCHE_S_DATE,'%Y-%m-%d') AND STR_TO_DATE(SCHE_E_DATE,'%Y-%m-%d')
+    	 			     AND C.DEL_FLAG = 'N'
+    	 			     AND E.PER_SABUN = (SELECT X.EMP_NO FROM BS_USER_MASTER X WHERE X.USER_ID = #userId#)
+    	 			     ORDER BY IF(D.APPV_DOC_TYPE = 'ANNUAL_AM' OR D.APPV_DOC_TYPE = 'ETC_AM',1,0) ASC , IF(D.APPV_DOC_CLASS = 'VACATION' , 1 ,IF(D.APPV_DOC_CLASS IS NOT NULL , 2,3)) ASC
+    	 			     LIMIT 1
+    	 			  ) S ON B.EMP_NO = S.PER_SABUN
+    	   SET A.IN_TIME = NOW()
+    	      ,A.IN_CONTACT_LOC = #inContactLoc#
+    	      /*
+    	      	출근 처리 조건
+    	       1.WORK_TYPE IS NULL (오늘 출근 기록이 없음)
+    	       2.USER_STATUS = 'W' (재직 상태)
+    	       3.APPV_DOC_CLASS IS NULL (일정에 휴가 , 병가 , 경조휴가 , 휴직 의 데이터가 없음)
+    	       4. 1,2,3, OR S.APPV_DOC_TYPE = 'ANNUAL_AM' (휴가지만 오전 반차일경우 출근시간을 (반차)일정의 종료 시간)
+    	      */
+    	      ,A.WORK_TYPE = IF( (
+    	      						A.WORK_TYPE IS NULL AND B.USER_STATUS = 'W') AND (S.APPV_DOC_CLASS IS NULL OR S.APPV_DOC_TYPE = 'ANNUAL_AM' OR S.APPV_DOC_TYPE = 'ANNUAL_PM' OR S.APPV_DOC_TYPE = 'ETC_AM' OR S.APPV_DOC_TYPE = 'ETC_PM')
+    	      								  AND NOT EXISTS (
+ 													SELECT  X.SCHE_SEQ
+ 													  FROM  ERP_SCHEDULE X, ERP_SCHEDULE_ENTRY Z
+ 													 WHERE  DATE(NOW()) BETWEEN STR_TO_DATE(X.SCHE_S_DATE,'%Y-%m-%d') AND STR_TO_DATE(X.SCHE_E_DATE,'%Y-%m-%d')
+ 													   AND X.SCHE_SEQ = Z.SCHE_SEQ
+ 													   AND X.DEL_FLAG = 'N'
+    	 			     							   AND Z.PER_SABUN = (SELECT Y.EMP_NO FROM BS_USER_MASTER Y WHERE Y.USER_ID = #userId#)
+    	 			     							   AND X.ATTEND_YN = 'Y'
+    	      									)
+    	      								, ( SELECT IF(X.HOLIDAY = 'Y', A.WORK_TYPE
+    	      												, IF( IF(S.APPV_DOC_TYPE = 'ANNUAL_AM' OR S.APPV_DOC_TYPE = 'ETC_AM'
+    	      													, STR_TO_DATE(CONCAT(S.SCHE_E_TIME,':00'),'%H:%i:%s') , X.IN_TIME)  <![CDATA[<=]]> DATE_FORMAT(NOW(),'%H:%i:%s'), 'LATE', 'WORK')) WORK_TYPE
+                                                        FROM   BS_CALENDAR X
+										  		        WHERE  X.ORG_ID = #orgId#
+												        AND    X.SYS_DATE = DATE(NOW())
+												)
+									  		  ,A.WORK_TYPE)
+			  ,A.IN_CONTACT_IP = #inContactIp#
+		 WHERE A.ORG_ID = #orgId#
+		   AND A.USER_ID = #userId#
+		   AND A.WORK_DATE = DATE(NOW())
+    </update>
+    <!-- 퇴근 처리 -->
+    <update id = "managementDAO.processWorcEndAjax" parameterClass = "HashMap">
+    	UPDATE BS_WORKTIME
+    	   SET OUT_TIME = NOW()
+    	      ,OUT_CONTACT_LOC = #outContactLoc#
+		 WHERE ORG_ID = #orgId#
+		   AND USER_ID = #userId#
+		   AND WORK_DATE = DATE(NOW())
+    </update>
+    <!-- 로그인 이력 저장 -->
+    <insert id = "managementDAO.processLoginHist" parameterClass="HashMap">
+		INSERT INTO BS_LOGIN_HIST(ORG_ID
+								,USER_ID
+								,LOGIN_TIME
+								,LOGIN_IP
+								,LOGIN_DEVICE
+								,CREATED_BY
+								,CREATE_DATE
+								,UPDATED_BY
+								,UPDATE_DATE) VALUES
+								(
+								#orgId#
+								,#userId#
+								,NOW()
+								,#inContactIp#
+								,#loginLoc#
+								,#userId#
+								,NOW()
+								,#userId#
+								,NOW()
+								)
+    </insert>
+    <!-- 로그인 이력 리스트 -->
+    <select id = "managementDAO.getLoginHistList" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT A.USER_ID
+			  ,A.NAME
+		      ,A.LOGIN_ID
+		      ,A.CUS_ID
+		      ,A.EMP_NO
+		      ,SUBSTRING_INDEX(A.EMP_NO, '_', -1) EMP_NO_VIEW	/* 마지막 SELECT절, VIEW USE */
+		      ,X.VALUE_MEAN_KOR AS position
+		      ,A.ORG_ID
+		      ,C.DEPT_ID
+		      ,C.KOR_NAME		AS DEPT_NM
+			  ,G.CPN_NM
+			  , (SELECT J.VALUE_MEAN_KOR
+                FROM BS_CODE_GV J
+                        WHERE  J.ORG_ID = A.ORG_ID
+                    AND J.CODE_NAME = 'USER_STTS'
+                    AND J.CODE_VALUE = A.USER_STATUS ) AS USER_STATUS_NM
+               ,(SELECT CPN_NM
+                  FROM IB_COMPANY
+                 WHERE S_NB = A.COMPANY)        AS COMPANY_NM
+               ,E.LOGIN_TIME
+               ,E.LOGIN_IP
+               ,E.LOGIN_DEVICE
+               , (SELECT J.VALUE_MEAN_KOR
+                FROM BS_CODE_GV J
+                        WHERE  J.ORG_ID = A.ORG_ID
+                    AND J.CODE_NAME = 'LOGIN_DEVICE'
+                    AND J.CODE_VALUE = E.LOGIN_DEVICE ) AS LOGIN_DEVICE_NM
+		FROM BS_USER_MASTER				A
+		INNER JOIN BS_ORG 				F 	ON A.ORG_ID = F.ORG_ID
+		INNER JOIN IB_COMPANY 			G 	ON F.COMPANY_SNB = G.S_NB
+		INNER JOIN BS_CODE_GV           X 	ON  X.ORG_ID = A.ORG_ID AND CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK
+		INNER JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID AND B.MAIN_YN = 'Y'
+		INNER JOIN BS_DEPARTMENT		C	ON B.DEPT_ID = C.DEPT_ID
+		INNER JOIN BS_LOGIN_HIST		E	ON E.USER_ID = A.USER_ID
+		WHERE 1=1
+		  AND A.DELETE_FLAG = 'N'
+		  AND F.ENABLE = 'Y'
+		  <isEmpty property="searchOrdId">
+		  	 AND A.ORG_ID IN
+		  	<iterate property="orgIdList" open="(" close=")"  conjunction="," >
+   				#orgIdList[]#
+		  	</iterate>
+		  </isEmpty>
+		  <isNotEmpty property="searchOrdId">
+		  	AND A.ORG_ID = #searchOrdId#
+		  </isNotEmpty>
+		  <isNotEmpty property="searchDeptId">
+		  	AND B.DEPT_ID = #searchDeptId#
+		  </isNotEmpty>
+		  <isNotEmpty property="searchText">
+		  	AND A.NAME LIKE CONCAT('%',#searchText#,'%')
+		  </isNotEmpty>
+		  <isEqual property="searchUserStatus" compareValue="WHL">
+		      AND A.USER_STATUS IN ('W','H','L')
+		  </isEqual>
+		  <isEqual property="searchUserStatus" compareValue="FR">
+              AND A.USER_STATUS IN ('F','R')
+          </isEqual>
+		  ORDER BY
+		  <isNotEmpty property = "searchOrder">
+		  	$searchOrder$ ,E.LOGIN_TIME DESC
+		  </isNotEmpty>
+		  <isEmpty property = "searchOrder">
+		  	E.LOGIN_TIME DESC
+		  </isEmpty>
+		  <isNotEqual property="recordCountPerPage" compareValue="0">
+			LIMIT #firstIndex#, #recordCountPerPage#
+		  </isNotEqual>
+		/* managementDAO.getLoginHistList */
+	 </select>
+	 <!-- 로그인 이력 총개수-->
+	 <select id = "managementDAO.getLoginHistListTotalCnt" parameterClass="HashMap" resultClass = "Integer">
+		SELECT COUNT(*)
+		FROM BS_USER_MASTER				A
+		INNER JOIN BS_ORG 				F 	ON A.ORG_ID = F.ORG_ID
+		INNER JOIN IB_COMPANY 			G 	ON F.COMPANY_SNB = G.S_NB
+		INNER JOIN BS_CODE_GV           X 	ON  X.ORG_ID = A.ORG_ID AND CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK
+		INNER JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID AND B.MAIN_YN = 'Y'
+		INNER JOIN BS_DEPARTMENT		C	ON B.DEPT_ID = C.DEPT_ID
+		INNER JOIN BS_LOGIN_HIST		E	ON E.USER_ID = A.USER_ID
+		WHERE 1=1
+		  AND A.DELETE_FLAG = 'N'
+		  AND F.ENABLE = 'Y'
+		  <isEmpty property="searchOrdId">
+		  	 AND A.ORG_ID IN
+		  	<iterate property="orgIdList" open="(" close=")"  conjunction="," >
+   				#orgIdList[]#
+		  	</iterate>
+		  </isEmpty>
+		  <isNotEmpty property="searchOrdId">
+		  	AND A.ORG_ID = #searchOrdId#
+		  </isNotEmpty>
+		  <isNotEmpty property="searchDeptId">
+		  	AND B.DEPT_ID = #searchDeptId#
+		  </isNotEmpty>
+		  <isNotEmpty property="searchText">
+		  	AND A.NAME LIKE CONCAT('%',#searchText#,'%')
+		  </isNotEmpty>
+		  <isEqual property="searchUserStatus" compareValue="WHL">
+              AND A.USER_STATUS IN ('W','H','L')
+          </isEqual>
+          <isEqual property="searchUserStatus" compareValue="FR">
+              AND A.USER_STATUS IN ('F','R')
+          </isEqual>
+	 </select>
+	 <!-- 인사정보 수정시 고객 테이블 update-->
+	 <update id = "managementDAO.updateCustomerInfoByPersonnelInfo" parameterClass="HashMap">
+		UPDATE IB_CUSTOMER A, BS_USER_MASTER B
+			   SET  A.CST_NM                =#name#
+				  , A.PHN_1                 =#mobileTel#
+				  , A.PHN_2                 =#companyTel#
+				  , A.EMAIL                 =#email#
+				  , A.UP_DT                 =now()
+				  , A.UP_ID                 =#sessionUserId#
+				  , A.MY_WORK               =#work#
+				  , A.MARRIED               =#married#
+				  , A.HOME_ZIP 				=#homeZip#
+				  , A.ADDR					=CONCAT(#homeAddr1#,' ',#homeAddr2#)
+				  , A.HOME_PHONE            =#homeTel#
+				  , A.SOLAR                 =#solar#
+				  , A.BIRTH                 =#birth#
+				  , A.TEAM             =    (select kor_name from bs_department where dept_id = #mainDept#)
+			  WHERE  B.USER_ID = #userId#
+			    AND  B.CUS_ID = A.S_NB
+			    AND  B.COMPANY = (SELECT X.S_NB FROM IB_COMPANY X WHERE A.CPN_ID = X.CPN_ID AND X.REF_ORG_ID = B.ORG_ID)
+	</update>
+	<!-- 새글알림설정 리스트 -->
+    <select id = "managementDAO.markRuleListList" parameterClass="HashMap" resultClass = "egovMap">
+    	SELECT * FROM (
+		    SELECT  A.ORG_ID, A.NEW_CONTENT_MARK_CLASS, A.NEW_CONTENT_MARK_CLASS_NAME, A.NEW_CONTENT_MARK_TYPE, A.NEW_CONTENT_MARK_TYPE_NAME
+			       ,IFNULL(B.READ_TIME_YN, 'Y') READ_TIME_YN
+			       ,B.MARK_DAY_CNT
+			       ,IFNULL(B.USE_YN, 'Y') USE_YN
+			       ,B.CREATED_BY
+			       ,(SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = B.CREATED_BY) AS CREATED_NAME
+			       ,B.CREATE_DATE
+			       ,B.UPDATED_BY
+			       ,(SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = B.UPDATED_BY) AS UPDATED_NAME
+			       ,B.UPDATE_DATE
+			       ,A.SORT1
+			       ,A.SORT2
+			FROM
+			(
+			SELECT  A.ORG_ID
+			       ,B.VALUE          AS  NEW_CONTENT_MARK_CLASS
+			       ,B.MEANING_KOR    AS  NEW_CONTENT_MARK_CLASS_NAME
+			       ,D.VALUE          AS  NEW_CONTENT_MARK_TYPE
+			       ,D.MEANING_KOR    AS  NEW_CONTENT_MARK_TYPE_NAME
+			       ,B.SORT			 AS  SORT1
+			       ,D.SORT			 AS  SORT2
+			FROM    BS_CODE_SET  A
+			       ,BS_CODE_LIST B
+			        LEFT JOIN BS_CODE_SET  C ON B.SON_SET_ID  = C.CODE_SET_ID AND C.DELETE_FLAG = 'N'
+			        LEFT JOIN BS_CODE_LIST D ON C.CODE_SET_ID = D.CODE_SET_ID AND D.DELETE_FLAG = 'N'
+			WHERE   A.ORG_ID = #orgId#  /* 각 관계사 코드 */
+			AND     A.CODE_SET_NAME = 'NEW_CONTENT_MARK_CLASS'
+			AND     A.CODE_SET_ID = B.CODE_SET_ID
+			AND     A.DELETE_FLAG = 'N'
+			AND     B.DELETE_FLAG = 'N'
+			ORDER BY B.SORT, D.SORT
+			) A
+			LEFT JOIN(
+			SELECT  NEW_CONTENT_MARK_RULE_ID
+			       ,ORG_ID
+			       ,NEW_CONTENT_MARK_CLASS
+			       ,NEW_CONTENT_MARK_TYPE
+			       ,READ_TIME_YN
+			       ,MARK_DAY_CNT
+			       ,USE_YN
+			       ,CREATED_BY
+			       ,CREATE_DATE
+			       ,UPDATED_BY
+			       ,UPDATE_DATE
+			FROM    BS_NEW_CONTENT_MARK_RULE B
+			WHERE   ORG_ID = #orgId#  /* 각 관계사 코드 */
+			) B ON A.ORG_ID = B.ORG_ID AND A.NEW_CONTENT_MARK_CLASS = B.NEW_CONTENT_MARK_CLASS AND IFNULL(A.NEW_CONTENT_MARK_TYPE, 'A') = IFNULL(B.NEW_CONTENT_MARK_TYPE, 'A')
+		) T
+		WHERE 1=1
+		<isNotEmpty property="newContentMarkClass">
+			AND NEW_CONTENT_MARK_CLASS = #newContentMarkClass#
+		</isNotEmpty>
+		<isNotEmpty property="newContentMarkType">
+			AND NEW_CONTENT_MARK_TYPE = #newContentMarkType#
+		</isNotEmpty>
+		<isNotEmpty property="useYn">
+			AND USE_YN = #useYn#
+		</isNotEmpty>
+		ORDER BY SORT1, SORT2
+    </select>
+    <!-- 새글알림설정 삭제 -->
+	<delete id = "managementDAO.deleteMarkRule"  parameterClass = "HashMap">
+		DELETE FROM BS_NEW_CONTENT_MARK_RULE
+		WHERE ORG_ID = #orgId#
+	</delete>
+	<!-- 새글알림설정 저장 -->
+	<insert id = "managementDAO.insertMarkRule" parameterClass = "HashMap">
+		INSERT INTO BS_NEW_CONTENT_MARK_RULE(
+										 ORG_ID
+										,NEW_CONTENT_MARK_CLASS
+										,NEW_CONTENT_MARK_TYPE
+										,READ_TIME_YN
+										,MARK_DAY_CNT
+										,USE_YN
+										,CREATED_BY
+										,CREATE_DATE
+										,UPDATED_BY
+										,UPDATE_DATE
+									) VALUES (
+										 #orgId#
+										,#newContentMarkClass#
+										,IF(#newContentMarkType# = '',NULL,#newContentMarkType#)
+										,#readTimeYn#
+										,#markDayCnt#
+										,#useYn#
+										,IF(#createdBy#='',#userId#,#createdBy#)
+										,IF(#createDate#='',NOW(),#createDate#)
+										,#userId#
+										,now()
+									)
+	</insert>
+
+	<!-- 퀵링크 저장 -->
+	<insert id = "managementDAO.insertQuickLink" parameterClass = "HashMap">
+		/* managementDAO.insertQuickLink */
+		INSERT INTO BS_QUICK_LINK(
+										 ORG_ID
+										,SITE_NAME
+										,LINK_NAME
+										,LINK_URL
+										,LINK_TYPE
+										,COMMENT
+										,USE_YN
+										,SORT
+										,CREATED_BY
+										,CREATE_DATE
+										,UPDATED_BY
+										,UPDATE_DATE
+									) VALUES (
+										 #orgId#
+										,#siteName#
+										,#linkName#
+										,#linkUrl#
+										,#linkType#
+										,#comment#
+										,#useYn#
+										,#sort#
+										,#userId#
+										,now()
+										,#userId#
+										,now()
+									)
+	</insert>
+
+	<!-- 퀵링크 수정-->
+	 <update id = "managementDAO.updateQuickLink" parameterClass="HashMap">
+	 	/* managementDAO.updateQuickLink */
+		UPDATE BS_QUICK_LINK
+			   SET
+					 SITE_NAME    = #siteName#
+					,LINK_NAME    = #linkName#
+					,LINK_URL     = #linkUrl#
+					,LINK_TYPE    = #linkType#
+					,COMMENT      = #comment#
+					,USE_YN       = #useYn#
+					,SORT         = #sort#
+					,UPDATED_BY   = #userId#
+					,UPDATE_DATE  = now()
+			  WHERE  QUICK_LINK_ID = #quickLinkId#
+			    AND  ORG_ID       = #orgId#
+	</update>
+
+	<!-- 퀵링크 삭제 -->
+	<delete id = "managementDAO.deleteQuickLink" parameterClass="HashMap">
+		DELETE FROM BS_QUICK_LINK
+		 WHERE QUICK_LINK_ID = #quickLinkId#
+	</delete>
+	<!-- org별 퀵링크 조회 -->
+	<select id = "managementDAO.getQuickLinkList" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT   A.QUICK_LINK_ID
+				,A.ORG_ID
+				,A.SITE_NAME
+				,A.LINK_NAME
+				,A.LINK_URL
+				,A.LINK_TYPE
+				,A.COMMENT
+				,A.USE_YN
+				,A.SORT
+				,A.CREATED_BY
+				,A.CREATE_DATE
+				,A.UPDATED_BY
+				,A.UPDATE_DATE
+		  FROM BS_QUICK_LINK A
+		 WHERE ORG_ID = #orgId#
+		   <isEqual property="mainYn" compareValue="Y">
+		   	AND USE_YN = 'Y'
+		   </isEqual>
+		 ORDER BY A.SORT
+	</select>
+
+	<!-- 배치에서 퇴사자의 부서장 정보를삭제한다. -->
+	<delete id = "managementDAO.deleteDeptManageForBatch"  parameterClass="HashMap">
+		/* managementDAO.deleteUserSttsHistFireInfo */
+		DELETE FROM BS_DEPT_MANAGER
+		 WHERE USER_ID IN (
+		 					SELECT X.USER_ID FROM BS_USER_STTS_HIST X
+		 					 WHERE X.USER_STATUS IN ('F','R')
+		 					   AND DATE(X.STTS_FROM_DT) = CURDATE()
+		 				  )
+	</delete>
+</sqlMap>

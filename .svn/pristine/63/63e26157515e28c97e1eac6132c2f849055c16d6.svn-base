@@ -1,0 +1,38 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+<section id="detail_contents">
+	<!--타이틀-->
+	<h4 class="board_titleBox">
+		<div class="fl_block"><span class="h4_title" id="gboardTitleNm">PASS 개인정보처리방침</span> <span class="h4_destxt" id="gboardDescNm" style="">PASS의 개인정보처리방침은 다음과 같은 내용을 담고 있습니다. </span></div>
+		<div class="fr_block">
+			<span class="txt_des">약관개정일 : </span>
+			<select class="select_b" title="검색분류 선택" id="searchType">
+				<option value="20170928">2017.09.28</option>
+			</select>
+		</div>
+	</h4>
+	<!--//타이틀//-->
+	<!--약관목록-->
+	<div class="ruleListZone w2">
+		<ul>
+			<li><a href="#rule01_01"><span>제1조</span><strong>개인정보의 수집 및 이용목적</strong></a></li>
+			<li><a href="#rule02_01"><span>제2조</span><strong>수집하는 개인정보 항목 및 수집방법</strong></a></li>
+			<li><a href="#rule03_01"><span>제3조</span><strong>수집하는 개인정보의 보유 및 이용기간</strong></a></li>
+			<li><a href="#rule04_01"><span>제4조</span><strong>개인정보의 파기절차 및 방법</strong></a></li>
+			<li><a href="#rule05_01"><span>제5조</span><strong>개인정보의 제공 및 공유</strong></a></li>
+			<li><a href="#rule06_01"><span>제6조</span><strong>개인정보 처리 위탁</strong></a></li>
+			<li><a href="#rule07_01"><span>제7조</span><strong>개인정보 자동 수집 장치의 설치·운영 및 거부에 관한 사항</strong></a></li>
+			<li><a href="#rule08_01"><span>제8조</span><strong>개인정보보호를 위한 기술적/관리적 대책</strong></a></li>
+			<li><a href="#rule09_01"><span>제9조</span><strong>사용자 권리와 그 행사방법</strong></a></li>
+			<li><a href="#rule10_01"><span>제10조</span><strong>개인정보 보호책임자 및 상담·신고</strong></a></li>
+			<li><a href="#rule11_01"><span>제11조</span><strong>고지의 의무</strong></a></li>
+		</ul>
+	</div>
+	<!--//약관목록//-->
+	<%@ include file ="includeRule/p_20170925.html" %>
+</section>
+		
+              

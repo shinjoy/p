@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="email">
+
+	<!-- 관계사 이메일 연동 정보 조회 -->
+	<select id = "email.getEmailServiceInfo" parameterClass="HashMap" resultClass = "HashMap">
+		SELECT  
+				A.MAIL_USE_YN			as mailUseYn
+    		   ,A.MAIL_SERVICE_NAME		as mailServiceName
+    		   ,A.MAIL_URL				as mailUrl
+    		   ,A.MAIL_LINK_TYPE		as mailLinkType 
+    		   ,A.MAIL_API_URL			as mailApiUrl
+		
+		FROM    BS_ORG A
+		WHERE   A.ORG_ID = #orgId#
+		/* email.getEmailServiceInfo */
+	</select>
+	
+	
+	<!-- 사용자 이메일 연동 정보 조회 -->	
+	<select id = "email.getEmailLinkInfo" parameterClass="HashMap" resultClass = "HashMap">
+		SELECT  
+				A.MAIL_LINK_FLAG			as mailLinkFlag
+    		   ,IFNULL(A.MAIL_ID,'')		as mailId
+    		   ,IFNULL(A.MAIL_PASSWORD,'')	as mailPassword    		   	 
+		
+		FROM    BS_USER_MASTER A
+		WHERE   A.USER_ID = #userId#
+		AND		A.ORG_ID = #orgId#
+		/* email.getEmailLinkInfo */
+	</select>
+	
+	<!-- 사용자 이메일 연동 정보 수정 -->
+	<update id="email.updateEmailLinkInfo">
+		UPDATE BS_USER_MASTER
+		   SET MAIL_LINK_FLAG	= #mailLinkFlag#
+			  ,MAIL_ID			= #mailId#
+			  ,MAIL_PASSWORD	= #mailPassword#
+		
+		 WHERE USER_ID = #userId#
+		   AND ORG_ID = #orgId#
+
+		/* email.updateEmailLinkInfo */
+	</update>
+</sqlMap>

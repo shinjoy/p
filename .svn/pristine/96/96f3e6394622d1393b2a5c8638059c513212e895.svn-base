@@ -1,0 +1,157 @@
+/**
+ * 
+ */
+package ib.recommend.service.impl;
+
+import ib.cmm.service.impl.ComAbstractDAO;
+import ib.recommend.service.RecommendVO;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+/**
+ * <pre>
+ * package  : ib.recommend.service.impl
+ * filename : RecommendDAO.java
+ * </pre>
+ * 
+ * @author  : ChanWoo Lee
+ * @since   : 2013. 3. 20.
+ * @version : 1.0.0
+ */
+@Repository("recommendDAO")
+public class RecommendDAO extends ComAbstractDAO{
+
+	/**
+	 *
+	 * @MethodName : selectIBlist
+	 * @param VO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<RecommendVO> selectIBlist(RecommendVO  VO) throws Exception {
+		return list("recommendDAO.selectIBlist", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOpinionList
+	 * @param VO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<RecommendVO> selectOpinionList(RecommendVO  VO) throws Exception {
+		return list("recommendDAO.selectOpinionList", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateResult
+	 * @param rcmdVO
+	 * @return
+	 */
+	public int updateResult(RecommendVO VO) throws Exception {
+		return (Integer)update("recommendDAO.updateResult", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertRecommendOpinion
+	 * @param VO
+	 * @throws Exception
+	 */
+	public void insertRecommendOpinion(RecommendVO VO) throws Exception {
+		//return (Integer)update("recommendDAO.insertRecommendOpinion", VO);
+		getSqlMapClientTemplate().insert("recommendDAO.insertRecommendOpinion", VO);
+	}
+	/**
+	 *
+	 * @MethodName : updatecomment
+	 * @param VO
+	 * @return
+	 * @throws Exception
+	 */
+	public int updatecomment(RecommendVO VO) throws Exception {
+		return (Integer)update("recommendDAO.updatecomment", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : deleteRecommendOpinion
+	 * @param rcmdVO
+	 * @return
+	 */
+	public int deleteRecommendOpinion(RecommendVO VO) throws Exception {
+		return (Integer)update("recommendDAO.deleteRecommendOpinion",VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectRecommendInfo
+	 * @param rcmdVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<RecommendVO> selectRecommendInfo(RecommendVO VO) throws Exception {
+		return list("recommendDAO.selectRecommendInfo", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectMaxOpinionSnb
+	 * @param rcmdVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<RecommendVO> selectMaxOpinionSnb(RecommendVO VO) throws Exception {
+		return list("recommendDAO.selectMaxOpinionSnb", VO);
+	}
+
+
+	/**
+	 * 추천종목 >> 제안중 딜 등록
+	 *
+	 * @param		: 
+	 * @return		: 
+	 * @exception	: 
+	 * @author		: oys
+	 * @date		: 2016. 5. 24.
+	 */
+	public int regPropDeal(Map<String, Object> map) {
+		return Integer.parseInt(insert("recommend.insertPropDeal", map).toString());
+	}
+
+	
+	
+	/**
+	 * 추천종목 상태변경
+	 *
+	 * @param		: 
+	 * @return		: 
+	 * @exception	: 
+	 * @author		: oys
+	 * @date		: 2016. 5. 24.
+	 */
+	public int updateRcmdDealStts(Map<String, Object> map) {
+		return (Integer)update("recommend.updateRcmdDealStts", map);
+	}
+
+	
+	/**
+	 * 추천종목 딜 정보 가져오기
+	 *
+	 * @param		: 
+	 * @return		: 
+	 * @exception	: 
+	 * @author		: oys
+	 * @date		: 2016. 5. 24.
+	 */
+	public List<RecommendVO> selectRcmdDealInfo(RecommendVO rcmdVO) {
+		
+		return list("recommend.selectRcmdDealInfo", rcmdVO);
+	}
+}

@@ -1,0 +1,163 @@
+package ib.approve.service.impl;
+
+
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Repository;
+
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+import ib.approve.service.ApproveVo;
+import ib.cmm.service.impl.ComAbstractDAO;
+
+
+/**
+ * <pre>
+ * package	: ibiss.system.service.impl
+ * filename	: DeptRegDAO.java
+ * </pre>
+ *
+ *
+ *
+ * @author	: SangHyun Park
+ * @date	: 2015. 9. 14.
+ * @version :
+ *
+ */
+@Repository("approveLineDAO")
+public class ApproveLineDAO extends ComAbstractDAO{
+
+
+	protected static final Log logger = LogFactory.getLog(ApproveLineDAO.class);
+
+	/**
+	 * 결재선관리 목록조회
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: 이인희
+	 * @date		: 2016. 10. 21
+	 */
+	public List<Map> selectApproveHeaderList(Map<String, Object> map) throws Exception{
+		return list("approveLine.selectApproveHeaderList", map);
+	}
+
+	/**
+	 * 결재선중복 체크
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: 이인희
+	 * @date		: 2016. 10. 21
+	 */
+	public int getApproveHeaderDupCnt(Map<String, String> map) throws Exception{
+		return (Integer)getSqlMapClientTemplate().queryForObject("approveLine.getApproveHeaderDupCnt", map);
+	}
+
+    /**
+     * 구매결재금액 중첩체크
+     *
+     * @param       :
+     * @return      :
+     * @exception   :
+     * @author      : 이인희
+     * @date        : 2016. 10. 21
+     */
+    public int getBuyAmountApproveHeaderDupCnt(Map<String, String> map) throws Exception{
+        return (Integer)getSqlMapClientTemplate().queryForObject("approveLine.getBuyAmountApproveHeaderDupCnt", map);
+    }
+
+	/**
+	 * 결재선관리 등록
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 10. 22
+	 */
+	public int insertApproveHeader(Map<String, String> map) throws Exception{
+
+		int key = -1;
+		Object rslt =(Integer)insert("approveLine.insertApproveHeader", map);
+		if(rslt != null)
+			key = Integer.parseInt(rslt.toString());
+		return key;
+	}
+
+	/**
+	 * 결재선관리 수정
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 10. 22
+	 */
+	public int updateApproveHeader(Map<String, String> map) throws Exception{
+		return update("approveLine.updateApproveHeader", map);
+	}
+
+
+	/**
+	 * 결재순서 목록조회
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: 이인희
+	 * @date		: 2016. 10. 21
+	 */
+	public List<Map> selectApproveLineList(Map<String, Object> map) throws Exception{
+		return list("approveLine.selectApproveLineList", map);
+	}
+
+	/**
+	 * 결재라인 등록
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 10. 22
+	 */
+	public int insertApproveLine(ApproveVo vo) throws Exception{
+		return update("approveLine.insertApproveLine", vo);
+	}
+
+	/**
+	 * 결재라인 삭제
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 10. 22
+	 */
+	public int deleteApproveLine(Map<String, String> map) throws Exception{
+		return update("approveLine.deleteApproveLine", map);
+	}
+	//사내서식 문서타입 조회
+	public List<EgovMap> appvCompanyListForLine(Map<String, Object> map) throws Exception{
+		return list("approveLine.appvCompanyListForLine", map);
+	}
+
+	/**
+	 * 결재선복사저장
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 10. 22
+	 */
+	public int insertCopyApproveLine(Map<String, String> map) throws Exception{
+		return update("approveLine.insertCopyApproveLine", map);
+	}
+
+
+}

@@ -1,0 +1,194 @@
+package ib.schedule.service.impl;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+import ib.cmm.service.impl.ComAbstractDAO;
+import ib.schedule.service.SpCmmVO;
+
+
+@Repository("scheDAO")
+public class ScheduleDAO extends ComAbstractDAO {
+	// 달력 생성을 위한 년도 불러오기
+	public String getCalNextYear() throws Exception {
+		return (String)selectByPk("scheDAO.GetCalNextYear", "");
+	}
+
+
+	// 선택시간 차량 리스트 받아오기
+	@SuppressWarnings("rawtypes")
+	public List getCarList(ScheduleVO vo) throws Exception {
+		return list("scheDAO.GetCarList", vo);
+	}
+
+	// 선택일자 차량 사용 리스트 받아오기
+	@SuppressWarnings("rawtypes")
+	public List getCarUseList(ScheduleVO vo) throws Exception {
+		return list("scheDAO.GetCarUseList", vo);
+	}
+
+	// 일정 리스트 받아오기
+	@SuppressWarnings("rawtypes")
+	public List getScheduleList(ScheduleVO vo) throws Exception {
+		return list("scheDAO.getScheduleList", vo);
+	}
+
+	// 휴일 리스트 받아오기
+	@SuppressWarnings("rawtypes")
+	public List getHolidayList(ScheduleVO vo) throws Exception {
+		return list("scheDAO.getHolidayList", vo);
+	}
+
+	// 선택 일정 정보 받아오기
+	public ScheduleVO getScheInfo(ScheduleVO vo) throws Exception {
+		return (ScheduleVO)selectByPk("scheDAO.GetScheInfo", vo);
+	}
+
+	// 선택일정 참가자 리스트 받아오기
+	@SuppressWarnings("rawtypes")
+	public List getScheduleEntryList(ScheduleVO vo) throws Exception {
+		return list("scheDAO.GetScheduleEntryList", vo);
+	}
+
+	// 선택 일정 완료 처리
+	public void scheduleChkEnd(ScheduleVO vo) throws Exception {
+		update("scheDAO.ScheduleChkEnd", vo);
+	}
+
+	// 일정 등록을 위한 일정시퀀스 받아오기
+	public String getScheSeq() throws Exception {
+		return (String)selectByPk("scheDAO.GetScheSeq", "");
+	}
+
+	// 일정 일괄 등록 완료
+	@SuppressWarnings("rawtypes")
+	public void scheduleAllAddEnd(List list) throws Exception {
+		insert("scheDAO.ScheduleAllAddEnd", list);
+	}
+
+	// 일정 등록 완료
+	public void scheduleAddEnd(ScheduleVO vo) throws Exception {
+		insert("scheDAO.ScheduleAddEnd", vo);
+	}
+
+	// 일정 참가자 일괄 등록/수정 완료
+	@SuppressWarnings("rawtypes")
+	public void scheduleEntryProcEnd(List list) throws Exception {
+		insert("scheDAO.ScheduleEntryProcEnd", list);
+	}
+
+	// 개인일정일시 작성자 참가 등록 완료
+	public void scheduleEntryAddEnd(ScheduleVO vo) throws Exception {
+		insert("scheDAO.ScheduleEntryAddEnd", vo);
+	}
+
+	// 선택된 반복 일정 리스트 받아오기
+	@SuppressWarnings("rawtypes")
+	public List getRepetScheduleList(ScheduleVO vo) throws Exception {
+		return list("scheDAO.GetRepetScheduleList", vo);
+	}
+
+	// 일정 수정 완료
+	public void scheduleEditEnd(ScheduleVO vo) throws Exception {
+		update("scheDAO.ScheduleEditEnd", vo);
+	}
+
+	// 일정 수정 완료(반복일정)
+	public void scheduleAllEditEnd(ScheduleVO vo) throws Exception {
+		update("scheDAO.scheduleAllEditEnd", vo);
+	}
+
+	// 일정 삭제 완료
+	public void scheduleDelEnd(ScheduleVO vo) throws Exception {
+		update("scheDAO.ScheduleDelEnd", vo);
+	}
+
+	// 일정 삭제 완료(반복일정그룹코드)
+	public void scheduleDelEndByGrpCd(ScheduleVO vo) throws Exception {
+		update("scheDAO.ScheduleDelEndByGrpCd", vo);
+	}
+
+	// 일정 참가자 삭제 완료
+	public void scheduleEntryDelEnd(ScheduleVO vo) throws Exception {
+		delete("scheDAO.ScheduleEntryDelEnd", vo);
+	}
+
+	// 일정 참가자 삭제 완료(반복일정그룹코드)
+	public void scheduleEntryDelEndByGrpCd(ScheduleVO vo) throws Exception {
+		delete("scheDAO.ScheduleEntryDelEndByGrpCd", vo);
+	}
+
+	//업무일지 - 일정정보
+	public List getScheduleWork(Map<String, Object> map) throws Exception {
+		return list("scheDAO.selectScheduleWork", map);
+	}
+
+	/**
+	* 메인화면 직원근태현황
+	* @param map
+	* @return List<EgovMap>
+	* @throws Exception
+	*/
+	public List<EgovMap> getPresentEmpInfoList(Map<String, Object> map) throws Exception{
+		return list("scheDAO.getPresentEmpInfoList", map);
+	}
+
+	/**
+	* 메인 현지출근 알람 팝업 목록
+	* @param map
+	* @return List<EgovMap>
+	* @throws Exception
+	*/
+	public List<EgovMap> getMainSpotWorkAlarmList(Map<String, Object> map) throws Exception{
+		return list("scheDAO.getMainSpotWorkAlarmList", map);
+	}
+
+
+	/**
+	* 메인화면 임원현황
+	* @param map
+	* @return List<EgovMap>
+	* @throws Exception
+	*/
+	public List<EgovMap> getExecEmpInfoList(Map<String, Object> map) throws Exception{
+		return list("scheDAO.getExecEmpInfoList", map);
+	}
+
+	/**
+	* 네트워크 > 고객의 상세정보중 최근미팅 이력정보
+	* @param map
+	* @return List<EgovMap>
+	* @throws Exception
+	*/
+	public List<EgovMap> getCustomerMeetList(Map<String, Object> map) throws Exception{
+		return list("scheDAO.getCustomerMeetList", map);
+	}
+
+	/**
+	* 일정알림 배치
+	* @param map
+	* @return List<EgovMap>
+	* @throws Exception
+	*/
+	public List<EgovMap> getScheduleSmsList(Map<String, Object> map) throws Exception{
+		return list("scheDAO.getScheduleSmsList", map);
+	}
+
+	//일정 등록을 위해 근태마감여부 체크
+	public List<EgovMap> getChkWorktiemEndYn(Map<String,Object> paramMap) throws Exception{
+		return list("scheDAO.getChkWorktiemEndYn", paramMap);
+	}
+
+	//일정 등록을 위해 휴가여부 체크
+	public List<EgovMap> getChkVacationYn(Map<String,Object> paramMap) throws Exception{
+		return list("scheDAO.getChkVacationYn", paramMap);
+	}
+
+	// 스케줄 날짜변경
+	public Integer updateScheduleDate(Map<String, Object> map) throws Exception {
+		return (Integer)update("scheDAO.updateScheduleDate", map);
+	}
+}

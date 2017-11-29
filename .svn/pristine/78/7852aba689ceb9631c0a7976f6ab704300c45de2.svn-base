@@ -1,0 +1,566 @@
+package ib.business.web;
+
+import ib.business.service.BusinessService;
+import ib.cmm.service.CommonService;
+import ib.cmm.util.sim.service.AjaxResponse;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+
+
+@Controller
+public class BusinessController {
+
+	@Resource
+	private BusinessService businessService;
+
+
+	@Resource(name="commonService")
+	private CommonService commonService;
+
+	protected static final Log logger = LogFactory.getLog(BusinessController.class);
+
+
+	//정보공유 세팅 화면
+	@RequestMapping(value="/business/businessAdminRegist.do")
+	public String businessSetup(HttpSession session, ModelMap model) throws Exception{
+		logger.debug("########## businessController.businessSetup ########");
+
+		Map baseLoginUser = (Map) session.getAttribute("baseUserLoginInfo");
+
+		//기존 저장된 정보가 있는 경우 반환
+		Map param = new HashMap();
+		param.put("orgId", baseLoginUser.get("applyOrgId"));
+		Map info = businessService.selectBusinessBsInfoSetupInfo(param);
+
+		//정보분류에 해당하는 코드 리스트들 반환.
+		Map param2 = new HashMap();
+		param2.put("applyOrgId", baseLoginUser.get("applyOrgId"));
+		Map codeListInfo = businessService.selectCodeListAll(param2, null);
+
+		if(info == null){
+			info = new HashMap();
+		}
+		if(codeListInfo != null && !codeListInfo.isEmpty())
+			info.putAll(codeListInfo);
+
+		model.addAllAttributes(info);
+
+		return "business/businessAdminRegist";
+	}
+
+
+	//정보공유 세팅 정보 등록/수정
+	@RequestMapping(value="/business/saveBusinessAdminRegist.do")
+	public void saveBusinessAdminRegist(HttpServletRequest request,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> map) throws Exception{
+		logger.debug("########## businessController.saveBusinessAdminRegist ####### param : [ "+ map+" ]#######");
+
+		try {
+			Map baseLoginUser = (Map) session.getAttribute("baseUserLoginInfo");
+			map.put("userSeq", baseLoginUser.get("userId"));
+			map.put("orgId", baseLoginUser.get("applyOrgId"));
+			//정보공유 세팅 정보 저장
+			businessService.saveBusinessAdminRegist(map);
+			AjaxResponse.responseAjaxSave(response, 1);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response, "정보등록관리를 저장하는 도중 오류가 발생하였습니다.");
+		}
+	}
+
+
+	//정보공유 세팅 - 코드 등록 팝업(경로, 구분)
+	@RequestMapping(value="/business/businessCodeApplySet.do")
+	public String businessCodeApplySet(HttpServletRequest request,
+										HttpSession session,HttpServletResponse response,
+										@RequestParam Map<String,Object> map, ModelMap model) throws Exception{
+
+		Map baseLoginUser = (Map) session.getAttribute("baseUserLoginInfo");
+		map.put("orgId", baseLoginUser.get("applyOrgId"));
+
+		//최상위 정보 구분 등록 정보(경로, 구분에 대한 코드 아이디값 전달)
+		Map resultMap = businessService.businessSelectCodeSet(map);
+		resultMap.put("titleLabel", map.get("label"));
+		model.addAllAttributes(resultMap);
+
+		return "business/popCodeApply/pop";
+
+	}
+
+	//정보공유 세팅 - 코드 등록 팝업(유형)
+	@RequestMapping(value="/business/businessCodeApplyList.do")
+	public String businessCodeApplyList(HttpServletRequest request,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> map, ModelMap model) throws Exception{
+		logger.debug("########## businessController.businessCodeApplyList ####### param : [ "+ map+" ]#######");
+
+		Map baseLoginUser = (Map) session.getAttribute("baseUserLoginInfo");
+		map.put("orgId", baseLoginUser.get("applyOrgId"));
+		//구분에 해당하는 코드값 전달
+		Map resultMap = businessService.businessSelectCodeSet(map);
+		resultMap.put("titleLabel", map.get("label"));
+		model.addAllAttributes(resultMap);
+		logger.debug("#####################"+ resultMap);
+		return "business/popCodeApplyClass/pop";
+	}
+
+	//유형에 해당하는 코드 리스트 반환(with 구분)
+	@RequestMapping(value="/business/selectCodeApplyClassList.do")
+	public void selectCodeApplyClassList(HttpServletRequest request,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> map) throws Exception{
+		logger.debug("########## businessController.selectCodeApplyClassList ####### param : [ "+ map+" ]#######");
+		Map baseLoginUser = (Map) session.getAttribute("baseUserLoginInfo");
+		map.put("orgId", baseLoginUser.get("applyOrgId"));
+		List<Map> resultList = businessService.selectCodeApplyClassList(map, null);
+		logger.debug("###########resultList#########"+ resultList);
+		AjaxResponse.responseAjaxSelect(response, resultList);
+	}
+
+	//코드 등록 팝업 - 코드 정보 반환하기.
+	@RequestMapping(value="/business/seleteBusinessCodeReg.do")
+	public void seleteBusinessCodeReg(HttpServletRequest request,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> map) throws Exception{
+
+		logger.debug("########## businessController.seleteBusinessCodeReg ####### param : [ "+ map+" ]#######");
+
+		List<Map> list = businessService.selectCodeList(map);
+		AjaxResponse.responseAjaxSelect(response, list);
+	}
+
+	//코드 등록 팝업 - 코드 정보 저장하기
+	@RequestMapping(value="/business/saveBusinessCodeReg.do")
+	public void saveBusinessCodeReg(HttpServletRequest request,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> map) throws Exception{
+		logger.debug("########## businessController.saveBusinessCodeReg ####### param : [ "+ map+" ]#######");
+
+		try{
+			Map baseLoginUser = (Map) session.getAttribute("baseUserLoginInfo");
+			map.put("userSeq", baseLoginUser.get("userId"));
+			map.put("orgId", baseLoginUser.get("applyOrgId"));
+			businessService.saveBusinessCodeReg(map);
+			AjaxResponse.responseAjaxSave(response, 1);
+		}catch(Exception ex){
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response, "코드 정보를 저장하는 도중 오류가 발생하였습니다.");
+		}
+	}
+
+	//영업관리 > 정보등록 관리 > 미리보기
+	@RequestMapping(value="/business/previewBusinessAdminRegist.do")
+	public String previewBusinessAdminRegist(HttpSession session, ModelMap model) throws Exception{
+		logger.debug("########## businessController.previewBusinessAdminRegist ############");
+
+		Map baseLoginUser = (Map) session.getAttribute("baseUserLoginInfo");
+
+		//기존 저장된 정보가 있는 경우 반환
+		Map map = new HashMap();
+		map.put("orgId", baseLoginUser.get("applyOrgId"));
+		Map info = businessService.selectBusinessBsInfoSetupInfo(map);
+		if(info == null){
+			info = new HashMap();
+		}
+		//정보분류에 해당하는 코드 리스트들 반환.
+		info.putAll(businessService.selectCodeListAll(baseLoginUser, null));
+		model.addAllAttributes(info);
+
+		return "business/previewBusiAdminRegist/pop";
+
+	}
+
+	//영업관리 > 정보정리  > 정보등록 팝업 화면(등록)
+	@RequestMapping(value="/business/businessInfoRegist.do")
+	public String businessInfoRegist(HttpSession session, @RequestParam Map<String,Object> map, ModelMap model) throws Exception{
+		logger.debug("########## businessController.previewBusinessAdminRegist ############");
+
+		Map baseLoginUser = (Map) session.getAttribute("baseUserLoginInfo");
+
+		//업무일지에서 넘어온 경우.
+		if(map.get("targetOrgId") != null && StringUtils.isNotEmpty(String.valueOf(map.get("targetOrgId")))){
+			baseLoginUser.put("orgId",  map.get("targetOrgId"));
+		}
+		//정보공유 세팅 정보 반환
+		Map info = businessService.selectBusinessBsInfoSetupInfo(baseLoginUser);
+		if(info == null){
+			info = new HashMap();
+		}
+		info.putAll(businessService.selectCodeListAll(baseLoginUser, null));
+		info.put("mode", "new");
+
+		//업무일지에서 넘어온 경우.
+		if(map.get("targetDate") != null && StringUtils.isNotEmpty(String.valueOf(map.get("targetDate")))){
+			info.put("targetDate",map.get("targetDate"));
+			info.put("targetOrgId",map.get("targetOrgId"));
+		}
+		model.addAllAttributes(info);
+		return "business/businessInfoRegist/pop";
+	}
+
+	//영업관리 > 정보정리  > 정보등록 팝업 화면(수정)
+	@RequestMapping(value="/business/businessInfoUpdate.do")
+	public String businessInfoUpdate(HttpSession session, @RequestParam Map<String,Object> map, ModelMap model) throws Exception{
+		logger.debug("########## businessController.businessInfoUpdate ############ param : [" + map + "]##########");
+
+		Map baseLoginUser = (Map) session.getAttribute("baseUserLoginInfo");
+		//정보공유 세팅 정보 반환
+		Map info = businessService.selectBusinessBsInfoSetupInfo(baseLoginUser);
+		if(info == null){
+			info = new HashMap();
+		}
+		//저장된 정보 반환
+		Map resultMap = businessService.getBusinessInfoListInfo(map);
+		info.putAll(resultMap);
+
+		//경로,구분, 유형에 대한 값들 사용
+		info.putAll(businessService.selectCodeListAll(baseLoginUser, (Map)resultMap.get("inform")));
+		info.put("mode", "update");
+		info.putAll(map);
+
+		//인물정보 조회
+		map.put("infoStaffType", "STAFF_1");
+		List<Map<String,Object>> staff1List = businessService.getBusinessStaffInfoList(map);
+
+		model.addAttribute("staff1List", staff1List);
+
+		if(info.containsKey("staffUse2")){
+			String staffUse2 = info.get("staffUse2").toString();
+
+			if(staffUse2.equals("Y")){
+				map.put("infoStaffType", "STAFF_2");
+				List<Map<String,Object>> staff2List = businessService.getBusinessStaffInfoList(map);
+				model.addAttribute("staff2List", staff2List);
+			}
+		}
+
+		model.addAllAttributes(info);
+		return "business/businessInfoRegist/pop";
+
+	}
+
+	// 정보 수정 - 파일리스트 반환
+	@RequestMapping(value="/business/getBusinessInfoFileList.do")
+	public void getBusinessInfoListInfo(HttpServletRequest request,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> map) throws Exception{
+		logger.debug("########## businessController.getBusinessInfoListInfo ####### param : [ "+ map +" ]#######");
+		List<Map> fileList=  businessService.getBusinessInfoListFileList(map);
+		AjaxResponse.responseAjaxSelect(response, fileList);
+	}
+
+	//정보등록하기 ( 새로운 정보 등록 )
+	@RequestMapping(value="/business/savebusinessInfoRegist.do")
+	public void savebusinessInfoRegist(		/* MultipartHttpServletRequest */
+										HttpServletResponse response,
+										HttpSession session,
+										@RequestParam Map<String,Object> map) throws Exception{
+
+		try{
+
+			Map baseLoginUser = (Map) session.getAttribute("baseUserLoginInfo");
+			map.put("userSeq", baseLoginUser.get("userId"));
+			map.put("usrSeq", baseLoginUser.get("userId"));
+
+			//업무일지에서 넘어온 경우
+			if(map.get("targetOrgId") != null && StringUtils.isNotEmpty(String.valueOf(map.get("targetOrgId")))){
+				map.put("orgId", String.valueOf(map.get("targetOrgId")));
+			}else{
+				map.put("orgId", baseLoginUser.get("orgId"));
+			}
+			//업무일지에서 넘어온 경우
+			map.put("viewDate", map.get("targetDate"));
+
+			businessService.savebusinessInfoRegist(map);
+
+			AjaxResponse.responseAjaxSave(response, 1);
+
+		}catch(Exception ex){
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response, "정보를 저장하는 도중 오류가 발생하였습니다.");
+		}
+	}
+
+	//정보등록하기 (  정보 수정 )
+	@RequestMapping(value="/business/updatebusinessInfoRegist.do")
+	public void updatebusinessInfoRegist(
+										HttpSession session,HttpServletResponse response,
+										@RequestParam Map<String,Object> map) throws Exception{
+
+		try{
+			Map baseLoginUser = (Map) session.getAttribute("baseUserLoginInfo");
+			map.put("userSeq", baseLoginUser.get("userId"));
+			map.put("usrSeq", baseLoginUser.get("userId"));
+			map.put("orgId", baseLoginUser.get("orgId"));
+
+			businessService.updatebusinessInfoRegist(map);
+
+			AjaxResponse.responseAjaxSave(response, 1);
+
+		}catch(Exception ex){
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response, "정보를 수정하는 도중 오류가 발생하였습니다.");
+		}
+	}
+
+
+	//영업관리 > 정보정리 리스트 화면 :park
+	@RequestMapping(value="/business/businessInfoList.do")
+	public String businessInfoList(	HttpSession session
+									 , Model model
+									 , @RequestParam Map<String,Object> paramMap ) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) return "redirect:/";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("businessInfoLevel", baseUserLoginInfo.get("businessInfoLevel"));
+		paramMap.put("deptBossLevelYn", baseUserLoginInfo.get("deptBossLevelYn").toString());
+
+		//정보등록관리 정보
+		Map info = businessService.selectBusinessBsInfoSetupInfo(baseUserLoginInfo);
+		model.addAttribute("businessAdminRegist", info);
+
+		//정보관리 리스트 조회
+		Map<String,Object> businessInfoListMap = businessService.getBusinessInfoList(paramMap);
+
+		model.addAttribute("listMap", businessInfoListMap);
+
+		//정보구분 공통코드 조회
+		Map cmmCdProgressCdListCodeMap = new HashMap();
+        cmmCdProgressCdListCodeMap.put("codeSetNm", "INFO_TYPE");
+        cmmCdProgressCdListCodeMap.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+        model.addAttribute("infoTypeCodeList", commonService.getBaseCommonCode(cmmCdProgressCdListCodeMap));
+
+        model.addAttribute("searchMap", paramMap);
+
+		return "business/businessInfoList";
+
+	}
+
+	//영업관리 > 정보정리 검색 :park
+	@RequestMapping(value="/business/getBusinessInfoList.do")
+	public String getBusinessInfoList(	HttpSession session
+									 , Model model
+									 , @RequestParam Map<String,Object> paramMap ) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) return "redirect:/";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("businessInfoLevel", baseUserLoginInfo.get("businessInfoLevel"));
+		paramMap.put("deptBossLevelYn", baseUserLoginInfo.get("deptBossLevelYn").toString());
+
+		//정보등록관리 정보
+		Map info = businessService.selectBusinessBsInfoSetupInfo(baseUserLoginInfo);
+		model.addAttribute("businessAdminRegist", info);
+
+		//정보관리 리스트 조회
+		Map<String,Object> businessInfoListMap = businessService.getBusinessInfoList(paramMap);
+
+		model.addAttribute("listMap", businessInfoListMap);
+
+		model.addAttribute("searchMap", paramMap);
+
+		return "business/businessInfoList_INC/ajax";
+
+	}
+
+	//infoClass 코드를 조회한다 : park
+	@RequestMapping(value="/business/getInfoClassCode.do")
+	public void getInfoClassCode(HttpServletRequest request,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> map) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		//정보구분 공통코드 조회
+		Map cmmCdProgressCdListCodeMap = new HashMap();
+        cmmCdProgressCdListCodeMap.put("codeSetNm", map.get("code"));
+        cmmCdProgressCdListCodeMap.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+
+		AjaxResponse.responseAjaxSelect(response, commonService.getBaseCommonCode(cmmCdProgressCdListCodeMap));
+	}
+
+	// 정보관리 상세 팝업화면: park
+	@RequestMapping(value="/business/businessDetail.do")
+	public String businessDetail(	HttpSession session
+				 , Model model
+				 , @RequestParam Map<String,Object> paramMap ) throws Exception{
+	if(session.getAttribute("baseUserLoginInfo")==null) return "redirect:/";
+	Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+	paramMap.put("orgId", baseUserLoginInfo.get("orgId").toString());
+	paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+	EgovMap businessDetail = businessService.getBusinessInfo(paramMap);
+
+	model.addAttribute("businessDetail", businessDetail);
+	model.addAttribute("fromPage", paramMap.get("fromPage"));
+	return "business/pop/businessDetailPop/pop";
+
+	}
+
+	// 게시판의 댓글목록 가져오기: park
+	@RequestMapping(value = "/business/getCommentList.do")
+	public void getCommentList(HttpServletRequest request,
+			HttpSession session, HttpServletResponse response, ModelMap model,
+			@RequestParam Map<String,Object> map) throws Exception {
+
+		List<Map> list = businessService.getCommentList(map);
+		AjaxResponse.responseAjaxSelect(response, list);
+	}
+
+	// 게시판 댓글 등록 및 수정:park
+	@RequestMapping(value = "/business/saveComment.do")
+	public void saveComment(HttpSession session,
+		@RequestParam Map<String,Object>map, Model model,HttpServletResponse response) throws Exception {
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("usrSeq", baseUserLoginInfo.get("userId"));
+
+		int chk = businessService.saveComment(map);
+		AjaxResponse.responseAjaxSave(response, chk);
+	}
+	// 게시판 댓글 삭제:park
+	@RequestMapping(value = "/business/deleteComment.do")
+	public void deleteComment(HttpSession session,
+		@RequestParam Map<String,Object>map, Model model,HttpServletResponse response) throws Exception {
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("usrSeq", baseUserLoginInfo.get("userId"));
+
+		int chk = businessService.deleteComment(map);
+		AjaxResponse.responseAjaxSave(response, chk);
+	}
+
+	//영업관리 > 정보정리 리스트 화면 :park
+	@RequestMapping(value="/business/businessCommentList.do")
+	public String businessCommentList(	HttpSession session
+									 , Model model
+									 , @RequestParam Map<String,Object> paramMap ) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) return "redirect:/";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("deptBossLevelYn", baseUserLoginInfo.get("deptBossLevelYn").toString());
+		paramMap.put("businessInfoLevel", baseUserLoginInfo.get("businessInfoLevel"));
+
+		//정보등록관리 정보
+		Map info = businessService.selectBusinessBsInfoSetupInfo(baseUserLoginInfo);
+		model.addAttribute("businessAdminRegist", info);
+
+		//정보관리 리스트 조회
+		Map<String,Object> businessInfoListMap = businessService.getBusinessCommentList(paramMap);
+
+		model.addAttribute("listMap", businessInfoListMap);
+
+		//정보구분 공통코드 조회
+		Map cmmCdProgressCdListCodeMap = new HashMap();
+        cmmCdProgressCdListCodeMap.put("codeSetNm", "INFO_TYPE");
+        cmmCdProgressCdListCodeMap.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+        model.addAttribute("infoTypeCodeList", commonService.getBaseCommonCode(cmmCdProgressCdListCodeMap));
+
+        model.addAttribute("searchMap", paramMap);
+		return "business/businessCommentList";
+
+	}
+
+	//영업관리 > 정보정리 검색 :park
+	@RequestMapping(value="/business/getBusinessCommentList.do")
+	public String getBusinessCommentList(	HttpSession session
+									 , Model model
+									 , @RequestParam Map<String,Object> paramMap ) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) return "redirect:/";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("deptBossLevelYn", baseUserLoginInfo.get("deptBossLevelYn").toString());
+		paramMap.put("businessInfoLevel", baseUserLoginInfo.get("businessInfoLevel"));
+
+		//정보등록관리 정보
+		Map info = businessService.selectBusinessBsInfoSetupInfo(baseUserLoginInfo);
+		model.addAttribute("businessAdminRegist", info);
+
+		//정보관리 리스트 조회
+		Map<String,Object> businessInfoListMap = businessService.getBusinessCommentList(paramMap);
+
+		model.addAttribute("listMap", businessInfoListMap);
+
+		return "business/businessCommentList_INC/ajax";
+
+	}
+
+	//메인 정보정리 검색 :park
+	@RequestMapping(value="/business/mainBusinessInfoListAjax.do")
+	public void getBusinessInfoList(	HttpSession session
+									 , HttpServletResponse response
+									 , @RequestParam Map<String,Object> paramMap) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null)  throw new Exception();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("businessInfoLevel", baseUserLoginInfo.get("businessInfoLevel").toString());
+		paramMap.put("recordCountPerPage","100");
+		paramMap.put("deptBossLevelYn", baseUserLoginInfo.get("deptBossLevelYn").toString());
+
+		//정보관리 리스트 조회
+		Map<String,Object> businessInfoListMap = businessService.getBusinessInfoList(paramMap);
+
+		AjaxResponse.responseAjaxObject(response, businessInfoListMap.get("businessInfoList"));		//"SUCCESS" 전달
+
+	}
+	//메인 코멘트 검색 :park
+	@RequestMapping(value="/business/mainBusinessCommentListAjax.do")
+	public void mainBusinessCommentListAjax(	HttpSession session
+											 , HttpServletResponse response
+											 , @RequestParam Map<String,Object> paramMap ) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("deptBossLevelYn", baseUserLoginInfo.get("deptBossLevelYn").toString());
+		paramMap.put("businessInfoLevel", baseUserLoginInfo.get("businessInfoLevel"));
+
+		paramMap.put("recordCountPerPage","100");
+		//정보관리 리스트 조회
+		Map<String,Object> businessInfoListMap = businessService.getBusinessCommentList(paramMap);
+
+		AjaxResponse.responseAjaxObject(response, businessInfoListMap.get("businessInfoList"));		//"SUCCESS" 전달
+
+	}
+
+
+
+}

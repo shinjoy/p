@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="alarm">	
+
+	<!-- 알림리스트 -->
+	<select id="alarm.getAlarmList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				  alarm_id              as  alarmId
+				, alarm_target         	as  alarmTarget
+			<isEqual property="lang" compareValue="ENG">		
+				, (SELECT value_mean_eng FROM BS_CODE_GV WHERE code_value = list.alarm_target AND code_name = #codeSet# AND org_id=#applyOrgId#)   as  alarmTargetText
+			</isEqual>	
+			<isNotEqual property="lang" compareValue="ENG">
+				, (SELECT value_mean_kor FROM BS_CODE_GV WHERE code_value = list.alarm_target AND code_name = #codeSet# AND org_id=#applyOrgId#)   as  alarmTargetText
+			</isNotEqual>	
+				, alarm_type            as  alarmType
+				, alarm_text            as  alarmText
+				, alarm_period			as  alarmPeriod
+				, DATE_FORMAT(alarm_start, '%Y-%m-%d')	as  alarmStart
+				, DATE_FORMAT(alarm_end,   '%Y-%m-%d') 	as  alarmEnd
+				, DATE_FORMAT(create_date, '%Y-%m-%d')  as  createDate
+				, created_by            as  createdBy
+				, (SELECT name FROM BS_USER_MASTER WHERE user_id = list.created_by)  as  createdName
+				, update_date           as  updateDate
+				, updated_by            as  updatedBy
+			
+		FROM BS_ALARM_LIST AS LIST
+		WHERE DATE_FORMAT(alarm_start, '%Y-%m-%d')>'1988-01-08'
+			
+		<isNotEmpty prepend="AND" property="applyOrgId">
+			org_id = #applyOrgId#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="alarmTarget">
+			alarm_target = #alarmTarget#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="alarmType">
+			alarm_type =#alarmType#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="alarmText">
+			alarm_text like concat('%', #alarmText#, '%')
+		</isNotEmpty>
+		
+		<isNotEmpty property="alarmStart">
+			<isNotEmpty prepend="AND" property="alarmEnd">
+				alarm_end &gt;= DATE(#alarmStart#) and alarm_start &lt;= DATE(#alarmEnd#)
+			</isNotEmpty>
+		</isNotEmpty>
+		<isNotEmpty property="alarmEnd">
+			<isEmpty prepend="AND" property="alarmStart">
+				alarm_start &lt;= DATE(#alarmEnd#)
+			</isEmpty>
+		</isNotEmpty>
+		<isNotEmpty property="alarmStart">
+			<isEmpty prepend="AND" property="alarmEnd">
+				alarm_end &gt;= DATE(#alarmStart#)
+			</isEmpty>
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="alarmId">
+			alarm_Id = #alarmId#
+		</isNotEmpty>
+		<isNotEmpty prepend="" property="sortCol">
+			ORDER BY $sortCol$ $sortVal$, alarm_id DESC
+		</isNotEmpty>
+		<isEmpty prepend="" property="sortCol">
+			ORDER BY create_date DESC, alarm_id DESC
+		</isEmpty>
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#, #limit#
+		</isNotEmpty>
+		
+		/*alarm.getAlarmList*/
+	</select>
+	
+	<!--  알람리스트 총 갯수 -->
+	<select id="alarm.getAlarmListCnt" parameterClass="HashMap" resultClass="int">
+		SELECT COUNT(1)
+		
+		FROM bs_alarm_list
+		WHERE DATE_FORMAT(alarm_start, '%Y-%m-%d')>'1988-01-08'
+		
+		<isNotEmpty prepend="AND" property="applyOrgId">
+				org_id = #applyOrgId#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="alarmTarget">
+			alarm_target = #alarmTarget#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="alarmType">
+			alarm_type =#alarmType#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="alarmText">
+			alarm_text like concat('%', #alarmText#, '%')
+		</isNotEmpty>
+		
+		<isNotEmpty property="alarmStart">
+			<isNotEmpty prepend="AND" property="alarmEnd">
+				alarm_end &gt;= DATE(#alarmStart#) and alarm_start &lt;= DATE(#alarmEnd#)
+			</isNotEmpty>
+		</isNotEmpty>
+		<isNotEmpty property="alarmEnd">
+			<isEmpty prepend="AND" property="alarmStart">
+				alarm_start &lt;= DATE(#alarmEnd#)
+			</isEmpty>
+		</isNotEmpty>
+		<isNotEmpty property="alarmStart">
+			<isEmpty prepend="AND" property="alarmEnd">
+				alarm_end &gt;= DATE(#alarmStart#)
+			</isEmpty>
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="alarmId">
+			alarm_Id = #alarmId#
+		</isNotEmpty>
+		
+		/*alarm.getAlarmListCnt*/
+	</select>
+	
+	<!-- 알림 저장(등록) -->
+	<insert id="alarm.insertAlarm" parameterClass="HashMap">
+		INSERT INTO bs_alarm_list
+				  (
+				  	org_id
+				  , alarm_target
+				  , alarm_type
+				  , alarm_text
+				  , alarm_period
+				  , alarm_start
+				  , alarm_end
+				  , create_date
+				  , created_by
+				  , update_date
+				  , updated_by
+		 ) VALUES (
+		 			#orgId#
+		 		  , #alarmTarget#
+				  , #alarmType#
+				  , #alarmText#
+				  , #alarmPeriod#
+				  , #alarmStart#
+				  , #alarmEnd#
+				  , now()
+				  , #userId#
+				  , now()
+				  , #userId#
+				  )
+		<selectKey keyProperty="alarmId" resultClass="String">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		/*alarm.insertAlarm*/
+	</insert>
+	
+	<!-- 알림 저장(수정) -->
+	<update id="alarm.updateAlarm"  parameterClass="HashMap">	  
+		  UPDATE bs_alarm_list
+		  SET
+			    alarm_target  =  #alarmTarget#
+			  , alarm_type	  =  #alarmType#
+			  , alarm_text	  =  #alarmText#
+			  , alarm_period  =  #alarmPeriod#
+			  , alarm_start	  =  #alarmStart#
+			  , alarm_end	  =  #alarmEnd#	
+			  , UPDATE_DATE	  =  now()
+			  , UPDATED_BY	  =  #userId#
+		  WHERE alarm_id  =  #alarmId#
+		  
+		/*alarm.updatetAlarm*/
+	 </update>
+	 
+	 <!-- 알림 삭제 -->
+	<update id="alarm.deleteAlarm"  parameterClass="HashMap">		  
+		  UPDATE bs_alarm_list
+		  SET
+			    alarm_start	  =  #alarmStart#
+			  , alarm_end	  =  #alarmEnd#	
+		  WHERE alarm_id  =  #alarmId#
+		/*alarm.deleteAlarm*/
+	 </update>
+	
+	<!-- 알람 타겟 지우기 -->
+	<delete id="alarm.deleteAlarmTarget" parameterClass="HashMap">
+		<![CDATA[
+			DELETE 
+			FROM bs_alarm_target
+			WHERE alarm_id  =  #alarmId#
+		]]>
+	</delete>
+	
+	<!-- 알림 타겟 저장 -->
+	<insert id="alarm.insertAlarmTarget" parameterClass="HashMap">
+		INSERT INTO bs_alarm_target
+				  (
+				    alarm_id
+				  , user_id
+				  , alarm_yn
+				  , create_date
+				  , created_by
+				  , update_date
+				  , updated_by
+		 ) VALUES (
+		 		    #alarmId#
+				  , #userId#
+				  , #alarmYn#
+				  , now()
+				  , #regId#
+				  , now()
+				  , #regId#
+				  )
+		
+		/*alarm.insertAlarmTarget*/
+	</insert>
+	
+	<!-- 알림 타겟 리스트 -->
+	<select id="alarm.getAlarmTargetList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			  target.alarm_id            AS alarmId
+			, target.user_id         	 AS staffSnb
+			, staff.login_id			 AS loginId
+			, staff.name				 AS usrNm
+			, target.alarm_yn            AS alarmYn
+			, target.created_by          AS createdBy
+			, target.update_date         AS updateDate
+			, target.updated_by          AS updatedBy
+			, staff.ORG_ID               AS division
+			, dept.DEPT_ID				 AS deptSeq
+		    , dept.KOR_NAME				 AS deptNm
+		    , (SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = staff.RANK AND ORG_ID = staff.ORG_ID)	AS position
+        
+        FROM bs_alarm_target 			AS target 
+		LEFT JOIN BS_USER_MASTER 		AS staff 	ON staff.user_id = target.user_id
+		LEFT JOIN BS_USER_DEPARTMENT	AS userDept	ON userDept.user_id = staff.user_id	AND userDept.main_yn = 'Y'
+		LEFT JOIN BS_DEPARTMENT			AS dept		ON dept.dept_id = userDept.dept_id	
+		
+		WHERE 1=1
+		<isNotEmpty prepend="AND" property="alarmId">
+			alarm_Id = #alarmId#
+		</isNotEmpty>
+		ORDER BY STAFF.NAME ASC
+		/*alarm.getAlarmTargetList*/
+	</select>
+	
+	<!-- 알림 팝업창 오픈 여부 -->
+	<select id="alarm.selectPopUser" parameterClass="HashMap" resultClass="HashMap">
+		SELECT 
+				A.USER_ID
+			  ,	D.ALARM_YN AS alarmYn
+			  ,	GROUP_CONCAT(DISTINCT D.ALARM_ID ORDER BY D.ALARM_ID) AS alarmIds
+		
+		FROM BS_USER_PROFILE A
+		LEFT JOIN BS_ALARM_TARGET D ON D.USER_ID = A.USER_ID
+        LEFT JOIN BS_ALARM_LIST E ON E.ALARM_ID = D.ALARM_ID
+		  
+		WHERE 1=1
+		  AND A.USER_ID = #userId#
+		  AND D.ALARM_YN = 'Y'
+		  AND DATE(NOW()) BETWEEN E.ALARM_START AND E.ALARM_END
+		GROUP BY A.USER_ID
+		 
+		/* alarm.selectPopUser */
+	</select>
+	
+	<!--  알림 팝업창 아이디 정보 반환-->
+	<select id="alarm.selectPopupIds" resultClass="HashMap">
+		SELECT 
+			ALARM_ID AS alarmId 
+		FROM BS_ALARM_LIST 
+		WHERE date(now()) BETWEEN ALARM_START AND ALARM_END
+		 
+		 /* alarm.selectPopupIds */
+	</select>
+	
+	<!--  알림 팝업창 정보 반환 -->
+	<select id="alarm.selectPopupInfo" parameterClass="HashMap" resultClass="HashMap">
+		/* alarm.selectPopupInfo */
+		 SELECT ALARM_ID AS alarmId, ALARM_TEXT AS alarmText ,
+		 ALARM_TARGET AS alarmTarget ,  DATE_FORMAT( ALARM_START, '%Y-%m-%d') AS alarmStart,
+		  DATE_FORMAT( ALARM_END, '%Y-%m-%d') AS alarmEnd, ALARM_TYPE AS alarmType
+		 FROM  
+		 BS_ALARM_LIST 
+		 WHERE 
+		 ALARM_ID = #alarmId#
+	</select>
+	
+	 
+</sqlMap>

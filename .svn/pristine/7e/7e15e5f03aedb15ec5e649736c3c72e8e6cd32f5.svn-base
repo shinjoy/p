@@ -1,0 +1,687 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%
+pageContext.setAttribute("cr", "\r");
+pageContext.setAttribute("cn", "\n");
+pageContext.setAttribute("crcn", "\r\n");
+pageContext.setAttribute("sp", "&nbsp;");
+pageContext.setAttribute("br", "<br/>");
+%>
+<!--WBS요약-->
+<div class="wbsinfoWrap mgt30">
+	<div class="fl_block">
+		<table class="pro_wbs_tb" summary="프로젝트 현황 WBS">
+			<caption>프로젝트</caption>
+			<thead>
+				<tr>
+					<th scope="col">잔여일</th>
+					<c:forEach items="${wbsSummaryMaplist }" var="data">
+						<c:if test="${data.deleteYn eq 'N' or data.teamTot + data.privateTot>0 }">
+							<th scope="col">${data.header }</th>
+						</c:if>
+					</c:forEach>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td class="d_daycount" id="wbsDayCount"></td>
+					<c:set var="headerTotCount" value="0"></c:set>
+					<c:forEach items="${wbsSummaryMaplist }" var="data">
+						<c:choose>
+							<c:when test="${data.type eq 'COMPLTE' }">
+								<td>
+									<p class="done_count">${data.teamTot + data.privateTot }<p>
+									<fmt:parseNumber value="${data.teamTot + data.privateTot }" var="completeTot" pattern="0.00"/>
+									<fmt:parseNumber value="${headerTotCount }" var="headerTotCountDouble" pattern="0.00"/>
+									<c:if test="${headerTotCountDouble>0 }">
+										<fmt:formatNumber value="${(completeTot)/headerTotCountDouble*100 }" type="number" var="totPercent" />
+										<p class="percent">(진척율 : <strong id = "projectTotPercent">${totPercent }%</strong>)</p>
+									</c:if>
+								</td>
+							</c:when>
+							<c:otherwise>
+								<c:if test="${data.deleteYn eq 'N' or data.teamTot + data.privateTot>0 }">
+									<td class="bigcount">${data.teamTot + data.privateTot }</td>
+									<c:if test="${data.type eq 'TOT' }">
+										<c:set var="headerTotCount" value="${data.teamTot + data.privateTot }"></c:set>
+									</c:if>
+								</c:if>
+							</c:otherwise>
+						</c:choose>
+					</c:forEach>
+				</tr>
+			</tbody>
+			<tfoot>
+				<tr>
+					<td class="dateinfo" id="wbsProjectCloseDate"></td>
+					<c:forEach items="${wbsSummaryMaplist }" var="data">
+						<c:if test="${data.deleteYn eq 'N' or data.teamTot + data.privateTot>0 }">
+							<td>
+								<span class="ttline"><em>팀</em><em class="line">개인</em></span>
+								<span class="sumline">(<em>${data.teamTot }</em><em class="line">${data.privateTot }</em>)</span>
+							</td>
+						</c:if>
+					</c:forEach>
+				</tr>
+			</tfoot>
+		</table>
+		<script type="text/javascript">
+
+			var closeDate=project.closeDate;
+
+			if(closeDate.split("-")[0] == "9999"){
+				var closeDateStr = closeDate.split("-").join(".");
+				dateDiff = "상시";
+
+				$("#wbsDayCount").text("상시");
+
+				$("#wbsProjectCloseDate").text("");
+			}else{
+
+				var closeDateBuf = new Date(closeDate.split("-")[0],parseInt(closeDate.split("-")[1])-1,parseInt(closeDate.split("-")[2]));
+
+				var today = new Date();
+				today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+				var diff =(closeDateBuf.getTime() - today.getTime()) / 1000 / 60 / 60 / 24;
+
+				$("#wbsDayCount").text(diff+"일");
+
+				var closeDateStr = closeDate.split("-").join(".");
+
+				$("#wbsProjectCloseDate").text(closeDateStr+"("+diff+"일)");
+			}
+
+
+
+			var closeDate = new Date(project.closeDate);
+
+
+		</script>
+	</div>
+	<div class="fr_block">
+		<ul class="wbs_actiList">
+			<li class="no_acti_rg">업무 없는 기간(과거)</li>
+			<li class="done_rg">완료업무</li>
+			<li class="delay_rg">잔여 기간(미래)</li>
+			<!-- <li class="incomplete_rg">미완료업무</li> -->
+
+			<c:set var="cssIndex" value="1"></c:set>
+			<c:forEach items="${wbsSummaryMaplist }" var="data" varStatus="i">
+				<c:if test="${data.type ne 'TOT' and data.type ne 'COMPLTE' and (data.deleteYn eq 'N' or data.teamTot + data.privateTot>0) }">
+					<li class="etc${cssIndex }_rg">${data.discription }</li>
+					<script type="text/javascript">
+						wbsProcessCss["${data.type}"]="etc${cssIndex }_rg";
+					</script>
+					<c:set var="cssIndex" value="${cssIndex+1 }"></c:set>
+				</c:if>
+			</c:forEach>
+
+		</ul>
+	</div>
+</div>
+<!--//WBS요약//-->
+<!--프로젝트WBS상세-->
+<!-- Project Management -->
+<h3 class="h3_table_title mgt30">${baseUserLoginInfo.projectTitle} Management
+
+<a id="btnMemoModify" class="btn_s_type_g mgl5 printOut btnBodifyProject" href="javascript:moveModifyPage()" style=""><em>수정하러가기</em></a>
+
+</h3>
+<table class="tb_regi_temp" summary="Project Management, 프로젝트명, 설명, 기간, 타입, 예산, 타임시트, 지출표기, 사용여부, 참여직원">
+	<caption>
+		${baseUserLoginInfo.projectTitle} Management
+	</caption>
+	<colgroup>
+		<col width="12%" />
+        <col width="*" />
+        <col width="12%" />
+        <col width="28%" />
+	</colgroup>
+	<tbody>
+		<tr>
+                   <th scope="row">${baseUserLoginInfo.projectTitle}명</th>
+                   <td colspan="3">
+                   		<strong><span id="v_projectName2"></span></strong>
+                   		<span style="float: right;">
+                   			<span id="createArea2"></span>
+                   			<span id="updateArea2"></span>
+                   		</span>
+                   </td>
+               </tr>
+               <tr>
+                   <th scope="row">${baseUserLoginInfo.projectTitle}코드</th>
+                   <td>
+                        <strong><span id="v_projectCode2"></span></strong>
+                   </td>
+                   <th scope="row">공개여부</th>
+                   <td><span id="v_openFlag2"></span></td>
+               </tr>
+               <tr>
+                   <th scope="row">설명</th>
+                   <td><span id="v_projectDesc2"></span></td>
+                   <th scope="row">유형</th>
+                   <td><span id="v_projectType2"></span></td>
+
+               </tr>
+               <tr>
+                   <th scope="row">기간</th>
+                   <td>
+                   	<span id="v_period2" style="font-weight: bold;"></span>
+                   	<span id="v_chgPeriod2"></span>
+                   	<strong id="v_originEndDate2" class="mgl20 spe_color_st6 txt_letter0"></strong>
+                   </td>
+                   <th scope="row">마감일</th>
+                   <td>
+                   	<span id="v_closeDate2"></span>
+                   	<strong id="v_originCloseDate2" class="mgl20 spe_color_st6 txt_letter0"></strong>
+                   </td>
+
+                   <!-- 일단 사용 정해지면 풀자 -->
+                   <th scope="row" style="display:none;">타입</th>
+                   <td style="display:none;"><span id="v_projectType2"></span></span>
+                   </td>
+               </tr>
+               <tr>
+                   <th scope="row">예산</th>
+                   <td><span id="v_budget2"></span><span id="v_budgetAmt2" class="spe_color_st3"></span></td>
+                    <th scope="row">사용여부</th>
+                   <td><span id="v_enable2"></span></td>
+                  <!--  <th scope="row">타임시트</th> -->
+                   <td style="display:none;">
+                   	<span id="v_timesheet2"></span>
+                   	<span id="v_overTs2"></span>
+                   </td>
+               </tr>
+               <tr>
+                   <th scope="row">지출</th>
+                   <td>
+					<span id="v_expense2"></span>
+                    <span id="v_overEx2"></span>
+                    <span id="v_overExpense2"></span>
+                    <span id="cardExpenseSumArea2" class="current_expense mgl20"></span>
+                   </td>
+                   <th scope="row">확정여부</th>
+                   <td><span id="v_confirm2"></span></td>
+               </tr>
+               <tr>
+                   <th scope="row">직원배정</th>
+                   <td>
+                   		<span id="v_employee2"></span>
+                   		<span id="v_employee_list2"></span>
+                   </td>
+                   <th scope="row">상태</th>
+                   <td><span id="v_status2"></span></td>
+               </tr>
+	</tbody>
+</table>
+<!--/ Project Management /-->
+<div id = "wbsProjectDtArea">
+</div>
+<h3 class="h3_table_title2">${baseUserLoginInfo.activityTitle}</h3>
+<table id="SGridTarget2" class="tb_wbsChart" summary="전체통계(1월~12월, 영업관리비, 복리후생비, 대중교통비, 차량유지비, 택배비, 소모품비)">
+	<colgroup>
+		<col width="3%" />
+               <col width="18%" />
+               <col width="*" 	/>
+               <col width="18%" />
+               <col width="10%" />
+               <col width="15%" />
+       <%--         <col width="6%" /> --%>
+               <col width="6%" />
+               <col width="20%" />
+	</colgroup>
+	<thead>
+		<tr>
+	         <th scope="col">NO</th>
+	         <th scope="col">${baseUserLoginInfo.activityTitle}명</th>
+	         <th scope="col">설명</th>
+	   		 <th scope="col">기간</th>
+	         <th scope="col">예산</th>
+	         <th scope="col">지출</th>
+	         <!--   <th scope="col">타임시트</th> -->
+	         <th scope="col">사용여부</th>
+	         <th scope="col">직원배정</th>
+        </tr>
+	</thead>
+	<tbody>
+
+	</tbody>
+</table>
+<!--//간트차트//-->
+
+<!--/ Activity Management /-->
+
+
+<!-- 엑티비티 상세조회를 위한 폼 -->
+<form id="activityFrm" name = "activityFrm" method="post">
+	<input type="hidden" id = "wbsActivityId" name = "wbsActivityId">
+	<input type="hidden" id = "wbsActivityStartDt" name = "wbsActivityStartDt">
+	<input type="hidden" id = "wbsActivityEndDt" name = "wbsActivityEndDt">
+</form>
+<!-- 프로젝트 wbs 상세조회를 위한 폼 -->
+<form id="projectFrm" name = "projectFrm" method="post">
+	<input type="hidden" id = "wbsProjectId" name = "wbsProjectId">
+	<input type="hidden" id = "wbsProjectStartDt" name = "wbsProjectStartDt">
+	<input type="hidden" id = "wbsProjectEndDt" name = "wbsProjectEndDt">
+	<input type="hidden" id = "wbsProjectPeriod" name = "wbsProjectPeriod">
+</form>
+<span id="leaderHelpPop" style="z-index: 9999999999;width: 200px;padding:1px,1px,1px,1px; ">
+	<div class="fl_block explain_tooltip">
+		<div class="tooltip_box wrap_autoscroll" id = "leaderHelpPopTooltipBox">
+			 <span class="intext" id = "leaderHelpPopStr">
+			 	리더란? <br>
+단위업무의 기간과 참여자, 진척율을 관리하는 담당자입니다
+			 </span>
+			 <em class="edge_topleft" style="left:40px;"></em>
+		</div>
+	</div>
+</span>
+<script type="text/javascript">
+var myModal2 = new AXModal();	// instance
+
+
+var myGrid2 = new SGrid();		// instance		new sjs
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+var fnObj2 = {
+
+	//################# init function :S #################
+
+	//화면세팅
+    pageStart: function(){
+
+    	//-------------------------- 그리드 설정 :S ----------------------------
+    	/* 그리드 설정정보 */
+    	var configObj = {
+
+    		targetID : "SGridTarget2",		//그리드의 id
+
+    		//그리드 컬럼 정보
+    		colGroup : [
+			{key:"",				formatter:function(obj){
+										var pV = parseInt(1*obj.item.sort/100);		//부모 순번
+										var sV = parseInt(1*obj.item.sort%100);		//자식 순번
+										var stStr = "";
+											stStr += ( pV + (sV>0?'-'+sV:'') );
+										return ( pV + (sV>0?'-'+sV:'') );
+
+			}},
+
+            {key:"namelvl",			formatter:function(obj){
+            							var stStr = '<span>' + obj.item.name +'('+obj.item.workCnt+')'+'</span>';
+
+            							var empList = obj.item.empList;
+
+            							for(var i = 0 ; i <empList.length;i++){
+            								var empObj = empList[i];
+
+            								if(empObj.leaderYn == "Y"){
+            									if(empObj.userId == "${baseUserLoginInfo.userId}"){
+            										stStr+="<br>";
+            										stStr+="<a class=\"btn_s_type_g mgl5\" href=\"javascript:openWbsActivityPop('UPDATE','"+obj.item.activityId+"','"+obj.item.startDate+"','"+obj.item.endDate+"')\"><em>수정</em></a>";
+            										stStr+="<a class=\"btn_s_type_g mgl5\" href=\"javascript:openWbsActivityPop('HISTORY','"+obj.item.activityId+"')\"><em>이력보기</em></a>";
+            									}
+            								}
+            							}
+
+            							return stStr;}},
+            {key:"description",		formatter:function(obj){return (obj.value);}},
+
+            {key:"period",			formatter:function(obj){
+            							var str = (obj.item.startDate).replace(/-/gi,'/') + ' ~ ' + (obj.item.endDate).replace(/-/gi,'/')
+
+            							//확정일때만 액티비티 상태 표기
+            							if(g_projectConfirm == 'Y'){
+	            							str += '<span class="spe_color_st3"><em>(';
+	            							if(new Date().yyyy_mm_dd()  <= obj.item.endDate   && obj.item.startDate <= new Date().yyyy_mm_dd()){
+	            								str += '진행';
+	            							}else if(obj.item.endDate < new Date().yyyy_mm_dd()){
+	            								str += '마감';
+	            							}else if(obj.item.startDate > new Date().yyyy_mm_dd()){
+	            								str += '예정';
+	            							}
+	            							str += ')</em></span>';
+            							}
+            							return str;
+
+            }},
+
+            {key:"budget",			formatter:function(obj){return (obj.value=='Y'?formatMoney(obj.item.budgetAmt,'INSERT') + ' 원':codeYesNoForNm[obj.value]);}},
+
+            {key:"expense",			formatter:function(obj){
+            							var rStr = codeYesNoForNm[obj.value];
+
+            							if(obj.value == 'Y' && obj.item.budget == 'Y'){		//지출이 Y 면서  예산이 N 일때만 예산 초과에 대한 txt 보여줌.
+            								rStr += ' (' + getRowObjectWithValue(codeOverExpenseYesNo, 'CD', obj.item.overExpense)['NM'] + ')';
+            							}
+
+            							//액티비티 사용금액
+            							if(obj.item.cardExpenseSum != 0){
+						            		rStr += '<strong class="mgl10">'+Number(obj.item.cardExpenseSum).toLocaleString().split(".")[0]+'  </strong>원 사용';
+						            	}
+
+
+
+            							return rStr;}},
+
+            {key:"timesheet",		formatter:function(obj){return (codeYesNoForNm[obj.value]);}},
+            {key:"enable",			formatter:function(obj){return (codeYesNoForNm[obj.value]);}},
+            {key:"employee",		formatter:function(obj){
+            							var rStr = codeEmployeeForNm[obj.value];
+
+							           	rStr += '<div id="selectedList' + (obj.index) + '" style="' + (obj.value=='A'?'display:none':'') + '">';
+							           	//배정직원 리스트
+							       		var empList = obj.item.empList;
+							       		for(var i=0; i<empList.length; i++){
+							       			rStr += empList[i].userNm;
+							       			if(empList[i].leaderYn == "Y") {
+							       				rStr += "<span style=\"cursor: pointer;\" onmouseover='openLeaderHelpPop($(this))'  onmouseout='closeLeaderHelpPop()'>[리더]</span>";
+							       			}
+							       			if(i<empList.length-1) rStr += ', ';
+							       		}
+
+							           	rStr += '</div>';
+
+            							return rStr;}},
+            {key:"bgcolor",			formatter:function(obj){
+            							if(obj.item.enable == 'N'){
+            								return 'silver';					//사용여부가 'N' 일때 어둡게
+            							}else{
+            								return '';
+            							}
+            						}},
+			//장소
+            {key:"activityId",		},
+            {key:"startDate",		},
+            {key:"endDate",		}
+
+            ]
+    	};
+    	/* 그리드 한건 데이터 HTML 포맷 (** 1.tbody 내에 들어갈 tr 태그,  2.#[n] 의 위치에 colGroup 의 순서대로 데이터 세팅) */
+    	var rowHtmlStr = '<tr style="background-color:#[9]!important;cursor: pointer;" class="title_row activityTr" id = "activityTr_#[10]">';
+    	rowHtmlStr +=	 '<th scope="row" style="text-align:center;" onclick="fnObj2.getDetailActivity(\'#[10]\',\'#[11]\',\'#[12]\')">#[0]</th>';
+    	rowHtmlStr +=	 '<td>#[1]</th>';
+    	rowHtmlStr +=	 '<td class="special_f_st2" style="text-align:left;" onclick="fnObj2.getDetailActivity(\'#[10]\',\'#[11]\',\'#[12]\')">#[2]</td>';
+    	rowHtmlStr +=	 '<td class="special_f_st2" onclick="fnObj2.getDetailActivity(\'#[10]\',\'#[11]\',\'#[12]\')">#[3]</td>';
+    	rowHtmlStr +=	 '<td onclick="fnObj2.getDetailActivity(\'#[10]\',\'#[11]\',\'#[12]\')">#[4]</td>';
+    	rowHtmlStr +=	 '<td onclick="fnObj2.getDetailActivity(\'#[10]\',\'#[11]\',\'#[12]\')">#[5]</td>';
+    	rowHtmlStr +=	 '<td  style="display:none;" onclick="fnObj2.getDetailActivity(\'#[10]\',\'#[11]\',\'#[12]\')">#[6]</td>';
+    	rowHtmlStr +=	 '<td onclick="fnObj2.getDetailActivity(\'#[10]\',\'#[11]\',\'#[12]\')">#[7]</td>';
+    	rowHtmlStr +=	 '<td onclick="fnObj2.getDetailActivity(\'#[10]\',\'#[11]\',\'#[12]\')">#[8]</td>';
+        rowHtmlStr +=	 '</tr>';
+        rowHtmlStr +=	 '<tr id = "activityDtTr_#[10]">';
+
+        rowHtmlStr +=	 '</tr>';
+        rowHtmlStr +=	 '<tr id = "activityDtTr_#[10]_month">';
+
+        rowHtmlStr +=	 '</tr>';
+    	configObj.rowHtmlStr = rowHtmlStr;
+
+
+    	myGrid2.setConfig(configObj);		//그리드 설정정보 세팅
+    	//-------------------------- 그리드 설정 :E ----------------------------
+
+    },//end pageStart.
+  	//################# init function :E #################
+
+
+    //################# else function :S #################
+
+
+  	//프로젝트 정보 불러와 세팅
+    setProjectInfo: function(){
+
+	    	//----- 내용뿌리기 :S -----
+
+	    	//프로젝트
+	    	$('#v_projectName2').html(project.name);								//프로젝트명
+	    	$('#v_projectCode2').html(project.projectCode);                               //프로젝트코드
+	    	$('#v_projectDesc2').html(project.description);						//프로젝트설명
+	    	$('#v_projectType2').html(project.projectTypeNm);						//프로젝트타입
+	    	$("#v_confirm2").html(codeYesNoForNm[project.confirm]);								//확정여부
+	    	$("#v_status2").html(codeProjectStatusNm[project.projectStatus]);								//상태
+
+	    	var openFlagStr = project.openFlag=="Y"?"공개":"비공개";
+	    	$("#v_openFlag2").html(openFlagStr);								//공개여부
+
+
+	    	if(project.period == 'Y'){
+	    		$('#v_period2').html((project.startDate).replace(/-/gi,'/') + ' ~ ' + (project.endDate).replace(/-/gi,'/'));		//시작일 ~ 종료일
+	    		$('#v_closeDate2').html((project.closeDate).replace(/-/gi,'/'));							//마감일
+
+	    		//기간이 Y 이고 확정 상태이면
+	    		if(project.confirm == 'Y'){
+
+	    			var originEndDate = project.originEndDate==null?"":project.originEndDate;
+
+	    			var originCloseDate = project.originCloseDate==null?"":project.originCloseDate;
+
+	    			$("#v_originEndDate2").html(' (최초 종료일:'+(originEndDate).replace(/-/gi,'/')+')');
+
+	    			$("#v_originCloseDate2").html(' (최초 마감일:'+(originCloseDate).replace(/-/gi,'/')+')');
+
+	    		}
+	    	}else{
+	    		$("#v_originEndDate2").html(' (시작일:'+(project.startDate).replace(/-/gi,'/')+')');
+	    		$('#v_period2').html(codeYesNoForNm[project.period] + ' (기간상관없음)');							//기간
+	    		$('#v_closeDate2').html('기간상관없음');															//기간
+	    	}
+
+	    	if(project.budget == 'Y'){
+	    		var korNum = numToKorean(''+project.budgetAmt);
+	    		$('#v_budgetAmt2').html(formatMoney(''+project.budgetAmt, 'INSERT') + '원 ' + (isEmpty(korNum)?'':'<em>(' + korNum + ')</em>'));	//예산
+	    	}else{
+	    		$('#v_budget2').html(codeYesNoForNm[project.budget]);				//예산
+	    	}
+	    	$('#v_timesheet2').html(codeYesNoForNm[project.timesheet]);			//타임시트
+	    	if(project.timesheet == 'Y')
+	    		$('#v_overTs2').html('&nbsp;(' + getRowObjectWithValue(codeChgTimeSheetYesNo, 'CD', project.overTs)['NM'] + ')');		//기간상관여부
+	    	$('#v_expense2').html(codeYesNoForNm[project.expense]);				//지출
+	    	if(project.expense == 'Y'){
+	    		$('#v_overEx2').html('&nbsp;(' + getRowObjectWithValue(codeChgTimeSheetYesNo, 'CD', project.overEx)['NM'] + ')');		//기간상관여부
+	    		if(project.budget == 'Y') $('#v_overExpense2').html('&nbsp;(' + getRowObjectWithValue(codeOverExpenseYesNo, 'CD', project.overExpense)['NM'] + ')');	//예산초과지출허용 여부
+
+	    		if(project.cardExpenseSum !=0 ){
+	    			var stStr = '<strong>현재 :</strong> <span> '+ Number(project.cardExpenseSum).toLocaleString().split(".")[0] +'</span> <em>원</em></span>';
+
+	    		}else{
+	    			$("#cardExpenseSumArea2").html('');
+	    		}
+
+	    	}
+	    	$('#v_enable2').html(codeYesNoForNm[project.enable]);				//사용여부
+
+
+
+	    	$('#v_employee2').html(codeEmployeeForNm[project.employee]);			//직원배정
+	    	var empList = project.empList;
+	    	var eStr = '';
+			for(var i=0; i<empList.length; i++){
+				if(i==0) eStr += '&nbsp;(';
+				eStr += empList[i].userNm;
+				if(i==empList.length-1){
+					eStr += ')';
+				}else{
+					eStr += ', ';
+				}
+       		}
+			$('#v_employee_list2').html(eStr);
+	    	if(project.employee=='Y'){
+	    		$('#v_employee_list2').show();
+	    	}else{
+	    		$('#v_employee_list2').hide();
+	    	}
+
+	    	$('#createArea2').html('<strong>등록자: </strong>'+project.createNm+' ('+(project.createDate).replace(/-/gi,'/')+')');
+	    	$('#updateArea2').html('| <strong>최종수정자: </strong>'+project.updateNm+' ('+(project.updateDate).replace(/-/gi,'/')+')');
+	    	//activity
+    		myGrid2.setGridData({
+								list: actList,	//그리드 테이터
+								page: null		//페이징 데이터
+    						});
+
+			//----- 내용뿌리기 :E -----
+    },//setProjectInfo
+
+    getDetailActivity : function(activityId,startDt,endDt){
+    if($("#activityTr_"+activityId).hasClass("select_row")){
+    	$("#activityTr_"+activityId).removeClass("select_row");
+
+    	$("#activityDtTr_"+activityId).empty();
+
+    }else{
+    	$("#activityTr_"+activityId).addClass("select_row");
+
+    	var url =contextRoot+"/project/projectStatusWbsActivityDetailAjax.do";
+
+    	$("#activityFrm").attr("action",url);
+    	$("#wbsActivityId").val(activityId);
+    	$("#wbsActivityStartDt").val(startDt);
+    	$("#wbsActivityEndDt").val(endDt);
+
+    	var activityDtSearchCallback = function(data){
+    		$("#activityDtTr_"+activityId).html(data);
+    	}
+
+    	commonAjaxSubmit("POST",$("#activityFrm"),activityDtSearchCallback,false);
+    }
+
+
+    },
+    setProjectWbsInfo:function(){
+
+    	var url =contextRoot+"/project/searchProjectWbsWorkDetailAjax.do";
+
+    	$("#projectFrm").attr("action",url);
+    	$("#wbsProjectId").val(project.projectId);
+    	$("#wbsProjectStartDt").val(project.startDate);
+    	$("#wbsProjectEndDt").val(project.closeDate);
+    	$("#wbsProjectPeriod").val(project.period);
+
+    	var projectDtSearchCallback = function(data){
+    		$("#wbsProjectDtArea").html(data);
+    	}
+
+    	commonAjaxSubmit("POST",$("#projectFrm"),projectDtSearchCallback,false);
+    }
+
+  	//################# else function :E #################
+
+
+
+};//end fnObj.
+var now = new Date();
+
+function openWbsActivityPop(type,activityId,startDate,endDate){
+	popTargetActivityId = activityId;
+	var url = "";
+	var popTitle = "${baseUserLoginInfo.activityTitle}";
+	var width = 1200;
+
+
+	var params = {
+					activityId:activityId,
+					startDate:startDate,
+					endDate:endDate,
+					year:year
+				 };
+
+	if(type == "UPDATE"){
+		url = "<c:url value='/project/updateActivityInfo.do'/>";
+		popTitle+=" 수정";
+		width = 800;
+
+		var year = now.getFullYear();
+		var endYear = endDate.split("-")[0];
+
+		if(endYear !="9999"){
+			if(endYear<year){
+				year = endYear;
+			}
+		}
+		 params = {
+					activityId:activityId,
+					startDate:startDate,
+					endDate:endDate,
+					year:year
+				 };
+
+
+
+	}else if(type == "HISTORY"){
+		url = "<c:url value='/project/viewActivityUpdateHist.do'/>";
+		popTitle+=" 수정이력";
+		 params = {
+					activityId:activityId
+				 };
+	}
+
+
+	myModal2.open({
+		windowID:"myModalCT",
+		url: url,
+		pars: params,
+		titleBarText: popTitle,		//titleBarText 속성 추가하였음.(원 Axisj에는 없었던것)
+		method:"POST",
+		top: $(window).scrollTop() + 150,
+		width: width,
+		closeByEscKey: true			//esc 키로 닫기
+	});
+
+	$('#myModalCT').draggable();
+}
+function moveModifyPage(){
+	window.location.href = contextRoot + "/project/projectReg.do?saved=&pId="+project.projectId;
+}
+function openLeaderHelpPop($obj){
+	$("#leaderHelpPop").show();
+	$("#leaderHelpPopTooltipBox").show();
+	var obj = $obj.offset();
+
+    $("#leaderHelpPop").css("top",obj.top-150).css("left",obj.left-250).css("position","absolute").css("z-index","9999999");
+}
+function closeLeaderHelpPop(){
+	$("#leaderHelpPop").hide();
+	$("#leaderHelpPopTooltipBox").hide();
+}
+/*
+ * 화면로딩완료후, 자바스크립트 화면세팅 과 그외동작들 호출.
+ */
+$(function(){
+
+	if(parseInt(project.createdBy) != parseInt("${baseUserLoginInfo.userId}")){
+		$(".btnBodifyProject").hide();
+	}
+
+
+	fnObj2.pageStart();		//화면세팅
+	//내용가져오기
+	fnObj2.setProjectInfo();
+	//프로젝트 gatt chart setting
+	fnObj2.setProjectWbsInfo();
+
+	//-------------------------- 모달창 :S -------------------------
+   	myModal2.setConfig({
+   		windowID:"myModalCT",
+
+   		width:740,
+           mediaQuery: {
+               mx:{min:0, max:767}, dx:{min:767}
+           },
+   		displayLoading:true,
+           scrollLock: false,
+   		onclose: function(){
+   			setTimeout(doSearchProjectTree(project.projectId,"WBS"),10000);
+   		}
+           ,contentDivClass: "popup_outline"
+
+   	});
+   	//-------------------------- 모달창 :E -------------------------
+});
+</script>

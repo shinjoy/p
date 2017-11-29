@@ -1,0 +1,485 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+<script type="text/JavaScript" src="<c:url value='/js/process.js'/>" ></script>
+
+<script type="text/javascript" defer="defer">
+$(document).ready(function(){
+	$("#main").css('margin-left', '0px');
+	$("#main").css('padding-top', '5px');
+	$('li').css('font-size','12px');
+	$(".tblBack>tbody>tr:odd").css("background-color", "#F6F9FB");
+	if($(window).width()<1010){
+		$("#wrap").css("min-width","98%");
+		if(typeof(parent.widthAuto)=='function')parent.widthAuto('990px');
+	}
+
+	changeTab($("#tabType").val());
+	linkPageRoot(1);
+
+	$("select[name='otherOrgId'] option").each(function(){
+		if($(this).attr("managerid")!="0"){
+			$(this).prop("selected",true);
+
+			$("select[name='otherOrgId']").change();
+			return false;
+		}
+	});
+
+ });
+
+//인물네트워크 재로딩시 체크
+function loadNetListSortButton(){
+	var sortCol = $("#sortCol").val();
+	var sortAD = $("#sortAD").val();
+	var changeName = "sort_normal";
+
+	if(sortAD == "ASC") changeName = "sort_lowtohigh";
+	else if(sortAD == "DESC") changeName = "sort_hightolow";
+	else changeName = "sort_normal";
+
+	if(sortCol == "CST_NM"){
+        $("#aCstNm").attr("class",changeName);
+        $("#aCpnNm").attr("class","sort_normal");
+        $("#aLvCd").attr("class","sort_normal");
+    }else if(sortCol == "CPN_NM"){
+        $("#aCstNm").attr("class","sort_normal");
+        $("#aCpnNm").attr("class",changeName);
+        $("#aLvCd").attr("class","sort_normal");
+    }else if(sortCol == "LV_CD"){
+        $("#aCstNm").attr("class","sort_normal");
+        $("#aCpnNm").attr("class","sort_normal");
+        $("#aLvCd").attr("class",changeName);
+    }else{
+        $("#aCstNm").attr("class","sort_normal");
+        $("#aCpnNm").attr("class","sort_normal");
+        $("#aLvCd").attr("class","sort_normal");
+    }
+}
+
+//인물네트워크 정열
+function setNetListSort(sortCol,obj){
+	var nowName = $(obj).attr("class");
+	var sortAD = "ASC";
+
+	if(nowName == "sort_normal") sortAD = "ASC";
+	else if(nowName == "sort_lowtohigh") sortAD = "DESC";
+    else if(nowName == "sort_hightolow") sortAD = "ASC";
+    else sortAD = "ASC";
+
+    $("#sortCol").val(sortCol);
+    $("#sortAD").val(sortAD);
+    linkPageNetwork("1");
+}
+
+ //인물네트워크 검색
+function linkPageNetwork(pageNo){
+	$("#pageIndex").val(pageNo);
+	$("#personForm").attr("action", contextRoot+"/person/getNetListAjax.do");
+	$("#sNb").val($('#cst_snb').val());
+	commonAjaxSubmit("POST", $("#personForm"), linkPageNetworkCallback);
+}
+//추천네트워크 검색
+function linkPageRoot(pageNo){
+	$("#pageIndex").val(pageNo);
+	$("#personForm").attr("action", contextRoot+"/person/getNetworkListAjax.do");
+	$("#sNb").val($('#cst_snb').val());
+	commonAjaxSubmit("POST", $("#personForm"), linkPageRootCallback);
+}
+function linkPageRootCallback(data){
+	$("#listArea2").html(data);
+}
+//인물네트워크 검색 콜백
+function linkPageNetworkCallback(data){
+	$("#listArea1").html(data);
+}
+function view(divId,e){ //divId : 보여주기위한 target divId
+	var browserWidth = document.documentElement.clientWidth;
+	var calWidth= $("#" + divId).outerWidth();
+	var pstn = getPosition(e);
+	var top = pstn.y;
+	var left = pstn.x;
+	$("#"+divId).css({"top":top+"px","left":(left+calWidth<browserWidth?left:browserWidth-(calWidth+8))+"px"});
+	$("#"+divId).css('display','block');
+	$(".popUpMenu").hide();
+	$("#"+divId).show();
+}
+
+
+function getPosition(e) {
+    e = e || window.event;
+    var cursor = {x:0, y:0};
+    if (e.pageX || e.pageY){
+        cursor.x = e.pageX;
+        cursor.y = e.pageY;
+    }
+    else {
+        cursor.x = e.clientX +
+            (document.documentElement.scrollLeft ||
+            document.body.scrollLeft) -
+            document.documentElement.clientLeft;
+        cursor.y = e.clientY +
+            (document.documentElement.scrollTop ||
+            document.body.scrollTop) -
+            document.documentElement.clientTop;
+    }
+    return cursor;
+}
+
+var cpnDivShow = function(e,divId){
+	var browserWidth = document.documentElement.clientWidth;
+	var calWidth= $("#" + divId).outerWidth();
+	var pstn = getPosition(e);
+	var top = pstn.y;
+	var left = pstn.x;
+	$("#"+divId).css({"top":top,"left":(left+calWidth<browserWidth?left:browserWidth-(calWidth+8))});
+	$("#"+divId).css('display','block');
+	$("#"+divId).show();
+	//openModal(divId,"")
+}
+
+var ajaxOffer = function(e, snb, cstid, sort){
+	var DATA = {
+				 sNb: snb
+				,cstId: cstid
+				,tmpNum1:'off'
+				,sort_t: sort
+				//,choiceMonth:''
+		};
+	$.ajax({
+		type:"POST",        //POST GET
+		url:"../stats/statsPrivateOffer.do",     //PAGEURL
+		data : DATA,
+		contentType : "application/x-www-form-urlencoded; charset=UTF-8",
+		timeout : 30000,       //제한시간 지정
+		cache : false,        //true, false
+		success: function whenSuccess(arg){  //SUCCESS FUNCTION
+			$("#offerDiv").html(arg);
+			cpnDivShow(e,$("#offerPr").attr('id'));//alert(divId)
+		},
+		error: function whenError(e){    //ERROR FUNCTION
+			alert("code : " + e.status + "\r\nmessage : " + e.responseText);
+		}
+	});
+}
+//다른 관계사 staff조회
+function getOtherOrgStaff(){
+	var otherOrgId = $("#otherOrgId").val();
+	$("#otherOrgStaffArea").empty();
+	if(otherOrgId != ""){
+		var DATA = {
+			orgId: otherOrgId,
+			sNb:$('#cst_snb').val()
+		};
+		$.ajax({
+			type:"POST",        //POST GET
+			url:"<c:url value = '/person/getOtherOrgStaff.do' />",     //PAGEURL
+			data : DATA,
+			contentType : "application/x-www-form-urlencoded; charset=UTF-8",
+			timeout : 30000,       //제한시간 지정
+			cache : false,        //true, false
+			success: function whenSuccess(result){  //SUCCESS FUNCTION
+				var data = JSON.parse(result);
+				if(data.resultObject.result =="SUCCESS"){
+					var info = data.resultObject.staffInfo;
+					var stStr = "";
+					stStr+='<strong>담당자 </strong> :'+info.managerNm;
+					stStr+="<br>"+info.managerNm+"<span>과(와)의</span><strong class=\"mgl10\">친밀도</strong>";
+					stStr+="<ul class=\"relationGrade mgl5\">";
+					stStr+="<li><a ";
+					if(parseInt(info.lvCd) >=1) stStr+="class = 'on'";
+					stStr+="><em>+1</em></a></li>";
+
+					stStr+="<li><a ";
+					if(parseInt(info.lvCd) >=2) stStr+="class = 'on'";
+					stStr+="><em>+2</em></a></li>";
+
+					stStr+="<li><a ";
+					if(parseInt(info.lvCd) >=3) stStr+="class = 'on'";
+					stStr+="><em>+3</em></a></li>";
+
+					stStr+="<li><a ";
+					if(parseInt(info.lvCd) >=4) stStr+="class = 'on'";
+					stStr+="><em>+4</em></a></li>";
+
+					stStr+="<li><a ";
+					if(parseInt(info.lvCd) >=5) stStr+="class = 'on'";
+					stStr+="><em>+5</em></a></li>";
+
+					var lvCd = info.lvCd;
+					stStr+="<li><span class=\"count\">(";
+					stStr+= lvCd.substring(4,5);
+					stStr+=")</span></li></ul>";
+
+					if(info.memo != null){
+						stStr += "<br><strong class=''>관계메모</strong> : "+info.memo;
+					}
+
+					$("#otherOrgStaffArea").html(stStr);
+				}else{
+					var stStr = "";
+					stStr+='<strong>담당자 </strong> : 담당자없음';
+					$("#otherOrgStaffArea").html(stStr);
+				}
+
+			},
+			error: function whenError(e){    //ERROR FUNCTION
+				alert("code : " + e.status + "\r\nmessage : " + e.responseText);
+			}
+		});
+	}
+}
+
+function divShow(obj,divId) {//function 에서 사용 obj:this, divId는 열리게될 div id
+	var objId = obj.attr('id');
+	divPosition(objId,divId);
+	$("#"+divId).css('display', 'block');
+	$("#"+divId).show();
+}
+
+
+//탭선택
+function changeTab(tabType){
+	if(tabType == "PERSON"){
+	    $("#divPersonTab").show();
+	    $("#divNetworkTab").hide();
+
+	    $("#liPerson").attr("class","on");
+	    $("#liNetwork").attr("class","");
+
+	}else if(tabType == "NETWORK"){
+		$("#divPersonTab").hide();
+        $("#divNetworkTab").show();
+
+        $("#liPerson").attr("class","");
+        $("#liNetwork").attr("class","on");
+	}
+
+}
+
+//관련인물추가
+function resetPerson(inputType){
+	if(inputType == "SHOW"){
+		$("#addPerson").show();
+	}else{
+		$("#addPerson").hide();
+	}
+
+	$("#netSnb").val("");
+    $("#cstNm").val("");
+    $("#cpnNm").val("");
+    $("#position").val("");
+    $("#note").val("");
+    $("#team").val("");
+
+    $("#snb1st").val("");
+    $("#snb2nd").val("");
+
+    for(var i=1; i<=5; i++){
+    	$('#relDeg'+i).attr('class', '');
+    }
+
+    $('#relDegree').val("");        //친밀도 세팅
+    $('#spanRelDeg').text('(0)');        //친밀도 텍스트표시
+}
+
+//관련인물수정
+function modifyPerson(sNb,cstNm,cpnNm,position,lvCd,note,team,lvCdNum,snb1st,snb2nd){
+    $("#addPerson").show();
+    $("#netSnb").val(sNb);
+    $("#cstNm").val(cstNm);
+    $("#cpnNm").val(cpnNm);
+    $("#position").val(position);
+    $("#note").val(note);
+    $("#team").val(team);
+
+    $("#snb1st").val(snb1st);
+    $("#snb2nd").val(snb2nd);
+
+    for(var i=1; i<=5; i++){
+        if(i <= lvCdNum){
+            $('#relDeg'+i).attr('class', 'on');
+        }else{
+            $('#relDeg'+i).attr('class', '');
+        }
+    }
+
+    $('#relDegree').val(lvCd);        //친밀도 세팅
+    $('#spanRelDeg').text('(+'+lvCdNum +  ')');        //친밀도 텍스트표시
+}
+
+//관계인물 조회 팝업
+function customerPopUp(num,flag,nm,snb){
+	var option = "width=650px,height=720px,resizable=yes,scrollbars = yes";
+    var url = "<c:url value='/person/customerListPopup.do'/>";
+    window.open(url, 'searchCpnPop',option);
+}
+
+function cstPopupCallback(sNb,cpnSnb,cstNm,cpnNm,team,position){
+
+	if(sNb == $('#cst_snb').val()) {
+		alert("본인을 관련인물에 추가하실 수 없습니다.");
+		return;
+	}
+
+	var isDup = false;
+	$("input[name=arrNetCstId]").each(function(){
+		if(sNb == $(this).val()) {
+			isDup = true;
+			return;
+		}
+
+	});
+	if(isDup){
+		alert("이미 등록된 인물 입니다.");
+	}else{
+		$("#cstNm").val(cstNm);
+	    $("#cpnNm").val(cpnNm);
+	    $("#team").val(team);
+	    $("#position").val(position);
+	    $("#snb1st").val(sNb);
+	    $("#snb2nd").val(cpnSnb);
+	}
+
+
+}
+
+//관련인물추가
+function saveNetPoint(){
+	var rVal = new Object();
+    var name = $("#tempName").val();
+    var cpNcsNm = $("#name2nd").val();
+    var note = $("#resultarea0").val();
+
+    //필수값 체크
+    if($("#snb1st").val().is_null()){
+        $("#snb1st").focus();
+        $("#snb1st").css('background-color','#A9F5BC');
+        alert("이름을 입력하세요!");
+        return;
+    }
+    if($("#note").val().is_null()){
+        $("#note").focus();
+        $("#note").css('background-color','#A9F5BC');
+        alert("관계메모를 입력하세요!");
+        return;
+    }
+    if($("#relDegree").val().is_null()){
+        $("#relDegree").focus();
+        alert("친밀도를 입력하세요!");
+        return;
+    }
+
+    if(confirm("저장하시겠습니까?")){
+    	$("#sNb").val($('#netSnb').val());
+    	$("#snb2nd").val($('#cst_snb').val());
+
+    	if($("#netSnb").val().is_null()){
+            $('#personForm').attr('action', "<c:url value='/person/insertNetwork.do'/>");
+        }else{
+            $('#personForm').attr('action', "<c:url value='/person/modifyNetPoint.do'/>");
+        }
+        commonAjaxSubmit("POST", $("#personForm"), saveNetPointCallback);
+    }else{
+        return;
+    }
+}
+
+//관련인물추가 저장 콜백
+function saveNetPointCallback(result){
+    if(result.result == "SUCCESS"){
+        alert("정상적으로 저장되었습니다.");
+        //window.location.href="<c:url value='/person/main.do'/>?tabType=NETWORK&sNb=" + $('#cst_snb').val();
+        getNetListAjax();
+    }else if(result.result == "FAIL"){
+        alert("저장에 실패하였습니다. 담당자에게 문의하시기 바랍니다.");
+    }else{
+        alert(result.result);
+    }
+}
+
+//인물네트워크 삭제
+function deleteNet(snb,netSnb){
+	if(confirm("삭제하시겠습니까?")){
+		$("#sNb").val(netSnb);
+		$('#personForm').attr('action', "<c:url value='/person/deleteNetwork.do'/>");
+	    commonAjaxSubmit("POST", $("#personForm"), deleteNetCallback);
+	}else{
+		return;
+	}
+}
+
+//인물네트워크 삭제 콜백
+function deleteNetCallback(result){
+	if(result.result == "SUCCESS"){
+        alert("정상적으로 삭제되었습니다.");
+        //window.location.href="<c:url value='/person/main.do'/>?tabType=NETWORK&sNb=" + $('#cst_snb').val();  //Ajax로 변경 검토 이인희
+        getNetListAjax();
+    }else if(result.result == "FAIL"){
+        alert("삭제에 실패하였습니다. 담당자에게 문의하시기 바랍니다.");
+    }else{
+        alert(result.result);
+    }
+}
+
+
+//친밀도 체크
+function chkRelationDegree(th, val){
+    for(var i=1; i<=5; i++){
+        if(i <= val){
+            $('#relDeg'+i).attr('class', 'on');
+        }else{
+            $('#relDeg'+i).attr('class', '');
+        }
+    }
+    $('#relDegree').val('0000'+val);        //친밀도 세팅
+    $('#spanRelDeg').text('(+'+val +  ')');        //친밀도 텍스트표시
+}
+
+//수정화면으로 이동
+function updateCustomerPopup(sNb){
+	window.location.href = "../person/modifyCst.do?sNb="+sNb;
+}
+
+//인물네트워크 Ajax 호출
+function getNetListAjax(){
+	$("#tabType").val("NETWORK");
+    $("#addPerson").hide();
+    linkPageNetwork($("#pageIndex").val());
+}
+
+//인물네트워크 Ajax 호출 Callback
+function getNetListAjaxCallback(result){
+    $("#listArea1").empty();
+    $("#listArea1").html(result);
+    getNetworkListAjax();
+
+}
+
+//추천네트워크 Ajax 호출
+function getNetworkListAjax(){
+	$('#personForm').attr('action', contextRoot + "/person/getNetworkListAjax.do");
+    commonAjaxSubmit("POST", $("#personForm"), getNetworkListAjaxCallback);
+}
+
+//추천네트워크 Ajax 호출 Callback
+function getNetworkListAjaxCallback(result){
+    $("#listArea2").empty();
+    $("#listArea2").html(result);
+}
+
+//메인화면 재로딩
+function reloadMainPage(){
+	opener.parent.openPage();
+	window.close();
+}
+//인물정보 팝업
+function openNewPerson(cstId){
+	var url = "<c:url value='/person/main.do'/>?sNb=" + cstId;
+	var popup = window.open(url, 'cstViewNew', 'resizable=no,width=968,height=720,scrollbars=yes');
+	popup.focus();
+}
+</script>

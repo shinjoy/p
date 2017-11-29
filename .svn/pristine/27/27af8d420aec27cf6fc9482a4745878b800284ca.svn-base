@@ -1,0 +1,188 @@
+table {
+	border-collapse:collapse;	/*td공백시에도 선 유지*/
+}
+
+textarea {
+	line-height:20px;
+	border:#c9c9c9 solid 1px;
+	width:99%;
+	height:95%;
+	overflow-y:scroll;
+}
+
+.Text_C {
+	text-align:center;
+}
+
+.Text_L {
+	text-align:left;
+	padding-left:5px;
+}
+
+.Text_R {
+	text-align:right;
+	padding-right:5px;
+}
+
+.subtable {
+	font-size:8pt;  color: #496b9b;
+	background-color:#ffffff;
+}
+.subtable .desc_LBR {
+	color: #000000;
+	border-bottom: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	border-left: 1px solid #b4cef3;
+	background-color:#f5f5f5;
+}
+.subtable .desc_BR {
+	color: #000000;
+	border-bottom: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	background-color:#f5f5f5;
+}
+.subtable .input_LBR {
+	color: #333232;
+	border-bottom: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	border-left: 1px solid #b4cef3;
+}
+.subtable .input_BR {
+	color: #333232;
+	border-bottom: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+}
+.subtable .input_LR {
+	color: #333232;
+	border-left: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+}
+.subtable .input_T {
+	color: #333232;
+	border-top: 1px solid #b4cef3;
+}
+.subtable .input_B {
+	color: #333232;
+	border-bottom: 1px solid #b4cef3;
+}
+.subtable .input_L {
+	color: #333232;
+	border-left: 1px solid #b4cef3;
+}
+.subtable .input_R {
+	color: #333232;
+	border-right: 1px solid #b4cef3;
+}
+.subtable .input_noline {
+	color: #333232;
+}
+.button, .button a, .button button, .button input {
+	position : relative;
+	margin : 0;
+	display : inline-block;
+	border : 0;
+	white-space : nowrap;
+	vertical-align : middle;
+	overflow : visible;
+	font-size:9pt; color: #ffffff;
+}
+.button {
+	height : 20px;
+	padding : 0;
+	margin-right : 2px;
+	background-position : left top;
+}
+.button a, .button button, .button input {
+	left : 2px;
+	cursor : pointer;
+}
+.button a, .button button, .button input {
+	height : 20px;
+	padding : 0 8px 0 8px;
+	line-height : 20px;
+	background-position : right top;
+}
+.button *:hover, .button *:active, .button *:focus {
+	color : red;
+}
+.button a {
+	padding : 0 10px 0 10px;
+}
+.btn_Blue, .btn_Blue a, .btn_Blue button, .btn_Blue input {
+	background-image:url(/SynergyCus/images/sp/CSS/button_blue.gif);
+}
+.btn_Orange, .btn_Orange a, .btn_Orange button, .btn_Orange input {
+	background-image: url(/SynergyCus/images/sp/CSS/button_orange.gif);
+}
+@page a4sheet {
+	size:21.0cm 29.7cm;
+}
+.a4 {
+	page:a4sheet;
+	page-break-after:always;
+}
+.page_size {
+	width:21.0cm;
+	height:29.7cm;
+}
+.text {
+	font-weight:bold;
+	font-size:15pt;
+}
+a:link {
+	font-size:9pt;
+	text-decoration:none;
+	color:darkblue;
+}
+* {
+	font-size:9pt;
+}
+/* 메인페이지 상단 */
+.page_top {
+	width:100%;
+	text-align:center;
+	border-top:5px solid #0066FF;
+	border-left:5px solid #0066FF;
+	border-right:5px solid #0066FF;
+}
+/* 메인페이지 하단 */
+.page_bottom {
+	width:100%;
+	text-align:center;
+	border-left:5px solid #CC9900;
+	border-right:5px solid #CC9900;
+	border-bottom:5px solid #CC9900;
+}
+/* 컨텐츠페이지 */
+.content {
+	margin-left:2%;
+	width:96%;
+}
+.confirm {
+	font-weight:bold;
+	font-size:15pt;
+	text-align:right;
+	line-height:150%;
+	padding-right:40px;
+}
+
+a:link {
+	font-size:9pt;
+	text-decoration:none;
+	color:darkblue;
+}
+
+a:visited {
+	text-decoration:none;
+	color:darkblue;
+}
+
+a:hover {
+	/*text-decoration:underline;*/
+	color:red;
+}
+
+a:active {
+	text-decoration:none;
+	color:red;
+}

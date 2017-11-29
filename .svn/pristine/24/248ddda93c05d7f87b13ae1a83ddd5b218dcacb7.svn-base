@@ -1,0 +1,166 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<!DOCTYPE html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Main</title>
+<link href="<c:url value='/css/content.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/css/btn.css'/>" rel="stylesheet" type="text/css">
+<script type="text/JavaScript" src="<c:url value='/js/jquery.min.js'/>" ></script>
+<script>
+$(document).ready(function(){
+	var snb = Request('snb');
+	if(Request('f')!=null && snb!=null && snb!==""){
+		$("#offerSnb").val(snb);
+		$("#curSnb").val(snb);
+	}
+	if('ok'!='<c:out value='${pop}'/>') {
+		$("#refresh").submit();
+	}
+});
+function Request(valuename)    //javascript로 구현한 Request
+{
+    var rtnval;
+    var nowAddress = location.href;
+    var parameters = new Array();
+    parameters = (nowAddress.slice(nowAddress.indexOf("?")+1,nowAddress.length)).split("&");
+
+    for(var i = 0 ; i < parameters.length ; i++){
+        if(parameters[i].indexOf(valuename) != -1){
+            rtnval = parameters[i].split("=")[1];
+            if(rtnval == undefined || rtnval == null){
+                rtnval = "";
+            }
+            return rtnval;
+        }
+    }
+}
+function addTr(th){
+	var obj = $(th).parent().parent();
+	var ttbody = obj.find('table tbody');
+	var lastTr = obj.find('table tbody tr:last');
+	var newTr = lastTr.clone();
+	newTr.find('input').val("");
+	newTr.find('select').val("0");
+	newTr.find('textarea').html("");
+	ttbody.append(newTr);
+}
+
+function deleteJointAjax(th, snb){
+	var obj = $(th).parent().parent();
+	var trLeng = obj.parent().find("tr").length;
+	
+	var data = {sNb:snb};
+	var url = "../work/deletePopUpSupJoint.do";
+	if(trLeng>1) {
+		obj.remove(obj.selectIndex);
+		ajaxModule(data,url);
+		
+	}
+	
+}
+
+function ajaxModule(DATA,Url,Fn){
+	$.ajax({
+		type:"POST",        //POST GET
+		url:Url,     //PAGEURL
+		data : DATA,
+		timeout : 30000,       //제한시간 지정
+		cache : false,        //true, false
+		success: function whenSuccess(arg){  //SUCCESS FUNCTION
+			Fn(arg);
+		},
+		error: function whenError(x,e){    //ERROR FUNCTION
+			ajaxErrorAlert(x,e);
+		}
+	});
+}
+function saveJoint(){
+	$("#joint").submit();
+	
+}
+</script>
+<style>tbody tr:hover{background-color: moccasin !important;}</style>
+<base target="_self">
+</head>
+<body>
+<div id="wrap">
+
+	<jsp:scriptlet>
+		pageContext.setAttribute("cr", "\r");
+		pageContext.setAttribute("lf", "\n");
+		pageContext.setAttribute("crlf", "\r\n");
+	</jsp:scriptlet>
+
+	<input type="hidden" id="rgstId" value="<c:out value='${baseUserLoginInfo.loginId}'/>">	
+<form id="refresh" name="refresh" action="<c:url value='/work/popUpSup.do' />" method="post"><input type="hidden" id="curSnb" name="sNb" value="${parentSNB}"></form>
+<form id="joint" name="joint" action="<c:url value='/work/popUpSupJoint.do' />" method="post">
+	<input type="hidden" id="offerSnb" name="offerSnb" value="${parentSNB}">	
+	<div class="_popUpWidth">
+		<table class="t_skin04_left">
+			<thead>
+				<tr>
+					<th class="bgYlw"></th>
+					<th class="bgYlw">이름</th>
+					<th class="bgYlw">비율</th>
+					<th class="bgYlw">사유</th>
+				</tr>
+			</thead>
+			<tbody><c:forEach var="joint" items="${jointList}" varStatus="JS">
+				<tr>
+					<input type="hidden" name="arrSnb" value="${joint.sNb}"/>
+					
+					<td class="cent"><span class="cur" onclick="javascript:deleteJointAjax(this, '${joint.sNb}')"><img src="<c:url value='/images/recommend/delete.png'/>" title="삭제"/></span></td>
+					<td class="cent">
+						<select name="arrStaffSnb">
+							<option value="0">-선택-</option><c:forEach var="usr" items="${userList}" varStatus="US"><c:if test="${baseUserLoginInfo.loginId != usr.usrId}">
+							<option value="${usr.sNb}" <c:if test="${usr.sNb == joint.staffSnb}">selected</c:if>>${usr.usrNm}</option></c:if></c:forEach>
+						</select>
+					</td>
+					<td class="cent">
+						<select name="arrRatio">
+							<option value="0">-선택-</option><c:forEach var="ratio" begin="1" end="9">
+							<option value="${ratio}" <c:if test="${ratio == joint.ratio}">selected</c:if>>${ratio * 10}%</option></c:forEach>
+						</select>
+					</td>
+					<td class="cent">
+						<textarea name="arrComment" style="width:400px;min-height:60px;">${joint.comment }</textarea>
+					</td>
+				</tr>
+			</c:forEach>
+			<c:if test="${empty jointList}">
+				<tr>
+					<input type="hidden" name="arrSnb" value=""/>
+					<td class="cent"></td>
+					<td class="cent">
+						<select name="arrStaffSnb">
+							<option value="0">-선택-</option><c:forEach var="usr" items="${userList}" varStatus="US">
+							<option value="${usr.sNb}">${usr.usrNm}</option></c:forEach>
+						</select>
+					</td>
+					<td class="cent">
+						<select name="arrRatio">
+							<option value="0">-선택-</option><c:forEach var="ratio" begin="1" end="9">
+							<option value="${ratio}">${ratio * 10}%</option></c:forEach>
+						</select>
+					</td>
+					<td class="cent">
+						<textarea name="arrComment" style="width:400px;min-height:60px;"></textarea>
+					</td>
+				</tr>
+			</c:if>
+			</tbody>
+		</table>
+		<div>
+			<span class="btn s orange" onclick="addTr(this);"><a>추가</a></span>
+			<span class="btn s green" onclick="saveJoint()"><a>저장</a></span>
+		</div>
+	</div>
+</form>
+</div>
+</body>
+</html>

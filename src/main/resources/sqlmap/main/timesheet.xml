@@ -1,0 +1,579 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="timesheet">
+
+	<!-- 
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="carVO" type="ib.car.service.CarVO"/>
+	 -->
+	
+	
+	<!-- 일정정보 내 activity 시간 정보 -->
+	<select id="timesheet.selectMyActTime" parameterClass="HashMap" resultClass="HashMap">
+		SELECT ''																		as tsHdrId
+			  ,A.PROJECT_ID																as pjtId
+			  ,(SELECT NAME FROM BS_PROJECT WHERE PROJECT_ID = A.PROJECT_ID) 			as pjtNm
+			  ,A.ACTIVITY_ID															as actId
+			  ,(SELECT NAME FROM BS_ACTIVITY WHERE ACTIVITY_ID = A.ACTIVITY_ID) 		as actNm
+		      ,A.START_DAY																as tDate
+		      ,SUM(HOUR(TIMEDIFF(A.END_DATE, A.START_DATE)) + MINUTE(TIMEDIFF(A.END_DATE, A.START_DATE))/60)	as hr
+		      
+		FROM BS_SCHEDULE	A
+		WHERE 1=1
+		 <!-- AND A.ALLDAY_YN = 'N' --> 
+		  AND A.USER_ID = #userId#
+		  AND A.START_DAY BETWEEN #startDate# AND #endDate#
+		  
+		GROUP BY A.ACTIVITY_ID, A.START_DAY
+		ORDER BY A.PROJECT_ID ASC, A.ACTIVITY_ID ASC, A.START_DAY ASC
+		 
+		/* timesheet.selectMyActTime */
+	</select>
+	
+	
+	<!-- timesheet list -->
+	<select id="timesheet.selectTimesheetAll" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.CAL_YEAR								as calYear
+			 , A.WEEK									as week
+		     , A.MONTH									as month
+		     , DATE_FORMAT(A.START_DATE, 	'%m/%d')	as stDt
+		     , DATE_FORMAT(A.END_DATE, 		'%m/%d')	as edDt
+		     , DATE_FORMAT(A.END_DATE, 		'%Y-%m-%d') as tDate
+		     , DATE_FORMAT(A.START_DATE,	'%Y-%m-%d') as sDate
+		     , A.OPEN									as open
+		     
+		     , B.TS_HEADER_ID							as tsHeaderId
+		     , B.USER_ID								as userId
+		     
+		     , B.MONDAY									as monday
+		     , B.TUESDAY								as tuesday
+		     , B.WEDNESDAY								as wednesday
+		     , B.THURSDAY								as thursday
+		     , B.FRIDAY									as friday
+		     , B.SATURDAY								as saturday
+		     , B.SUNDAY									as sunday
+		     
+		     , B.TOTAL									as total
+		     , B.STATUS									as status
+		     , (SELECT MEANING_KOR
+				  FROM BS_CODE_LIST
+				 WHERE 1=1
+				   AND CODE_SET_ID = '80'
+				   AND VALUE = B.STATUS)			as statusNm 
+		     , B.CLOSED								as closed
+		     
+		FROM BS_WEEK_CAL		A
+		LEFT JOIN BS_TS_HEADER	B ON A.CAL_YEAR = B.CAL_YEAR AND A.WEEK = B.YEAR_WEEK AND B.USER_ID = #userId#
+		WHERE 1=1
+		  <!-- AND A.START_DATE &lt;= #sDate# -->
+		  AND A.CAL_YEAR = #year#
+		  AND A.ORG_ID = #applyOrgId#
+		  AND A.MONTH BETWEEN #stMonth# AND #edMonth#
+		ORDER BY A.CAL_YEAR ASC, A.WEEK ASC
+		
+		/* timesheet.selectTimesheetAll */
+	</select>
+	
+	
+	<!-- timesheet header info -->
+	<select id="timesheet.selectTimesheetHeaderInfo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT 
+		       A.TS_HEADER_ID							as tsHeaderId
+		     , A.USER_ID								as userId
+		     
+		     , A.MONDAY									as monday
+		     , A.TUESDAY								as tuesday
+		     , A.WEDNESDAY								as wednesday
+		     , A.THURSDAY								as thursday
+		     , A.FRIDAY									as friday
+		     , A.SATURDAY								as saturday
+		     , A.SUNDAY									as sunday
+		     
+		     , A.TOTAL									as total
+		     , A.STATUS									as status
+		     , (SELECT MEANING_KOR
+				  FROM BS_CODE_LIST
+				 WHERE 1=1
+				   AND CODE_SET_ID = '80'
+				   AND VALUE = A.STATUS)				as statusNm 
+		     , A.CLOSED									as closed
+		     
+		FROM BS_TS_HEADER		A		
+		WHERE 1=1
+		  AND A.TS_HEADER_ID = #tsHeaderId#
+		  
+		  /* timesheet.selectTimesheetHeaderInfo */
+	</select>
+	
+	
+	<!-- timesheet week info -->
+	<select id="timesheet.selectTimesheetWeekInfo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.CAL_YEAR								as calYear
+			 , A.WEEK									as week
+		     , A.MONTH									as month
+		     , DATE_FORMAT(A.START_DATE, '%m/%d')		as stDt
+		     , DATE_FORMAT(A.END_DATE, '%m/%d')			as edDt
+		     , DATE_FORMAT(A.END_DATE, '%Y-%m-%d') 		as tDate
+		     , A.OPEN									as open
+		     
+		     , B.TS_HEADER_ID							as tsHeaderId
+		     , B.USER_ID								as userId
+		     , B.MONDAY, B.TUESDAY, B.WEDNESDAY, B.THURSDAY, B.FRIDAY, B.SATURDAY, B.SUNDAY
+		     , B.TOTAL									as total
+		     , B.STATUS									as status
+		     , (SELECT MEANING_KOR
+				  FROM BS_CODE_LIST
+				 WHERE 1=1
+				   AND CODE_SET_ID = '80'
+				   AND VALUE = B.STATUS)			as statusNm 
+		     , B.CLOSED								as closed
+		     
+		FROM BS_WEEK_CAL		A
+		LEFT JOIN BS_TS_HEADER	B ON A.CAL_YEAR = B.CAL_YEAR AND A.WEEK = B.YEAR_WEEK
+		WHERE 1=1
+		  AND A.START_DATE &lt;= #sDate#
+		  AND A.CAL_YEAR = #year#
+		  AND A.MONTH BETWEEN #stMonth# AND #edMonth#
+		ORDER BY A.CAL_YEAR ASC, A.WEEK ASC
+		
+		/* timesheet.selectTimesheetWeekInfo */
+	</select>
+	
+	
+	<!-- timesheet header 등록 -->
+	<insert id="timesheet.mergeTsHeader" parameterClass="HashMap">
+		INSERT INTO BS_TS_HEADER(
+							<isNotEmpty prepend="" property="tsHeaderId">	 
+								 TS_HEADER_ID,
+							</isNotEmpty>
+								 USER_ID
+								,ORG_ID 
+								,YEAR_WEEK
+								,CAL_YEAR
+								
+								,MONDAY
+								,TUESDAY
+								,WEDNESDAY
+								,THURSDAY
+								,FRIDAY
+								,SATURDAY
+								,SUNDAY
+								
+								,TOTAL
+								,STATUS
+								,CLOSED
+								
+								,CREATED_BY
+								,CREATE_DATE
+								,UPDATED_BY
+								,UPDATE_DATE
+							)
+							VALUES(
+							<isNotEmpty prepend="" property="tsHeaderId">	 
+								 #tsHeaderId#,
+							</isNotEmpty>
+								 #userId#
+								,#orgId# 
+								,#yearWeek#
+								,#calYear#
+								
+								,ifnull(#tmDay1#, 0)
+								,ifnull(#tmDay2#, 0)
+								,ifnull(#tmDay3#, 0)
+								,ifnull(#tmDay4#, 0)
+								,ifnull(#tmDay5#, 0)
+								,ifnull(#tmDay6#, 0)
+								,ifnull(#tmDay7#, 0)
+								
+								,ifnull(#total#, 0)
+								,'WRITE'
+								,'N'
+								
+								,#userSeq#
+								,now()
+								,#userSeq#
+								,now()								
+							)
+								
+					ON DUPLICATE KEY
+					UPDATE
+							 MONDAY			= ifnull(#tmDay1#, 0)
+							,TUESDAY		= ifnull(#tmDay2#, 0)
+							,WEDNESDAY		= ifnull(#tmDay3#, 0)
+							,THURSDAY		= ifnull(#tmDay4#, 0)
+							,FRIDAY			= ifnull(#tmDay5#, 0)
+							,SATURDAY		= ifnull(#tmDay6#, 0)
+							,SUNDAY			= ifnull(#tmDay7#, 0)
+							
+							,TOTAL			= ifnull(#total#, 0)    
+							,STATUS			= 'WRITE'
+							,CLOSED			= 'N' 
+							                  
+							,UPDATE_DATE 	= now()   
+							,UPDATED_BY 	= #userSeq#
+							
+		<selectKey resultClass="int" type="post" keyProperty="tid">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+							
+		/* timesheet.mergeTsHeader */
+	</insert>
+	
+	
+	<!-- timesheet detail 등록 -->
+	<insert id="timesheet.mergeTsDetail" parameterClass="HashMap">
+		INSERT INTO BS_TS_DETAIL(
+								 TS_HEADER_ID
+								,PROJECT_ID
+								,ACTIVITY_ID								
+								,ENTER_DATE
+								
+								,WORK_TIME
+								,SCHEDULE_ID
+								,BUSINESS_ID
+								
+								,CREATED_BY
+								,CREATE_DATE
+								,UPDATED_BY
+								,UPDATE_DATE		
+							)
+							VALUES(
+								 #tsHeaderId#
+								,#pjtId#
+								,#actId#								
+								,STR_TO_DATE(#enterDate#, '%Y%m%d')
+								
+								,#workTime#
+								,null
+								,null
+								
+								,#userSeq#
+								,now()
+								,#userSeq#
+								,now()
+							)
+								
+					ON DUPLICATE KEY
+					UPDATE
+							 WORK_TIME		= #workTime#
+							       
+							,UPDATE_DATE 	= now()   
+							,UPDATED_BY 	= #userSeq#
+							
+		<selectKey resultClass="int" type="post" keyProperty="tid">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		/* timesheet.mergeTsDetail */
+	</insert>
+	
+	
+	<!-- 타임시트 정보 + 일정정보 내 activity 시간 정보 -->
+	<select id="timesheet.selectTimesheetInfo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT SUM(tsHeaderId)		as tsHeaderId
+			  ,pjtId				as pjtId
+			  ,(SELECT NAME FROM BS_PROJECT WHERE PROJECT_ID = K.pjtId) 	as pjtNm
+			  ,actId				as actId
+			  ,(SELECT NAME FROM BS_ACTIVITY WHERE ACTIVITY_ID = K.actId) 	as actNm
+			  ,tDate				as tDate
+		      ,SUM(tmDay)			as tmDay
+		      ,SUM(oriTmDay)		as oriTmDay
+		      
+		FROM (
+		
+			SELECT TS_HEADER_ID							as tsHeaderId
+				  ,PROJECT_ID							as pjtId
+				  ,ACTIVITY_ID							as actId
+				  ,DATE_FORMAT(ENTER_DATE, '%Y%m%d')	as tDate
+				  ,WORK_TIME							as tmDay
+				  ,0									as oriTmDay
+				  
+			FROM BS_TS_DETAIL
+			WHERE TS_HEADER_ID = #tsHeaderId#
+		
+			UNION ALL
+		
+			SELECT ''																								as tsHeaderId
+				  ,A.PROJECT_ID																						as pjtId
+				  ,A.ACTIVITY_ID																					as actId
+				  ,A.START_DAY																						as tDate
+				  ,0																								as tmDay
+				  ,SUM(HOUR(TIMEDIFF(A.END_DATE, A.START_DATE)) + MINUTE(TIMEDIFF(A.END_DATE, A.START_DATE))/60)	as oriTmDay
+				  
+			FROM BS_SCHEDULE	A
+			WHERE 1=1
+			  AND A.USER_ID = #userId#
+			  AND A.START_DAY BETWEEN #startDate# AND #endDate#
+			  
+			GROUP BY A.ACTIVITY_ID, A.START_DAY
+		) K
+		
+		GROUP BY pjtId, actId, tDate		
+		ORDER BY pjtId ASC, actId ASC, tDate ASC
+		 
+		/* timesheet.selectTimesheetInfo */
+	</select>
+	
+	
+	<!-- 타임시트 상태 변경 -->
+	<update id="timesheet.updateTimesheetStatus" parameterClass="HashMap">
+		UPDATE BS_TS_HEADER
+		   SET STATUS = #status#
+		   
+		   	  ,UPDATE_DATE = now()
+			  ,UPDATED_BY = #userSeq#
+			  
+		 WHERE TS_HEADER_ID = #tsHeaderId#
+		   
+		/* timesheet.updateTimesheetStatus */
+	</update>
+	
+	
+	
+	<!-- ======================================= 관리자 화면 관련 :S ====================================== -->
+	
+	<!-- timesheet 관리자 화면 list -->
+	<select id="timesheet.selectTsListAdmin" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.CAL_YEAR								as calYear
+			 , A.WEEK									as week
+		     , A.MONTH									as month
+		     , DATE_FORMAT(A.START_DATE, 	'%m/%d')	as stDt
+		     , DATE_FORMAT(A.END_DATE, 		'%m/%d')	as edDt
+		     , DATE_FORMAT(A.END_DATE, 		'%Y-%m-%d') as tDate
+		     , DATE_FORMAT(A.START_DATE,	'%Y-%m-%d') as sDate
+		     , A.OPEN									as open
+		     
+		     , (SELECT COUNT(*) 
+		     	  FROM BS_TS_HEADER
+		     	 WHERE STATUS = 'CLOSED'
+		     	   AND ORG_ID = #applyOrgId#											   
+				   AND CAL_YEAR = A.CAL_YEAR
+				   AND YEAR_WEEK = A.WEEK)				as closedCnt
+			 , (SELECT COUNT(*) 
+		     	  FROM BS_TS_HEADER
+		     	 WHERE CAL_YEAR = A.CAL_YEAR
+		     	 	AND ORG_ID = #applyOrgId#
+				    AND YEAR_WEEK = A.WEEK)				as allCnt
+		     
+		     , CASE WHEN A.OPEN = 'O' THEN
+		     
+			     	CONCAT(
+			     
+						IFNULL(
+							(SELECT GROUP_CONCAT(M.NAME ORDER BY M.NAME ASC SEPARATOR ', ')
+							  FROM BS_USER_MASTER	M
+							  JOIN BS_USER_PROFILE	N ON M.USER_ID = N.USER_ID
+							 WHERE N.TIMESHEET_YN = 'Y'
+					           AND M.USER_STATUS = 'W'
+					           AND M.ORG_ID = #applyOrgId#
+							   AND NOT EXISTS(
+										SELECT 1
+										  FROM BS_TS_HEADER
+										 WHERE STATUS IN ('CLOSED','COMMIT','REQUEST')		<!-- 마감, 승인, 승인요청 -->
+										   AND USER_ID = M.USER_ID
+										   AND CAL_YEAR = A.CAL_YEAR
+										   AND YEAR_WEEK = A.WEEK
+										   AND ORG_ID = #applyOrgId#
+									)
+				            ), '')
+				            
+						, '||',
+					
+				        IFNULL(
+					        (SELECT GROUP_CONCAT(NAME ORDER BY NAME ASC SEPARATOR ', ') 
+					          FROM BS_USER_MASTER 
+							 WHERE USER_ID IN (
+											SELECT USER_ID
+											  FROM BS_DEPT_MANAGER
+											 WHERE DEPT_ID IN (
+															SELECT DEPT_ID
+															  FROM BS_USER_DEPARTMENT
+															 WHERE MAIN_YN = 'Y'
+															 	AND USER_ID IN (
+																			SELECT M.USER_ID
+																			  FROM BS_USER_MASTER	M
+																		      JOIN BS_USER_PROFILE	N ON M.USER_ID = N.USER_ID
+																			 WHERE N.TIMESHEET_YN = 'Y'
+																			   AND M.USER_STATUS = 'W'
+																			   AND  M.ORG_ID = #applyOrgId#
+																			   AND EXISTS(
+																						SELECT 1
+																						  FROM BS_TS_HEADER
+																						 WHERE STATUS = 'REQUEST'		<!-- 승인요청 -->
+																						   AND USER_ID = M.USER_ID
+																						   AND CAL_YEAR = A.CAL_YEAR
+																						   AND YEAR_WEEK = A.WEEK
+																						   AND ORG_ID = #applyOrgId#
+																					)
+																		)
+														)
+										)
+					        ),'')
+				        
+			     	)<!-- CONCAT -->
+		     ELSE
+		     	''
+		     END		as personList
+					     
+		     <!-- 
+		     , B.TS_HEADER_ID							as tsHeaderId
+		     , B.USER_ID								as userId
+		     
+		     , B.MONDAY									as monday
+		     , B.TUESDAY								as tuesday
+		     , B.WEDNESDAY								as wednesday
+		     , B.THURSDAY								as thursday
+		     , B.FRIDAY									as friday
+		     , B.SATURDAY								as saturday
+		     , B.SUNDAY									as sunday
+		     
+		     , B.TOTAL									as total
+		     , B.STATUS									as status
+		     , (SELECT MEANING_KOR
+				  FROM BS_CODE_LIST
+				 WHERE 1=1
+				   AND CODE_SET_ID = '80'
+				   AND VALUE = B.STATUS)			as statusNm 
+		     , B.CLOSED								as closed
+		      -->
+		FROM BS_WEEK_CAL	A
+		
+		WHERE 1=1
+		  AND A.START_DATE &lt;= DATE_ADD(#sDate#, INTERVAL -7 DAY)
+		  AND A.CAL_YEAR = #year#
+		  AND A.ORG_ID = #applyOrgId#
+		  AND A.MONTH BETWEEN #stMonth# AND #edMonth#
+		ORDER BY A.CAL_YEAR ASC, A.WEEK ASC
+		
+		/* timesheet.selectTsListAdmin */
+	</select>
+	
+	
+	<!-- 타임시트 마감처리 상태 변경(한주간 타임시트 전체) -->
+	<update id="timesheet.closeWeekTs" parameterClass="HashMap">
+		UPDATE BS_TS_HEADER
+		
+		   SET STATUS = 'CLOSED'
+		   
+		   	  ,UPDATE_DATE = now()
+			  ,UPDATED_BY = #userSeq#
+		   
+		 WHERE CAL_YEAR = #calYear#
+		   AND YEAR_WEEK = #yearWeek#
+		   AND STATUS = 'COMMIT'
+		   		   
+		/* timesheet.closeWeekTs */
+	</update>
+	
+	
+	
+	<!-- ======================================= 승인자 화면 관련 :S ====================================== -->
+	
+	<!-- department timesheet list 부서원 타임시트 -->
+	<select id="timesheet.selectTimesheetInDept" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.CAL_YEAR								as calYear
+			 , A.WEEK									as week
+		     , A.MONTH									as month
+		     , DATE_FORMAT(A.START_DATE, 	'%m/%d')	as stDt
+		     , DATE_FORMAT(A.END_DATE, 		'%m/%d')	as edDt
+		     , DATE_FORMAT(A.END_DATE, 		'%Y-%m-%d') as tDate
+		     , DATE_FORMAT(A.START_DATE,	'%Y-%m-%d') as sDate
+		     , A.OPEN									as open
+		     
+		     , B.TS_HEADER_ID							as tsHeaderId
+		     , MEM.USER_ID								as userId
+		     ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = MEM.USER_ID)	as userNm
+		     
+		     , B.MONDAY									as monday
+		     , B.TUESDAY								as tuesday
+		     , B.WEDNESDAY								as wednesday
+		     , B.THURSDAY								as thursday
+		     , B.FRIDAY									as friday
+		     , B.SATURDAY								as saturday
+		     , B.SUNDAY									as sunday
+		     
+		     , B.TOTAL									as total
+		     , B.STATUS									as status
+		     , (SELECT MEANING_KOR
+				  FROM BS_CODE_LIST
+				 WHERE 1=1
+				   AND CODE_SET_ID = '80'
+				   AND VALUE = B.STATUS)			as statusNm 
+		     , B.CLOSED								as closed
+		     
+		FROM BS_WEEK_CAL	A
+		JOIN (
+				SELECT K.USER_ID
+				  FROM BS_USER_DEPARTMENT	K
+				  LEFT JOIN BS_USER_PROFILE	L ON K.USER_ID = L.USER_ID
+				 WHERE L.TIMESHEET_YN = 'Y'
+				   AND K.DEPT_ID = #deptId#
+				   AND K.MAIN_YN = 'Y'
+				   AND K.ENABLE = 'Y'
+				   AND K.DELETE_FLAG = 'N'		
+				   AND EXISTS(SELECT 1 FROM BS_USER_MASTER WHERE USER_ID = K.USER_ID AND USER_STATUS IN ('W','H'))		 
+		    ) MEM ON 1=1
+		LEFT JOIN BS_TS_HEADER	B ON A.CAL_YEAR = B.CAL_YEAR AND A.WEEK = B.YEAR_WEEK AND B.USER_ID = MEM.USER_ID
+		
+		WHERE 1=1
+		
+		<isNotEmpty prepend="AND" property="sDate">
+			A.START_DATE &lt;= #sDate#
+		</isNotEmpty>
+		  
+		  AND A.CAL_YEAR = #year#
+		  AND A.ORG_ID = #applyOrgId#
+		  AND A.MONTH BETWEEN #stMonth# AND #edMonth#
+		ORDER BY A.CAL_YEAR ASC, A.WEEK ASC, userNm ASC
+		
+		/* timesheet.selectTimesheetAll */
+	</select>
+	
+	
+	<!-- department timesheet detail list 부서원 타임시트 상세보기 (한주간) -->
+	<select id="timesheet.selectTsOneWeekInDept" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.USER_ID			AS userId
+			 , A.NAME 				AS userNm
+			 , B.TS_HEADER_ID		AS tsHeaderId
+			 , B.PROJECT_ID			AS pjtId
+			 ,(SELECT NAME FROM BS_PROJECT WHERE PROJECT_ID = B.PROJECT_ID) 		as pjtNm
+			 , B.ACTIVITY_ID		AS actId
+			 ,(SELECT NAME FROM BS_ACTIVITY WHERE ACTIVITY_ID = B.ACTIVITY_ID) 	as actNm
+			 
+			 , B.workTime			AS workTime
+			 , B.TOTAL				AS total
+			 , B.STATUS				AS status
+			 , (SELECT MEANING_KOR
+				  FROM BS_CODE_LIST
+				 WHERE 1=1
+				   AND CODE_SET_ID = '80'
+				   AND VALUE = B.STATUS)			as statusNm 
+			 , B.open				AS open
+			 
+		  FROM BS_USER_MASTER	A
+		  LEFT JOIN (
+			
+			    SELECT K.TS_HEADER_ID
+					 , L.USER_ID					
+					 , K.PROJECT_ID
+					 , K.ACTIVITY_ID
+					 , SUM(K.WORK_TIME) AS workTime
+					 , L.TOTAL
+					 , L.STATUS
+					 , (SELECT OPEN FROM BS_WEEK_CAL WHERE CAL_YEAR = L.CAL_YEAR AND WEEK = L.YEAR_WEEK) AS open
+					 
+				FROM BS_TS_DETAIL		K
+				LEFT JOIN BS_TS_HEADER	L ON K.TS_HEADER_ID = L.TS_HEADER_ID
+				WHERE K.TS_HEADER_ID IN $tsHeaderIdList$
+				GROUP BY K.TS_HEADER_ID, K.PROJECT_ID, K.ACTIVITY_ID
+			    
+			)	B ON A.USER_ID = B.USER_ID
+			
+		 WHERE A.USER_ID IN $userIdList$
+		 ORDER BY A.NAME ASC, B.PROJECT_ID, B.ACTIVITY_ID
+		 
+		/* timesheet.selectTsOneWeekInDept */
+	</select>
+	
+	
+</sqlMap>

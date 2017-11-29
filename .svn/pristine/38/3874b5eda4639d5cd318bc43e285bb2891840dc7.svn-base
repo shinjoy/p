@@ -1,0 +1,579 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<style>
+input[type="number"] {
+    position: relative;
+    margin: 0 0 1rem;
+    border: 1px solid #BBB;
+    border-color: #BBB #ECECEC #ECECEC #BBB;
+    
+}
+input[type="number"].mod::-webkit-outer-spin-button, 
+input[type="number"].mod::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    background: gray url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAJCAYAAADgkQYQAAAAKUlEQVQYlWNgwAT/sYhhKPiPT+F/LJgEsHv37v+EMGkmkuImoh2NoQAANlcun/q4OoYAAAAASUVORK5CYII=) no-repeat center center;
+    width: 1em;
+    border-left: 1px solid #BBB;
+    opacity: .5; /* shows Spin Buttons per default (Chrome >= 39) */
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+input[type="number"].mod::-webkit-inner-spin-button:hover,
+input[type="number"].mod::-webkit-inner-spin-button:active{
+    box-shadow: 0 0 2px #0CF;
+    opacity: .8;
+}
+
+
+</style>
+<section id="detail_contents">
+ 	<div class="carSearchBox mgb20">
+	<span class="carSearchtitle mgl10">구분 :</span>
+	<span class="rd_List">
+		<label>
+			<select id="employee" class="select_b" onchange="fnObj.doSearch();">
+				<option value="">전체</option>
+				<option value="Y">직원배정</option>
+				<option value="A">전직원</option>
+			</select>
+		</label>
+	</span>
+	<span class="carSearchtitle mgl10">유형 :</span>
+    <span class="rd_List">
+        <label><span id = "projectTypeArea"></span></label>
+    </span>
+    <span class="carSearchtitle mgl10">공개 :</span>
+    <span class="rd_List">
+        <label>
+            <select id="openFlag" class="select_b" onchange="fnObj.doSearch();">
+                <option value="">전체</option>
+                <option value="Y">공개</option>
+                <option value="N">비공개</option>
+            </select>
+        </label>
+    </span>
+	<span class="carSearchtitle mgl10">상태 :</span>
+	<span class="rd_List">
+		<label><span id = "projectStatusArea"></span></label>
+	</span>
+	<span class="carSearchtitle mgl10">마감 임박 :</span>
+    <span class="rd_List">
+        <label><input type="checkbox" id = "nearClose" name = "nearClose" value="Y" onclick="fnObj.doSearch();"/></label>
+    </span>
+	<input id="srch_search" type="text" placeholder="${baseUserLoginInfo.projectTitle}를 검색하세요" value="" onkeypress="if(event.keyCode==13) fnObj.doSearch(1);" class="input_b2 w200px  mgl20" title="${baseUserLoginInfo.projectTitle}검색" />
+      <a href="#" onclick="fnObj.doSearch(1);" class="btn_g_black mgl10 mgr20"><em>검색</em></a>
+	</div>
+	
+	<!-- 게시판 정렬목록 -->
+	<div class="board_classic wd_search_set ">
+      <div class="leftblock">
+      	<span class="count_result"><strong>전체</strong><em id="total_count"></em>건</span>
+          <select id="sel_page_size" onChange="fnObj.setPageSize(true);" class="sh_count_type" title="정렬방법 선택">
+          	<option value="15">15개씩 보기</option>
+              <option value="30">30개씩 보기</option>
+              <option value="50">50개씩 보기</option>
+          </select>
+      </div>
+      <div class="rightblock">
+      	<span class="stitle">보기  : </span>
+      	<span>
+      		<label><input type="checkbox" id="onlyMy" onclick="fnObj.doSearch();" class="mgr3"/><span class="mgr10">나의 ${baseUserLoginInfo.projectTitle}만</span></label>
+      		<label><input type="checkbox" id="enableAllYn" onclick="fnObj.doSearch();" class="mgr3"/><span class="mgr10">사용안함 포함</span></label>
+      	</span>
+      </div>
+  	</div>
+
+  <!--/ 게시판 정렬목록 /-->
+  
+  <!-- 프로젝트 목록 -->
+  <table id="SGridTarget" class="tb_list_basic" summary="프로젝트관리">
+  	<caption>프로젝트목록</caption>
+    <colgroup>
+    	<col width="5%" />
+    	<col width="5%" />
+        <col width="*" />
+        <col width="6%" />
+        <col width="14%" />
+        <col width="14%" />
+        <col width="6%" />
+        <col width="5%" />
+        <col width="5%" />
+        <col width="5%" />
+        <col width="5%" />
+        <col width="6%" />
+        <col width="5%" />
+    </colgroup>
+  	<thead>
+          <tr>
+          	<th scope="col"><a href="#;" onclick="fnObj.doSort(4);" id="sort_column_prefix4" class="sort_normal">구분<em>오름차순</em></a></th>
+            <th scope="col">우선순위</th>
+            <th scope="col">${baseUserLoginInfo.projectTitle}명</th>
+            <th scope="col">유형</th>
+            <th scope="col">설명</th>
+            <th scope="col">
+                <a href="#;" onclick="fnObj.doSort(0);" id="sort_column_prefix0" class="sort_normal">&nbsp;<em>오름차순</em></a>
+                <a href="#;" onclick="fnObj.doSort(1);" id="sort_column_prefix1" class="sort_normal">기간<em>오름차순</em></a>
+            </th>
+            <th scope="col">상태값</th>
+            <th scope="col"><a href="#;" onclick="fnObj.doSort(2);" id="sort_column_prefix2" class="sort_normal">확정여부<em>오름차순</em></a></th>
+            <th scope="col"><a href="#;" onclick="fnObj.doSort(3);" id="sort_column_prefix3" class="sort_normal">예산<em>내림차순</em></a></th>
+            <th scope="col">지출</th>
+            <th scope="col"><a href="#;" onclick="fnObj.doSort(5);" id="sort_column_prefix5" class="sort_normal">사용여부<em>오름차순</em></a></th>
+            <th scope="col">등록일</th>
+            <th scope="col">등록자</th>
+          </tr>
+      </thead>
+      <tbody class="datagrid_input">
+
+      </tbody>
+  </table>
+  <!--/ 템플릿 목록 /-->
+  <!-- 페이지 목록 -->
+  <div class="btnPageZone" id="btnPageZone">
+      <button type="button" class="pre_end_btn"><em>맨처음 페이지</em></button>
+      <button type="button" class="pre_btn"><em>이전 페이지</em></button>
+
+      <button type="button" class="next_btn"><em>다음 페이지</em></button>
+      <button type="button" class="next_end_btn"><em>맨마지막 페이지</em></button>
+  </div>
+  <!--/ 페이지 목록 /-->
+  <!-- 게시판 버튼 -->
+  <div class="btn_baordZone">
+  	  <a href="javascript:fnObj.chkSort();" class="btn_blueblack btn_auth">업무우선순위 저장</a>
+      <a href="${pageContext.request.contextPath}/project/projectReg.do?me=36&mu=28&mr=26&v=2" class="btn_blueblack btn_auth">신규 ${baseUserLoginInfo.projectTitle}등록</a>
+  </div>
+  <!--/ 게시판 버튼 /-->
+</section>
+
+
+
+
+
+<script type="text/javascript">
+
+//Global variables :S ---------------
+//사용자언어
+var lang = '${baseUserLoginInfo.lang}';		//language (profile language... 'KOR' or 'ENG')
+
+//공통코드
+
+var myModal = new AXModal();	// instance
+
+var myGrid = new SGrid();		// instance		new sjs
+var myPaging = new SPaging();	// instance		new sjs
+var mySorting = new SSorting();	// instance		new sjs
+
+var curPageNo = 1;				//현재페이지번호
+var pageSize = 10;				//페이지크기(상수 설정)
+
+var g_sortListStr = '';			//sort list
+//Global variables :E ---------------
+
+
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+var fnObj = {
+
+	
+	//선로딩코드
+	preloadCode: function(){
+		//공통코드
+	
+		var colorObj = {};
+        var comCodeProjectType = getBaseCommonCode('PROJECT_TYPE', null, 'CD', 'NM', '', '전체','', { orgId : "${baseUserLoginInfo.applyOrgId}" });
+        var projectTypeTag = createSelectTag('projectType', comCodeProjectType, 'CD', 'NM', '', "fnObj.doSearch(1)", colorObj, '', 'select_b');
+        $("#projectTypeArea").html(projectTypeTag);
+
+        var comCodeProjectStatus = getBaseCommonCode('PROJECT_STATUS', null, 'CD', 'NM', '', '전체','', { orgId : "${baseUserLoginInfo.applyOrgId}" });
+        var projectStatusTag = createSelectTag('projectStatus', comCodeProjectStatus, 'CD', 'NM', '', "fnObj.doSearch(1)", colorObj, '', 'select_b');
+        $("#projectStatusArea").html(projectStatusTag);
+
+		//페이지크기 세팅
+		fnObj.setPageSize();
+	},
+
+
+	//화면세팅
+    pageStart: function(){
+
+    	//-------------------------- 그리드 설정 :S ----------------------------
+    	/* 그리드 설정정보 */
+    	var configObj = {
+
+    		targetID : "SGridTarget",		//그리드의 id
+
+    		//그리드 컬럼 정보
+    		colGroup : [
+			{key:"employee",		formatter:function(obj){
+										if(obj.value == 'Y') return '직원배정';
+										else return '전직원';
+
+			}},
+			{key:"projectStatusNm", formatter:function(obj){return obj.value;}},
+            {key:"name", 			formatter:function(obj){
+
+					            		var rtnStr = obj.value;
+					            		rtnStr +=  '(' + obj.item.projectCode + ')';
+					            		if(obj.item.newYn=='Y'){
+					            			rtnStr += '<span class="icon_new"><em>new</em></span>';
+					            		}
+					
+					            		if(obj.item.openFlag=='N'){  //공개여부 : 비공개
+					            			rtnStr +=  '<span class="board_secret"></span>';
+					            		}
+					            		return rtnStr;
+            	
+            }},
+            {key:"projectType",		formatter:function(obj){return obj.value;}},
+            {key:"description"		},
+            {key:"period",			formatter:function(obj){return ((obj.value=='Y'?((obj.item.startDate).replace(/-/gi,'/') + ' ~ ' + (obj.item.endDate).replace(/-/gi,'/') + ' (마감일:'+(obj.item.closeDate).replace(/-/gi,'/')+')'):'<b>무기한</b> (상시업무)'));}},
+            {key:"confirm",			formatter:function(obj){return ((obj.value=='Y'?'<strong class="fontRed">Y</strong>':'<strong>N</strong>'));}},
+            {key:"budget",			formatter:function(obj){return ((obj.value=='Y'?(formatMoney(''+obj.item.budgetAmt,'INSERT')):'<strong>N</strong>'));}},
+            {key:"expense",			formatter:function(obj){return ((obj.value=='Y'?'<strong class="fontRed">Y</strong>':'<strong>N</strong>'));}},
+            {key:"enable",			formatter:function(obj){return ((obj.value=='Y'?'<strong class="fontRed">Y</strong>':'<strong>N</strong>'));}},
+            {key:"createDate",		formatter:function(obj){return (obj.value).replace(/-/gi,'/');}},
+            {key:"createNm"			},
+            {key:"budgetStyle",		formatter:function(obj){return ((obj.item.budget=='N'?'text-align:center!important;font-family:돋움!important;font-size:1em;':''));}},
+            {key:"projectCode",     formatter:function(obj){return obj.value;}},
+            {key:"projectTypeNm",   formatter:function(obj){return obj.value;}},
+            {key:"sort"			,   formatter:function(obj){return '<input type="number" db-val="'+(obj.value == null ? '' : obj.value)+'" projectId-val="'+obj.item.projectId+'" name="projectSort" placeholder="정렬값" value="'+(obj.value == null ? '' : obj.value)+'" min="1" class="w100 mod">';}},
+            {key:"sortColor"	,   formatter:function(obj){return (obj.item.sort != null ? 'style=" background: #fdffee;"' : '')}}
+            ],
+
+            body : {
+                onclick: function(obj){
+                	if(obj.c>1){
+                		fnObj.viewProject(obj.item.projectId);
+                	}
+                	
+                }
+            }
+
+    	};
+    	/* 그리드 한건 데이터 HTML 포맷 (** 1.tbody 내에 들어갈 tr 태그,  2.#[n] 의 위치에 colGroup 의 순서대로 데이터 세팅) */
+    	var rowHtmlStr = '<tr #[16]>';
+    	rowHtmlStr +=	 '<td>#[0]</td>';
+    	rowHtmlStr +=    '<td>#[15]</td>';
+    	rowHtmlStr +=	 '<td class="txt_title_type" style="cursor:pointer;">#[2]</td>';		//td 에 이벤트를 준 케이스
+    	rowHtmlStr +=    '<td>#[14]</td>';
+    	rowHtmlStr +=	 '<td style="display:none;">#[3]</td>';
+    	rowHtmlStr +=	 '<td style="text-align:left;">#[4]</td>';
+    	rowHtmlStr +=	 '<td class="num_date_type">#[5]</td>';
+    	rowHtmlStr +=	 '<td>#[1]</td>';
+    	rowHtmlStr +=	 '<td>#[6]</td>';
+    	rowHtmlStr +=	 '<td class="num_money_type" style="#[12]">#[7]</td>';
+    	rowHtmlStr +=	 '<td>#[8]</td>';
+    	rowHtmlStr +=	 '<td>#[9]</td>';
+    	rowHtmlStr +=	 '<td class="num_date_type">#[10]</td>';
+    	rowHtmlStr +=	 '<td class="num_date_type">#[11]</td>';
+        rowHtmlStr +=	 '</tr>';
+    	configObj.rowHtmlStr = rowHtmlStr;
+
+
+    	myGrid.setConfig(configObj);		//그리드 설정정보 세팅
+    	//-------------------------- 그리드 설정 :E ----------------------------
+
+
+    	//-------------------------- 페이징 설정 :S ----------------------------
+
+    	myPaging.setConfig({				//페이징 설정정보 세팅
+
+			targetID		: "btnPageZone",		//대상 페이징 id ... <div>
+			pageSize		: pageSize,				//global variable value
+
+			preEndBtnClass	: 'pre_end_btn',		//맨처음 페이지 	버튼 클래스명
+			preBtnClass		: 'pre_btn',			//이전 페이지		버튼
+			nextBtnClass	: 'next_btn',			//다음 페이지		버튼
+			nextEndBtnClass	: 'next_end_btn',		//맨마지막 페이지	버튼 클래스명
+
+			curPageNoClass	: 'current',			//현재페이지를 표시해주기위한 style Class name
+			clickFnName		: 'fnObj.doSearch'		//페이지 이동 함수명(버튼 클릭)
+
+    	});
+
+    	//-------------------------- 페이징 설정 :E ----------------------------
+
+
+    	//-------------------------- 소팅 설정 :S ----------------------------
+    	mySorting.setConfig({
+			colList : ['START_DATE', 'END_DATE', 'CONFIRM', 'BUDGET_AMT', 'EMPLOYEE','ENABLE'],
+			classNameNormal		: 'sort_normal',				//정렬기본 아이콘 css class
+			classNameHighToLow	: 'sort_hightolow',				//오름정렬 아이콘 css class
+			classNameLowToHigh	: 'sort_lowtohigh'				//내림정렬 아이콘 css class
+		});
+    	//-------------------------- 소팅 설정 :E ----------------------------
+
+
+    	//-------------------------- 모달창 :S -------------------------
+    	myModal.setConfig({
+    		windowID:"myModalCT",
+    		width:740,
+            mediaQuery: {
+                mx:{min:0, max:767}, dx:{min:767}
+            },
+    		displayLoading:true,
+            scrollLock: true,
+    		onclose: function(){
+    		
+    		}
+    	});
+    	//-------------------------- 모달창 :E -------------------------
+
+    },//end pageStart.
+  
+    //검색
+    doSearch: function(page){		//knd : null - 검색버튼, 숫자 - 페이지검색
+
+    	if(page==null) page=1;
+
+    	var url = contextRoot + "/project/getProjectList.do";
+    	var param = {
+		    			pageSize		: pageSize,
+		    			pageNo			:	page,
+
+		    			sortCol			: mySorting.nowSortCol,
+		    			sortVal			: mySorting.nowDirection,
+
+		    			/* projectType	: $('#srch_project_type').val(),						//프로젝트 타입 */
+		    			knd				: '',													//검색 종류
+		    			search			: $('#srch_search').val(),								//검색 어
+		    			employee		: $("#employee option:selected").val(),					//구분
+		    			projectType   	: $("#projectType option:selected").val(),              //유형
+		    			openFlag   		: $("#openFlag option:selected").val(),                 //공개
+		    			projectStatus	: $("#projectStatus option:selected").val(),			//상태
+		    			nearClose      	: ($("#nearClose").is(":checked") == true ? 'Y' : 'N'), //마감 임박
+		    			onlyMy			: ($("#onlyMy").is(":checked") == true ? 'Y' : 'N'),	//나의 업무구분만
+		    			enableAllYn		: ($("#enableAllYn").is(":checked") == true ? 'Y' : 'N')//사용안함까지 포함
+
+		    		};
+
+
+    	var callback = function(result){
+
+    		var obj = JSON.parse(result);
+
+    		//세션로그아웃 >> 재로그인
+    		if(obj.result=='FAIL' && obj.resultVal=='SESSION'){
+    			window.open('<c:url value="/login/loginPop.do" />', 'loginPop', 'width=500 height=200');
+    			return;
+    		}
+
+
+    		var cnt = obj.resultVal;		//결과수
+    		var list = obj.resultList;		//결과데이터JSON
+			
+    		if(list.length>0) g_sortListStr = list[0].sortArr;
+
+    		curPageNo = obj.pageNo;			//현재페이지세팅(global variable)
+
+
+    		var pageObj = {						//페이징 데이터
+					pageNo : curPageNo,
+					pageSize : pageSize,
+					pageCount: obj.pageCount
+				}
+
+    	
+    		myPaging.setPaging(pageObj);		//페이징 데이터 세팅	*** 1 ***
+
+    		myGrid.setGridData({				//그리드 데이터 세팅	*** 2 ***
+								list: list,		//그리드 테이터
+								page: pageObj	//페이징 데이터
+    						});
+
+    		mySorting.applySortIcon();		//소팅화면적용
+
+
+			//전체 건수 세팅
+			$('#total_count').html(obj.totalCount);
+
+    	};
+
+
+    	commonAjax("POST", url, param, callback);
+
+
+    },//end doSearch
+
+
+  	//프로젝트 보기
+    viewProject: function(projectId){
+
+    	//현재 페이지 파라미터 추출---------
+    	var url = decodeURIComponent(location.href);
+
+    	var params = '';
+
+    	var qIdx = url.indexOf('?');
+    	if(qIdx >= 0){		//파라미터가 있으면
+    		params = url.substring( qIdx + 1, url.length );	// url에서 '?' 문자 이후의 파라미터 문자열까지 자르기
+    	}
+
+    	//-------------------------------
+
+    	var url = "<c:url value='/project/projectView.do'/>" + "?saved=&pId=" + projectId + (params.length>0?"&" + params:"");
+
+
+    	document.location.href = url;
+
+    },//end viewProject
+    
+    //우선순위 저장전 체크  
+    chkSort : function(){
+	   
+    	var sortObj = $("input[name=projectSort]");
+    	var dataList = new Array();
+    	var chk = false;
+    	var sortArr = new Array();
+    	
+    	var newSortArr = new Array();
+    	
+    	for(var i=0; i< sortObj.length; i++){
+    		
+    		var sortValue = $(sortObj[i]).val();
+    		var dbValue = $(sortObj[i]).attr("db-val");
+    		var sortValue = $(sortObj[i]).val();
+    		
+    		sortArr.push(sortValue);
+    		
+    		if(dbValue != sortValue){
+    			
+    			if(sortValue != '' ) newSortArr.push(sortValue);		//변경된 값들 저장
+    		}
+    		
+    	}
+    	
+    	
+    	
+    	var cnt = 0;
+    	
+    	for(var i=0; i< sortObj.length; i++){
+    		
+    		var projectId = $(sortObj[i]).attr("projectId-val");
+    		var dbValue = $(sortObj[i]).attr("db-val");
+    		var sortValue = $(sortObj[i]).val();
+    		
+    		if(sortValue != '' && isNaN(sortValue)){
+    			dialog.push({body:"<b>확인!</b> 정렬값은 숫자로 입력해주세요!", type:"", onConfirm:function(){$(sortObj[i]).focus();}});
+    			return;
+    		}
+    		//화면에 있는 중복값 체크 
+    		if(sortValue != '' && getArrayIndexWithCnt(sortArr, sortValue) > 1) cnt ++;
+    	
+    		if(sortValue == '') sortValue = null;
+    		
+			var dateObj = new Object();
+    		
+    		dataObj = {projectId: projectId , sort : sortValue};
+    		
+    		dataList.push(dataObj);
+    	}
+  
+    	var nextProc = true;
+    	
+    	if(cnt>0){
+	    	if(!confirm("중복되는 우선순위가 있습니다. 계속 진행하시겠습니까?")){
+	    		nextProc = false;
+	    		return;
+			}
+    	}
+    	
+    	if(nextProc && newSortArr.length > 0){
+	    	var url = contextRoot + "/project/chkSort.do";
+	    	var param = {
+	    			
+	    			dataListStr : newSortArr.join(',')
+	    			
+	    	};
+	    	console.log(JSON.stringify(param))
+	    	var callback = function(result){
+	    		
+	    		var obj = JSON.parse(result);
+	    		var chk = obj.resultVal;
+	    		
+	    		if(chk == -8){
+	    			
+	    			if(confirm("중복되는 우선순위가 있습니다. 계속 진행하시겠습니까?")){
+	    	    		fnObj.doSaveSort(JSON.stringify(dataList));
+	    			}
+	    			
+	    		}else if(chk == 0){
+	    			fnObj.doSaveSort(JSON.stringify(dataList));
+	    		}
+	    	
+	    	};
+
+    		commonAjax("POST", url, param, callback);
+    		
+    	}else{
+    		fnObj.doSaveSort(JSON.stringify(dataList));
+    	}
+    	
+    	
+    },
+    
+    //우선순위 저장
+    doSaveSort : function(dataListStr){
+    	
+    	var url = contextRoot + "/project/saveSort.do";
+    	
+    	var param = {
+    			
+    			dataListStr : dataListStr
+    			
+    	};
+    	
+    	var callback = function(result){
+    		
+    		
+    		toast.push("저장되었습니다.");
+    		fnObj.doSearch();
+    		
+    	};
+
+		commonAjax("POST", url, param, callback);
+		
+    },
+
+    //컬럼 소팅
+    doSort: function(idx){
+
+    	mySorting.setSort(idx);				//소팅객체를 소팅한다.(상태값들의 변화)
+
+    	fnObj.doSearch(1);
+    },
+
+    //페이지 사이즈 세팅
+    setPageSize: function(isSearch){
+
+    	pageSize = $('#sel_page_size').val();
+
+    	//검색도 바로할 경우 ... isSearch ... true
+		if(isSearch){
+			fnObj.doSearch(1);
+    	}
+    }
+
+
+  	//################# else function :E #################
+
+
+
+};//end fnObj.
+
+
+/*
+ * 화면로딩완료후, 자바스크립트 화면세팅 과 그외동작들 호출.
+ */
+$(function(){
+	fnObj.preloadCode();	//공통코드 or 각종선로딩코드
+	fnObj.pageStart();		//화면세팅
+	fnObj.doSearch();		//검색
+	
+});
+</script>

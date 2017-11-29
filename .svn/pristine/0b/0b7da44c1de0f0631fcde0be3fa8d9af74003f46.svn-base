@@ -1,0 +1,1902 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="workDaily">
+
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+
+	<!-- 업무일지 리스트 -->
+	<select id="workDaily.getworkDailyList" parameterClass="HashMap" resultClass="HashMap">
+	    /* workDaily.getworkDailyList */
+		SELECT
+			   list_id							AS listId
+		      ,emp_id							AS empId
+		      ,title							AS title
+		      ,'TEMP'								AS memo
+		      ,important						AS important
+		      ,work_type						AS workType
+		      ,progress							AS progress
+		      ,complete							AS complete
+
+		      ,list.created_by						AS createdBy
+		      ,list.create_date						AS createDate
+		      ,DATE_FORMAT(work_date,'%Y-%m-%d') AS workDate
+		      ,DATE_FORMAT(work_date,'%Y.%m') AS workMonth
+		      ,DATE_FORMAT(work_date,'%d') AS workDay
+		      ,(CASE DAYOFWEEK(work_date)
+	              WHEN '1' THEN '일'
+	              WHEN '2' THEN '월'
+	              WHEN '3' THEN '화'
+	              WHEN '4' THEN '수'
+	              WHEN '5' THEN '목'
+	              WHEN '6' THEN '금'
+	              WHEN '7' THEN '토'
+              END) AS workDateWeek
+
+		      ,'NOW'							AS dailyType
+
+		      ,DATE_FORMAT(work_date,'%Y-%m-%d') 		AS orgWorkDate
+		      ,DATE_FORMAT(complete_date,'%Y-%m-%d')	AS completeDate
+
+		      ,CASE WHEN list.complete = 'Y' THEN '완료'
+		      	ELSE
+		      		(SELECT value_mean_kor
+			         FROM bs_code_gv
+			         WHERE code_name = 'WORKDAILY_PROGRESS'
+			         AND code_value= list.progress AND org_id = (SELECT ORG_ID FROM BS_USER_MASTER WHERE USER_ID = list.created_by))
+			    END AS progressTxt
+
+		      , '0' AS workDayCount
+
+			  ,DATE_FORMAT(AT.START_DATE,'%Y%m%d') AS startDate		/*액티비티 시작일*/
+			  ,DATE_FORMAT(AT.END_DATE,'%Y%m%d') AS endDate			/*액티비티 종료일*/
+			  ,AT.NAME							 AS activityName   	/*액티비티 이름*/
+			  ,P.NAME							 AS projectName		/*프로젝트 이름*/
+			  ,DATE_FORMAT(P.CLOSE_DATE,'%Y%m%d') AS closeDate		/*프로젝트 마감일*/
+			  ,P.PENDING_FLAG					  AS pendingFlag	/*프로젝트 보류여부*/
+			  ,P.STOP_FLAG					  AS stopFlag	/*프로젝트 중단여부*/
+			  ,list.READER_TYPE  AS readerType  /* 읽기권한자유형 */
+			  <isEmpty property = "userList">
+			  ,0							  AS teamListUserStr    /*참여자 userId*/
+			  </isEmpty>
+			  <isNotEmpty property = "userList">
+			  ,(SELECT GROUP_CONCAT(X.emp_id SEPARATOR ',')
+			      FROM bs_team_list X
+			     WHERE X.emp_id IN (
+		         					SELECT Z.USER_ID FROM BS_USER_MASTER Z WHERE Z.EMP_NO IN (
+		         				<iterate property="userList" conjunction=",">
+										#userList[]#
+						        </iterate>
+		         					)
+		         					)
+					AND list.list_id = X.list_id)		AS teamListUserStr    /*참여자 userId*/
+			  </isNotEmpty>
+		 FROM BS_WORK_LIST	AS list
+		     LEFT JOIN BS_PROJECT P ON list.PROJECT_ID = P.PROJECT_ID
+		     LEFT JOIN BS_ACTIVITY AT ON list.ACTIVITY_ID = AT.ACTIVITY_ID
+		 WHERE 1=1
+		 AND (
+                    CASE WHEN #deptBossLevelYn# = 'Y' THEN 1=1  <!-- 부서가 회장, 그룹대표, 대표인 경우 조회가능 -->
+                           WHEN list.READER_TYPE = 'ALL' THEN 1=1  <!-- 읽기권한 전체이면 조회가능 -->
+                           WHEN list.READER_TYPE = 'NONE' AND list.WORK_TYPE = 'PRIVATE' THEN list.EMP_ID = #sessionUserId#  <!-- 읽기권한 설정하지 않음, 개인업무 등록자만 열람가능 -->
+                           WHEN list.READER_TYPE = 'NONE' AND list.WORK_TYPE = 'TEAM' THEN
+                                           (list.EMP_ID = #sessionUserId# OR EXISTS (
+                                                SELECT 1 FROM bs_team_list
+                                                WHERE emp_id = #sessionUserId#
+                                                AND list.list_id = list_id
+                                            ))
+                            WHEN list.READER_TYPE IN ('DEPT', 'USER') THEN  <!-- 열람권한 부서와 사용자인 경우 읽기권한 테이블 확인 -->
+                                          (list.EMP_ID = #sessionUserId# OR EXISTS (
+                                                SELECT 1 FROM BS_TEAM_LIST
+                                                WHERE emp_id = #sessionUserId#
+                                                AND list.list_id = list_id
+                                            ) OR IF((SELECT COUNT(*)
+			                                           FROM BS_WORK_READER X
+			                                          WHERE X.LIST_ID = list.LIST_ID
+			                                            AND (X.DEPT_ID = #sessionDeptId# OR X.USER_ID = #sessionUserId#)
+			                                        )>0,1=1,1=2)
+			                                 )
+                            ELSE 1=1
+                        END)
+		 <isNotEmpty prepend="AND" property="listId">
+				list_id = #listId#
+         </isNotEmpty>
+
+         <isEmpty prepend="AND" property="team">
+         	<isEmpty property = "userList">
+         		emp_id = #userId#
+         	</isEmpty>
+         	<isNotEmpty property = "userList">
+         		emp_id IN (
+         					SELECT X.USER_ID FROM BS_USER_MASTER X WHERE X.EMP_NO IN(
+         				<iterate property="userList" conjunction=",">
+								#userList[]#
+				        </iterate>
+         					)
+         				)
+         	</isNotEmpty>
+         	 AND work_type != 'TEAM'
+         </isEmpty>
+
+         <isNotEmpty prepend="AND" property="team">
+				 (
+				 	<isEmpty property = "userList">
+		         		emp_id = #userId#
+		         	OR EXISTS (
+  												SELECT 1 FROM bs_team_list
+  												WHERE emp_id = #userId#
+  												AND list.list_id = list_id
+											))
+				 	AND work_type = 'TEAM'
+		         	</isEmpty>
+		         	<isNotEmpty property = "userList">
+		         		emp_id IN (
+		         					SELECT X.USER_ID FROM BS_USER_MASTER X WHERE X.EMP_NO IN (
+		         				<iterate property="userList" conjunction=",">
+										#userList[]#
+						        </iterate>
+		         					)
+		         				)
+		         		OR EXISTS (
+  												SELECT 1 FROM bs_team_list
+  												WHERE emp_id IN (
+											         					SELECT X.USER_ID FROM BS_USER_MASTER X WHERE X.EMP_NO IN (
+											         				<iterate property="userList" conjunction=",">
+																			#userList[]#
+															        </iterate>
+											         					)
+											         			)
+  												AND list.list_id = list_id
+											))
+				 	AND work_type = 'TEAM'
+		         	</isNotEmpty>
+
+         </isNotEmpty>
+         <isNotEmpty prepend="AND" property="startStr">
+         	DATE_FORMAT(work_date,'%Y-%m-%d') BETWEEN #startStr# AND #endStr#
+         	ORDER BY
+                CASE WHEN work_type = 'TEAM' THEN 1     <!-- 팀업무가 위로 그중 완료된게 아래료 -->
+                    ELSE 2 END  ASC, createDate DESC, important DESC
+         </isNotEmpty>
+         <isEqual property="searchActionType" compareValue="KEYWORD"><!-- 검색실행타입 -->
+             <isNotEmpty prepend="AND" property="searchStartDate">                   <!-- 검색기간 -->
+                    DATE_FORMAT(work_date,'%Y-%m-%d') BETWEEN #searchStartDate# AND #searchEndDate#
+             </isNotEmpty>
+
+             <isNotEmpty prepend="AND" property="searchKeyword">                   <!-- 검색어 -->
+                    (title LIKE CONCAT('%', #searchKeyword# , '%')
+                        OR EXISTS (SELECT 1 FROM BS_WORK_MEMO X WHERE X.LIST_ID = list.LIST_ID AND X.MEMO LIKE CONCAT('%', #searchKeyword# , '%'))
+                    )
+             </isNotEmpty>
+             ORDER BY work_date ASC
+         </isEqual>
+         <isEqual property="searchActionType" compareValue="MONTH">
+             <isNotEmpty prepend="AND" property="selectMonth">                  <!-- 선택 월 -->
+                    DATE_FORMAT(work_date,'%Y-%m') = #selectMonth#
+             </isNotEmpty>
+             <isNotEmpty prepend="AND" property="selectDate">                   <!-- 선택 월 일 -->
+                    DATE_FORMAT(work_date,'%Y-%m-%d') = #selectDate#
+             </isNotEmpty>
+             ORDER BY
+                CASE WHEN work_type = 'TEAM' THEN 1     <!-- 팀업무가 위로 그중 완료된게 아래료 -->
+                    ELSE 2 END  ASC, createDate DESC, important DESC
+         </isEqual>
+
+	</select>
+
+	<!-- 업무일지 리스트(지난) -->
+	<select id="workDaily.getBeforeWorkDailyList" parameterClass="HashMap" resultClass="HashMap">
+	    /* workDaily.getBeforeWorkDailyList */
+		SELECT
+			   list_id							AS listId
+		      ,emp_id							AS empId
+		      ,(SELECT NAME FROM BS_USER_MASTER K WHERE LIST.EMP_ID = K.USER_ID) AS empNm
+		      ,title							AS title
+		      ,'TEMP'								AS memo
+		      ,important						AS important
+		      ,work_type						AS workType
+		      ,progress							AS progress
+		      ,complete							AS complete
+
+		      ,list.created_by						AS createdBy
+		      ,list.create_date						AS createDate
+		      ,#selectDate# 					AS workDate
+
+		      ,'BEFORE'							AS dailyType
+
+		      ,DATE_FORMAT(work_date,'%Y-%m-%d') 						 AS orgWorkDate
+		      ,DATE_FORMAT(complete_date,'%Y-%m-%d')					 AS completeDate
+
+		      ,CASE WHEN list.complete = 'Y' THEN '완료'
+		      	ELSE
+		      		(SELECT value_mean_kor
+			         FROM bs_code_gv
+			         WHERE code_name = 'WORKDAILY_PROGRESS'
+			         AND code_value= list.progress AND org_id = (SELECT ORG_ID FROM BS_USER_MASTER WHERE USER_ID = list.created_by))
+			    END AS progressTxt
+
+		      ,DATEDIFF(#selectDate#, DATE_FORMAT(work_date,'%Y-%m-%d')) AS workDayCount
+			  <isEmpty property = "userList">
+			  ,0							  AS teamListUserStr    /*참여자 userId*/
+			  </isEmpty>
+			  <isNotEmpty property = "userList">
+			  ,(SELECT GROUP_CONCAT(X.emp_id SEPARATOR ',')
+			      FROM bs_team_list X
+			     WHERE X.emp_id IN (
+		         					SELECT Z.USER_ID FROM BS_USER_MASTER Z WHERE Z.EMP_NO IN (
+		         				<iterate property="userList" conjunction=",">
+										#userList[]#
+						        </iterate>
+		         					)
+		         					)
+					AND list.list_id = X.list_id)		AS teamListUserStr    /*참여자 userId*/
+			  </isNotEmpty>
+        FROM bs_work_list   AS list
+             LEFT JOIN BS_PROJECT P ON list.PROJECT_ID = P.PROJECT_ID
+         WHERE 1=1
+         AND (
+                    CASE WHEN #deptBossLevelYn# = 'Y' THEN 1=1  <!-- 부서가 회장, 그룹대표, 대표인 경우 조회가능 -->
+                           WHEN list.READER_TYPE = 'ALL' THEN 1=1  <!-- 읽기권한 전체이면 조회가능 -->
+                           WHEN list.READER_TYPE = 'NONE' AND list.WORK_TYPE = 'PRIVATE' THEN list.EMP_ID = #sessionUserId#  <!-- 읽기권한 설정하지 않음, 개인업무 등록자만 열람가능 -->
+                           WHEN list.READER_TYPE = 'NONE' AND list.WORK_TYPE = 'TEAM' THEN
+                                           (list.EMP_ID = #sessionUserId# OR EXISTS (
+                                                SELECT 1 FROM bs_team_list
+                                                WHERE emp_id = #sessionUserId#
+                                                AND list.list_id = list_id
+                                            ))
+                            WHEN list.READER_TYPE IN ('DEPT', 'USER') THEN  <!-- 열람권한 부서와 사용자인 경우 읽기권한 테이블 확인 -->
+                                          (list.EMP_ID = #sessionUserId# OR EXISTS (
+                                                SELECT 1 FROM BS_TEAM_LIST
+                                                WHERE emp_id = #sessionUserId#
+                                                AND list.list_id = list_id
+                                            ) OR IF((SELECT COUNT(*)
+                                                       FROM BS_WORK_READER X
+                                                      WHERE X.LIST_ID = list.LIST_ID
+                                                        AND (X.DEPT_ID = #sessionDeptId# OR X.USER_ID = #sessionUserId#)
+                                                    )>0,1=1,1=2)
+                                             )
+                            ELSE 1=1
+                        END)
+
+
+		 <isNotEmpty prepend="AND" property="listId">
+				list_id = #listId#
+         </isNotEmpty>
+
+         <isEmpty prepend="AND" property="team">
+         		<isEmpty property = "userList">
+         			emp_id = #userId# AND work_type != 'TEAM'
+         		</isEmpty>
+         	 	<isNotEmpty property = "userList">
+         	 		emp_id IN (
+		         					SELECT X.USER_ID FROM BS_USER_MASTER X WHERE X.EMP_NO IN (
+		         				<iterate property="userList" conjunction=",">
+										#userList[]#
+						        </iterate>
+		         					)
+		         				)
+		         	AND work_type != 'TEAM'
+         	 	</isNotEmpty>
+         </isEmpty>
+
+         <isNotEmpty prepend="AND" property="team">
+         		<isEmpty property = "userList">
+				(emp_id = #userId# OR EXISTS (
+												SELECT 1 FROM bs_team_list
+												WHERE emp_id = #userId#
+												AND list.list_id = list_id
+											))
+				</isEmpty>
+				<isNotEmpty property = "userList">
+				(emp_id IN (
+		         					SELECT X.USER_ID FROM BS_USER_MASTER X WHERE X.EMP_NO IN (
+		         				<iterate property="userList" conjunction=",">
+										#userList[]#
+						        </iterate>
+		         					)
+		         				)
+		         OR EXISTS (
+												SELECT 1 FROM bs_team_list
+												WHERE emp_id IN (
+										         					SELECT X.USER_ID FROM BS_USER_MASTER X WHERE X.EMP_NO IN (
+										         				<iterate property="userList" conjunction=",">
+																		#userList[]#
+														        </iterate>
+										         					)
+										         				)
+												AND list.list_id = list_id
+											))
+				</isNotEmpty>
+			    <isEmpty prepend="AND" property="mainYn">
+			        work_type = 'TEAM'
+			    </isEmpty>
+         </isNotEmpty>
+
+         <isNotEmpty prepend="AND" property="selectDate">					<!-- 선택일 -->
+				DATE_FORMAT(work_date,'%Y-%m-%d') &lt; #selectDate#
+				AND
+					CASE WHEN complete ='Y' or complete ='D'
+						 	  THEN IFNULL(DATE_FORMAT(complete_date, '%Y-%m-%d'),'1988-09-12') &gt;= #selectDate#
+						 ELSE IFNULL(DATE_FORMAT(complete_date, '%Y-%m-%d'),'1988-09-12') > '1988-09-11' END
+		 </isNotEmpty>
+
+         ORDER BY
+
+         		CASE WHEN work_type = 'TEAM' THEN 1		<!-- 팀업무가 위로 그중 완료된게 아래로 오래된것이 위로 -->
+         			 ELSE 2 END  ASC,createDate DESC, important DESC
+
+	</select>
+
+
+
+	<!-- 업무일지 등록 -->
+	<insert id="workDaily.insertWorkDaily" parameterClass="HashMap">
+	    /* workDaily.insertWorkDaily */
+		INSERT INTO BS_WORK_LIST
+				  (
+				  	    project_id
+				  	  , activity_id
+					  ,	emp_id
+					  , title
+					  , important
+					  , work_date
+					  , progress
+					  , work_type
+
+					  , complete
+					  , complete_date
+					  , reader_type
+
+					  , created_by
+					  , create_date
+					  , updated_by
+					  , update_date
+
+		) VALUES (
+						#projectId#
+				  	  , #activityId#
+		 			  ,	#userId#
+					  , #title#
+					  , #important#
+					  , #workDate#
+					  , #progress#
+					  , #workType#
+
+					  , #complete#
+					  , #completeDate#
+					  , #readerType#
+
+					  , #userId#
+		 			  , now()
+		 			  , #userId#
+		 			  , now()
+
+		 			)
+
+		<selectKey keyProperty="list_id" resultClass="String">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+
+	<!-- 업무일지 수정 -->
+	<update id="workDaily.updateWorkDaily">
+        /* workDaily.updateWorkDaily */
+			UPDATE BS_WORK_LIST
+			SET
+				  title			=  #title#
+				, important		=  #important#
+				, update_date	=  now()
+				, updated_by    =  #userId#
+
+			<isNotEmpty property="progress">
+				, progress		=  #progress#
+			</isNotEmpty>
+
+			<isNotEmpty property="readerType">
+                , reader_type     =  #readerType#
+            </isNotEmpty>
+
+			<isNotEmpty property="complete">
+
+				, complete		=  #complete#
+				, complete_date	=  #completeDate#
+			</isNotEmpty>
+
+			WHERE list_id  =  #listId#
+
+	</update>
+
+	<!-- 업무일지 삭제 -->
+	<delete id="workDaily.deleteWorkDaily">
+        /* workDaily.deleteWorkDaily */
+		DELETE FROM BS_WORK_LIST
+		WHERE list_id  =  #listId#
+
+	</delete>
+
+	<!-- 업무일지 삭제(팀) -->
+	<delete id="workDaily.deleteTeamWorkDaily">
+        /* workDaily.deleteTeamWorkDaily */
+		DELETE FROM BS_TEAM_LIST
+		WHERE list_id  =  #listId#
+
+	</delete>
+
+	<!-- 업무일지 등록(팀) -->
+	<insert id="workDaily.insertTeamWorkDaily" parameterClass="HashMap">
+	    /* workDaily.insertTeamWorkDaily */
+		INSERT INTO BS_TEAM_LIST
+				  (
+					  	list_id
+					  , emp_id
+					  , progress
+					  , complete
+					  , created_by
+					  , create_date
+					  , updated_by
+					  , update_date
+
+		) VALUES (
+		 				#listId#
+					  , #empId#
+					  , #progress#
+					  , 'N'
+					  , #userId#
+		 			  , now()
+		 			  , #userId#
+		 			  , now()
+
+		 			)
+	</insert>
+
+	<!-- 업무일지 정보 -->
+	<select id="workDaily.getWorkDaily" parameterClass="HashMap" resultClass="HashMap">
+	    /* workDaily.getWorkDaily */
+		SELECT
+			   list_id							AS listId
+		      ,emp_id							AS empId
+		      ,title						    AS title
+		      ,'TEMP'                           AS memo
+		      ,important						AS important
+		      ,work_type						AS workType
+		      ,complete							AS complete
+		      ,list.created_by					AS createdBy
+		      ,progress							AS progress
+		      ,dept.kor_name					AS deptNm
+		      ,user.org_id						AS orgId
+
+		      ,DATE_FORMAT(work_date,'%Y-%m-%d')  				AS workDate
+		      ,DATE_FORMAT(list.create_date,'%Y-%m-%d') 		AS createDate
+		      ,IFNULL(DATE_FORMAT(complete_date,'%Y-%m-%d'),'')	AS completeDate
+
+		      ,CASE WHEN list.complete = 'Y' THEN '완료'
+		      	ELSE
+		      		(SELECT VALUE_MEAN_KOR
+			         FROM BS_CODE_GV
+			         WHERE CODE_NAME = 'WORKDAILY_PROGRESS'
+			         	AND CODE_VALUE= list.PROGRESS
+			         	AND ORG_ID = user.ORG_ID
+			         )
+			    END AS progressTxt
+		      ,user.name	AS createdName
+		      ,(SELECT value_mean_kor FROM bs_code_gv WHERE code_name = 'RANK' AND code_value = user.rank AND org_id = user.org_id)		AS position
+		 	  ,(SELECT CPN_NM FROM IB_COMPANY IC, BS_ORG IO WHERE IC.S_NB = IO.COMPANY_SNB AND IO.ORG_ID = user.ORG_ID)	AS orgNm
+		 	  ,IFNULL((SELECT
+		      				CONCAT(SUBSTRING_INDEX(FILE_PATH, '/', -3), NEW_FILE_NM)
+		        		FROM BS_FILE_LIST
+		        		WHERE UPLOAD_TYPE='PROFILEIMG' AND UPLOAD_ID = user.USER_ID AND DELETE_FLAG = 'N'),'') AS imgNm  <!-- 프로필 이미지 -->
+			  ,P.NAME AS projectNm
+           	  ,Q.NAME AS activityNm
+           	  ,list.PROJECT_ID AS projectId
+           	  ,list.ACTIVITY_ID AS activityId
+              ,DATE_FORMAT(Q.START_DATE, '%Y-%m-%d')  	AS activityStartDate
+           	  ,DATE_FORMAT(Q.END_DATE, '%Y-%m-%d')  	AS activityEndDate
+           	  ,DATE_FORMAT(P.START_DATE,'%Y-%m-%d') 	AS projectStartDate
+           	  ,DATE_FORMAT(IF(P.END_DATE <![CDATA[<=]]> P.CLOSE_DATE, P.END_DATE, P.CLOSE_DATE),'%Y-%m-%d') AS lastDate
+           	  ,P.EMPLOYEE AS employee
+           	  ,P.OPEN_FLAG AS openFlag
+           	  ,list.READER_TYPE  AS readerType
+           	  ,CASE WHEN list.WORK_TYPE = 'TEAM' AND  list.READER_TYPE = 'NONE' THEN '설정하지않음(참가자만 열람)'
+           	          WHEN list.WORK_TYPE = 'PRIVATE' AND  list.READER_TYPE = 'NONE' THEN '설정하지않음(본인만 열람)'
+                ELSE
+                    (SELECT VALUE_MEAN_KOR
+                     FROM BS_CODE_GV
+                     WHERE CODE_NAME = 'WORK_READER_TYPE'
+                        AND CODE_VALUE= list.READER_TYPE
+                        AND ORG_ID = user.ORG_ID
+                     )
+                END AS readerTypeNm
+		 FROM BS_WORK_LIST	AS list
+		 LEFT OUTER JOIN BS_USER_MASTER AS user 	ON user_id = list.created_by
+		 LEFT JOIN BS_USER_DEPARTMENT	AS userDept	ON userDept.user_id = user.user_id AND main_yn ='Y'
+		 LEFT JOIN BS_DEPARTMENT		AS dept		ON dept.dept_id = userDept.dept_id
+		 LEFT OUTER JOIN BS_ACTIVITY AS Q ON list.ACTIVITY_ID = Q.ACTIVITY_ID
+		 LEFT OUTER JOIN BS_PROJECT AS P ON list.PROJECT_ID = P.PROJECT_ID
+		 WHERE 1=1
+
+		 <isNotEmpty prepend="AND" property="listId">
+				list_id = #listId#
+         </isNotEmpty>
+	</select>
+
+	<!-- 업무일지 정보(팀원) -->
+	<select id="workDaily.getWorkDailyTeam" parameterClass="HashMap" resultClass="HashMap">
+	    /* workDaily.getWorkDailyTeam */
+		SELECT
+			   list_id							AS listId
+			  ,TEAM_LIST_ID                AS teamListId
+		      ,emp_id							AS empId
+		      ,'TEMP'							AS empMemo
+
+		      ,complete							AS complete
+		      ,team.created_by					AS createdBy
+		      ,progress							AS progress
+		      ,dept.kor_name					AS deptNm
+ 		      ,user.org_id						AS orgId
+ 		      ,user.name						AS userName
+ 		      ,user.user_id						AS userId
+
+ 		      ,DATE_FORMAT(team.create_date,'%Y-%m-%d') 		AS createDate
+		      ,IFNULL(DATE_FORMAT(complete_date,'%Y-%m-%d'),'')	AS completeDate
+ 		      ,(SELECT value_mean_kor FROM bs_code_gv WHERE code_name = 'RANK' AND code_value = user.rank AND org_id = user.org_id)		AS position
+		 	  ,(SELECT CPN_NM FROM IB_COMPANY IC, BS_ORG IO WHERE IC.S_NB = IO.COMPANY_SNB AND IO.ORG_ID = user.ORG_ID)					AS orgNm
+
+
+		      ,IFNULL((SELECT
+		                    CONCAT(SUBSTRING_INDEX(FILE_PATH, '/', -3), NEW_FILE_NM)
+		        		FROM BS_FILE_LIST
+		        		WHERE UPLOAD_TYPE='PROFILEIMG' AND UPLOAD_ID = user.USER_ID AND DELETE_FLAG = 'N'),'') AS imgNm  <!-- 프로필 이미지 -->
+
+		      ,CASE WHEN team.complete = 'Y' THEN '완료'
+		      	ELSE
+		      		(SELECT value_mean_kor
+			         FROM bs_code_gv
+			         WHERE code_name = 'WORKDAILY_PROGRESS'
+			         AND code_value= team.progress
+			         AND org_id = (
+			         				SELECT ORG_ID FROM BS_USER_MASTER WHERE USER_ID =
+			         					(SELECT EMP_ID FROM BS_WORK_LIST WHERE team.LIST_ID = LIST_ID)
+			         			  ))
+			    END AS progressTxt																							<!-- 진행상태 -->
+
+		 FROM BS_TEAM_LIST	AS team
+		 LEFT OUTER JOIN BS_USER_MASTER AS user 	ON user_id = team.emp_id
+		 LEFT JOIN BS_USER_DEPARTMENT	AS userDept	ON userDept.user_id = user.user_id AND main_yn ='Y'
+		 LEFT JOIN BS_DEPARTMENT		AS dept		ON dept.dept_id = userDept.dept_id
+		 WHERE 1=1
+
+		 <isNotEmpty prepend="AND" property="listId">
+				list_id = #listId#
+         </isNotEmpty>
+
+         ORDER BY orgNm ASC
+	</select>
+
+	<!-- 업무일지 팀원 메모 혹은 진행사항 수정 -->
+    <update id="workDaily.updateTeamMemo">
+        /* workDaily.updateTeamMemo */
+        UPDATE BS_TEAM_LIST
+        SET
+              update_date   =  now()
+            , updated_by    =  #userId#
+
+         <isNotEmpty property="progress">
+            , progress      =  #progress#
+         </isNotEmpty>
+
+         <isNotEmpty property="complete">
+            , complete      =  #complete#
+            , complete_date =  #completeDate#
+         </isNotEmpty>
+        WHERE list_id  =  #listId#
+
+         <isNotEmpty property="empId">
+             AND emp_id = #empId#
+         </isNotEmpty>
+
+    </update>
+
+
+	<!-- 업무일지 완료처리 -->
+	<update id="workDaily.endWorkDaily">
+	    /* workDaily.endWorkDaily */
+		UPDATE BS_WORK_LIST
+			SET
+				  complete 		= #complete#
+				, complete_date = #completeDate#
+
+				, update_date	=  now()
+				, updated_by    =  #userId#
+
+			WHERE list_id  =  #listId#
+
+	</update>
+
+
+
+
+
+	<!-- ===================================신규 메모 구현 =====================================-->
+
+	<!-- 메모 방 생성 -->
+	<insert id="workDaily.insertMemoRoom" parameterClass="HashMap">
+	    /* workDaily.insertMemoRoom */
+		INSERT INTO BS_MEMO_ROOM
+				  (
+					  	room_type
+					  , important
+					  , created_by
+					  , create_date
+					  , updated_by
+					  , update_date
+					  , view_date
+					  , COMMENT_UPDATE_DATE
+
+		 ) VALUES (
+		 				#roomType#
+		 			  , #important#
+		 			  , #userId#
+		 			  , now()
+		 			  , #userId#
+		 			  , now()
+		 			  , #viewDate#
+		 			  , #viewDate#
+		 			)
+
+		<selectKey keyProperty="memo_room_id" resultClass="String">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+	</insert>
+
+	<!-- 메모 방 수정 -->
+	<update id="workDaily.updateMemoRoom">
+	    /* workDaily.updateMemoRoom */
+		<![CDATA[
+			UPDATE BS_MEMO_ROOM
+			SET
+				  room_type		=  #roomType#
+				, important		=  #important#
+				, update_date	=  now()
+				, updated_by     =  #userId#
+
+			WHERE memo_room_id  =  #memoRoomId#
+		]]>
+	</update>
+
+	<!-- 메모 룸 정보 -->
+	<select id="workDaily.getRoomInfo" parameterClass="HashMap" resultClass="HashMap">
+	    /* workDaily.getRoomInfo */
+		SELECT
+			   memo_room_id									AS memoRoomId
+		      ,room_type									AS roomType
+		      ,important									AS important
+		      ,created_by									AS createdBy
+		      ,create_date									AS createDate
+		      ,(SELECT COUNT(1) FROM BS_MEMO_ROOM_ENTRY WHERE memo_room_id = room.memo_room_id AND delete_flag ='N') AS entryCnt
+		      ,DATE_FORMAT(room.view_date,'%Y년 %m월 %d일')     AS viewDate
+
+		 FROM BS_MEMO_ROOM	AS room
+		 WHERE 1=1
+
+		 <isNotEmpty prepend="AND" property="memoRoomId">
+				memo_room_id = #memoRoomId#
+         </isNotEmpty>
+	</select>
+
+	<!-- 메모 룸 참가자 정보 -->
+	<select id="workDaily.getRoomEntryList" parameterClass="HashMap" resultClass="HashMap">
+	    /* workDaily.getRoomEntryList */
+		SELECT
+			   entry.MEMO_ROOM_ID							AS memoRoomId
+		      ,ENTRY_USER_ID								AS entryUserId
+		      ,LAST_READ_DATE								AS lastReadDate
+		      ,room.CREATED_BY								AS createdBy
+		      ,entry.CREATE_DATE							AS createDate
+		      ,user.ORG_ID 									AS orgId
+		      ,user.NAME 									AS userName
+		      ,entry.MEMO_FIXED_YN                  AS memoFixedYn
+
+		      ,(CASE WHEN room.created_by = entry.entry_user_id THEN 1
+		      	ELSE 2 END)AS roomOwner								<!-- 방장인지 -->
+
+		      ,(SELECT COUNT(1)
+				FROM bs_memo_comment  memo
+				WHERE memo.create_date &gt; last_read_date
+				AND memo.delete_flag='N'
+				AND memo_room_id = entry.memo_room_id
+
+			  ) AS noReadCount								 		<!--안읽은 글 리스트수 -->
+
+			  ,IF((SELECT create_date
+				  FROM bs_memo_comment
+			  	  WHERE delete_flag='N'
+			  	  AND memo_room_id = entry.memo_room_id
+			  	  ORDER BY create_date ASC LIMIT 1
+
+			  	  ) &lt;=
+			  	  (last_read_date)
+			  	  ,'Y','N'
+			  )AS firstRead									 		<!-- 첫글 확인 여부 -->
+
+			 ,(SELECT CPN_NM FROM IB_COMPANY IC, BS_ORG IO WHERE IC.S_NB = IO.COMPANY_SNB AND IO.ORG_ID = user.ORG_ID)	AS orgNm
+
+
+		 FROM BS_MEMO_ROOM_ENTRY		AS entry
+		 LEFT OUTER JOIN BS_MEMO_ROOM 	AS room		ON entry.MEMO_ROOM_ID = room.MEMO_ROOM_ID
+		 LEFT OUTER JOIN BS_USER_MASTER AS user		ON user.USER_ID = entry.ENTRY_USER_ID
+		 WHERE entry.DELETE_FLAG = 'N'
+
+		 <isNotEmpty prepend="AND" property="memoRoomId">
+				entry.MEMO_ROOM_ID = #memoRoomId#
+         </isNotEmpty>
+
+		 ORDER BY roomOwner ASC, userName ASC
+	</select>
+
+	<!-- 메모 참가자 생성 -->
+	<insert id="workDaily.insertRoomEntry" parameterClass="HashMap">
+	    /* workDaily.insertRoomEntry */
+		INSERT INTO BS_MEMO_ROOM_ENTRY
+				  (
+					  	memo_room_id
+					  , entry_user_id
+					  , delete_flag
+					  , last_read_date
+					  , created_by
+					  , create_date
+					  , updated_by
+					  , update_date
+
+
+		 ) VALUES (
+		 				#memoRoomId#
+		 			  , #entryUserId#
+		 			  , #deleteFlag#
+		 			  , '1988-09-12 00:00:00'
+		 			  , #userId#
+		 			  , now()
+		 			  , #userId#
+		 			  , now()
+		 			)
+
+		<selectKey keyProperty="memo_room_id" resultClass="String">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+
+	<!-- 메모 참가자 삭제 -->
+	<delete id="workDaily.deleteRoomEntry">
+	    /* workDaily.deleteRoomEntry */
+		<![CDATA[
+			DELETE FROM BS_MEMO_ROOM_ENTRY
+			WHERE memo_room_entry_id  =  #memoRoomEntryId#
+		]]>
+	</delete>
+
+	<!-- 메모 룸 삭제 -->
+	<delete id="workDaily.deleteMemoRoom">
+	    /* workDaily.deleteMemoRoom */
+		<![CDATA[
+			DELETE FROM BS_MEMO_ROOM
+			WHERE memo_room_id  =  #memoRoomId#
+		]]>
+	</delete>
+
+	<!-- 메모 등록 -->
+	<insert id="workDaily.insertMemoComment" parameterClass="HashMap">
+	    /* workDaily.insertMemoComment */
+		INSERT INTO BS_MEMO_COMMENT
+				  (
+					  	memo_room_id
+					  , user_id
+					  , comment
+					  , created_by
+					  , create_date
+					  , updated_by
+					  , update_date
+
+
+		 ) VALUES (
+		 				#memoRoomId#
+		 			  , #userId#
+		 			  , #comment#
+		 			  , #userId#
+		 			  , now()
+		 			  , #userId#
+		 			  , now()
+
+		 			)
+
+		<selectKey keyProperty="memo_comment_id" resultClass="String">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+	</insert>
+
+	<!-- 메모 수정 -->
+	<update id="workDaily.updateMemoComment">
+	    /* workDaily.updateMemoComment */
+		<![CDATA[
+			UPDATE BS_MEMO_COMMENT
+			SET
+				  user_id		=  #userId#
+				, comment		=  #comment#
+				, updated_by    =  #userId#
+				, update_date	=  now()
+
+			WHERE memo_comment_id  =  #memoCommentId#
+		]]>
+	</update>
+
+	<!-- 룸 메모 글 리스팅 -->
+	<select id="workDaily.getRoomMemoList" parameterClass="HashMap" resultClass="HashMap">
+	    /* workDaily.getRoomMemoList */
+		SELECT A.*
+		FROM (
+
+			<!-- 메모 리스트 -->
+			SELECT
+				   memo_comment_id 			AS memoCommentId
+				  ,comment					AS comment
+				  ,'COMMENT' 				AS type
+				  ,'' 						AS newFileNm
+				  ,'' 						AS filePath
+				  ,comment.user_id 			AS userId
+				  ,comment.create_date 		AS orgCreateDate
+				  ,user.name 	 			AS name
+				  ,user.org_id 	 			AS orgId
+				  ,company.cpn_nm 	 		AS companyNm
+				  ,memo_comment_id 			AS sortId
+				  ,DATE_FORMAT(comment.create_date, '%Y-%m-%d%H:%i') 							AS createDate
+				  ,(SELECT COUNT(1)
+				    FROM BS_MEMO_ROOM_ENTRY
+				    WHERE  memo_room_id = comment.memo_room_id
+				    AND last_read_date &lt; comment.create_date
+				    AND delete_flag = 'N') AS noReadCount
+
+				  ,(SELECT COUNT(1)
+                    FROM BS_MEMO_ROOM_ENTRY
+                    WHERE  memo_room_id = comment.memo_room_id
+                    AND last_read_date &gt; comment.create_date
+                    AND delete_flag = 'N'
+                    AND ENTRY_USER_ID != comment.USER_ID) AS readCount
+
+				  ,IFNULL((SELECT
+		      					CONCAT(SUBSTRING_INDEX(FILE_PATH, '/', -3), NEW_FILE_NM)
+		        			FROM BS_FILE_LIST
+		        			WHERE UPLOAD_TYPE='PROFILEIMG' AND UPLOAD_ID = user.USER_ID AND DELETE_FLAG = 'N'),'') AS imgNm  <!-- 프로필 이미지 -->
+
+
+			FROM BS_MEMO_COMMENT 			AS comment
+			LEFT OUTER JOIN BS_USER_MASTER 	AS user 		ON comment.user_id = user.user_id
+			LEFT OUTER JOIN BS_ORG		   	AS org  		ON user.org_id = org.org_id
+			LEFT OUTER JOIN IB_COMPANY	   	AS company 		ON org.company_snb = company.s_nb
+
+			WHERE 1=1
+			AND comment.memo_room_id = #memoRoomId#
+            AND comment.delete_flag = 'N'
+
+			UNION ALL
+
+			<!-- 파일 리스트 -->
+			SELECT
+			       file_seq 				AS memoCommentId
+			      ,file.org_file_nm 		AS comment
+			      ,'FILE' 					AS type
+		    	  ,file.new_file_nm 		AS newFileNm
+				  ,file.file_path 			AS filePath
+				  ,file.created_by 			AS userId
+				  ,created_date 			AS orgCreateDate
+			      ,(SELECT name FROM BS_USER_MASTER WHERE user_id = file.created_by ) 	AS name
+			      ,'' 						AS orgId
+				  ,'' 	 					AS companyNm
+				  ,upload_id 				AS sortId
+				  ,DATE_FORMAT(created_date, '%Y-%m-%d%H:%i') 							AS createDate
+				  , 0						AS noReadCount
+				  , 0                       AS readCount
+		    	  ,''					 	AS imgNm
+
+			FROM BS_FILE_LIST AS file
+			WHERE 1=1
+			AND file.upload_type = 'MEMO'
+			AND file.delete_flag = 'N'
+            AND file.upload_id in (SELECT memo_comment_id FROM BS_MEMO_COMMENT WHERE memo_room_id = #memoRoomId# AND delete_flag = 'N')
+
+		)	A
+
+		ORDER BY A.sortId ASC,A.orgCreateDate ASC
+	</select>
+
+	<!-- 읽음 확인  -->
+	<update id="workDaily.updateLastReadDate">
+	    /* workDaily.updateLastReadDate */
+		<![CDATA[
+			UPDATE BS_MEMO_ROOM_ENTRY
+			SET
+				  last_read_date=  now()
+			WHERE memo_room_id   =  #memoRoomId#
+			AND entry_user_id	 =	#userId#
+		]]>
+	</update>
+
+	<!-- 메모고정여부 업데이트  -->
+    <update id="workDaily.updateMemoFixedYn">
+        /* workDaily.updateMemoFixedYn */
+            UPDATE BS_MEMO_ROOM_ENTRY
+            SET
+                  MEMO_FIXED_YN=  #memoFixedYn#
+            WHERE MEMO_ROOM_ID   =  #memoRoomId#
+            AND ENTRY_USER_ID    =  #userId#
+    </update>
+
+	<!-- 메모삭제  -->
+	<delete id="workDaily.deleteCommentDelFlag">
+	    /* workDaily.deleteCommentDelFlag */
+		DELETE FROM BS_MEMO_COMMENT
+		WHERE
+		<isNotEmpty property="memoCommentId">
+			memo_comment_id   =  #memoCommentId#
+		</isNotEmpty>
+		<isNotEmpty property="memoRoomId">
+			memo_room_id   =  #memoRoomId#
+		</isNotEmpty>
+
+
+	</delete>
+
+	<!-- 메모참여자 삭제  -->
+	<delete id="workDaily.deleteEntryDelFlag">
+        /* workDaily.deleteEntryDelFlag */
+		DELETE FROM bs_memo_room_entry
+		WHERE
+
+		<isNotEmpty property="memoRoomId">
+			memo_room_id   =  #memoRoomId#
+		</isNotEmpty>
+
+
+	</delete>
+
+	<!-- 메모 글 정보 -->
+	<select id="workDaily.getCommentInfo" parameterClass="HashMap" resultClass="HashMap">
+	    /* workDaily.getCommentInfo */
+		SELECT
+			   memo_comment_id								AS memoCommentId
+		      ,comment.memo_room_id							AS memoRoomId
+		      ,comment										AS comment
+		      ,comment.created_by							AS createdBy
+		      ,comment.create_date							AS createDate
+		      ,(SELECT name FROM BS_USER_MASTER WHERE user_id = comment.user_id) AS userName
+
+		   <isNotEmpty prepend="AND" property="userId">
+		      ,(SELECT COUNT(1)
+				FROM bs_memo_comment
+				WHERE create_date &lt;
+					(SELECT last_read_date
+					 FROM bs_memo_room_entry
+					 WHERE entry_user_id = #userId#
+					 AND memo_room_id = comment.memo_room_id)
+				AND  comment.delete_flag = 'N'
+				) AS noReadCount
+		   </isNotEmpty>
+
+		 FROM bs_memo_comment	AS comment
+		 WHERE comment.delete_flag = 'N'
+
+		 <isNotEmpty prepend="AND" property="memoCommentId">
+			comment.memo_comment_id = #memoCommentId#
+         </isNotEmpty>
+
+		 ORDER BY create_date ASC
+	</select>
+
+	<!-- 업무일지 메인 메모 리스트 -->
+	<select id="workDaily.getRoomList" parameterClass="HashMap" resultClass="HashMap">
+	    /* workDaily.getRoomList */
+		SELECT * FROM(
+
+			SELECT
+				   room.memo_room_id							AS memoRoomId
+			      ,room_type									AS roomType
+			      ,important									AS important
+			      ,room.created_by								AS createdBy
+			      ,DATE_FORMAT(room.create_date,'%Y-%m-%d')		AS createDate
+			      ,comment.comment								AS comment
+			      ,user.name									AS userName
+			      ,user.user_id									AS userId
+			      ,user.org_id									AS orgId
+			      ,(SELECT cpn_nm
+			      	FROM BS_ORG			A
+			      		,IB_COMPANY 	B
+			      	WHERE A.org_id = user.org_id
+			      	AND   B.s_nb = A.company_snb)				AS companyNm
+
+			      <isEmpty property="commentType">
+				      ,DATE_FORMAT(room.view_date,'%Y-%m-%d')		AS viewDate
+				      ,DATE_FORMAT(room.view_date,'%Y.%m') AS viewMonth
+		              ,DATE_FORMAT(room.view_date,'%d') AS viewDay
+		              ,(CASE DAYOFWEEK(room.view_date)
+			               WHEN '1' THEN '일'
+			               WHEN '2' THEN '월'
+			               WHEN '3' THEN '화'
+			               WHEN '4' THEN '수'
+			               WHEN '5' THEN '목'
+			               WHEN '6' THEN '금'
+			               WHEN '7' THEN '토'
+		              END) AS viewDateWeek
+		          </isEmpty>
+
+			      <isNotEmpty property="commentType">
+                      ,DATE_FORMAT(room.COMMENT_UPDATE_DATE,'%Y-%m-%d')       AS viewDate
+                      ,DATE_FORMAT(room.COMMENT_UPDATE_DATE,'%Y.%m') AS viewMonth
+                      ,DATE_FORMAT(room.COMMENT_UPDATE_DATE,'%d') AS viewDay
+                      ,(CASE DAYOFWEEK(room.COMMENT_UPDATE_DATE)
+                           WHEN '1' THEN '일'
+                           WHEN '2' THEN '월'
+                           WHEN '3' THEN '화'
+                           WHEN '4' THEN '수'
+                           WHEN '5' THEN '목'
+                           WHEN '6' THEN '금'
+                           WHEN '7' THEN '토'
+                      END) AS viewDateWeek
+                  </isNotEmpty>
+
+			      ,(SELECT COUNT(1) FROM BS_MEMO_ROOM_ENTRY WHERE memo_room_id = room.memo_room_id AND delete_flag ='N') AS entryCnt	<!-- 참가자수 -->
+			      ,(SELECT COUNT(1) FROM BS_MEMO_ROOM_ENTRY WHERE memo_room_id = room.memo_room_id AND delete_flag ='N' AND entry_user_id !=#userId#) AS realEntryCnt	<!--나 제외 참가자수 -->
+
+			      ,(SELECT COUNT(1)
+			      	FROM BS_FILE_List
+			      	WHERE upload_id in (SELECT MEMO_COMMENT_ID FROM BS_MEMO_COMMENT WHERE MEMO_ROOM_ID = comment.MEMO_ROOM_ID AND DELETE_FLAG = 'N')
+			      	AND delete_flag ='N'
+			      	AND upload_type = 'MEMO'
+			      ) AS fileCnt											<!-- 파일수 -->
+
+			      ,(SELECT COUNT(1)
+					FROM bs_memo_comment  memo
+					WHERE memo.create_date &gt;
+						last_read_date AND memo.delete_flag='N' AND memo_room_id = room.memo_room_id
+				  ) AS noReadCount								 		<!-- 내가 안읽은 글 리스트수 -->
+
+				  ,(SELECT COUNT(1) - 1
+                    FROM bs_memo_comment  memo
+                    WHERE 1=1
+                    AND memo.delete_flag='N'
+                    AND memo_room_id = room.memo_room_id
+                  ) AS commentCount
+
+				 ,IF((SELECT create_date
+					  FROM bs_memo_comment
+				  	  WHERE delete_flag='N'
+				  	  AND memo_room_id = room.memo_room_id
+				  	  ORDER BY create_date ASC LIMIT 1
+
+				  	  ) &lt;=
+				  	  (last_read_date)
+				  	  ,'Y','N'
+				  )AS firstRead									 						<!-- 첫글 확인 여부 -->
+
+				  ,topUser.name 				AS entryTopName							<!-- 참가자 대표 아이디 -->
+				  ,topUser.org_id 				AS topOrgId								<!-- 참가자 대표 org아이디 -->
+			      ,company.cpn_nm 				AS topCompanyNm							<!-- 참가자 대표 관계사명 -->
+				  , IF(
+						(
+							SELECT
+								COUNT(1)
+							FROM
+								bs_memo_comment memo
+							WHERE
+								DATE_FORMAT(memo.create_date, '%Y-%m-%d') = DATE_FORMAT(NOW(), '%Y-%m-%d')
+		                        AND memo.delete_flag = 'N'
+		                        AND memo_room_id = room.memo_room_id
+						)
+                		OR DATE_FORMAT(room.create_date, '%Y-%m-%d') = DATE_FORMAT(NOW(), '%Y-%m-%d')
+               			OR DATE_FORMAT(room.view_date, '%Y-%m-%d') = DATE_FORMAT(NOW(), '%Y-%m-%d'), 'Y', 'N'
+               		) AS newYn,
+               entry.MEMO_FIXED_YN AS memoFixedYn
+
+			 FROM BS_MEMO_ROOM						AS room
+			 LEFT OUTER JOIN bs_memo_room_entry		AS entry 	ON 	room.memo_room_id = entry.memo_room_id
+			 LEFT OUTER JOIN bs_memo_comment		AS comment 	ON 	comment.memo_room_id = room.memo_room_id
+			 LEFT OUTER JOIN bs_user_master 		AS user 	ON  user.user_id = room.created_by
+			 LEFT OUTER JOIN bs_user_master 		AS topUser 	ON
+			 	topUser.user_id =
+			 		(SELECT entry_user_id
+			 		 FROM bs_memo_room_entry entry
+			 		 WHERE memo_room_id = room.memo_room_id
+			 		 AND entry_user_id != #userId#
+			 		 ORDER BY create_date ASC LIMIT 1)
+
+			 LEFT OUTER JOIN BS_ORG AS org ON org.org_id = topUser.org_id
+			 LEFT OUTER JOIN IB_COMPANY AS company ON org.company_snb = company.s_nb
+
+			 WHERE 1=1
+			 <isNotEmpty property="commentType">  /* 마지막업데이트 정보조회인경우 이전 VIEW_DATE 는 조회하지않음 */
+			     AND room.VIEW_DATE <![CDATA[<]]>  room.COMMENT_UPDATE_DATE
+			  </isNotEmpty>
+
+			 <isEqual prepend="AND"  property="secretYn" compareValue="Y">        /* 조회자 본인 */
+                    entry.entry_user_id = #userId#
+             </isEqual>
+             <isEqual prepend="AND"  property="secretYn" compareValue="N">        /* 조회자 본인아님 */
+                 CASE WHEN room_type = 'S' THEN entry.entry_user_id = #userId# AND
+								                         EXISTS (
+								                            SELECT 1
+								                             FROM bs_memo_room_entry N
+								                             WHERE N.memo_room_id = room.memo_room_id
+								                             AND N.entry_user_id = #loginUserId#
+								                           )
+                        ELSE entry.entry_user_id = #userId#
+                 END
+             </isEqual>
+             <isEqual prepend="AND"  property="secretYn" compareValue="A">        /* 메인에서전체보기 */
+                 CASE WHEN room_type = 'S' THEN entry.entry_user_id = #userId#
+                        WHEN #deptBossLevelYn# = 'Y' THEN 1=1
+                        ELSE 1=2
+                 END
+                 AND   topUser.org_id = #applyOrgId#
+             </isEqual>
+
+			 <isNotEmpty prepend="AND" property="memoRoomId">
+					memo_room_id = #memoRoomId#
+	         </isNotEmpty>
+
+			 <isEqual property="searchActionType" compareValue="KEYWORD"><!-- 검색실행타입 -->
+	             <isNotEmpty property="searchStartDate">                   <!-- 검색기간 -->
+	                <isEmpty property="commentType">
+                        AND DATE_FORMAT(view_date,'%Y-%m-%d') BETWEEN #searchStartDate# AND #searchEndDate#
+                    </isEmpty>
+                    <isNotEmpty property="commentType">
+                        AND DATE_FORMAT(COMMENT_UPDATE_DATE,'%Y-%m-%d') BETWEEN #searchStartDate# AND #searchEndDate#
+                    </isNotEmpty>
+	             </isNotEmpty>
+	             <isNotEmpty property="searchKeyword">                   <!-- 검색어 -->
+	                 AND  EXISTS (SELECT 1 FROM bs_memo_comment X WHERE X.MEMO_ROOM_ID = ROOM.MEMO_ROOM_ID AND X.COMMENT LIKE CONCAT('%', #searchKeyword# , '%'))
+	             </isNotEmpty>
+	         </isEqual>
+	         <isEqual property="searchActionType" compareValue="MONTH">
+	             <isNotEmpty property="selectMonth">                 <!-- 선택 월 -->
+	                <isEmpty property="commentType">
+                        AND DATE_FORMAT(view_date,'%Y-%m') = #selectMonth#
+                    </isEmpty>
+                    <isNotEmpty property="commentType">
+                        AND DATE_FORMAT(COMMENT_UPDATE_DATE,'%Y-%m') = #selectMonth#
+                    </isNotEmpty>
+	             </isNotEmpty>
+	             <isNotEmpty property="selectDate">                   <!-- 선택 날짜 -->
+	                <isEmpty property="commentType">
+                        AND DATE_FORMAT(view_date,'%Y-%m-%d') = #selectDate#
+                    </isEmpty>
+                    <isNotEmpty property="commentType">
+                        AND DATE_FORMAT(COMMENT_UPDATE_DATE,'%Y-%m-%d') = #selectDate#
+                    </isNotEmpty>
+	             </isNotEmpty>
+	         </isEqual>
+
+			 <isEqual  property="pastYn" compareValue="Y">			<!-- 이전 데이터에서 -->
+			        <isEmpty property="commentType">
+                        AND DATE_FORMAT(view_date,'%Y-%m-%d') &lt; DATE_FORMAT(NOW(),'%Y-%m-%d')
+                    </isEmpty>
+                    <isNotEmpty property="commentType">
+                        AND DATE_FORMAT(COMMENT_UPDATE_DATE,'%Y-%m-%d') &lt; DATE_FORMAT(NOW(),'%Y-%m-%d')
+                    </isNotEmpty>
+	         </isEqual>
+	         <isEqual  property="pastYn" compareValue="T">         <!-- 이전 날짜중 읽지 않은(오늘포함) :메인용(2017.10.11 by inhee)-->
+	             AND DATE_FORMAT(view_date,'%Y-%m-%d') &lt;= DATE_FORMAT(NOW(),'%Y-%m-%d')
+	         </isEqual>
+	         GROUP BY room.memo_room_id
+
+	         ORDER BY
+	         	CASE WHEN room.created_by != #userId# AND firstRead ='N' 		THEN 1		<!-- 수신이면서 내가 첫글 확인 안함(수신) -->
+	         		 WHEN room.created_by = #userId#  AND realEntryCnt &gt; 0 	THEN 2		<!-- 발신 -->
+	         		 WHEN room.created_by != #userId# AND firstRead ='Y' 		THEN 3		<!-- 수신이면서 내가 첫글 확인 함(확인) -->
+					 ELSE 4 END  ASC , important DESC , room.create_date DESC
+
+		) AS A
+
+		WHERE 1=1
+		<isNotEmpty property="main">								<!-- 메인여부-->
+		    <isNotEqual  property="secretYn" compareValue="A">        /* 메인에서 전체보기가 아닌경우만 */
+		        AND (A.noReadCount &gt; 0  OR A.firstRead = 'N'  OR A.memoFixedYn = 'Y')    <!-- OR  (A.realEntryCnt = 0 AND A.viewDate = #memoDate#) -->
+		    </isNotEqual>
+	    </isNotEmpty>
+
+		<isEqual property="searchActionType" compareValue="KEYWORD"><!-- 검색실행타입 -->
+            ORDER BY A.viewDate ASC
+        </isEqual>
+        <isEqual property="searchActionType" compareValue="MONTH">
+            ORDER BY A.viewDate DESC
+        </isEqual>
+        <isNotEmpty property="main">                                <!-- 메인여부-->
+            <isEqual property="secretYn" compareValue="A">        /* 메인에서전체보기 */
+                LIMIT 100
+            </isEqual>
+        </isNotEmpty>
+	</select>
+
+
+	<!-- 일정 완료 처리 변경 -->
+	<update id="workDaily.updateScheduleStts">
+	    /* workDaily.updateScheduleStts */
+		UPDATE ERP_SCHEDULE
+		   SET SCHE_CHK_FLAG = #sttsCd#
+		   	 , SCHE_CHK_DATE = NOW()
+
+		 WHERE REG_PER_SABUN = #empNo#
+		   AND SCHE_SEQ = #scheSeq#
+	</update>
+
+
+	<!-- 업무일지 메인 left Count 표시 -->
+	<select id="workDaily.getWorkDailyLeftCount" parameterClass="HashMap" resultClass="Integer">
+        /* workDaily.getWorkDailyLeftCount */
+		SELECT sum(total.CNT)
+
+		FROM (
+				SELECT COUNT(DISTINCT list.list_id) AS CNT 								<!-- 업무일지 카운트 -->
+
+				FROM bs_work_list	AS list
+				LEFT OUTER JOIN bs_team_list	AS team ON list.list_id = team.list_id
+
+				WHERE 1=1
+				AND	(list.emp_id = #userId# OR team.emp_id = #userId#)
+
+				AND (
+					 CASE WHEN list.work_type = 'TEAM' THEN
+					  DATE_FORMAT(work_date,'%Y-%m-%d') =DATE_FORMAT(now(),'%Y-%m-%d')
+					  OR (DATE_FORMAT(list.complete_date,'%Y-%m-%d') &lt; DATE_FORMAT(now(),'%Y-%m-%d') AND DATE_FORMAT(list.work_date,'%Y-%m-%d') &lt;= DATE_FORMAT(now(),'%Y-%m-%d'))
+					 ELSE  DATE_FORMAT(work_date,'%Y-%m-%d') =DATE_FORMAT(now(),'%Y-%m-%d')	END
+				)
+
+				AND list.COMPLETE ='N'
+
+				AND IF( EXISTS (
+							SELECT 1 FROM bs_team_list
+							WHERE emp_id = #userId#
+							AND list.list_id = list_id
+							),	 team.complete ='N',1=1)
+
+				UNION ALL
+
+				SELECT COUNT(*) AS CNT 													<!-- 일정 카운트 -->
+
+				FROM erp_schedule AS sche
+				LEFT OUTER JOIN erp_schedule_entry AS entry ON sche.sche_seq = entry.sche_seq
+
+				WHERE entry.per_sabun = #empNo# AND entry.del_flag ='N' AND sche.del_flag ='N'
+				AND DATE_FORMAT(now(),'%Y-%m-%d') BETWEEN sche.sche_s_date AND sche.sche_e_date
+				AND sche.sche_chk_flag = 'N'
+
+			)AS TOTAL
+
+	</select>
+
+	<!-- 메모 메인 left Count 표시 -->
+	<select id="workDaily.getMemoLeftCount" parameterClass="HashMap" resultClass="Integer">
+        /* workDaily.getMemoLeftCount */
+		SELECT COUNT(DISTINCT room.memo_room_id)
+
+		FROM BS_MEMO_ROOM						AS room
+		LEFT OUTER JOIN bs_memo_room_entry		AS entry 	ON 	room.memo_room_id = entry.memo_room_id
+
+		WHERE 1=1
+
+		AND entry.entry_user_id = #userId#
+		AND DATE_FORMAT(view_date,'%Y-%m-%d') = DATE_FORMAT(now(),'%Y-%m-%d')
+		AND room.created_by != #userId# 			<!-- 수신만 카운트 -->
+		AND (SELECT create_date
+				  FROM bs_memo_comment
+			  	  WHERE delete_flag='N'
+			  	  AND memo_room_id = room.memo_room_id
+			  	  ORDER BY create_date ASC LIMIT 1
+
+			  ) &gt;= last_read_date
+
+	</select>
+
+	<!-- 현재 방에 안읽은 사람 수 -->
+	<select id="workDaily.getMemoReadCount" parameterClass="HashMap" resultClass="Integer">
+        /* workDaily.getMemoReadCount */
+		SELECT COUNT(*)
+
+		FROM bs_memo_room_entry					AS entry
+
+		WHERE last_read_date &gt;
+
+			(SELECT create_date
+		 	 FROM bs_memo_comment
+		 	 WHERE delete_flag ='N' AND memo_room_id = #memoRoomId# ORDER BY create_date ASC LIMIT 1)
+
+		AND entry.memo_room_id = #memoRoomId#
+		AND entry.delete_flag ='N' AND entry.entry_user_id !=#userId#
+
+	</select>
+
+	<!-- 메인화면 로그인 유저 프로젝트 종료예정 팝업 -->
+    <select id = "project.getProjectEndList" parameterClass = "HashMap" resultClass = "egovMap">
+        /* workDaily.getProjectEndList */
+        SELECT  DISTINCT
+                A.PROJECT_ID
+               ,B.ACTIVITY_ID
+               ,A.NAME                  AS PROJECT_NM
+               ,B.NAME                  AS ACTIVITY_NM
+               ,DATE_FORMAT(A.START_DATE,'%Y/%m/%d') AS START_DATE
+               ,DATE_FORMAT(IF(A.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, A.END_DATE, A.CLOSE_DATE),'%Y/%m/%d') AS LAST_DATE
+               ,DATE_FORMAT(A.START_DATE,'%Y/%m/%d') AS CREATE_DATE
+               ,DATE_FORMAT(B.END_DATE,'%Y/%m/%d') AS ACTIVITY_END_DATE
+               ,W.TITLE AS TITLE
+               ,DATE_FORMAT(W.WORK_DATE,'%Y/%m/%d') AS WORK_DATE
+        FROM  BS_WORK_LIST     W
+               ,BS_PROJECT       A
+               ,BS_ACTIVITY      B
+        WHERE   1=1
+        AND     W.PROJECT_ID = A.PROJECT_ID
+        AND     W.ACTIVITY_ID = B.ACTIVITY_ID
+        AND     A.PROJECT_ID    = B.PROJECT_ID
+        AND     A.CONFIRM       = 'Y'
+        AND     A.ORG_ID        = #orgId#
+        AND     A.ENABLE        = 'Y'
+        AND     B.ENABLE        = 'Y'
+        AND     IF(A.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, A.END_DATE, A.CLOSE_DATE) BETWEEN DATE(NOW()) AND DATE_ADD(DATE(NOW()), INTERVAL 6 DAY)
+        AND     W.EMP_ID = #userId#
+        AND     W.COMPLETE = 'N'
+        ORDER BY B.END_DATE ASC, W.WORK_DATE ASC
+        /* project.getProjectEndList */
+    </select>
+
+    <!-- 업무일지내용 등록 -->
+    <insert id="workDaily.insertWorkMemo" parameterClass="HashMap">
+        /* workDaily.insertWorkMemo */
+        INSERT INTO BS_WORK_MEMO
+                  (
+                        LIST_ID
+						,MEMO
+						,CREATED_BY
+						,CREATE_DATE
+						,UPDATED_BY
+						,UPDATE_DATE
+
+        ) VALUES (
+                        #listId#
+                        ,#memo#
+                        ,#userId#
+                        ,now()
+                        ,#userId#
+                        ,now()
+                    )
+        <selectKey keyProperty="WORK_MEMO_ID" resultClass="String">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+
+    <!-- 팀할당 업무일지내용 등록 -->
+    <insert id="workDaily.insertTeamWorkMemo" parameterClass="HashMap">
+        /* workDaily.insertTeamWorkMemo */
+        INSERT INTO BS_TEAM_WORK_MEMO
+                  (
+                        TEAM_LIST_ID
+						,USER_ID
+						,MEMO
+						,CREATED_BY
+						,CREATE_DATE
+						,UPDATED_BY
+						,UPDATE_DATE
+        ) VALUES (
+                        #teamListId#
+                        ,#userId#
+                        ,#memo#
+                        ,#userId#
+                        ,now()
+                        ,#userId#
+                        ,now()
+                    )
+       <selectKey keyProperty="TEAM_WORK_MEMO_ID" resultClass="String">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+
+    <!-- 업무일지 수정 -->
+    <update id="workDaily.updateWorkMemoForPrivate">
+        /* workDaily.updateWorkMemoForPrivate */
+        UPDATE BS_WORK_MEMO
+        SET
+              memo          =  #memo#
+            , update_date   =  now()
+            , updated_by    =  #userId#
+        WHERE list_id  =  #listId#
+    </update>
+
+    <!-- 업무일지내용 삭제 -->
+    <delete id="workDaily.deleteWorkMemo" parameterClass="HashMap">
+        /* workDaily.deleteWorkMemo */
+        DELETE FROM BS_WORK_MEMO
+        WHERE LIST_ID = #listId#
+    </delete>
+
+    <!-- 팀할당 업무일지내용 삭제 -->
+    <delete id="workDaily.deleteTeamWorkMemo" parameterClass="HashMap">
+        /* workDaily.deleteTeamWorkMemo */
+        DELETE FROM BS_TEAM_WORK_MEMO
+        WHERE TEAM_LIST_ID IN
+                    (SELECT DISTINCT TEAM_LIST_ID
+					FROM BS_TEAM_LIST
+					WHERE LIST_ID = #listId#)
+    </delete>
+
+    <!-- 업무일지내용 리스트 -->
+    <select id="workDaily.getWorkMemoList" parameterClass="HashMap" resultClass="HashMap">
+        /* workDaily.getWorkMemoList */
+        SELECT
+             A.WORK_MEMO_ID AS workMemoId
+            ,A.LIST_ID AS listId
+            ,A.MEMO AS memo
+            ,A.CREATED_BY AS createdBy
+            ,DATE_FORMAT(A.CREATE_DATE, '%Y/%m/%d')  AS createDate
+            ,A.UPDATED_BY AS updatedBy
+            ,DATE_FORMAT(A.UPDATE_DATE, '%Y/%m/%d')  AS updateDate
+            ,B.NAME AS userName
+            ,(SELECT G.VALUE_MEAN_KOR
+                          FROM BS_CODE_GV G
+                         WHERE G.CODE_NAME = 'RANK'
+                           AND G.CODE_VALUE = B.RANK
+                           AND G.ORG_ID = B.ORG_ID) AS rankNm
+            ,G.KOR_NAME AS deptNm
+            ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = E.COMPANY_SNB) AS orgNm
+            ,E.ORG_ID AS orgId
+            ,IFNULL((SELECT GROUP_CONCAT(CONCAT(file_seq,'|',file_size,'|',org_file_nm) SEPARATOR ':')
+		            FROM bs_file_list
+		            WHERE delete_flag = 'N'
+		        AND upload_id = A.WORK_MEMO_ID
+		        AND upload_type = 'WORK_MEMO'
+		        GROUP BY upload_id),'') AS fileNameStr
+        FROM BS_WORK_MEMO A
+            LEFT JOIN BS_WORK_LIST K ON A.LIST_ID = K.LIST_ID
+            LEFT JOIN BS_USER_MASTER B ON B.USER_ID = K.EMP_ID
+            LEFT JOIN BS_ORG    E   ON B.ORG_ID = E.ORG_ID
+            LEFT JOIN BS_USER_DEPARTMENT    D   ON B.USER_ID = D.USER_ID
+            LEFT JOIN BS_DEPARTMENT       G   ON G.DEPT_ID = D.DEPT_ID
+        WHERE 1=1
+        AND A.LIST_ID = #listId#
+        AND B.DELETE_FLAG = 'N'
+        AND D.DELETE_FLAG = 'N'
+        AND D.ENABLE = 'Y'
+        AND D.MAIN_YN = 'Y'
+    </select>
+
+    <!-- 팀할당 업무일지내용 리스트 -->
+    <select id="workDaily.getTeamWorkMemoList" parameterClass="HashMap" resultClass="HashMap">
+        /* workDaily.getTeamWorkMemoList */
+        SELECT
+		     A.TEAM_WORK_MEMO_ID AS teamWorkMemoId
+		    ,A.TEAM_LIST_ID AS teamListId
+		    ,A.USER_ID AS userId
+		    ,A.MEMO AS memo
+		    ,A.CREATED_BY AS createdBy
+		    ,DATE_FORMAT(A.CREATE_DATE, '%Y/%m/%d %H:%i:%s')  AS createDate
+		    ,A.UPDATED_BY AS updatedBy
+		    ,DATE_FORMAT(A.UPDATE_DATE, '%Y/%m/%d %H:%i:%s')  AS updateDate
+		    ,B.NAME AS userName
+		    ,(SELECT G.VALUE_MEAN_KOR
+		                  FROM BS_CODE_GV G
+		                 WHERE G.CODE_NAME = 'RANK'
+		                   AND G.CODE_VALUE = B.RANK
+		                   AND G.ORG_ID = B.ORG_ID) AS rankNm
+		    ,G.KOR_NAME AS deptNm
+		    ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = E.COMPANY_SNB) AS orgNm
+		    ,E.ORG_ID AS orgId
+		    ,T.EMP_ID AS empId
+		    ,IFNULL((SELECT GROUP_CONCAT(CONCAT(file_seq,'|',file_size,'|',org_file_nm) SEPARATOR ':')
+                    FROM bs_file_list
+                    WHERE delete_flag = 'N'
+                AND upload_id = A.TEAM_WORK_MEMO_ID
+                AND upload_type = 'TEAM_WORK_MEMO'
+                GROUP BY upload_id),'') AS fileNameStr
+		FROM BS_TEAM_WORK_MEMO A
+		    LEFT JOIN BS_TEAM_LIST T ON A.TEAM_LIST_ID = T.TEAM_LIST_ID
+		    LEFT JOIN BS_USER_MASTER B ON A.USER_ID = B.USER_ID
+		    LEFT JOIN BS_ORG    E   ON B.ORG_ID = E.ORG_ID
+		    LEFT JOIN BS_USER_DEPARTMENT    D   ON B.USER_ID = D.USER_ID
+		    LEFT JOIN BS_DEPARTMENT       G   ON G.DEPT_ID = D.DEPT_ID
+		WHERE 1=1
+		AND T.LIST_ID = #listId#
+		AND B.DELETE_FLAG = 'N'
+        AND D.DELETE_FLAG = 'N'
+        AND D.ENABLE = 'Y'
+        AND D.MAIN_YN = 'Y'
+    </select>
+
+    <!-- 현재 방에 안읽은 사람 수 -->
+    <select id="workDaily.getUserIdOfAdmin" parameterClass="HashMap" resultClass="Integer">
+        /* workDaily.getUserIdOfAdmin */
+        SELECT USER_ID
+        FROM BS_USER_MASTER
+        WHERE LOGIN_ID = 'admin'
+        LIMIT 1
+    </select>
+
+	<!-- 복사 -->
+	<insert id="workDaily.copyWorkDaily" parameterClass="HashMap">
+	    /* workDaily.copyWorkDaily */
+		INSERT INTO BS_WORK_LIST
+				  (
+				  	    project_id
+				  	  , activity_id
+					  ,	emp_id
+					  , title
+					  , important
+					  , work_date
+					  , progress
+					  , work_type
+
+					  , complete
+					  , complete_date
+					  , reader_type
+
+					  , created_by
+					  , create_date
+					  , updated_by
+					  , update_date
+
+		)
+		SELECT  PROJECT_ID
+			   ,ACTIVITY_ID
+			   ,EMP_ID
+			   ,TITLE
+			   ,IMPORTANT
+			   ,#targetDt#
+			   ,PROGRESS
+			   ,WORK_TYPE
+			   ,COMPLETE
+			   ,COMPLETE_DATE
+			   ,READER_TYPE
+			   , #userId#
+		 	   , now()
+		 	   , #userId#
+		 	   , now()
+		 FROM BS_WORK_LIST
+		WHERE LIST_ID = #listId#
+		<selectKey keyProperty="newListId" resultClass="String">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+
+	<!-- 복사 -->
+    <insert id="workDaily.copyWorkMemo" parameterClass="HashMap">
+        /* workDaily.copyWorkMemo */
+        INSERT INTO BS_WORK_MEMO
+                  (
+                        LIST_ID
+						,MEMO
+						,CREATED_BY
+						,CREATE_DATE
+						,UPDATED_BY
+						,UPDATE_DATE
+
+        )
+         SELECT         #newListId#
+                        ,MEMO
+                        ,#userId#
+                        ,now()
+                        ,#userId#
+                        ,now()
+          FROM BS_WORK_MEMO
+         WHERE LIST_ID = #listId#
+        <selectKey keyProperty="newMemoId" resultClass="String">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+    </insert>
+
+    <!-- 복사 -->
+    <insert id="workDaily.copyWorkReader" parameterClass="HashMap">
+        /* workDaily.copyWorkReader */
+        INSERT INTO BS_WORK_READER
+                  (
+                        LIST_ID
+                      , ORG_ID
+                      , DEPT_ID
+                      , USER_ID
+        )
+        SELECT  #newListId#
+               ,ORG_ID
+               ,DEPT_ID
+               ,USER_ID
+         FROM BS_WORK_READER
+        WHERE LIST_ID = #listId#
+        <selectKey keyProperty="workReaderId" resultClass="String">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+
+    <!-- 이동 -->
+	<update id="workDaily.moveDailyWork" parameterClass="HashMap">
+	    /* workDaily.moveDailyWork */
+		UPDATE BS_WORK_LIST
+		   SET WORK_DATE = #targetDt#
+		   	   ,UPDATED_BY = #userId#
+			   ,UPDATE_DATE = now()
+		 WHERE LIST_ID = #listId#
+	</update>
+
+	<!-- 업무일지읽기권한자 삭제 -->
+    <delete id="workDaily.deleteWorkReader">
+        /* workDaily.deleteWorkReader */
+        DELETE FROM BS_WORK_READER
+        WHERE LIST_ID = #listId#
+    </delete>
+
+    <!-- 업무일지읽기권한자  등록 -->
+    <insert id="workDaily.insertWorkReader">
+        /* workDaily.insertWorkReader */
+        INSERT INTO BS_WORK_READER (
+                     LIST_ID
+                    ,ORG_ID
+                    ,DEPT_ID
+                    ,USER_ID
+                )VALUES(
+                     #listId#
+                    ,#orgId#
+                    ,#readerDeptId#
+                    ,#readerUserId#
+                )
+        <selectKey resultClass="String" keyProperty="workReaderId">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+
+    <!-- 업무일지읽기권한자 목록-->
+    <select id="workDaily.getWorkReaderList" parameterClass="HashMap" resultClass="HashMap">
+        /* workDaily.getWorkReaderList */
+        SELECT
+            WORK_READER_ID  as workReaderId,
+            LIST_ID  as listId ,
+            ORG_ID  as orgId,
+            DEPT_ID  as deptId ,
+            USER_ID as userId,
+            (SELECT U.NAME FROM BS_USER_MASTER U WHERE U.USER_ID = A.USER_ID) as userNm,
+            (SELECT U.KOR_NAME FROM BS_DEPARTMENT U WHERE U.DEPT_ID = A.DEPT_ID) as deptNm
+        FROM BS_WORK_READER A
+        WHERE 1=1
+        <isNotEmpty prepend="AND" property="listId">
+            LIST_ID=#listId#
+        </isNotEmpty>
+         ORDER BY DEPT_ID ASC, USER_ID ASC
+    </select>
+
+    <!-- 업무일지 메인 리스트 -->
+    <select id="workDaily.workDailyListByMain" parameterClass="HashMap" resultClass="HashMap">
+        /* workDaily.workDailyListByMain */
+        SELECT
+               LIST_ID                          AS listId
+              ,EMP_ID                           AS empId
+              ,(SELECT NAME FROM BS_USER_MASTER K WHERE LIST.EMP_ID = K.USER_ID) AS empNm
+              ,TITLE                            AS title
+              ,'TEMP'                               AS memo
+              ,IMPORTANT                        AS important
+              ,WORK_TYPE                        AS workType
+              ,PROGRESS                         AS progress
+              ,COMPLETE                         AS complete
+
+              ,LIST.CREATED_BY                      AS createdBy
+              ,LIST.CREATE_DATE                     AS createDate
+              ,DATE_FORMAT(WORK_DATE,'%Y-%m-%d') AS workDate
+              ,DATE_FORMAT(WORK_DATE,'%Y.%m') AS workMonth
+              ,DATE_FORMAT(WORK_DATE,'%d') AS workDay
+              ,(CASE DAYOFWEEK(WORK_DATE)
+                  WHEN '1' THEN '일'
+                  WHEN '2' THEN '월'
+                  WHEN '3' THEN '화'
+                  WHEN '4' THEN '수'
+                  WHEN '5' THEN '목'
+                  WHEN '6' THEN '금'
+                  WHEN '7' THEN '토'
+              END) AS workDateWeek
+
+              ,'NOW'                            AS dailyType
+
+              ,DATE_FORMAT(WORK_DATE,'%Y-%m-%d')        AS orgWorkDate
+              ,DATE_FORMAT(COMPLETE_DATE,'%Y-%m-%d')    AS completeDate
+
+              ,CASE WHEN LIST.COMPLETE = 'Y' THEN '완료'
+                ELSE
+                    (SELECT VALUE_MEAN_KOR
+                     FROM BS_CODE_GV
+                     WHERE CODE_NAME = 'WORKDAILY_PROGRESS'
+                     AND CODE_VALUE= list.progress AND org_id = (SELECT ORG_ID FROM BS_USER_MASTER WHERE USER_ID = list.created_by))
+                END AS progressTxt
+
+              , '0' AS workDayCount
+
+              ,DATE_FORMAT(AT.START_DATE,'%Y%m%d') AS startDate     /*액티비티 시작일*/
+              ,DATE_FORMAT(AT.END_DATE,'%Y%m%d') AS endDate         /*액티비티 종료일*/
+              ,AT.NAME                           AS activityName    /*액티비티 이름*/
+              ,P.NAME                            AS projectName     /*프로젝트 이름*/
+              ,DATE_FORMAT(P.CLOSE_DATE,'%Y%m%d') AS closeDate      /*프로젝트 마감일*/
+              ,P.PENDING_FLAG                     AS pendingFlag    /*프로젝트 보류여부*/
+              ,P.STOP_FLAG                    AS stopFlag   /*프로젝트 중단여부*/
+              ,LIST.READER_TYPE  AS readerType  /* 읽기권한자유형 */
+
+         FROM BS_WORK_LIST  AS LIST
+             LEFT JOIN BS_PROJECT P ON list.PROJECT_ID = P.PROJECT_ID
+             LEFT JOIN BS_ACTIVITY AT ON list.ACTIVITY_ID = AT.ACTIVITY_ID
+         WHERE 1=1
+
+         <isEqual property="secretYn" compareValue="Y">        /* 메인에서 개인보기 */
+            <isEqual property="teamYn" compareValue="N">  /* 개인업무 */
+	            AND emp_id = #userId# AND work_type != 'TEAM'
+	        </isEqual>
+	        <isEqual property="teamYn" compareValue="Y">  /* 팀업무 */
+	            AND (emp_id = #userId# OR EXISTS (
+	                                                SELECT 1 FROM bs_team_list
+	                                                WHERE emp_id = #userId#
+	                                                AND list.list_id = list_id
+	                                            ))
+	                 AND work_type = 'TEAM'
+	        </isEqual>
+         </isEqual>
+         <isEqual property="secretYn" compareValue="A">        /* 메인에서전체보기 */
+            AND (
+                    CASE WHEN #deptBossLevelYn# = 'Y' THEN 1=1  <!-- 부서가 회장, 그룹대표, 대표인 경우 조회가능 -->
+                           WHEN list.READER_TYPE = 'ALL' THEN 1=1  <!-- 읽기권한 전체이면 조회가능 -->
+                           WHEN list.READER_TYPE = 'NONE' AND list.WORK_TYPE = 'PRIVATE' THEN list.EMP_ID = #sessionUserId#  <!-- 읽기권한 설정하지 않음, 개인업무 등록자만 열람가능 -->
+                           WHEN list.READER_TYPE = 'NONE' AND list.WORK_TYPE = 'TEAM' THEN
+                                           (list.EMP_ID = #sessionUserId# OR EXISTS (
+                                                SELECT 1 FROM bs_team_list
+                                                WHERE emp_id = #sessionUserId#
+                                                AND list.list_id = list_id
+                                            ))
+                            WHEN list.READER_TYPE IN ('DEPT', 'USER') THEN  <!-- 열람권한 부서와 사용자인 경우 읽기권한 테이블 확인 -->
+                                          (list.EMP_ID = #sessionUserId# OR EXISTS (
+                                                SELECT 1 FROM BS_TEAM_LIST
+                                                WHERE emp_id = #sessionUserId#
+                                                AND list.list_id = list_id
+                                            ) OR IF((SELECT COUNT(*)
+                                                       FROM BS_WORK_READER X
+                                                      WHERE X.LIST_ID = list.LIST_ID
+                                                        AND (X.DEPT_ID = #sessionDeptId# OR X.USER_ID = #sessionUserId#)
+                                                    )>0,1=1,1=2)
+                                             )
+                            ELSE 1=2
+                        END)
+                AND P.ORG_ID = #applyOrgId#
+            <isEqual property="teamYn" compareValue="N">  /* 개인업무 */
+                AND work_type != 'TEAM'
+            </isEqual>
+            <isEqual property="teamYn" compareValue="Y">  /* 팀업무 */
+                AND work_type = 'TEAM'
+            </isEqual>
+         </isEqual>
+
+         AND DATE_FORMAT(work_date,'%Y-%m-%d') = #selectDate#
+         ORDER BY
+                CASE WHEN work_type = 'TEAM' THEN 1     <!-- 팀업무가 위로 그중 완료된게 아래료 -->
+                    ELSE 2 END  ASC, createDate DESC, important DESC
+    </select>
+
+    <!-- 메모 커멘트 수정/등록시 메모 방 COMMENT_UPDATE_DATE 수정 -->
+    <update id="workDaily.updateMemoRoomForComment">
+        /* workDaily.updateMemoRoomForComment  */
+            UPDATE BS_MEMO_ROOM
+            SET
+                 COMMENT_UPDATE_DATE  =  CURDATE()
+            WHERE memo_room_id  =  #memoRoomId#
+    </update>
+	<!-- (주간보고)선택한 유저의 기본 정보를 조회한다 -->
+	<select id="workDaily.getWorkWeekSelectUserList" parameterClass="HashMap" resultClass="egovMap">
+	    /*workDaily.getWorkWeekSelectUserList */
+	    SELECT A.* FROM (
+		    SELECT A.USER_ID
+		    	  ,A.EMP_NO
+		    	  ,(SELECT G.VALUE_MEAN_KOR
+			 		  FROM BS_CODE_GV G
+					  WHERE G.ORG_ID =  A.ORG_ID
+	                   AND  G.CODE_NAME = 'RANK'
+			  		   AND  G.CODE_VALUE = A.RANK) 									 AS RANK_NM  <!--직급-->
+			  	  ,(CASE WHEN (SELECT COUNT(1)
+	                                FROM BS_DEPT_MANAGER
+	                                WHERE USER_ID = A.USER_ID
+	                                AND DELETE_FLAG ='N'
+	                                AND ENABLE = 'Y') <![CDATA[>]]> 0 THEN 'Y'
+	                       ELSE 'N'
+	                END)															 AS DEPT_MNGR_YN  <!-- 부서장 여부-->
+	              ,(SELECT X.KOR_NAME
+	                  FROM BS_DEPARTMENT  X
+	                 WHERE X.DEPT_ID = B.DEPT_ID
+	                )  															 	 AS USER_DEPT_NM <!-- 부서이름-->
+	              ,B.DEPT_ID																		 <!-- 부서 SEQ -->
+	              ,A.NAME																			 <!-- 이름 -->
+		     FROM BS_USER_MASTER A
+		    INNER JOIN BS_USER_DEPARTMENT B ON A.USER_ID = B.USER_ID AND B.MAIN_YN = 'Y' AND B.ENABLE = 'Y' AND B.DELETE_FLAG = 'N'
+		    WHERE A.EMP_NO IN (
+						<iterate property="userList" conjunction=",">
+								#userList[]#
+				        </iterate>
+				        )
+		) A INNER JOIN BS_DEPARTMENT			C	ON A.DEPT_ID = C.DEPT_ID
+
+		ORDER BY C.DEPT_LEVEL ,C.LEVEL_SEQ ASC, C.DEPT_SEQ ASC,A.DEPT_ID ASC,IF(A.DEPT_MNGR_YN = 'Y',0,1), A.NAME ASC
+	</select>
+
+	<!-- 주간보고 비고 등록 개수 -->
+	<select id="workDaily.getWorkWeekNoteCnt" parameterClass="HashMap" resultClass="Integer">
+	    /*workDaily.getWorkWeekSelectUserList*/
+		SELECT
+				COUNT(*)
+		  FROM BS_WORK_WEEK_NOTE A
+		 WHERE A.USER_ID = #userId#
+		   AND A.WORK_WEEK_TURN = #weekNum#
+		   AND WORK_WEEK_YEAR   = #year#
+	</select>
+
+	<!-- 주간보고 등록 -->
+	<insert id = "workDaily.insertWorkWeekNote" parameterClass="HashMap">
+	    /*workDaily.insertWorkWeekNote*/
+		INSERT
+				INTO BS_WORK_WEEK_NOTE (
+										 ORG_ID
+										,USER_ID
+										,WORK_WEEK_YEAR
+										,WORK_WEEK_TURN
+										,WEEK_START_DATE
+										,WEEK_END_DATE
+										,NOTE
+										,CREATED_BY
+										,CREATE_DATE
+										,UPDATED_BY
+										,UPDATE_DATE
+										) VALUES (
+													 #applyOrgId#
+													,#userId#
+													,#year#
+													,#weekNum#
+													,#startStr#
+													,#endStr#
+													,#note#
+													,#sessionUserId#
+													,NOW()
+													,#sessionUserId#
+													,NOW()
+													)
+	</insert>
+
+	<!-- 주간보고 수정 -->
+	<insert id = "workDaily.updateWorkWeekNote" parameterClass="HashMap">
+	    /*workDaily.updateWorkWeekNote*/
+		UPDATE
+				BS_WORK_WEEK_NOTE
+		   SET   NOTE             = #note#
+				,UPDATED_BY		  = #sessionUserId#
+				,UPDATE_DATE	  = NOW()
+		  WHERE USER_ID          = #userId#
+		    AND WORK_WEEK_TURN   = #weekNum#
+		    AND WORK_WEEK_YEAR   = #year#
+	</insert>
+
+	<!-- 주간보고 비고 조회 -->
+    <select id="workDaily.getWorkWeekNoteList" parameterClass="HashMap" resultClass="HashMap">
+        /*workDaily.getWorkWeekNoteList*/
+    	SELECT
+    			 A.WORK_WEEK_NOTE_ID   AS   workWeekNoteId
+    			,A.ORG_ID              AS   orgId
+				,A.USER_ID             AS   userId
+				,A.WORK_WEEK_YEAR      AS   workWeekYear
+				,A.WORK_WEEK_TURN      AS   workWeekTurn
+				,A.WEEK_START_DATE     AS   weekStartDate
+				,A.WEEK_END_DATE       AS   weekEndDate
+				,A.NOTE                AS   note
+				,A.CREATED_BY          AS   createdBy
+				,A.CREATE_DATE         AS   createDate
+				,A.UPDATED_BY          AS   updatedBy
+				,A.UPDATE_DATE         AS   updateDate
+		  FROM BS_WORK_WEEK_NOTE A
+		 WHERE A.USER_ID IN ( SELECT X.USER_ID
+		 						FROM BS_USER_MASTER X
+		 					   WHERE X.EMP_NO IN (
+													 <iterate property="userList" conjunction=",">
+													 	#userList[]#
+													 </iterate>
+												 )
+		 		)
+		    AND WORK_WEEK_TURN   = #weekNum#
+		    AND WORK_WEEK_YEAR   = #year#
+    </select>
+</sqlMap>

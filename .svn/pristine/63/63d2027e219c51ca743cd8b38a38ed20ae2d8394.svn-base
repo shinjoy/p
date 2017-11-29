@@ -1,0 +1,703 @@
+@charset "utf-8";
+
+@import url('http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css');
+
+.ui-datepicker-calendar > tbody td.ui-datepicker-week-end:first-child a { color:#f00; } 
+.ui-datepicker-calendar > tbody td.ui-datepicker-week-end:last-child a { color:#00f; }
+
+/* 고정타이틀 */
+.FixTable {
+	width:100%;
+	position:fixed;
+	z-index:10;
+	top:0px;
+	left:0px;
+}
+
+.ConTable {
+	position:overflow-y:scroll;
+	position:absolute;
+	width:100%;
+	height:$(document).height() - $('#TitleTable').height() + "px";
+}
+/* 고정타이틀 */
+
+/* 레이어 */
+#ViewDiv {
+	position:absolute;
+	margin-top:-300px; margin-left:-300px;
+	background:#ffffff;
+	text-align:left;
+	z-index:160;
+}
+
+#BackDiv {
+	position:absolute;
+	width:100%; height:100%;
+	background:#000000;
+	z-index:50;
+}
+/* 레이어 */
+
+.InBox {
+	background-color:#FFFFFF;
+	border: 0px;
+	text-align:right;
+}
+
+.OutBox {
+	background-color:#E7E7E7;
+	border: 0px;
+	text-align:right;
+}
+
+table {
+	border-collapse:collapse;	/*td공백시에도 선 유지*/
+}
+
+tr {
+	height:30px;
+}
+
+body {
+	font-family:맑은 고딕;
+	font-size:10pt;
+	margin:0px;
+	padding:0px;
+	
+	scrollbar-base-color: #C0C0C0;
+	scrollbar-base-color: #C0C0C0;
+	scrollbar-3dlight-color: #C0C0C0;
+	scrollbar-highlight-color: #C0C0C0;
+	scrollbar-track-color: #EBEBEB;
+	scrollbar-face-color:#c4ccd5;
+	scrollbar-arrow-color:#5c87bd;
+	scrollbar-shadow-color: #C0C0C0;
+	scrollbar-dark-shadow-color: #C0C0C0;
+}
+
+textarea {
+	ime-mode:active;
+	width:95%;
+	height:70px;
+	margin-top:5px;
+	margin-bottom:5px;
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+}
+ 
+::-webkit-scrollbar-track {
+    -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3); 
+    border-radius: 10px;
+}
+ 
+::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.9); 
+}
+
+form {
+	display:inline;
+}
+
+a:link {
+	font-size:9pt;
+	text-decoration:none;
+	color:darkblue;
+}
+
+a:visited {
+	text-decoration:none;
+	color:darkblue;
+}
+
+a:hover {
+	/*text-decoration:underline;*/
+	color:red;
+}
+
+a:active {
+	text-decoration:none;
+	color:red;
+}
+
+/*	프로세스 레이어		*/
+#prolayer {
+	position:absolute;
+	left:0px;
+	top:0px;
+	z-index:100;
+	-ms-filter:alpha(opacity=80);
+	filter:alpha(opacity=80);
+	opacity:0.8;
+	-moz-opacity:0.8;
+	background-color:#FFFFFF;
+}
+
+
+/*	박스	*/
+.box_bold {
+	border: 3px solid #4b85bf;
+}
+
+.input_box_s {
+	font-family:맑은 고딕;
+	font-size: 8pt; color: #oooooo;
+	border:1px #b5b8c8 solid;
+	background-image: url(/PASS/images/sp/CSS/input_text_bg.gif);
+	height:15pt;
+	width:50pt;
+}
+
+.input_box_s_focus {
+	font-family:맑은 고딕;
+	font-size: 8pt; color: #oooooo;
+	border:1px #b5b8c8 solid;
+	background-color:#D9FFFF;
+	height:15pt;
+	width:50pt;
+}
+
+.input_box {
+	font-family:맑은 고딕;
+	font-size: 8pt; color: #oooooo;
+	border:1px #b5b8c8 solid;
+	background-image: url(/PASS/images/sp/CSS/input_text_bg.gif);
+	height:15pt;
+}
+
+.input_box_focus {
+	font-family:맑은 고딕;
+	font-size: 8pt; color: #oooooo;
+	border:1px #b5b8c8 solid;
+	background-color:#D9FFFF;
+	height:15pt;
+	width:70pt;
+}
+
+.output_box {
+	font-family:맑은 고딕;
+	font-size: 8pt; color: #oooooo;
+	border:2px #FF0000 solid;
+	background-image: url(/PASS/images/sp/CSS/input_text_bg.gif);
+	height:15pt;
+}
+
+.output_box_focus {
+	font-family:맑은 고딕;
+	font-size: 8pt; color: #oooooo;
+	border:2px #FF0000 solid;
+	background-color:#D9FFFF;
+	height:15pt;
+}
+
+.close_box {
+	display:none;
+	/*font-size: 8pt; color: #oooooo;
+	background-color:#E7E7E7;
+	border:1px #b5b8c8 solid;
+	height:15pt;*/
+}
+
+.BaseHeight {
+	height:30px;
+}
+
+.Click {
+	cursor:pointer;
+}
+
+/*	텍스트	*/
+.Text_C {
+	text-align:center;
+}
+
+.Text_L {
+	text-align:left;
+	padding-left:5px;
+}
+
+.Text_R {
+	text-align:right;
+	padding-right:5px;
+}
+
+.Text_BL {
+	font-weight:bold;
+	text-align:left;
+	padding-left:5px;
+}
+
+.Text_BC {
+	font-weight:bold;
+	text-align:center;
+}
+
+.Text_BR {
+	font-weight:bold;
+	text-align:right;
+	padding-right:5px;
+}
+
+.Text_Cut {
+	overflow:hidden;
+	white-space:nowrap;
+	text-overflow:ellipsis;
+	word-break:break-all;
+}
+
+/* 탭대신 사용되는 서브테이블  */
+.subtable {
+	font-size: 9pt;  color: #496b9b;
+	border-collapse:collapse;	/*td공백시에도 선 유지*/
+	border-bottom: 1px solid #b4cef3;
+	border-left: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	background-color:#ffffff;
+}
+
+.subtable_noline {
+	border-collapse:collapse;	/*td공백시에도 선 유지*/
+	font-size: 9pt;  color: #496b9b;
+	background-color:#ffffff;
+}
+
+/*	input	*/
+.subtable .input_search, .subtable_noline .input_search {
+	color: #496b9b;
+	border-bottom: 1px solid #b4cef3;
+	background-color:#EEEEEE;
+}
+
+.subtable .input_noline, .subtable_noline .input_noline {
+	color: #333232;
+}
+
+.subtable .input_T, .subtable_noline .input_T {
+	color: #333232;
+	border-top: 1px solid #b4cef3;
+}
+
+.subtable .input_B, .subtable_noline .input_B {
+	color: #333232;
+	border-bottom: 1px solid #b4cef3;
+}
+
+.subtable .input_L, .subtable_noline .input_L {
+	color: #333232;
+	border-left: 1px solid #b4cef3;
+}
+
+.subtable .input_R, .subtable_noline .input_R {
+	color: #333232;
+	border-right: 1px solid #b4cef3;
+}
+
+.subtable .input_BR, .subtable_noline .input_BR {
+	color: #333232;
+	border-bottom: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+}
+
+.subtable .input_LB, .subtable_noline .input_LB {
+	color: #333232;
+	border-bottom: 1px solid #b4cef3;
+	border-left: 1px solid #b4cef3;
+}
+
+.subtable .input_LBR, .subtable_noline .input_LBR {
+	color: #333232;
+	border-bottom: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	border-left: 1px solid #b4cef3;
+}
+
+/*	title	*/
+.subtable .Title_noline, .subtable_noline .Title_noline {
+	font-weight:bold;
+	background-position: left bottom;
+	background-image: url(/PASS/images/sp/CSS/field_bg_blue.gif);
+}
+
+.subtable .Title_T, .subtable_noline .Title_T {
+	font-weight:bold;
+	border-top: 1px solid #b4cef3;
+	background-position: left bottom;
+	background-image: url(/PASS/images/sp/CSS/field_bg_blue.gif);
+}
+
+.subtable .Title_B, .subtable_noline .Title_B {
+	font-weight:bold;
+	border-bottom: 1px solid #b4cef3;
+	background-position: left bottom;
+	background-image: url(/PASS/images/sp/CSS/field_bg_blue.gif);
+}
+
+.subtable .Title_TB, .subtable_noline .Title_TB {
+	font-weight:bold;
+	border-bottom: 1px solid #b4cef3;
+	border-top: 1px solid #b4cef3;
+	background-position: left bottom;
+	background-image: url(/PASS/images/sp/CSS/field_bg_blue.gif);
+}
+
+.subtable .Title_LB, .subtable_noline .Title_LB {
+	font-weight:bold;
+	border-bottom: 1px solid #b4cef3;
+	border-left: 1px solid #b4cef3;
+	background-position: left bottom;
+	background-image: url(/PASS/images/sp/CSS/field_bg_blue.gif);
+}
+
+.subtable .Title_BR, .subtable_noline .Title_BR {
+	font-weight:bold;
+	border-bottom: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	background-position: left bottom;
+	background-image: url(/PASS/images/sp/CSS/field_bg_blue.gif);
+}
+
+.subtable .Title_TBR, .subtable_noline .Title_TBR {
+	font-weight:bold;
+	border-bottom: 1px solid #b4cef3;
+	border-top: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	background-position: left bottom;
+	background-image: url(/PASS/images/sp/CSS/field_bg_blue.gif);
+}
+
+.subtable .Title_LBR, .subtable_noline .Title_LBR {
+	font-weight:bold;
+	border-bottom: 1px solid #b4cef3;
+	border-left: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	background-position: left bottom;
+	background-image: url(/PASS/images/sp/CSS/field_bg_blue.gif);
+}
+
+.subtable .Title_orange, .subtable_noline .Title_orange {
+	font-weight:bold;
+	color: #fc5300;
+	border-bottom: 1px solid #b4cef3;
+	background-position: left bottom;
+	background-image: url(/PASS/images/sp/CSS/field_bg_blue.gif);
+}
+
+/*	desc	*/
+.subtable .desc_T, .subtable_noline .desc_T {
+	color: #000000;
+	border-top: 1px solid #b4cef3;
+	background-color:#f5f5f5;
+}
+
+.subtable .desc_B, .subtable_noline .desc_B {
+	color: #000000;
+	border-bottom: 1px solid #b4cef3;
+	background-color:#f5f5f5;
+}
+
+.subtable .desc_L, .subtable_noline .desc_L {
+	color: #000000;
+	border-left: 1px solid #b4cef3;
+	background-color:#f5f5f5;
+}
+
+.subtable .desc_R, .subtable_noline .desc_R {
+	color: #000000;
+	border-right: 1px solid #b4cef3;
+	background-color:#f5f5f5;
+}
+
+.subtable .desc_TR, .subtable_noline .desc_R {
+	color: #000000;
+	border-top: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	background-color:#f5f5f5;
+}
+
+.subtable .desc_TB, .subtable_noline .desc_TB {
+	color: #000000;
+	border-top: 1px solid #b4cef3;
+	border-bottom: 1px solid #b4cef3;
+	background-color:#f5f5f5;
+}
+
+.subtable .desc_BR, .subtable_noline .desc_BR {
+	color: #000000;
+	border-bottom: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	background-color:#f5f5f5;
+}
+
+.subtable .desc_LB, .subtable_noline .desc_LB {
+	color: #000000;
+	border-bottom: 1px solid #b4cef3;
+	border-left: 1px solid #b4cef3;
+	background-color:#f5f5f5;
+}
+
+.subtable .desc_LBR, .subtable_noline .desc_LBR {
+	color: #000000;
+	border-bottom: 1px solid #b4cef3;
+	border-left: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	background-color:#f5f5f5;
+}
+
+.subtable .desc_noline, .subtable_noline .desc_noline {
+	color: #000000;
+	background-color:#f5f5f5;
+}
+
+/*	버튼	*/
+.button, .button a, .button button, .button input {
+/*position : relative;*/
+margin : 0;
+display : inline-block;
+border : 0;
+white-space : nowrap;
+vertical-align : middle;
+overflow : visible;
+font-size: 8pt; color: #ffffff;
+border-radius:5px;
+}
+
+.button {
+height : 20px;
+padding : 0;
+margin-right : 2px;
+background-position : left top;
+}
+
+.button a, .button button, .button input {
+left : 2px;
+cursor : pointer;
+}
+
+.button a, .button button, .button input {
+height : 20px;
+padding : 0 8px 0 8px;
+line-height : 20px;
+background-position : right top;
+}
+
+.button *:hover, .button *:active, .button *:focus {
+color : red;
+}
+
+.button a {
+padding : 0 10px 0 10px;
+}
+
+.btn_Blue, .btn_Blue a, .btn_Blue button, .btn_Blue input {
+background-image: url(/PASS/images/sp/CSS/button_blue.gif);
+}
+
+.btn_Orange, .btn_Orange a, .btn_Orange button, .btn_Orange input {
+background-image: url(/PASS/images/sp/CSS/button_orange.gif);
+}
+
+.btn_Gray, .btn_Gray a, .btn_Gray button, .btn_Gray input {
+background-image: url(/PASS/images/sp/CSS/button_gray.gif);
+font-weight:normal; color:#000000;
+}
+
+.btn_LightGray, .btn_LightGray a, .btn_LightGray button, .btn_LightGray input {
+background-image: url(/PASS/images/sp/CSS/button_lightgary.gif);
+font-weight:normal; color:#000000;
+}
+
+.btn_Violet, .btn_Violet a, .btn_Violet button, .btn_Violet input {
+background-image: url(/PASS/images/sp/CSS/button_violet.gif);
+}
+
+.btn_Green, .btn_Green a, .btn_Green button, .btn_Green input {
+background-image: url(/PASS/images/sp/CSS/button_green.gif);
+}
+
+.btn_Yellow, .btn_Yellow a, .btn_Yellow button, .btn_Yellow input {
+background-image: url(/PASS/images/sp/CSS/button_yellow.gif);
+}
+
+.btn_BlueGreen, .btn_BlueGreen a, .btn_BlueGreen button, .btn_BlueGreen input {
+background-image: url(/PASS/images/sp/CSS/button_bluegreen.gif);
+}
+
+/*	리스트	*/
+.form3 {
+	font-size: 9pt; color: #oooooo;
+	border-top:2px #31508b solid;
+	border-bottom:1px #31508b solid;
+	background-color:#ffffff;
+	border-collapse:collapse;	/*td공백시에도 선 유지*/
+}
+
+.form3_noline {
+	font-size: 9pt; color: #oooooo;
+	background-color:#ffffff;
+	border-collapse:collapse;	/*td공백시에도 선 유지*/
+}
+
+.form3 .Sum_Line, .form3_noline .Sum_Line {
+	background-color:#ffffff;
+	border-bottom:3px #31508b double;
+	border-right:1px #e5e5e5 solid;
+}
+
+.form3 .grid_title, .form3_noline .grid_title {
+	border-bottom:2px #31508b solid;
+	font-size: 9pt; color: #42679b;
+	text-align: center;
+	font-weight:bold;
+	background-image: url(/PASS/images/sp/CSS/form_title_bg.gif);
+	background-position: right bottom;
+	background-color:#e1eafb;
+}
+
+.form3 .grid_title_focus, .form3_noline .grid_title_focus {
+	border-bottom:2px #31508b solid;
+	font-size: 9pt; color: #42679b;
+	text-align: center;
+	font-weight:bold;
+	background-position: right bottom;
+	background-color:#D5E21D;
+}
+
+.form3 .grid_input_T, .form3_noline .grid_input_T {
+	font-size: 9pt; color: #000000;
+	border-top:1px #31508b solid;
+}
+
+.form3 .grid_input_B, .form3_noline .grid_input_B {
+	font-size: 9pt; color: #000000;
+	border-bottom:1px #31508b solid;
+}
+
+.form3 .grid_input_L, .form3_noline .grid_input_L {
+	font-size: 9pt; color: #000000;
+	border-left:1px #31508b solid;
+}
+
+.form3 .grid_input_R, .form3_noline .grid_input_R {
+	font-size: 9pt; color: #000000;
+	border-right:1px #31508b solid;
+}
+
+.form3 .grid_input_BR, .form3_noline .grid_input_BR {
+	font-size: 9pt; color: #000000;
+	border-bottom:1px #31508b solid;
+	border-right:1px #e5e5e5 solid;
+}
+
+.form3 .grid_input_LB, .form3_noline .grid_input_LB {
+	font-size: 9pt; color: #000000;
+	border-bottom:1px #31508b solid;
+	border-left:1px #e5e5e5 solid;
+}
+
+.form3 .grid_input_LBR, .form3_noline .grid_input_LBR {
+	font-size: 9pt; color: #000000;
+	border-bottom:1px #31508b solid;
+	border-right:1px #e5e5e5 solid;
+	border-left:1px #e5e5e5 solid;
+}
+
+/*	레포트	*/
+.subtable_Rep {
+	font-size: 9pt;  color: #496b9b;
+	text-align:center;
+	border-top: 1px solid #000000;
+	border-left: 1px solid #000000;
+	border-right: 1px solid #000000;
+	background-color:#ffffff;
+}
+
+.subtable_Rep_P {
+	font-size: 15pt;  font-weight: bold; color: #000000;
+	border-bottom: 1px solid #000000;
+	background-color:#ffffff;
+}
+
+.subtable_Rep .Rep_Title {
+	font-size: 10pt; font-weight: bold; color: #000000;
+	border-bottom: 1px solid #000000;
+	border-right: 1px solid #000000;
+	background-color:#FFFF63;
+}
+
+.subtable_Rep .Rep_Sub_Title {
+	color: #000000;
+	border-bottom: 1px solid #000000;
+	border-right: 1px solid #000000;
+	background-color:#FFC300;
+}
+
+.subtable_Rep .Rep_Sub_Title_Del {
+	color: #000000;
+	border-bottom: 1px solid #000000;
+	border-right: 1px solid #000000;
+	background-color:#AEC850;
+}
+
+.subtable_Rep .Rep_Sub_Title_B {
+	color: #000000;
+	border-top: 2px solid #000000;
+	border-bottom: 2px solid #000000;
+	border-left: 2px solid #000000;
+	border-right: 2px solid #000000;
+	background-color:#FFC300;
+}
+
+.subtable_Rep .Rep_Sub_Title_D {
+	color: #000000;
+	border-top: 1px double #000000;
+	border-bottom: 1px double #000000;
+	border-left: 1px double #000000;
+	border-right: 1px double #000000;
+	background-color:#FFC300;
+}
+
+.subtable_Rep .Rep_Sum_input {
+	color: #333232;
+	border-bottom: 1px solid #000000;
+	border-right: 1px solid #000000;
+	background-color:#FFFF9C;
+}
+
+.subtable_Rep .Rep_Sum_input_Del {
+	color: #333232;
+	border-bottom: 1px solid #000000;
+	border-right: 1px solid #000000;
+	background-color:#AEC850;
+}
+
+.subtable_Rep .Rep_Sum_desc {
+	color: #000000;
+	border-bottom: 1px solid #000000;
+	border-right: 1px solid #000000;
+	background-color:#FFFF9C;
+}
+
+.subtable_Rep .Rep_input_R {
+	color: #333232;
+	border-bottom: 1px solid #000000;
+	border-right: 1px solid #000000;
+}
+
+.subtable_Rep .Rep_input_R_Del {
+	color: #333232;
+	border-bottom: 1px solid #000000;
+	border-right: 1px solid #000000;
+	background-color:#AEC850;
+}
+
+.subtable_Rep .Rep_input_Under {
+	color: #333232;
+	border-bottom: 1px solid #000000;
+}
+
+.subtable_Rep .Rep_input_noline {
+	color: #333232;
+}

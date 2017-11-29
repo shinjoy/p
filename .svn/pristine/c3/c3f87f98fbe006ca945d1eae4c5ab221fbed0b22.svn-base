@@ -1,0 +1,751 @@
+package ib.system.service.impl;
+
+import ib.basic.web.XmlParsingUtil;
+import ib.cmm.util.sim.service.EgovFileScrty;
+import ib.project.service.ProjectMgmtService;
+import ib.system.service.DeptRegService;
+import ib.system.service.OrgCompanyRegService;
+import ib.user.service.UserService;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Service;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+@Service("orgCompanyRegService")
+public class OrgCompanyRegServiceImpl implements OrgCompanyRegService{
+
+	protected static final Log logger = LogFactory
+			.getLog(OrgCompanyRegServiceImpl.class);
+
+	@Resource(name="orgCompanyRegDAO")
+	private OrgCompanyRegDAO orgCompanyRegDAO;
+
+	@Resource(name="rolePerUserDAO")
+	private RolePerUserDAO rolePerUserDAO;
+
+	@Resource(name="roleRegDAO")
+	private RoleRegDAO roleRegDAO;
+
+	@Resource(name = "projectMgmtService")
+	private ProjectMgmtService projectMgmtService;
+
+	@Resource(name ="xmlParsingUtil")
+	private XmlParsingUtil xmlParsingUtil;
+
+	@Resource(name = "deptRegService")
+	private DeptRegService deptRegService;
+
+	@Resource(name = "userService")
+	private UserService userService;
+
+	// 관계사 등록된 회사 리스트
+	@SuppressWarnings("rawtypes")
+	public Map getOrgCompanyList(Map param) throws Exception {
+
+		Map<String, Object> map = new HashMap<String, Object>();
+		// parameter
+		int pageSize = Integer.parseInt((String)param.get("pageSize"));
+		int pageNo = Integer.parseInt((String)param.get("pageNo"));
+
+		map.put("pageNo", param.get("pageNo")); // 넘어온 검색페이지번호도 세팅해서 그대로 반환해준다.
+
+		param.put("offset",0);
+		param.put("limit", 0);
+
+		// 총 건수
+		int totalCount = orgCompanyRegDAO.getOrgCompanyTotalCnt(param);
+		map.put("totalCount", totalCount);
+
+		int pageCount = (totalCount / pageSize);
+		pageCount = (totalCount > pageCount * pageSize) ? pageCount + 1
+				: pageCount; // 총 페이지수 ... (총수/페이지크기)떨어지는지, 절삭하는지 확인하여 총페이지크기를
+								// (+1)여부결정
+		map.put("pageCount", pageCount); // 총 페이지수
+
+		param.put("offset",(pageNo - 1) * pageSize);
+		param.put("limit", pageSize); // 페이지크기 pageSize
+
+		List<Map> list =  orgCompanyRegDAO.getOrgCompanyList(param); // 목록리스트
+		for(Map item : list){
+			byte[] image = (byte[])item.get("orgLogo");
+			if(image != null && image.length > 0)
+				item.put("orgLogo", Base64.encodeBase64String(image));
+			else
+				item.put("orgLogo", null);
+		}
+		map.put("list", list);
+
+		return map; // Map map: pageNo(페이지번호), totalCount(총 건수), pageCount(총
+					// 페이지수), list(리스트)
+	}
+
+
+	//관계사 등록하기
+	public void setOrgCompanyInfo(Map param) throws Exception {
+
+		logger.debug("################## OrgCompanyRegService.setorgCompanyInfo() ####### param : ["+ param +"]#######");
+
+		/***********************************************************
+		 * 기본 관계사 정보 등록
+		 **********************************************************/
+		Map insertMap = new HashMap();
+
+		insertMap.put("businessGrpSeq", param.get("businessGroup"));	//비즈니스 그룹 seq
+		insertMap.put("companySnb", param.get("companySnb"));			//회사 snb
+		insertMap.put("orgCode", param.get("orgCode"));					//ORG PREFIX
+
+		insertMap.put("description", param.get("description"));			//설명
+		insertMap.put("userRegId", param.get("userRegId"));
+		insertMap.put("orgLogo", param.get("orgLogo"));				//로고이미지
+
+		insertMap.put("addr", param.get("addr"));						//주소
+		insertMap.put("codeMgmtAdminYn", param.get("codeMgmtAdminYn"));	//시스템코드 최상위권한 여부
+		insertMap.put("inTime", param.get("inTime"));					//출근시간
+		insertMap.put("outTime", param.get("outTime"));					//퇴근시간
+		insertMap.put("projectUseYn", param.get("projectUseYn"));		//프로젝트 사용여부
+		insertMap.put("approveUseYn", param.get("approveUseYn"));		//결재 사용여부
+		insertMap.put("useYn", param.get("useYn"));						//사용가능여부
+
+		insertMap.put("projectTitle", param.get("projectTitle"));		//프로젝트타이틀
+		insertMap.put("activityTitle", param.get("activityTitle"));		//액티비티타이틀
+		insertMap.put("tsTitle", param.get("tsTitle"));					//타임시트타이틀
+		insertMap.put("avalUserCnt", param.get("avalUserCnt"));			//유효사용자수
+
+		insertMap.put("domain", param.get("domain"));
+		insertMap.put("smsEndTelNo", param.get("smsEndTelNo"));
+
+		insertMap.put("mailUseYn", param.get("mailUseYn"));
+		insertMap.put("mailServiceName", param.get("mailServiceName"));
+		insertMap.put("mailUrl", param.get("mailUrl"));
+		insertMap.put("mailApiUrl", param.get("mailApiUrl"));
+		insertMap.put("mailLinkType", param.get("mailLinkType"));
+		
+		int orgId = orgCompanyRegDAO.insertBsOrg(insertMap);
+
+		/***********************************************************
+		 * 시스템코드, 마스터코드, 공통코드 넣기
+		 * 시너지 기준 으로 카피 등록
+		 * CODE_GROUP (SYSTEM,COMMOM) + CODE_GROUP (MASTER 중 영업관리 페이지 로딩을위해 필요한 INFO_TYPE,INFO_PROGRESS,INFO_PATH 만 카피)
+		 **********************************************************/
+		Map codeMap = new HashMap();
+		codeMap.put("originOrgId","1");				//원본(시너지 ORG_ID)
+		codeMap.put("targetOrgId","" + orgId);		//생성
+
+		orgCompanyRegDAO.copyBsCodeByOrg(codeMap);	//카피
+
+		/***********************************************************
+		 * 프로젝트 기본정보 넣기
+		 **********************************************************/
+		Map baseProjectMap = new HashMap();
+		baseProjectMap.put("orgId", orgId);
+		baseProjectMap.put("userSeq", param.get("userRegId"));
+		projectMgmtService.insertBaseProject(baseProjectMap);
+
+		/***********************************************************
+		 * IB_COMPANY 그룹핑 회사 정보 수정
+		 **********************************************************/
+		boolean groupingOrgYn = Boolean.valueOf((String)param.get("groupingOrgYn"));
+		if(groupingOrgYn == true){ 				//시너지와 같은 케이스로, 그룹핑을 위해 이름만 있는 회사를 추가한 경우
+			param.put("groupingOrgYn",  "Y");
+			JSONArray array = JSONArray.fromObject((String)param.get("targetCompanyList"));		//실제 대상 그룹내 회사들
+
+			for(int i = 0 ;i < array.size() ;i++){
+				String obj = (String) array.get(i);
+				String[] objStr = obj.split(":");
+				Map groupMap = new HashMap();
+				groupMap.put("refOrgId", orgId);
+				groupMap.put("groupingOrgYn", "N");						//실 회사이므로 'N'
+				groupMap.put("sNb",objStr[1]);
+				orgCompanyRegDAO.updateGroupingOrgInfo(groupMap);
+			}
+		}else{
+			param.put("groupingOrgYn",  "N");	//일반적으로 1:1
+		}
+
+		/***********************************************************
+		 * IB_COMPANY UPDATE(주소)
+		 **********************************************************/
+		Map comMap = new HashMap();
+		comMap.put("sNb", param.get("companySnb"));
+		comMap.put("addr", param.get("addr"));
+		comMap.put("upId", param.get("loginId"));
+		comMap.put("refOrgId", orgId);
+		comMap.put("groupingOrgYn", (String)param.get("groupingOrgYn"));
+		orgCompanyRegDAO.updateIbCompanyInfo(comMap);
+
+		/***********************************************************
+		 * 달력 데이터 INSERT
+		 **********************************************************/
+		Map calendarMap = new HashMap();
+		calendarMap.put("orgId", orgId);
+		calendarMap.put("duringYear", param.get("duringYear"));
+		orgCompanyRegDAO.addCalendarData(calendarMap);
+
+		/***********************************************************
+		 * 관계사 메뉴, 모듈 할당
+		 **********************************************************/
+		Map roleMap = new HashMap();
+		roleMap.put("orgId", orgId);
+		roleMap.put("domain", param.get("domain"));
+
+		//1. 관계사에 메뉴 할당
+		orgCompanyRegDAO.insertMenuListForOrg(roleMap);
+
+		//2. 관계사에 모듈 할당
+		orgCompanyRegDAO.insertModuleListForOrg(roleMap);
+
+		/***********************************************************
+		 * 관계사 권한 신규 추가
+		 **********************************************************/
+		//1.관계사에 권한 등록
+		orgCompanyRegDAO.insertRoleListForOrg(roleMap);
+
+		//2. 권한별 메뉴 등록.
+		orgCompanyRegDAO.insertRoleMenuListForOrg(roleMap);
+
+		//3. 관계사 권한별 모듈 등록
+		orgCompanyRegDAO.insertRoleModuleListForOrg(roleMap);
+
+		//4. 구대표님 READ, 천경민이사님 READ, 시너지시스템관리자에게 WRITE 권한 추가 , 시스템기획팀(DPT009), 바이오투자팀(DPT080)
+		orgCompanyRegDAO.insertUserRoleListForOrg(roleMap);
+
+		//4.1. 구대표님 READ, 천경민이사님 READ, 시너지시스템관리자에게 WRITE 권한 추가
+		orgCompanyRegDAO.insertRelationCompanyAccessAuthForOrg(roleMap);
+
+		/***********************************************************
+		 * 부서정보 생성
+		 **********************************************************/
+		Map deptMap = new HashMap();
+		deptMap.put("deptClass", "ORG");
+		deptMap.put("korName", "PASS관리");  //한글부서명 : PASS관리
+		deptMap.put("engName", "PASS_MANAGEMENT");  //영문부서명 : PASS_MANAGEMENT
+		deptMap.put("deptDesc", "PASS 관리 부서");  //설명 : PASS 관리 부서
+		deptMap.put("parentDeptId", "0");  //상위부서 : NULL
+		deptMap.put("level", "L50");  //부서레벨 : 팀 (L50)
+		deptMap.put("enable", "Y");
+		deptMap.put("dummy", "Y");
+		deptMap.put("approveYn", "Y");
+		deptMap.put("projectYn", "Y");
+		deptMap.put("activityYn", "Y");
+		deptMap.put("costingYn", "Y");
+
+		deptMap.put("orgId", orgId);
+		deptMap.put("userSeq", param.get("userSeq"));
+
+		int deptId = deptRegService.insertDept(deptMap);			//부서 등록
+
+		/***********************************************************
+		 * 직원정보 생성
+		 **********************************************************/
+		Map newMap = new HashMap();
+		newMap.put("orgId", orgId);
+
+		//관계사 신규등록된 시스템기획팀 ROLE_ID
+		String sytemRoleId = orgCompanyRegDAO.getRoleIdBySystem(newMap);
+
+		//기본 네트워크고객 S_NB
+		String customerId = orgCompanyRegDAO.getDefaultCustomerId(newMap);
+
+		//부서정보등록
+		JSONObject jsonObject = new JSONObject();
+		jsonObject.put("deptId", 	deptId+"");
+		jsonObject.put("incharge", "");
+		JSONArray jsonArray = new JSONArray();
+		jsonArray.add(jsonObject);
+
+		//오늘날짜
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd");
+        String nowDate = formatter.format(new Date());
+
+		Map userMap = new HashMap();
+		// userMap.put("uId", null);  // USER_ID
+		userMap.put("loginId", param.get("orgCode") + "SYSTEM");  //: frm.loginId.value,									//login Id
+		userMap.put("empNo", param.get("orgCode") + "_SYSTEM");  //사번 : SYSTEM
+		userMap.put("userPwd", EgovFileScrty.encryptPassword("SYSTEM!@"));		//비밀번호 암호화, frm.userNo.value + '!@',
+		userMap.put("userName", "시너지");  //이름 : 시너지
+		userMap.put("cusId", customerId);  //고객 id
+		userMap.put("empType", "ZZZ");  // 직원형태 : 기타
+		userMap.put("orgId", orgId);  // 소속회사 : 신규추가된 관계사
+		userMap.put("oriOrgId", orgId);  //기존관계사 아이디
+		userMap.put("company", param.get("companySnb"));  //소속회사 snb
+		userMap.put("oriCompany", param.get("companySnb"));  //원 소속회사 snb
+		userMap.put("rank", "STAFF");  //직급 : 사원(STAFF)
+		userMap.put("rankNm", "사원");  //직급명
+		userMap.put("userRole", sytemRoleId);  // 권한 : 시스템기획팀(위에서 생성된 관계사의 시스템기획팀 ex.) N_SYSTEM 권한)
+		userMap.put("deptIncharge", jsonArray.toString());  // 부서(직책) json string
+		userMap.put("deptInchargeDel", "");  //부서(직책) json string ... 삭제할 건
+		userMap.put("mainDeptId", deptId+"");  // 부서 : PASS관리(위에 생성된 부서)
+
+		userMap.put("companyTel", "");  // 회사전화
+		userMap.put("companyFax", "");  // 회사팩스
+		userMap.put("homeZip", "");  // 집우편번호
+		userMap.put("homeAddr1", "");  //집주소1
+		userMap.put("homeAddr2", "");  //집주소2
+		userMap.put("homeTel", "");  //집전화
+		userMap.put("mobileTel", "010-0000-0000");  //핸드폰 : 임의의 값
+		userMap.put("email", "");  // 이메일
+		userMap.put("hiredDate", nowDate);  // 입사일 : 오늘(YYYY-MM-DD)
+		userMap.put("joinDate", nowDate);  //정식입사일 : 오늘(YYYY-MM-DD)
+		userMap.put("sosTel", "");  // 비상연락망
+		userMap.put("sosWho", orgId);  //: frm.selSosWho.value,								//비상연락망 관계
+		userMap.put("userWork", "");  //담당업무
+		userMap.put("userStatus", orgId);  //: 'W'												//재직상태
+
+		userMap.put("userSeq", param.get("userSeq"));
+		userMap.put("rgId", param.get("rgId"));
+		userMap.put("usrCusId", param.get("usrCusId"));
+		userMap.put("regOrgId", param.get("regOrgId"));
+
+		int userId = userService.insertUser(userMap);
+
+		////////////////////////////////////////////////////////////////////
+		///////////////////////////////////////////////////////////////////
+		/***********************************************************
+		 * 바이오 회장 부서정보 생성
+		 **********************************************************/
+		if("bio.passerp.co.kr".equals(param.get("domain"))){
+			deptMap = new HashMap();
+			deptMap.put("deptClass", "ORG");
+
+			deptMap.put("parentDeptId", "0");  //상위부서 : NULL
+			deptMap.put("enable", "Y");
+			deptMap.put("dummy", "Y");
+			deptMap.put("approveYn", "Y");
+			deptMap.put("projectYn", "Y");
+			deptMap.put("activityYn", "Y");
+			deptMap.put("costingYn", "Y");
+
+			deptMap.put("orgId", orgId);
+			deptMap.put("userSeq", param.get("userSeq"));
+
+			//회장 부서 등록 -> 등록하지않음
+			/*deptMap.put("korName", "회장");  //한글부서명 : 회장
+			deptMap.put("engName", "CHAIRMAN");  //영문부서명 : chairman
+			deptMap.put("deptDesc", "회장");  //설명 : 회장
+			deptMap.put("level", "L00");  //부서레벨 : 회장 (L00)
+			deptId = deptRegService.insertDept(deptMap);*/
+
+			//대표이사 부서 등록
+			deptMap.put("korName", "대표이사");  //한글부서명 : 대표이사
+			deptMap.put("engName", "CEO");  //영문부서명 : CEO
+			deptMap.put("deptDesc", "대표이사");  //설명 : 대표이사
+			deptMap.put("level", "L20");  //부서레벨 : 대표 (L20)
+			deptId = deptRegService.insertDept(deptMap);
+
+			//경영지원팀 부서 등록
+			deptMap.put("korName", "경영지원팀");  //한글부서명 : 경영지원팀
+			deptMap.put("engName", "MANAGEMENT_SUPPORT");  //영문부서명 : MANAGEMENT_SUPPORT
+			deptMap.put("deptDesc", "경영지원팀");  //설명 : 경영지원팀
+			deptMap.put("level", "L50");  //부서레벨 : 팀 (L50)
+			deptId = deptRegService.insertDept(deptMap);
+
+			//마케팅팀 부서 등록
+			deptMap.put("korName", "마케팅팀");  //한글부서명 : 마케팅팀
+			deptMap.put("engName", "MARKETING");  //영문부서명 : MARKETING
+			deptMap.put("deptDesc", "마케팅팀");  //설명 : 마케팅팀
+			deptMap.put("level", "L50");  //부서레벨 : 팀 (L50)
+			deptId = deptRegService.insertDept(deptMap);
+
+			//기술연구소 부서 등록
+			deptMap.put("korName", "기술연구소");  //한글부서명 : 기술연구소
+			deptMap.put("engName", "RESEARCH");  //영문부서명 : RESEARCH
+			deptMap.put("deptDesc", "기술연구소");  //설명 : 기술연구소
+			deptMap.put("level", "L50");  //부서레벨 : 팀 (L50)
+			deptId = deptRegService.insertDept(deptMap);
+
+		}
+
+	}
+
+
+	// 관계사로 등록가능한 회사 리스트 (팝업)
+	@SuppressWarnings("rawtypes")
+	public Map getOrgIbCompanyList(Map param) throws Exception {
+
+		Map<String, Object> map = new HashMap<String, Object>();
+		// parameter
+		int pageSize = Integer.parseInt((String) param.get("pageSize"));
+		int pageNo = Integer.parseInt((String) param.get("pageNo"));
+
+		map.put("pageNo", param.get("pageNo")); // 넘어온 검색페이지번호도 세팅해서 그대로 반환해준다.
+
+		param.put("offset", 0);
+		param.put("limit", 0);
+
+		// 총 건수
+		int totalCount = orgCompanyRegDAO.getIbCompanyTotalCnt(param);
+		map.put("totalCount", totalCount);
+
+		int pageCount = (totalCount / pageSize);
+		pageCount = (totalCount > pageCount * pageSize) ? pageCount + 1
+				: pageCount; // 총 페이지수 ... (총수/페이지크기)떨어지는지, 절삭하는지 확인하여 총페이지크기를
+								// (+1)여부결정
+		map.put("pageCount", pageCount); // 총 페이지수
+
+		param.put("offset", (pageNo - 1) * pageSize);
+		param.put("limit", pageSize); // 페이지크기 pageSize
+
+		map.put("list", orgCompanyRegDAO.getIbCompanyList(param)); // 목록리스트
+
+		return map; // Map map: pageNo(페이지번호), totalCount(총 건수), pageCount(총
+					// 페이지수), list(리스트)
+	}
+
+	//같은 비즈니스 그룹 명이있는지 체크하기 위해 비즈니스 그룹 반환.
+	public Map getBusinessGroupList(Map param) throws Exception{
+		// TODO Auto-generated method stub
+
+		Map<String, Object> map = new HashMap<String, Object>();
+		// parameter
+		int pageSize = Integer.parseInt((String) param.get("pageSize"));
+		int pageNo = Integer.parseInt((String) param.get("pageNo"));
+
+		map.put("pageNo", param.get("pageNo")); // 넘어온 검색페이지번호도 세팅해서 그대로 반환해준다.
+
+		param.put("offset", 0);
+		param.put("limit", 0);
+
+		// 총 건수
+		int totalCount = orgCompanyRegDAO.getBusinessGroupTotalCnt(param);
+		map.put("totalCount", totalCount);
+
+		int pageCount = (totalCount / pageSize);
+		pageCount = (totalCount > pageCount * pageSize) ? pageCount + 1
+				: pageCount; // 총 페이지수 ... (총수/페이지크기)떨어지는지, 절삭하는지 확인하여 총페이지크기를
+								// (+1)여부결정
+		map.put("pageCount", pageCount); // 총 페이지수
+
+		param.put("offset", (pageNo - 1) * pageSize);
+		param.put("limit", pageSize); // 페이지크기 pageSize
+
+		map.put("list", orgCompanyRegDAO.getBusinessGroupList(param)); // 목록리스트
+
+		return map; // Map map: pageNo(페이지번호), totalCount(총 건수), pageCount(총
+					// 페이지수), list(리스트)
+	}
+
+	//비즈니스 그룹 수정
+	public void setBusinessGroup(Map param) throws Exception {
+		// TODO Auto-generated method stub
+		logger.debug("################## OrgCompanyRegService.setorgCompanyInfo() ########## ["+ param+ "]");
+
+		String mode = (String)param.get("mode");
+		//신규등록
+		if(StringUtils.equals("new",mode)){
+			int businessGrpSeq = orgCompanyRegDAO.insertBsBusinessGrp(param);
+			logger.debug("#### 비즈니스 그룹 seq : "+businessGrpSeq);
+		//수정
+		}else if(StringUtils.equals("update",mode)){
+			orgCompanyRegDAO.updateBsBusinessGrp(param);
+		}
+	}
+
+	//비즈니스 그룹 삭제
+	public void deleteBusinessGroup(Map param) throws Exception {
+		// TODO Auto-generated method stub
+		logger.debug("################## OrgCompanyRegService.deleteBusinessGroup() ########## ["+ param+ "]");
+		orgCompanyRegDAO.deleteBsBusinessGrp(param);
+	}
+
+	//selectbox를 위한 비즈니스 그룹 반환.
+	public List<Map> getBusinessGroupForSelect(Map param) throws Exception{
+		// TODO Auto-generated method stub
+		logger.debug("################## OrgCompanyRegService.getBusinessGroupForSelect() ########## ["+ param+ "]");
+		return  orgCompanyRegDAO.getBusinessGroupList(param); // 목록리스트
+	}
+
+	//관계사 삭제하기
+	public void deleteOrgCompanyInfo(Map param) throws Exception {
+		// TODO Auto-generated method stub
+		logger.debug("################## OrgCompanyRegService.deleteOrgCompanyInfo() ########## ["+ param + "]");
+
+		//관계사 정보 enable='N'으로 수정.
+		orgCompanyRegDAO.deleteBsOrg(param);
+	}
+
+	//관계사 정보 반환
+	public Map selectBsOrgCompany(Map param) throws Exception {
+
+		Map map = orgCompanyRegDAO.selectBsOrgCompany(param);
+
+		byte[] image = (byte[])map.get("orgLogoData");
+		if(image != null && image.length > 0)
+			map.put("orgLogoData", Base64.encodeBase64String(image));
+		else
+			map.put("orgLogoData", null);
+
+
+
+		String inTime= (String)map.get("inTime");
+		if(StringUtils.isNotEmpty(inTime)){
+			String[] inTimeStr = inTime.split(":");
+			map.put("inputInTimeFirst", inTimeStr[0]);
+			map.put("inputInTimeSecond", inTimeStr[1]);
+		}
+		String outTime= (String)map.get("outTime");
+		if(StringUtils.isNotEmpty(outTime)){
+			String[] outTimeStr = outTime.split(":");
+			map.put("inputOutTimeFirst", outTimeStr[0]);
+			map.put("inputOutTimeSecond", outTimeStr[1]);
+		}
+
+		return map;
+	}
+
+	//관계사 정보 수정
+	public void updateOrgCompanyInfo(Map param) throws Exception {
+		// TODO Auto-generated method stub
+
+
+		String newImageYn = ((byte[])param.get("orgLogo") == null) ? "N" : "Y";
+		String oldImageYn = (String)param.get("orgLogoYn");
+
+		//관계사 정보 업데이트
+		if(StringUtils.equals(newImageYn, "N")){
+			if(StringUtils.equals(oldImageYn,"Y")){
+				//기존 이미지는 존재하나 새롭게 업로드된 이미지가 없는 경우
+				param.put("logoYn", "Y");
+			}else{
+				param.put("logoYn", "N");
+			}
+		}else{
+			param.put("logoYn", "Y");
+		}
+
+
+		boolean groupingOrgYn = Boolean.valueOf((String)param.get("groupingOrgYn"));
+
+		//이전 관계사 소속회사 정보 모두 초기화시킴.
+		orgCompanyRegDAO.updateGroupingOrgInfoRefresh(param);
+		if(groupingOrgYn == true){ //시너지와 같은 경우로, 이름만 있는 회사인 경우
+			param.put("groupingOrgYn",  "Y");
+			logger.debug((String)param.get("targetCompanyList"));
+			JSONArray array = JSONArray.fromObject((String)param.get("targetCompanyList"));
+			for(int i = 0 ;i < array.size() ;i++){
+				String obj = (String) array.get(i);
+				String[] objStr = obj.split(":");
+				Map groupMap = new HashMap();
+				groupMap.put("refOrgId", param.get("orgId"));
+				groupMap.put("groupingOrgYn", "N");
+				groupMap.put("sNb",objStr[1]);
+				orgCompanyRegDAO.updateGroupingOrgInfo(groupMap);
+			}
+		}else{
+			param.put("groupingOrgYn", "N");
+		}
+
+		//관계사 수정
+		orgCompanyRegDAO.updateBsOrg(param);
+
+		//관계사 -IB_COMPANY UPDATE(주소)
+		Map comMap = new HashMap();
+		comMap.put("sNb", param.get("companySnb"));
+		comMap.put("addr", param.get("addr"));
+		comMap.put("upId", param.get("loginId"));
+		comMap.put("refOrgId", param.get("orgId"));
+		comMap.put("groupingOrgYn", (String)param.get("groupingOrgYn"));
+		orgCompanyRegDAO.updateIbCompanyInfo(comMap);
+
+		/***********************************************************
+		 * 달력 데이터 UPDATE (관계사 달력데이터 출퇴근시간 업데이트)
+		 **********************************************************/
+		Map calendarMap = new HashMap();
+		calendarMap.put("orgId", param.get("orgId"));
+		calendarMap.put("userRegId", param.get("userRegId"));
+		orgCompanyRegDAO.updateBsCalendarForInTime(calendarMap);
+
+	}
+
+
+
+	// 관계사 등록된 회사 리스트(사용자의 소속회사는 제외한다)
+	public List<Map> getOrgCompanyAuthList(Map param) throws Exception {
+		//logger.debug("################## OrgCompanyRegService.getOrgCompanyAuthList() ########## ["+ param+ "]");
+		List<Map> list = orgCompanyRegDAO.getOrgCompanyAuthList(param); // 목록리스트
+		for (Map item : list) {
+			byte[] image = (byte[]) item.get("orgLogo");
+			if (image != null && image.length > 0)
+				item.put("orgLogo", Base64.encodeBase64String(image));
+			else
+				item.put("orgLogo", null);
+		}
+		return list;
+	}
+
+	//관계사 목록 셀렉트박스
+	public List<Map> getOrgCompanyAuthSelectbox(Map param) throws Exception{
+		logger.debug("################## OrgCompanyRegService.getOrgCompanyAuthSelectbox() ########## ["+ param + "]");
+		List<Map> list = orgCompanyRegDAO.getOrgCompanyAuthSelectbox(param); // 목록리스트
+		return list;
+	}
+
+	//관계사별 사용자 리스트
+	public Map getUserListForOrgId(Map param) throws Exception {
+		// TODO Auto-generated method stub
+		logger.debug("################## OrgCompanyRegService.getUserListForOrgId() ########## ["+ param+ "]");
+
+		Map<String, Object> map = new HashMap<String, Object>();
+		// parameter
+		int pageSize = Integer.parseInt((String)param.get("pageSize"));
+		int pageNo = Integer.parseInt((String)param.get("pageNo"));
+
+		map.put("pageNo", param.get("pageNo")); // 넘어온 검색페이지번호도 세팅해서 그대로 반환해준다.
+
+		param.put("offset",0);
+		param.put("limit", 0);
+
+		// 총 건수
+		int totalCount = orgCompanyRegDAO.getOrgCompanyAuthUserCnt(param);
+		map.put("totalCount", totalCount);
+
+		int pageCount = (totalCount / pageSize);
+		pageCount = (totalCount > pageCount * pageSize) ? pageCount + 1
+				: pageCount; // 총 페이지수 ... (총수/페이지크기)떨어지는지, 절삭하는지 확인하여 총페이지크기를
+								// (+1)여부결정
+		map.put("pageCount", pageCount); // 총 페이지수
+
+		param.put("offset",(pageNo - 1) * pageSize);
+		param.put("limit", pageSize); // 페이지크기 pageSize
+		List<Map> list =  orgCompanyRegDAO.getOrgCompanyAuthUserList(param); // 목록리스트
+		map.put("list", list);
+
+		return map; // Map map: pageNo(페이지번호), totalCount(총 건수), pageCount(총
+					// 페이지수), list(리스트)
+	}
+
+	//사용자별 관계사 리스트
+	public List<Map> getOrgRelationAuthList(Map param)  throws Exception{
+		logger.debug("################## OrgCompanyRegService.getOrgRelationAuthList() ########## ["+ param+ "]");
+
+		param.put("userId", param.get("selectUserId").toString());
+		param.put("orgId", param.get("selectOrgId").toString());
+		return orgCompanyRegDAO.getOrgRelationAuthList(param);
+	}
+
+	//사용자별 관계사 리스트 (only 사용자 아이디)
+	public List<Map> getOrgRelationAuthListOnlyUserId(Map paramMap)  throws Exception{
+		logger.debug("################## OrgCompanyRegService.getOrgRelationAuthListOnlyUserId() ########## ["+ paramMap+ "]");
+
+		return orgCompanyRegDAO.getOrgRelationAuthListOnlyUserId(paramMap);
+	}
+
+	//설정한 관계사 접근 권한 저장하기
+	public void setOrgAuthCompany(Map param)  throws Exception{
+		logger.debug("################## OrgCompanyRegService.setOrgAuthCompany() ########## ["+ param+ "]");
+
+		List<Map> insertList = new ArrayList<Map>();
+
+		//기존 저장된 관계사 접근 권한 지우기(소속관계사 정보 외에)
+		Map deleteMap = new HashMap();
+		deleteMap.put("userId", param.get("userId"));
+		deleteMap.put("orgId", param.get("orgId"));
+
+		orgCompanyRegDAO.deleteBsRelationCompanyAccess(deleteMap);
+		rolePerUserDAO.deleteUserRole(deleteMap);
+
+		JsonParser parser = new JsonParser();
+		JsonArray jsonArr = (JsonArray) parser.parse((String) param.get("list"));
+		for(int i = 0 ; i < jsonArr.size() ; i++){
+			JsonObject obj =  (JsonObject) jsonArr.get(i);
+			Map map = new HashMap();
+			map.put("userRegId", param.get("userRegId"));
+			map.put("userId", param.get("userId"));
+
+			//선택된 관계사 아이디
+			map.put("orgId", obj.get("orgId").getAsString());
+			String authChk =  (obj.has("authChk") == true)? obj.get("authChk").getAsString(): "";
+			if(!StringUtils.isEmpty(authChk)){
+				map.put("orgAccessAuthType", authChk);
+				if(!deleteMap.get("orgId").toString().equals(obj.get("orgId").getAsString())) orgCompanyRegDAO.insertBsRelationCompanyAccess(map);
+			}
+
+			//선택된 관계사 권한 세팅
+			map.put("userSeq", param.get("userRegId"));
+			map.put("orgId", obj.get("orgId").getAsString());
+			String roleId =  (obj.has("roleId") == true)? obj.get("roleId").getAsString(): "";
+			if(!StringUtils.isEmpty(roleId)){
+				map.put("userRole", roleId);
+				rolePerUserDAO.mergeRoleCode(map);
+			}
+
+
+		}
+		//파라미터로 받아온 접근 권한 저장하기
+	}
+
+	//관계사 코드 중복 여부 체크
+	public Map checkOrgCompanyCode(Map map) throws Exception {
+		// TODO Auto-generated method stub
+		int count = orgCompanyRegDAO.checkOrgCompanyCode(map);
+		Map resultMap = new HashMap();
+		resultMap.put("cnt", count);
+		return resultMap;
+	}
+
+	//관계사 소속회사 목록 (관계사 등록시)
+	public Map addGroupingCompanyList(Map param) throws Exception {
+		// TODO Auto-generated method stub
+		logger.debug("################## OrgCompanyRegService.addGroupingCompanyList() #####################");
+
+		Map<String, Object> map = new HashMap<String, Object>();
+		// parameter
+		int pageSize = Integer.parseInt((String)param.get("pageSize"));
+		int pageNo = Integer.parseInt((String)param.get("pageNo"));
+
+		map.put("pageNo", param.get("pageNo")); // 넘어온 검색페이지번호도 세팅해서 그대로 반환해준다.
+
+		param.put("offset",0);
+		param.put("limit", 0);
+
+		// 총 건수
+		int totalCount = orgCompanyRegDAO.addGroupingCompanycnt(param);
+		map.put("totalCount", totalCount);
+
+		int pageCount = (totalCount / pageSize);
+		pageCount = (totalCount > pageCount * pageSize) ? pageCount + 1
+				: pageCount; // 총 페이지수 ... (총수/페이지크기)떨어지는지, 절삭하는지 확인하여 총페이지크기를
+								// (+1)여부결정
+		map.put("pageCount", pageCount); // 총 페이지수
+
+		param.put("offset",(pageNo - 1) * pageSize);
+		param.put("limit", pageSize); // 페이지크기 pageSize
+		List<Map> list =  orgCompanyRegDAO.addGroupingCompanyList(param); // 목록리스트
+
+		map.put("list", list);
+
+		return map; // Map map: pageNo(페이지번호), totalCount(총 건수), pageCount(총
+					// 페이지수), list(리스트)
+	}
+
+	//해당 관계사에 포함되는 소속회사 정보 반환.
+	public List<Map> selectBsIncludeOrgCompany(Map param) throws Exception {
+		logger.debug("################## OrgCompanyRegService.selectBsIncludeOrgCompany() ################## param : ["+ param+" ]###");
+		return orgCompanyRegDAO.selectBsIncludeOrgCompany(param);
+	}
+
+	//새로 입력된 관계사 정보 반환
+	public int checkOrgCompany(Map param) throws Exception {
+		logger.debug("################## OrgCompanyRegService.checkOrgCompany() ################## param : ["+ param+" ]###");
+		return orgCompanyRegDAO.checkOrgList(param);
+	}
+}

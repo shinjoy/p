@@ -1,0 +1,51 @@
+package ib.car.service;
+
+import java.util.List;
+import java.util.Map;
+
+public interface CarService {
+
+	public List<CarVO> selectCarUsedList(CarVO VO) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : insertCarUsedList
+	 * @param carVO
+	 * @return
+	 */
+	public int insertCarUsedList(CarVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectTotalDistance
+	 * @param carVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<CarVO> selectTotalDistance(CarVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectCarParkingFloorList
+	 * @param carVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<CarVO> selectCarParkingFloorList(CarVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : deleteCarUsedList
+	 * @param carVO
+	 * @return
+	 */
+	public int deleteCarUsedList(CarVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : updateFloor
+	 * @param carVO
+	 */
+	public int updateFloor(CarVO vo) throws Exception;
+
+}

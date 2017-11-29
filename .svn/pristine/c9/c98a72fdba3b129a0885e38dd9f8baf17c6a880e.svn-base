@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMapConfig PUBLIC "-//iBATIS.com//DTD SQL Map Config 2.0//EN"
+    "http://www.ibatis.com/dtd/sql-map-config-2.dtd">
+
+<sqlMapConfig>
+	<!-- <sqlMap resource="sqlmap/cmm/CmmUse_SQL_Mysql.xml"/> -->
+	<sqlMap resource="sqlmap/main/comCode.xml"/>
+	<sqlMap resource="sqlmap/main/work.xml"/>
+	<sqlMap resource="sqlmap/main/company.xml"/>
+	<sqlMap resource="sqlmap/main/person.xml"/>
+	<sqlMap resource="sqlmap/main/stats.xml"/>
+	<sqlMap resource="sqlmap/main/card.xml"/>
+	<sqlMap resource="sqlmap/main/car.xml"/>
+	<sqlMap resource="sqlmap/main/car2.xml"/>
+	<sqlMap resource="sqlmap/main/management.xml"/>
+	<sqlMap resource="sqlmap/main/recommend.xml"/>
+	<sqlMap resource="sqlmap/main/notice.xml"/>
+	<sqlMap resource="sqlmap/main/reply.xml" />
+	<sqlMap resource="sqlmap/main/common.xml" />
+	<sqlMap resource="sqlmap/main/email.xml" />
+
+	<sqlMap resource="sqlmap/main/ScheduleSQL.xml" />
+	<sqlMap resource="sqlmap/main/FormDocSQL.xml" />
+	<sqlMap resource="sqlmap/main/BoardSQL.xml" />
+
+	<sqlMap resource="sqlmap/main/login.xml" />	<!-- PASS -->
+	<sqlMap resource="sqlmap/main/system.xml" />
+	<sqlMap resource="sqlmap/main/timesheet.xml" />
+	<sqlMap resource="sqlmap/main/project.xml" />
+	<sqlMap resource="sqlmap/main/user.xml" />
+
+	<sqlMap resource="sqlmap/main/approve.xml" />
+	<sqlMap resource="sqlmap/main/approveLine.xml" />
+	<sqlMap resource="sqlmap/main/approveSet.xml" />
+
+	<sqlMap resource="sqlmap/main/eam.xml" />
+	<sqlMap resource="sqlmap/main/menu.xml"/>
+
+	<sqlMap resource="sqlmap/main/board.xml"/>
+	<sqlMap resource="sqlmap/main/file.xml"/>
+	<sqlMap resource="sqlmap/main/certification.xml"/>
+
+	<sqlMap resource="sqlmap/main/alarm.xml"/>
+	<sqlMap resource="sqlmap/main/orgCompany.xml"/>
+	<sqlMap resource="sqlmap/main/bookmark.xml" />
+
+
+	<sqlMap resource="sqlmap/main/business.xml" />
+	<sqlMap resource="sqlmap/main/workDaily.xml"/>
+
+	<sqlMap resource="sqlmap/main/organization.xml"/>
+
+	<sqlMap resource="sqlmap/main/sms.xml"/>
+
+	<sqlMap resource="sqlmap/main/worktime.xml"/>
+
+	<sqlMap resource="sqlmap/main/projectStatis.xml"/>
+
+	<sqlMap resource="sqlmap/main/pass.xml"/>
+
+	<!--gBoard xml 나중에 합칠것...  -->
+	<sqlMap resource="sqlmap/main/gBoard.xml"/>
+
+	<sqlMap resource="sqlmap/main/meetingRoom.xml"/>
+
+</sqlMapConfig>
+
+	<!-- <sqlMap resource="sqlmap/cmm/File_SQL_Mysql.xml"/>	 -->

@@ -1,0 +1,216 @@
+/**
+ *
+ */
+package ib.notice.service.impl;
+
+import ib.cmm.service.impl.ComAbstractDAO;
+import ib.notice.service.NoticeShVO;
+import ib.notice.service.NoticeVO;
+import ib.work.service.WorkVO;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+/**
+ * <pre>
+ * package  : ib.notice.service.impl
+ * filename : NoticeDAO.java
+ * </pre>
+ *
+ * @author  : ChanWoo Lee
+ * @since   : 2014. 4. 23.
+ * @version : 1.0.0
+ */
+@Repository("noticeDAO")
+public class NoticeDAO extends ComAbstractDAO{
+
+	public int deleteCarUsedList(NoticeVO VO) throws Exception {
+		return (Integer)update("noticeDAO.deleteCarUsedList", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertNotice
+	 * @param vo
+	 * @return
+	 */
+	public int insertNotice(NoticeVO vo) throws Exception {
+		return (Integer)update("noticeDAO.insertNotice", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertNoticeSh
+	 * @param vo
+	 * @return
+	 */
+	public int insertNoticeSh(Map<String,String> param) throws Exception {
+		return (Integer)update("noticeDAO.insertNoticeSh", param);
+	}
+
+
+	/**
+	 *
+	 * @MethodName : insertNoticeSh
+	 * @param vo
+	 * @return
+	 */
+	public int modifyNoticeSh(Map<String,String> param) throws Exception {
+		return (Integer)update("noticeDAO.modifyNoticeSh", param);
+	}
+
+
+	/**
+	 *
+	 * @MethodName : selectNoticeMezzaineList
+	 * @param vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<NoticeVO> selectNoticeMezzaineList(NoticeVO vo) throws Exception {
+		return list("noticeDAO.selectNoticeMezzaineList", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectNoticeIncCapList
+	 * @param vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<NoticeVO> selectNoticeIncCapList(NoticeVO vo) throws Exception {
+		return list("noticeDAO.selectNoticeIncCapList", vo);
+	}
+
+
+	/**
+	 *
+	 * @MethodName : selectNoticeIncCapList
+	 * @param vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<NoticeShVO> selectNoticeShList(NoticeVO vo) throws Exception {
+		return list("noticeDAO.selectNoticeShList", vo);
+	}
+
+
+	/**
+	 *
+	 * @MethodName : selectNoticeSh
+	 * @param vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public NoticeShVO selectNoticeSh(Map<String,String> param) throws Exception {
+		return (NoticeShVO) selectByPk("noticeDAO.selectNoticeSh", param);
+	}
+
+
+	/**
+	 *
+	 * @MethodName : modifyPublicNoticeIncCap
+	 * @param vo
+	 * @return
+	 */
+	public int modifyPublicNoticeIncCap(NoticeVO vo) throws Exception {
+		return (Integer)update("noticeDAO.modifyPublicNoticeIncCap", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : modifyPublicNoticeMezzanine
+	 * @param vo
+	 * @return
+	 */
+	public int modifyPublicNoticeMezzanine(NoticeVO vo) throws Exception {
+		return (Integer)update("noticeDAO.modifyPublicNoticeMezzanine", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectNoticeMezzaine
+	 * @param workVO
+	 * @return
+	 */
+	public Object selectNoticeMezzaine(Object vo) throws Exception {
+		return list("noticeDAO.selectNoticeMezzaine", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : deletePublicNotice
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 2. 27.
+	 */
+	public int deletePublicNotice(NoticeVO vo) throws Exception {
+		return (Integer)update("noticeDAO.deletePublicNotice", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectNoticeMezzaineCategoryList
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 6. 5.
+	 */
+	@SuppressWarnings("unchecked")
+	public List<NoticeVO> selectNoticeMezzaineCategoryList(NoticeVO vo) throws Exception {
+		return list("noticeDAO.selectNoticeMezzaineCategoryList", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectEventNoticeList
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 6. 11.
+	 */
+	@SuppressWarnings("unchecked")
+	public List<NoticeVO> selectEventNoticeList(NoticeVO vo) throws Exception {
+		return list("noticeDAO.selectEventNoticeList", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertEventPublicNotice
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 6. 11.
+	 */
+	public int insertEventPublicNotice(NoticeVO vo) throws Exception {
+		return (Integer)update("noticeDAO.insertEventPublicNotice", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : modifyEventPublicNotice
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 6. 11.
+	 */
+	public int modifyEventPublicNotice(NoticeVO vo) throws Exception {
+		return (Integer)update("noticeDAO.modifyEventPublicNotice", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : deleteEventPublicNotice
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 6. 11.
+	 */
+	public int deleteEventPublicNotice(NoticeVO vo) throws Exception {
+		return (Integer)update("noticeDAO.deleteEventPublicNotice", vo);
+	}
+
+}

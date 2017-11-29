@@ -1,0 +1,495 @@
+package ib.personnel.service.impl;
+
+import ib.cmm.util.fcc.service.StringUtil;
+import ib.personnel.service.ManagementPersonnelListVO;
+import ib.personnel.service.ManagementService;
+import ib.system.service.impl.RolePerUserDAO;
+import ib.user.service.impl.UserDAO;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Service;
+
+import egovframework.rte.fdl.cmmn.AbstractServiceImpl;
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+
+@Service("managementService")
+public class ManagementServiceImpl extends AbstractServiceImpl implements ManagementService {
+
+	@Resource(name="rolePerUserDAO")
+	private RolePerUserDAO rolePerUserDAO;
+
+	@Resource(name = "managementDAO")
+    private ManagementDAO managementDAO;
+
+
+    @Resource(name="userDAO")
+    private UserDAO userDAO;
+
+	////////////park add method :S////////////////////////////////////
+
+	public List<EgovMap> getAccessOrgUserList(Map<String, Object> paramMap) throws Exception {
+		Integer totCnt =0;
+
+		totCnt = managementDAO.getAccessOrgUserListTotalCnt(paramMap);
+		paramMap.put("totCnt", totCnt);
+
+		return managementDAO.getAccessOrgUserList(paramMap);
+	}
+	//검색가능한 부서 가져오기
+	public List<EgovMap> getAccessOrgDeptUserList(Map<String, Object> paramMap) throws Exception {
+		return managementDAO.getAccessOrgDeptUserList(paramMap);
+	}
+	//사용자의 상세정보를 조회한다
+	public EgovMap getPersonnelDetail(Map<String, Object> paramMap) throws Exception {
+		return managementDAO.getPersonnelDetail(paramMap);
+	}
+	//사용자의 퇴직/해고 정보를 가져온다.
+	public EgovMap getUserSttsHistFireInfo(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.getUserSttsHistFireInfo(paramMap);
+	}
+	//사용자의 직급사항을 조회한다
+	public List<EgovMap> getuserInsideCareer(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.getuserInsideCareer(paramMap);
+	}
+	//사용자의 가족관계를 조회한다.
+	public List<EgovMap> getUserFamily(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.getUserFamily(paramMap);
+	}
+	//사용자의 학력사항을 조회한다
+	public List<EgovMap> getUserAcademic(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.getUserAcademic(paramMap);
+	}
+	//사용자의경력사항을 조회한다
+	public List<EgovMap> getUserCareer(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.getUserCareer(paramMap);
+	}
+	//사용자의 자격증을 조회한다
+	public List<EgovMap> getUserLicense(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.getUserLicense(paramMap);
+	}
+	//사용자의 부서리스트를
+	public List<EgovMap> getUserDeptList(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.getUserDeptList(paramMap);
+	}
+	//사용자의 재직상태 히스토리 검색
+	public List<EgovMap> getUserSttsHist(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.getUserSttsHist(paramMap);
+	}
+
+	//사용자 수정
+	public Integer processPersonnerInfo(Map<String, Object> paramMap, ManagementPersonnelListVO arrVo) throws Exception {
+
+		for(String key : paramMap.keySet()){
+			if(paramMap.get(key).toString().equals("")) paramMap.put(key,null);
+		}
+
+		Map<String,Object> insertMap = new HashMap<String, Object>();
+		insertMap.put("userId", paramMap.get("userId"));
+		insertMap.put("sessionUserId", paramMap.get("sessionUserId"));
+		Integer cnt = 0;
+		/*
+		 * Step 01
+		 * 사용자 기본정보 수정
+		 * */
+		cnt = managementDAO.updatePersonnelInfo(paramMap);
+
+		/*
+		 * Step 02
+		 * 사용자 부서정보 수정
+		 * 2-1 . 부서정보 deleteArr 삭제 (delete_flag)
+		 * 2-2 . 입력 부서 insert
+		 * 2-3 . 대표부서 update
+		 * */
+		/*String[] deleteDeptArr = arrVo.getDeleteDeptId();
+		if(deleteDeptArr!=null && deleteDeptArr.length>0){
+			paramMap.put("deleteArr", deleteDeptArr);
+			cnt = managementDAO.updateDeptdeleteFlag(paramMap);
+		}*/
+
+		String[] addDeptArr = arrVo.getDeptId();
+		if(addDeptArr!=null && addDeptArr.length>0){
+			/*paramMap.put("addDeptArr", addDeptArr);
+			cnt = managementDAO.insertUserDept(paramMap);*/
+			for(int i = 0;i<addDeptArr.length;i++){
+				Map p = new HashMap<String, Object>();
+				p.put("userId", paramMap.get("userId"));
+				p.put("userSeq",(String)paramMap.get("userId"));
+				p.put("deptId",(String)addDeptArr[i]);
+				p.put("deleteFlag",arrVo.getDeleteFlag()[i]);
+				p.put("mainYn", (paramMap.get("mainDept").toString().equals(addDeptArr)?"Y":"N"));
+				userDAO.mergeDeptInchargeInfo(p);										//사용자 부서(직책) 등록 ... 2
+
+				//-------- bs_dept_manager 에 부서장 등록 ------- 삭제
+				//if("DEPT_MGR".equals(arrVo.getIncharge()[i]))		//부서장 일때
+					//p.put("deleteFlag","N");
+					//userDAO.mergeDeptManagerInfo(p);									//사용자 부서(직책) 등록 ... 2-1
+				//---------------------------------------------
+			}
+		}
+
+		cnt = managementDAO.updateMainDept(paramMap);
+		/*
+		 * Step 03
+		 * 퇴사정보 수정
+		 * 3-1 . 재직상태 삭제
+		 * 3-2 . 재직상태 insert
+		 * 3-3 . 마스터 테이블에 최신 재직상태 UPDATE
+		 * */
+		Object userStatus = paramMap.get("userStatus");
+		if(userStatus!=null && !userStatus.toString().equals("")){
+			//사용자 해고/퇴직 정보 삭제
+			cnt = managementDAO.deleteUserSttsHistFireInfo(paramMap);
+
+			//퇴사시 퇴사일 이후 출근부 삭제
+			cnt = managementDAO.deleteWorktimeForFire(paramMap);
+
+			//퇴사시 퇴사일 이후 출근이력 삭제
+			cnt = managementDAO.deleteLoginHistForFire(paramMap);
+
+			cnt = managementDAO.insertUserSttsHist(paramMap);
+
+			cnt = managementDAO.updateUserStatus(paramMap);
+
+			cnt = managementDAO.updateFireUserCpnId(paramMap);
+
+			//cnt = managementDAO.updateUserStatusEndDate(paramMap);
+		}
+
+
+		/*String[] userStatus = arrVo.getUserStatus();
+		if(userStatus!=null&&userStatus.length>0){
+
+			cnt = managementDAO.deleteUserSttsHist(paramMap);
+
+			for(int i = 0 ; i <userStatus.length ; i++){
+				insertMap.put("userStatus", userStatus[i]);
+				insertMap.put("sttsFromDt", arrVo.getSttsFromDt()[i]);
+				insertMap.put("sttsEndDt", arrVo.getSttsEndDt()[i]);
+				insertMap.put("sttsMemo", arrVo.getSttsMemo()[i]);
+				cnt = managementDAO.insertUserSttsHist(insertMap);
+			}
+
+
+			Integer promotionDtBuf = 0;
+			String rank = "";
+			for(int i = 0 ; i<promotionDtArr.length; i ++){
+				String promotionDtArr2 = promotionDtArr[i].replace("/", "");
+				Integer promotionDtBuf2 = Integer.parseInt(promotionDtArr2);
+				if(promotionDtBuf<promotionDtBuf2) {
+					promotionDtBuf=promotionDtBuf2;
+					rank = arrVo.getRank()[i];
+				}
+			}
+
+			paramMap.put("rank", rank);
+			cnt = managementDAO.updateUserRank(paramMap);
+
+		}*/
+
+
+		/*
+		 * Step 03
+		 * 사용자 진급정보 수정
+		 * 3-1 . 진급정보 삭제
+		 * 3-2 . 진급정보 insert
+		 * 3-3 . 마스터 테이블에 최신 진급 RANK UPDATE
+		 * */
+		String rankFlag = paramMap.get("rankFlag").toString();
+		if(rankFlag!=null && rankFlag.equals("Y")&&paramMap.get("promotionDt")!= null){
+		cnt = managementDAO.insertUserInsideCareer(paramMap);
+		cnt = managementDAO.updateUserRank(paramMap);
+		}
+		/*String[] promotionDtArr = arrVo.getPromotionDt();
+		if(promotionDtArr!=null&&promotionDtArr.length>0&&!promotionDtArr[0].equals("")){
+
+			cnt = managementDAO.deleteUserInsideCareer(paramMap);
+
+			for(int i = 0 ; i <promotionDtArr.length ; i++){
+				insertMap.put("promotionDt", promotionDtArr[i]);
+				insertMap.put("rank", arrVo.getRank()[i]);
+				insertMap.put("memo", arrVo.getMemo()[i]);
+				cnt = managementDAO.insertUserInsideCareer(insertMap);
+			}
+
+			Integer promotionDtBuf = 0;
+			String rank = "";
+			for(int i = 0 ; i<promotionDtArr.length; i ++){
+				String promotionDtArr2 = promotionDtArr[i].replace("-", "");
+				Integer promotionDtBuf2 = Integer.parseInt(promotionDtArr2);
+				if(promotionDtBuf<promotionDtBuf2) {
+					promotionDtBuf=promotionDtBuf2;
+					rank = arrVo.getRank()[i];
+				}
+			}
+
+			paramMap.put("rank", rank);
+			cnt = managementDAO.updateUserRank(paramMap);
+
+		}*/
+
+		/*
+		 * Step 04
+		 * 가족
+		 * 4-1 . 가족  삭제
+		 * 4-2 . 가족 insert
+		 * */
+		String[] relationArr = arrVo.getRelation();
+		if(relationArr!=null&&relationArr.length>0&&!relationArr[0].equals("")){
+
+			cnt = managementDAO.deleteUserFamily(paramMap);
+
+			for(int i = 0 ; i<relationArr.length;i++){
+				insertMap.put("relation", arrVo.getRelation()[i]);
+				insertMap.put("familyNm", arrVo.getFamilyNm()[i]);
+				insertMap.put("birthDt", arrVo.getBirthDt()[i]);
+				insertMap.put("job", arrVo.getJob()[i]);
+				insertMap.put("liveinYn", arrVo.getLiveinYn()[i]);
+				cnt = managementDAO.insertUserFamily(insertMap);
+			}
+
+		}
+
+		/*
+		 * Step 05
+		 * 학력
+		 * 5-1 . 학력삭제
+		 * 5-2 . 학력 insert
+		 * */
+		String[] enteredDtArr = arrVo.getEnteredDt();
+		if(enteredDtArr!=null&&enteredDtArr.length>0&&!enteredDtArr[0].equals("")){
+
+			cnt = managementDAO.deleteUserAcademic(paramMap);
+
+			for(int i = 0 ; i<enteredDtArr.length;i++){
+				String enteredDt = enteredDtArr[i].substring(0, 7);
+				String graduateDt = arrVo.getGraduateDt()[i].substring(0, 7);
+				insertMap.put("enteredDt", enteredDt);
+				insertMap.put("graduateDt", graduateDt);
+				insertMap.put("schoolType", arrVo.getSchoolType()[i]);
+				insertMap.put("academicNm", arrVo.getAcademicNm()[i]);
+				insertMap.put("major", arrVo.getMajor()[i]);
+				insertMap.put("graduateType", arrVo.getGraduateType()[i]);
+				cnt = managementDAO.insertUserAcademic(insertMap);
+			}
+
+
+		}
+
+		/*
+		 * Step 06
+		 * 경력
+		 * 6-1 . 경력삭제
+		 * 6-2 . 경력 insert
+		 * */
+		String[] joinCpnDtArr = arrVo.getJoinCpnDt();
+		if(joinCpnDtArr!=null&&joinCpnDtArr.length>0&&!joinCpnDtArr[0].equals("")){
+
+			paramMap.put("joinCpnDtArr", joinCpnDtArr);
+			paramMap.put("resignCpnDtArr", arrVo.getResignCpnDt());
+			paramMap.put("companyNmArr", arrVo.getCompanyNm());
+			paramMap.put("careerRankArr", arrVo.getCareerRank());
+			paramMap.put("careerJobArr", arrVo.getCareerJob());
+
+			cnt = managementDAO.deleteUserCareer(paramMap);
+
+			for(int i = 0 ; i<joinCpnDtArr.length;i++){
+				insertMap.put("joinCpnDt", joinCpnDtArr[i]);
+				insertMap.put("resignCpnDt", arrVo.getResignCpnDt()[i]);
+				insertMap.put("companyNm", arrVo.getCompanyNm()[i]);
+				insertMap.put("careerRank", arrVo.getCareerRank()[i]);
+				insertMap.put("careerJob", arrVo.getCareerJob()[i]);
+				cnt = managementDAO.insertUserCareer(insertMap);
+			}
+
+		}
+
+		/*
+		 * Step 07
+		 * 자격증
+		 * 7-1 .  자격증삭제
+		 * 7-2 .  자격증 insert
+		 * */
+		String[] licenseNmArr = arrVo.getLicenseNm();
+		if(licenseNmArr!=null&&licenseNmArr.length>0&&!licenseNmArr[0].equals("")){
+
+			paramMap.put("licenseNmArr", licenseNmArr);
+			paramMap.put("issueArr", arrVo.getIssue());
+			paramMap.put("obtainDtArr", arrVo.getObtainDt());
+
+			cnt = managementDAO.deleteUserLicense(paramMap);
+
+			for(int i = 0 ; i<licenseNmArr.length;i++){
+				insertMap.put("licenseNm", licenseNmArr[i]);
+				insertMap.put("issue", arrVo.getIssue()[i]);
+				insertMap.put("obtainDt", arrVo.getObtainDt()[i]);
+				cnt = managementDAO.insertUserLicense(insertMap);
+			}
+
+		}
+
+		/*
+		 * Step 08
+		 * 고객정보 UPDATE
+		 * */
+		cnt = managementDAO.updateCustomerInfoByPersonnelInfo(paramMap);
+
+		Map<String,String> param = new HashMap();
+		param.put("userRole", paramMap.get("userRole").toString());
+		param.put("orgId", paramMap.get("userOrgId").toString());
+		param.put("userId", paramMap.get("userId").toString());
+		param.put("userSeq", paramMap.get("sessionUserId").toString());
+		rolePerUserDAO.mergeRoleCode(param);
+
+		return cnt;
+	}
+	//재직상태/직급변경 batch
+	public void updateUserInfoBatch(Map<String, Object> paramMap) throws Exception {
+		//진급정보 업데이트
+		managementDAO.updateUserRank(paramMap);
+
+		//뱅가나 휴가인 유저를 재직으로 업데이트한다.
+		managementDAO.updateUserStatusBeforeBatch();
+
+		//hist에있는 유저정보 업데이트
+		managementDAO.updateUserStatus(paramMap);
+
+		//퇴사,해고 유저의 CUS_ID를67030 으로 업데이트
+		managementDAO.updateFireUserCpnId(paramMap);
+	}
+
+	//연차관리목록
+	public List<EgovMap> getAnnualUserList(Map<String, Object> paramMap) throws Exception {
+		Integer totCnt =0;
+
+		totCnt = managementDAO.getAnnualUserListTotalCnt(paramMap);
+		paramMap.put("totCnt", totCnt);
+
+		return managementDAO.getAnnualUserList(paramMap);
+	}
+
+	//연차저장
+	public int doSaveUserLeaveH(Map<String, Object> paramMap) throws Exception {
+		String leaveId = paramMap.get("leaveId").toString();
+		int rtn =0;
+		if(StringUtil.isEmpty(leaveId)){
+			rtn = managementDAO.insertUserLeaveH(paramMap);
+		}else{
+			rtn = managementDAO.updateUserLeaveH(paramMap);
+		}
+		return rtn;
+	}
+
+	//출근부생성:batch
+	public void insertWorkTime(Map<String,Object> paramMap) throws Exception{
+		managementDAO.insertWorkTime(paramMap);
+		managementDAO.insertWorkTimeEnd(paramMap);
+		managementDAO.updateWorkTimeEnd(paramMap);
+	}
+
+	//오늘의 출근정보 조회
+	public EgovMap getTodayWorkInfo(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.getTodayWorkInfo(paramMap);
+	}
+
+	//현재시간조회
+	public Date getCurTimeInfo() throws Exception{
+		return managementDAO.getCurTimeInfo();
+	}
+
+	//출근처리
+	public int processWorcAjax(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.updateWorkIntime(paramMap);
+	}
+	//퇴근처리
+	public int processWorcEndAjax(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.processWorcEndAjax(paramMap);
+	}
+	//로그인 이력 저장
+	public int processLoginHist(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.processLoginHist(paramMap);
+	}
+	//로그인 이력 리스트
+	public List<EgovMap> getLoginHistList(Map<String, Object> paramMap) throws Exception {
+		Integer totCnt =0;
+
+		totCnt = managementDAO.getLoginHistListTotalCnt(paramMap);
+		paramMap.put("totCnt", totCnt);
+
+		return managementDAO.getLoginHistList(paramMap);
+	}
+	//새글알림설정 리스트
+	public List<EgovMap> markRuleListList(Map<String,Object> paramMap) throws Exception{
+		return managementDAO.markRuleListList(paramMap);
+	}
+	//새글알림설정 저장
+    public Integer processMarkRule(Map<String,Object> map) throws Exception{
+    	int cnt = 0;
+
+    	//orgId : 새글알림설정 삭제
+    	managementDAO.deleteMarkRule(map);
+
+    	String keyChk = "";
+    	String keyChk2 = "";
+    	Map<String,Object> insertMap = new HashMap<String,Object>();
+    	insertMap.put("orgId", map.get("orgId"));
+		insertMap.put("userId", map.get("userId"));
+    	for(String key : map.keySet()){
+
+    		if(key.indexOf("|")<0) continue;
+
+    		String[] keyBuf = key.split("[|]");
+    		String newContentMarkType = null;
+    		if(keyBuf.length>2){
+    			newContentMarkType= keyBuf[2];
+    		}else{
+    			newContentMarkType="";
+    		}
+    		if(keyChk.equals("")&&keyChk2.equals("")){
+    			keyChk = keyBuf[1];
+    			keyChk2 = newContentMarkType;
+    		}
+
+    		if(!keyChk.equals(keyBuf[1])||!keyChk2.equals(newContentMarkType)){
+    			keyChk = keyBuf[1];
+    			keyChk2 = newContentMarkType;
+    			managementDAO.insertMarkRule(insertMap);
+
+    			//초기화
+    			insertMap = new HashMap<String,Object>();
+    			insertMap.put("orgId", map.get("orgId"));
+    			insertMap.put("userId", map.get("userId"));
+    		}
+    		insertMap.put("newContentMarkType", newContentMarkType);
+    		insertMap.put("newContentMarkClass", keyBuf[1]);
+    		insertMap.put(keyBuf[0], map.get(key));
+		 }
+    	managementDAO.insertMarkRule(insertMap);
+    	return cnt;
+    }
+
+    // 퀵링크 저장/수정
+    public Integer processQuickLink(Map<String,Object> map) throws Exception{
+    	Integer cnt = 0;
+
+    	//pk 가 0이면 인서트 /아니면 업데이트
+    	String quickLinkId = map.get("quickLinkId").toString();
+
+    	if(quickLinkId.equals("0")) cnt = managementDAO.insertQuickLink(map);
+    	else cnt = managementDAO.updateQuickLink(map);
+    	return cnt;
+    }
+    // 퀵링크 삭제
+    public Integer deleteQuickLink(Map<String,Object> map) throws Exception{
+    	return managementDAO.deleteQuickLink(map);
+    }
+    //org별 퀵링크 조회
+    public List<EgovMap> getQuickLinkList(Map<String,Object> map) throws Exception{
+    	return managementDAO.getQuickLinkList(map);
+    }
+}

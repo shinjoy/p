@@ -1,0 +1,1440 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%
+response.setHeader("Cache-Control","no-cache");
+response.setHeader("Pragma","no-cache");
+response.setDateHeader("Expires",0);
+%>
+<style>
+.display-none {
+    display:none;
+}
+</style>
+
+<div class="wrap-loading display-none">
+    <div><img src="<c:url value='/images/ajax_loading.gif'/>" /></div>
+</div>
+
+<div class="verticalWrap">
+	<!--====================== 메모 박스 : S ===================-->
+	<input type="hidden" id="cardSnb"/> <!-- 메모 등록시 snb 세팅-->
+	<!--====================== 메모 박스 : E ===================-->
+	<input type="hidden" id="usrId">
+	<input type="hidden" id="searchOrgId" name="searchOrgId" value="${baseUserLoginInfo.applyOrgId }"/>
+	<!--============== LEFT MENU : S =============-->
+	<div class="addAreaZone" id = "userTreeArea">
+		<div id="userListAreaTree"></div><!-- 사용자트리 -->
+	</div>
+
+	<!-- ======================================= 왼쪽 메뉴(팀장) :S ======================================== -->
+    <div class="addAreaZone" id = "userDeptTreeArea" style="display: none;">
+    	<input type="hidden" id = "searchDeptId" name = "searchDeptId">
+        <div class="tnavi_title">
+            <span>
+                <!-- 마스터 권한에만 회사 선택 란이 보인다 -->
+                <c:choose>
+                    <c:when test="${ (pageType eq 'MGMT' && baseUserLoginInfo.orgId eq '1') || (pageType eq 'VIEW' && deptLevel eq 'L00')}">
+                        <select id="targetOrgId" name="targetOrgId" class="select_b w_date" onChange="fnObj.doLoadTreeviewPage()">
+                            <c:forEach items="${orgCompList}" var="item">
+                                <option value="${item.orgId}" ${ item.orgId == baseUserLoginInfo.applyOrgId ? "selected" : "" }>${item.cpnNm}</option>
+                            </c:forEach>
+                        </select>
+                    </c:when>
+                    <c:otherwise>
+                        <c:forEach items="${orgCompList}" var="item">
+                            <c:if test="${item.orgId eq baseUserLoginInfo.applyOrgId}">${item.cpnNm}</c:if>
+                        </c:forEach>
+                        <input type="hidden" id="targetOrgId" name = "targetOrgId" value="${baseUserLoginInfo.applyOrgId}"/>
+                    </c:otherwise>
+                </c:choose>
+            </span>
+            <button type="button" class="btn_s_replay" onclick="doRefreshPage();"><em>검색초기화</em></button>
+
+        </div>
+        <div id="AXJSTree" class="tnavi_treezone"></div>
+    </div>
+    <!-- ======================================= 왼쪽 메뉴(팀장) :E ======================================== -->
+	<!--============== LEFT MENU : E =============-->
+
+    <!--============== RIGHT MENU : S =============-->
+ 	<section id="detail_contents" style="overflow: auto;">
+   		<input type="hidden" id="choiceMonth"/>
+   		<!--검색영역-->
+   		<div class="carSearchBox withcal">
+   			<div class="blocktype mgr10">
+				<span id="searchTypeDiv"></span>		  	<!-- 분류 -->
+				<span id="yearDiv"></span>					<!-- 년도 -->
+			</div>
+			<div class="blocktype mgr10">
+				<span id="monthDiv" class="btn_monthZone"></span>
+			</div>
+			
+			<div class="blocktype">
+				<span class="carSearchtitle">기간조회</span>
+				<input type="text" id="startDate" class="input_date_type input_b mgl5" readonly="readonly"/>
+				<a href="#" onclick="$('#startDate').datepicker('show');return false;" class="icon_calendar"><em>날짜선택</em></a>
+				<span class="dashLine">~</span>
+				<input type="text" id="endDate" class="input_date_type input_b mgl5" readonly="readonly"/>
+				<a href="#" onclick="$('#endDate').datepicker('show');return false;" class="icon_calendar"></a>
+	          	<button type="button" name="reg_btn" class="btn_g_black mgl10" onclick="fnObj.clickSearch();">조회</button>
+	
+			    <!-- 툴팁 -->
+	            <span class="memotooltip">
+	            	<a href="javascript:showlayer(SpendingaDvice)" class="btn_icon_advice"><em>도움말</em></a>
+	               	<div id="SpendingaDvice" class="tooltip_box" style="display:none;">
+						<div class="wrap_autoscroll">
+						    <span class="intext">
+						    <h3 class="title">1. 일정 필수 항목 - 영업관련 및 대중교통비,부서회식<br>&nbsp;&nbsp;[해당건에 대한 일정을 등록 후 사용]</h3>
+						  <!--   <ul class="list_st_dot3 mgb15">
+						        <li class="f12">점심,저녁업무 : 해당건에 대한 일정(점심미팅, 저녁미팅)</li>
+						        <li class="f12">외 : 해당건에 대한 일정</li>
+						    </ul> -->
+						    <h3 class="title">2. 영업관련 입력 시 대상자 필수</h3>
+						    <ul class="list_st_dot3 mgb15">
+						        <li class="f12">대상자 외 1명 이상 - 추가대상자 입력</li>
+						    </ul>
+						    <h3 class="title">3. 대중교통비 입력 시 출발지 목적지 기재</h3>
+						    <h3 class="title">4. 소모품 입력 시 구입품목 개별 기재</h3>
+						   <!--  <h3 class="title">5. 신규추가 항목</h3>
+						    <ul class="list_st_dot3 mgb15">
+						        <li class="f12">고객과의 점심이 아닌 일상적인 점심은 [복리후생]-[점심-직원]</li>
+						        <li class="f12">영업 관련 고객 선물이나 기타 물품 구매 비용은 [업무-기타]</li>
+						    </ul> -->
+						   <!--  <h3 class="title">6. 사용규정(제한)</h3>
+						    <ul class="list_st_dot3 mgb15">
+						         <li class="f12">접대 또는 회식 후 귀가 택시비</li>
+						         <li class="f12">2차 접대 비용</li>
+						         <li class="f12">직원 간 단순 친목을 위한 일정에 등록되지 않은 소규모 회식</li>
+						         <li class="f12">접대가 아닌 식사 후 음료 및 간식구입 비용 등</li>
+						         <li class="f12">야근식대 퇴근 시간 9시 이전, 야근식대 1인당 1만원 초과</li>
+						         <li class="f12">점심식대 1인당 1만원 초과</li>
+						    </ul>
+						    <h3 class="title1">※ 위 사항은 인정되지 않음.</h3> -->
+						    <em class="edge_topcenter"></em>
+						    <a href="javascript:showlayer(SpendingaDvice)" class="closebtn_s"><img src="../images/common/icon_car_tooltip_close.gif" alt="닫기" /></a>
+						    </span>
+						    <em class="edge_topleft"></em>
+						</div>
+					</div>
+				</span>
+	            <!--// 툴팁 //-->
+	        </div>
+	            
+			<div class="btnRightZone">
+				<%-- <c:if test="${baseUserLoginInfo.permission >= '00020' or baseUserLoginInfo.loginId eq 'kmy' or baseUserLoginInfo.loginId eq 'jyl' or baseUserLoginInfo.loginId eq 'mjy'}"> --%>
+				<button name="reg_btn" class="btn_b2_skyblue" onclick="fnObj.excelDownList();"><em class="icon_XLS">파일로 저장</em></button>
+				<%-- </c:if> --%>
+			</div>
+		</div>
+		<!--//검색영역//-->
+        <div class="board_classic mgt20">
+    		<div class="leftblock">
+    			<span class="count_result"><strong>전체</strong><em><span id="total_count"></span></em>건</span>
+    		</div>
+    		<!-- 2016.12.29. 이인희 지출입력 필수자 여부가 'N'이면 업무등록 불가함 -->
+    		<c:if test="${baseUserLoginInfo.expenseYn ne 'N' }">
+    		    <div class="rightblock">
+	                <span class="btn_auth">
+	                    <button type="button" id="regYnBtn" class="btn_b_black btn_auth" name="reg_btn" onclick="fnObj.cardReg(0);"><span id="regTxtSpan">지출등록</span></button>
+	                </span>
+	            </div>
+    		</c:if>
+         </div>
+		 <div class="spending_st_box">
+		 	<span class="scroll_cover"  onclick="javascript:setdayFull('sp_scroll_body');"></span>
+		    <!--지출입력header-->
+			<div class="sp_scroll_header">
+				<table class="tb_list_basic" summary="고객관리 리스트(이름, 업종, 회사, 기본정보, 네트워크, 최근정보, 시너지와의 이력)">
+			    	<caption>지출 리스트</caption>
+		            	<colgroup>
+                            <col width="4%"  class="chkBoxArea"/> <!--체크박스 -->
+                            <col width="10%"  /> <!--카드 -->
+                            <col width="8%"  /> <!--지출일자 -->
+                            <col width="10%"  /> <!--항목 -->
+                            <col width="10%"  /> <!--사용처/장소 -->
+                            <col width="8%"  /> <!--금액 -->
+                            <col width="*" /> <!--지출내용 -->
+                            <col width="10%" /> <!--참석자 -->
+                            <col width="10%"  /> <!--등록자 -->
+                            <col width="15%"   /> <!--비고-->
+                            <col width="10%"   /> <!--승인-->
+                        </colgroup>
+			            <thead>
+                            <tr id="tblHeaderPart">
+                            	<th scope="col" class = "chkBoxArea"><label><input type="checkbox" id="chkAll" name="chkAll"/><em class="hidden">전체선택</em></label></th>
+                                <th scope="col" class = "cardUseArea"><a href="#" onclick="fnObj.doSort(3);" id="sort_column_prefix3" class="sort_normal">카드</a></th>
+                                <th scope="col"><a href="#" onclick="fnObj.doSort(0);" id="sort_column_prefix0" class="sort_normal">지출일자</a></th>
+                                <th scope="col"><a href="#" onclick="fnObj.doSort(1);" id="sort_column_prefix1" class="sort_normal">항목</a></th>
+
+                                <th scope="col">사용처/장소</th>
+                                <th scope="col">금액</th>
+
+                                <th scope="col">지출내용</th>
+                                <th scope="col">참석자</th>
+                                <th scope="col"><a href="#" onclick="fnObj.doSort(2);" id="sort_column_prefix2" class="sort_normal">등록자<em></em></a></th>
+								<th scope="col">비고</th>
+                                <th scope="col">승인</th>
+                            </tr>
+
+                        </thead>
+	                </table>
+			    </div>
+			    <!--//지출입력header//-->
+
+                <!--지출입력body-->
+                <div class="sp_scroll_body">
+	            	<table id="SGridTarget" class="tb_list_basic" summary="고객관리 리스트(이름, 업종, 회사, 기본정보, 네트워크, 최근정보, 시너지와의 이력)">
+                    	<colgroup>
+                             <col width="4%"  class="chkBoxArea" /> <!--체크박스 -->
+                            <col width="10%"  /> <!--카드 -->
+                            <col width="8%"  /> <!--지출일자 -->
+                            <col width="10%"  /> <!--항목 -->
+                            <col width="10%"  /> <!--사용처/장소 -->
+                            <col width="8%"  /> <!--금액 -->
+                            <col width="*" /> <!--지출내용 -->
+                            <col width="10%" /> <!--참석자 -->
+                            <col width="10%"  /> <!--등록자 -->
+                            <col width="15%"   /> <!--비고-->
+                            <col width="10%"   /> <!--승인-->
+                        </colgroup>
+	                    <tbody></tbody>
+	                 </table>
+				</div>
+	            <!--//지출입력body//-->
+			</div>
+			<!--========================== 합계 :S =======================-->
+	        <div class="total_tb_listwrap">
+
+				<div class="btn_baordZone">
+	                <a href="javascript:fnObj.regApproval();" id="btnApproval" class="btn_blueblack btn_auth">승인</a>
+	            </div>
+
+				<table id="SGridTargetSum" class="total_tb_list_basic" summary="지출 목록 총합계(영업관련, 복리후생, 교통비, 차량유지, 운반비, 구입비)">
+					<caption>지출 목록</caption>
+					<colgroup>
+						<col width="*" /> <!--세부항목-->
+						<col width="*" /> <!--구분-->
+						<col width="*" /> <!--금액-->
+					</colgroup>
+					<tbody id="detailSum">
+						<tr>
+							<th rowspan="6">세<br>부<br>항<br>목</th>
+							<th class="bg_gray">영업관련</th>
+							<td class="txt_money"><span>0</span><em>원</em></td>
+						</tr>
+						<tr>
+							<th class="bg_gray">복리후생</th>
+							<td class="txt_money"><span>0</span><em>원</em></td>
+						</tr>
+						<tr>
+							<th class="bg_gray">교통비</th>
+							<td class="txt_money"><span>0</span><em>원</em></td>
+						</tr>
+						<tr>
+							<th class="bg_gray">차량유지</th>
+							<td class="txt_money"><span>0</span><em>원</em></td>
+						</tr>
+						<tr>
+							<th class="bg_gray">운반비</th>
+							<td class="txt_money"><span>0</span><em>원</em></td>
+						</tr>
+						<tr>
+							<th class="bg_gray">구입비</th>
+							<td class="txt_money"><span>0</span><em>원</em></td>
+						</tr>
+						<!--
+						<tr>
+							<th scope="col">총계</th>
+							<td class="center_txt_red"><span id="totalSum"></span></td>
+							<th scope="col"><p id="dv2NameP"></p>세부항목</th>
+							<td class="right_txt">
+								<div id="detailSum"></div>
+					 		</td>
+					 	</tr>
+					 	-->
+					</tbody>
+					<tfoot>
+						<tr>
+							<th colspan="2">전체총계</th>
+							<td class="txt_money"><span id="totalSum">0</span><em>원</em></td>
+						</tr>
+					</tfoot>
+				</table>
+			</div>
+	        <!--=========================== 합계 :E =========================-->
+	        <div class="btn_baordZone2"></div>
+	</section>
+	<!--============== RIGHT MENU : E =============-->
+</div>
+
+
+
+<script type="text/javascript">
+function newMap() {
+	var map = {};
+  	map.value = {};
+  	map.getKey = function(id) {
+    	return "k_"+id;
+  	};
+  	map.put = function(id, value) {
+    	var key = map.getKey(id);
+    	map.value[key] = value;
+  	};
+
+  	map.get = function(id) {
+    	var key = map.getKey(id);
+    	if( map.value[key] ) {
+      		return map.value[key];
+    	}
+    	return null;
+  	};
+
+	  return map;
+}
+
+function setdayFull(knd){
+	var h = '';
+   	if( knd == 'week_allday' )
+   		h = '99px';
+   	else
+   		h = '450px';
+
+   	if( $('.'+knd).css('max-height') == h )
+   		$('.'+knd).css('max-height','none');
+   	else
+   		$('.'+knd).css('max-height', h);
+}
+//Global variables :S ---------------
+
+//공통코드
+var comCodeCstType;				//고객구분
+
+var myGrid 	  = new SGrid();	// instance		new sjs
+var mySorting = new SSorting();	// instance		new sjs
+
+var g_chargeType	   = '';								  //담당자 타입	...	'all':전체보기, 'notyet':미담당보기, '':특정담당자, 'new':신규등록고객(꼽사리)
+var g_chargeStaffCusId = "${baseUserLoginInfo.cusId}";		  //담당자 사원 고객id ... 담당자 일경우 (처음에는 로그인 사용자 고객id)
+var g_division         = "${baseUserLoginInfo.orgId}";	      //관계사id
+var g_staffList        = new Array();						  //담당자 전체 리스트 ... [{cusId:'123', usrNm:'시너지'}]
+var g_sabun            = "${baseUserLoginInfo.empNo}";		  //로그인유저사번
+var g_loginId          = "${baseUserLoginInfo.loginId}";	  //로그인유저아이디
+var g_permission       = "${baseUserLoginInfo.permission}";	  //permission
+var g_deptId           = "${baseUserLoginInfo.deptId}";		  //teamId
+var g_deptMngr         = "${baseUserLoginInfo.deptMngrEmpNo}";//부서장 사번
+var g_sortCol          = '';								  //소팅 컬럼
+var g_sortAD           = '';								  //소팅 방향(A or D)
+
+var cardList ;
+var dv2List=[];												   //dv2 리스트
+var dvList=[];												   //dv 리스트
+
+var orgCardLinkYn;					  							 //카드사용연동여부
+var staffUserId;  					   							 //지출처리자 아이디
+var cardUseCnt;  					   							 //사용 소유 카드 개수
+var usedCardCnt;												 //조회 목록에서 카드정보가 있는 데이터의 개수
+//Global variables :E ---------------
+
+
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+var fnObj = {
+
+	//################# init function :S #################
+
+	//////////////////////좌측 트리 (팀장) : S
+	doLoadTreeviewPage: function(){        //knd : null - 검색버튼, 숫자 - 페이지검색
+		fnObj.doLoadTreeview();
+		$("#searchDeptId").val("");
+		fnObj.doSearch();
+	},
+
+    doLoadTreeview: function(){        //knd : null - 검색버튼, 숫자 - 페이지검색
+        var url = contextRoot + "/system/getDeptList.do";
+        var param = {};
+
+        param = {
+                   targetOrgId : $("#targetOrgId").val()
+           };
+
+        var callback = function(result){
+            var obj = JSON.parse(result);
+            for(var n = 0; n < obj.resultVal; n++){
+                if( obj.resultList[n].parent == 0 )
+                    obj.resultList[n].parent = "#";
+            }
+
+            fnObj.viewTree(JSON.stringify(obj.resultList));
+        };
+
+        commonAjax("POST", url, param, callback);
+    },
+    viewTree : function (jsonDeptData) {
+        ////console.debug(JSON.parse(jsonDeptData));
+        $('#AXJSTree').jstree('destroy');
+        $('#AXJSTree').jstree({
+                        'core' : {
+                                "check_callback" : true
+                                ,'data' : JSON.parse(jsonDeptData)
+                        },
+                        "themes" : {
+                                "variant" : "large",
+                                "icons": "true"
+                        },
+                        "plugins" : [
+                                      "dnd", "themes", "crrm", "json_data"      //, "wholerow"
+                        ],
+                        "dnd" : {
+                            "drop_finish" : function () {
+                        }
+                }}).bind("loaded.jstree",function(event,data){
+                     $(this).jstree("open_all");
+
+                     var node = $(this).jstree(true).get_node("${baseUserLoginInfo.deptId}", true);      //로그인 사용자 부서
+                     $(this).jstree('select_node', node);                          //기본선택
+
+
+                }).bind("select_node.jstree", function (event, data) {
+                	// 트리선택시
+                    selDeptId = data.node.original.deptId;
+                    selLevel = data.node.original.level;
+                    selDeptCode = data.node.original.deptCode;
+
+                    $("#searchDeptId").val(selDeptId);
+                    fnObj.doSearch();
+
+                 });
+    },
+	//////////////////////좌측 트리 (팀장) : E
+	//선로딩코드
+	preloadCode: function(){
+		//공통코드
+		dv2List = getBaseCommonCode('ACCOUNT_SUBJECT', '', 'CD', 'NM', null, '', '',{ orgId : "${baseUserLoginInfo.applyOrgId}"});
+		if(dv2List == null){
+			dv2List = [{ 'CD': '', 'NM' :'선택'}];
+		}
+		dvList = getBaseCommonCode('', '', 'CD', 'NM', null, '', '',{sSortOrder : 'Y' , parentCodeSetNm : 'ACCOUNT_SUBJECT', orgId : "${baseUserLoginInfo.applyOrgId}"});
+		if(dvList == null){
+			dvList = [{ 'CD': '', 'NM' :'선택'}];
+		}
+		fnObj.setDatepicker('startDate');
+		fnObj.setDatepicker('endDate');
+
+		fnObj.yearSetting();		//년도 셀렉트박스 세팅
+    	fnObj.monthSetting();		//월 세팅
+    	fnObj.searchTypeSetting();	//분류 세팅
+    },
+	//화면세팅
+    pageStart: function(){
+
+    	/*=========================================== 달력 세팅 : S ===========================================*/
+    	var nowDate = new Date();
+    	var dateArr = nowDate.yyyy_mm_dd().split('-');
+    	var nowWeekName =nowDate.getDay(); 				//오늘 번호
+    	var setNum = 0;
+    	if(nowWeekName>0 && nowWeekName<7){				//오늘 월~토
+    		setNum = 4-nowWeekName;
+    	}else{											//오늘 일
+    		setNum = -3;								//목요일 번호
+    	}
+    	var thuDay = new Date(dateArr[0],parseInt(dateArr[1])-1,parseInt(dateArr[2])+setNum);	//목요일 날짜
+    	var thuStr = thuDay.yyyy_mm_dd();
+    	$("#endDate").val(thuStr);
+
+    	var thuArr = thuStr.split("-");															//목요일 기준
+    	var friDay = new Date(thuArr[0],parseInt(thuArr[1])-1,parseInt(thuArr[2])-6);			//-6 지난주 금
+    	var friStr = friDay.yyyy_mm_dd();
+    	$("#startDate").val(friStr);
+    	/*=========================================== 달력 세팅 : E ===========================================*/
+
+
+    	//-------------------------- 그리드 설정 :S ----------------------------
+    	/* 그리드 설정정보 */
+    	var configObj = {
+
+   			//그리드의 id
+   			targetID : "SGridTarget",
+
+    		//그리드 컬럼 정보
+    		colGroup : [
+
+			//체크박스
+			{key:"chkbox", formatter:function(obj){
+												  var txt='';
+
+												  var approveYn = obj.item.approveYn;
+												  var dvChk     = obj.item.dv;
+								        		  txt+='<label><input type="checkbox" id="approvalChk" name="approvalChk" value="'+obj.item.sNb+'"';
+
+								        		  if(approveYn == "Y" || dvChk == null) txt+=' disabled="disabled"';
+
+								        		  txt+='class="clDisable"/><em class="hidden">선택</em></label>';
+								        		  //txt+='<input type="hidden" id="arrApproval" name="arrApproval" value="" />';
+								        		  txt+='<span class="chkHidden" /></span>';
+								        		  return txt;
+												  }},
+		    //카드
+		    {key:"cardNickname", formatter:function(obj){
+		    											var txt = '';
+		    											var cardNickname = obj.item.cardNickname;
+
+		    											var cardNum = obj.item.cardNum;
+		    											if( cardNickname != null ){
+		    												var lastNum = cardNum.split("-")[3];
+		    												txt += cardNickname+'('+lastNum+')';
+		    												usedCardCnt++;
+		    											}else{
+		    												txt += '-';
+		    											}
+
+		    											//obj.item.cardNickname = txt;
+		    											return txt;
+
+		    											}},
+			//지출일
+		    {key:"tmDt", formatter:function(obj){return obj.item.tmDt.replace(/-/gi,'/');}},
+		    //항목
+            {key:"dv", 	 formatter:function(obj){
+								            	var dv = obj.item.dv;
+												var txt = '-';
+								            	if(dv!=null&&dv!=""){
+													txt = fnObj.dvSet(dv);
+								            	}
+												//txt = fnObj.dvSet2(dv);
+												//obj.item.dv = txt;
+												return txt;
+            									}},
+			//금액
+			{key:"price", formatter:function(obj){return Number(obj.item.price).toLocaleString().split(".")[0];}},
+			//소속회사
+			{key:"cstCpnNm",	},
+			//이름
+            {key:"cstNm", formatter:function(obj){
+            										var txt ='';
+            										if(obj.item.cstNm !=null){
+
+            											txt +='<a style="cursor:pointer;">'+obj.item.cstNm;
+
+            											if(obj.item.etcNum>0){
+                											txt += '외'+obj.item.etcNum+'명';
+                											if(obj.item.extraName != ''){
+                												txt += '</br><span class="point_strong_etc">['+obj.item.extraName+']</span>';
+                											}
+                										}
+            											txt +='</a>';
+            										}
+            										return txt;
+            									 }},
+			//장소
+            {key:"place",		},
+            //지출내용
+            {key:"note",	formatter:function(obj){
+													var txt ='';
+
+            										//출발지 목적지 세팅
+													if(obj.item.dv== '100' && obj.item.fromLoc!= '' && obj.item.toLoc!= '' && obj.item.fromLoc!= null && obj.item.toLoc!= null){
+														txt += '['+obj.item.fromLoc+' ▶ '+obj.item.toLoc+']    :   ';
+													}
+													if(obj.item.dv =='170'){							//소모품일때
+														txt+='    <button type="button" class="icon_buylist" onclick="fnObj.viewSupplies('+obj.item.sNb+');"><em>내역상세보기</em></button>';
+
+													}
+
+													if(obj.item.note!=null)
+														txt +='<span>'+obj.item.note+'</span>';
+
+
+													return txt;
+												 }},
+			//시너지참석자
+            {key:"staff",	formatter:function(obj){
+									            	var txt='';
+									            	/* if(obj.item.dv == "60"){//저녁 야근일때 세팅
+									            		for(var i=0;i<obj.item.cardUserList.length;i++){
+									            			var leaveTime = (obj.item.cardUserList[i].leaveWorkTime).replace(/:/gi,'');
+									            			if(obj.item.cardUserList[i].leaveWorkTime == '' && obj.item.tmDt > '2016-08-31'){
+									            				txt +='<span style="color:#0b7ef9;">';
+									            				txt +='<font style="cursor:pointer;"  title="퇴근미체크"><b>';
+									            			}else if(obj.item.tmDt > '2016-08-31' && parseInt(leaveTime)<210000){
+									            				txt +='<span style="color:#0b7ef9;">';
+									            				txt +='<font style="cursor:pointer;"  title="퇴근시간:'+obj.item.cardUserList[i].leaveWorkTime.substring(0,5)+'"><b>';
+									            			}
+									            			else{
+									            				txt +='<font style="cursor:pointer;"  title="퇴근시간:'+obj.item.cardUserList[i].leaveWorkTime.substring(0,5)+'">';
+									            			}
+									            			txt +=obj.item.cardUserList[i].cstNm;
+									            			if(i<obj.item.cardUserList.length-1){
+									            				txt +=', ';
+									            			}
+									            			txt +='</font></span>';
+									            		}
+									            	}else{ */
+									            		txt =obj.item.staff;
+									            	/* } */
+
+
+									            	return txt;
+									            }},
+	        //등록자
+            {key:"staffNm",	formatter:function(obj){
+            									   var txt='';
+
+            									   var cardOwnerUserId = obj.item.cardOwnerUserId;
+            									   if(obj.item.dv==null && cardOwnerUserId == "${baseUserLoginInfo.userId}"){
+           										       txt+='<a name="reg_btn" class="btn_s_type_g" onclick="fnObj.cardReg('+obj.item.sNb+');" style="cursor:pointer;">등록</a>';
+           										   }else{
+           										       txt+=obj.item.staffNm;
+
+           										    	txt+="<br>";
+
+           										    	if(obj.item.sabun == '${baseUserLoginInfo.empNo}'){
+           										    		if(obj.item.approveYn=="N"){
+	    										           		txt+="<a name=\"reg_btn\" class=\"btn_s_type_g\" onclick=\"fnObj.cardReg('"+obj.item.sNb+"','"+obj.item.approveYn+"');\"";
+																txt+='style="cursor:pointer;">수정</a>';
+
+																if(obj.item.cardCorpUseYn!="Y"){
+																	txt+="<a name=\"reg_btn\" class=\"btn_s_type_g mgl6\" onclick=\"fnObj.doDelete('"+obj.item.sNb+"','"+obj.item.approveYn+"');\"";
+												           			txt+='style="cursor:pointer;">삭제</a>';
+																}
+    										           		}
+    										           	}
+           										   }
+
+            									   obj.item.staffNm = obj.item.staffNm == null?-999:obj.item.staffNm;
+            									   return txt;
+            									   }},
+			//상태(수정/삭제)버튼
+            {key:"btn",  formatter:function(obj){
+					            	var txt='';
+					            	//txt+='<a class="memoBtn"  style="cursor:pointer"  onclick="fnObj.openMemo(this,\''+obj.item.sNb+'\');"><img style="vertical-align:middle;" src="<c:url value="/images/edit-5-icon.png"/>" title="메모 입력"></a>';
+					            	var approveYn = obj.item.approveYn;
+					            	var sabunDel  = obj.item.sabun;
+					            	var dvItem    = obj.item.dv;
+
+					            	if( dvItem != null ){
+					            		if(obj.item.sabun == '${baseUserLoginInfo.empNo}'){
+						            		txt+="<a name=\"reg_btn\" class=\"btn_s_type_g\" onclick=\"fnObj.cardReg('"+obj.item.sNb+"','"+obj.item.approveYn+"');\"";
+
+						            		if(approveYn=="N"){
+						            			txt+='style="cursor:pointer;">수정</a>';
+						            		}
+						            	}
+
+						            	if(sabunDel == '${baseUserLoginInfo.empNo}'){
+						            		//txt+='<a name="reg_btn" class="btn_s_type_g mgl6" onclick="fnObj.doDelete('+obj.item.sNb+');"';
+						            		txt+="<a name=\"reg_btn\" class=\"btn_s_type_g mgl6\" onclick=\"fnObj.doDelete('"+obj.item.sNb+"','"+obj.item.approveYn+"');\"";
+
+						            		if(approveYn=="N"){
+						            			txt+='style="cursor:pointer;">삭제</a>';
+						            		}else{
+						            			txt+='style="display:none;">삭제</a>';
+						            		}
+							            }
+					            	}
+
+					            	return txt;
+					            }},														//상태
+			//비고
+			{key:"feedback",  formatter:function(obj){
+					            	var txt='';
+					            	txt+='<a class="memoBtn" onclick="fnObj.openMemo(this,\''+obj.item.sNb+'\');" style="cursor:pointer;"><em>비고입력</em></a>';
+					            	var feedback = obj.item.feedback;
+					            	if(feedback != null){
+					            		txt+='<span class="memoCon"><a onclick="fnObj.openMemo(this,\''+obj.item.sNb+'\');">'+feedback.substring(0,20)+(feedback.length>20 ? '...' : '')+'</a></span>';
+					            	}
+					            	/*레이어넣기*/
+				            		txt+='<div id="memo_'+obj.item.sNb+'" class="memoInnerArea"></div>';
+					            	return txt;
+					            }},														//상태
+            //승인자Nm
+            {key:"approvalNm",	formatter:function(obj){
+            											var txt='';
+            											if(obj.item.approveYn == 'Y'){
+            												txt+='<span class=""><em id="disId" value="kakakak">승인('+obj.item.approvalNm+')</em></span>';
+            											}else{
+            												txt+='<span class=""><em id="disId" value="kakakak">미승인';
+
+            												//var approvalNm = obj.item.approvalNm;
+            												//if(approvalNm!=null)
+            												//	txt+=obj.item.approvalNm
+
+            												txt+='</em></span>';
+
+            											}
+            											return txt;
+				            	}},
+            //승인자ID
+            {key:"approvalId",	formatter:function(obj){
+										            	var txt='';
+										            	txt+='<input type="hidden">';
+										            	return txt;
+            					}},
+         	/*
+         	{key:"priceAlert",formatter:function(obj){
+										            	var txt='';
+										            	if(obj.item.dv == "60"){//저녁 야근
+										            		if(obj.item.cardUserList.length>0 && obj.item.price/obj.item.cardUserList.length>10000 && obj.item.tmDt > '2016-08-31'){
+											            		txt = 'background:#b4d9f9;color:black;font-weight:bold;';
+											            	}
+										            	}else if(obj.item.dv == "55"){//점심 직원일때 세팅
+										            		if(obj.item.cardUserList.length>0 && obj.item.price/obj.item.cardUserList.length>10000){
+										            			txt = 'background:#b4d9f9;color:black;font-weight:bold;';
+										            		}
+										            	}
+										            	return txt;
+										            }}
+
+            */
+			//pk[15]
+            {key:"sNb",		},
+
+          	//지출승인여부[16]
+            {key:"approveYn",		},
+
+            ],
+
+            body : {
+                onclick: function(obj, e){
+                	if(obj.c!=8&&obj.c!=9){
+	                	var url = "${pageContext.request.contextPath}/card/regCardView/pop.do?cardSnb="+obj.item.sNb;
+	                	var option = "left=" + (screen.width > 1400?"700":"0") + ", top=" + (screen.height > 810?"100":"0") + ", width=900, height=700, menubar=no, status=no, toolbar=no, location=no, scrollbars=yes, resizable=no";
+	                	window.open(url, "_blank", option);
+                	}
+
+                }
+            }
+
+    	};
+    	/* 그리드 한건 데이터 HTML 포맷 (** 1.tbody 내에 들어갈 tr 태그,  2.#[n] 의 위치에 colGroup 의 순서대로 데이터 세팅) */
+    	var rowHtmlStr = '<tr class="excelContentRow">';
+    	rowHtmlStr +=	 "<td class = 'chkBoxArea'>#[0]</td>";											//체크박스
+    	rowHtmlStr +=	 "<td style='cursor:pointer;' class='cardUseArea'>#[1]</td>";											//카드
+    	rowHtmlStr +=	 "<td style='cursor:pointer;'>#[2]</td>"; 											//지출일
+    	rowHtmlStr +=	 "<td style='cursor:pointer;'>#[3]</td>"; 											//항목
+    	rowHtmlStr +=	 "<td style='cursor:pointer;'>#[7]</td>";										    //장소
+    	rowHtmlStr +=	 "<td style='cursor:pointer;' class='txt_right'>#[4] 원</td>";						//금액
+    	rowHtmlStr +=	 "<td class='txt_left' style='cursor:pointer;'><span class='vm'>#[8]</span></td>";  //지출내용
+    	rowHtmlStr +=	 "<td class='txt_left' style='cursor:pointer;'>#[9]</td>";						    //시너지참석자
+    	//rowHtmlStr +=	 "<td style='cursor:pointer;' onclick=\"fnObj.cardReg('#[15]','#[16]');\">#[10]</td>";										    //등록자
+    	rowHtmlStr +=	 "<td>#[10]</td>";										    //등록자
+    	//rowHtmlStr +=	 '<td style="cursor:pointer;">#[11]</td>';
+    	rowHtmlStr +=	 "<td class='txt_left'><span class='vm'>#[12]</span></td>"; //비고
+    	rowHtmlStr +=	 "<td style='cursor:pointer;'>#[13]</td>";
+    	rowHtmlStr +=	 '#[13]';										    		//승인Id
+		rowHtmlStr +=	 '</tr>';
+    	configObj.rowHtmlStr = rowHtmlStr;
+
+    	//configObj.columnCountForEmpty = 9;			//데이터 결과가 없을때 보여질 데이터 없다는 정보 1 row 의 colspan 수
+
+    	myGrid.setConfig(configObj); // 그리드 설정정보 세팅
+    	//-------------------------- 그리드 설정 :E ----------------------------
+    	//-------------------------- 소팅 설정    :S ----------------------------
+    	mySorting.setConfig({
+			colList : ['tmDt', 'dv', 'staffNm','cardNicknameSort'],				//['지출일', '항목', '등록자','카드'],
+			classNameNormal		: 'sort_normal',				//정렬기본 아이콘 css class
+			classNameHighToLow	: 'sort_hightolow',				//오름정렬 아이콘 css class
+			classNameLowToHigh	: 'sort_lowtohigh',				//내림정렬 아이콘 css class
+			defaultSortDirection: 'DESC'						//기본 정렬 방향
+		});
+    	//-------------------------- 소팅 설정    :E ----------------------------
+
+
+    },//end pageStart.
+
+    // 체크박스 전체선택/해제
+    allCheck: function(){
+
+    	var allChk = $("#chkAll").prop("checked");
+    	$("input[name='approvalChk']").each(function(i){
+    		if( allChk&&!$(this ).prop("disabled") ){
+    			$(this).prop("checked", true);
+    		}else{
+    			$(this).prop("checked", false);
+    		}
+    	});
+
+    },
+
+    // 승인등록
+	regApproval: function(){
+	    var url  = contextRoot + "/card/insertApproval.do";
+		var jObj = $('input:checkbox[name=approvalChk]:checked');
+
+		if( jObj.length==0 ){
+			alert("승인항목을 선택하신 후 승인하시기 바랍니다.");
+			return;
+		}else{
+	    	var list = myGrid.getList(); 					// 그리드 데이터(array Object)
+	    	var snbList = ''; 			 					// snb list
+    		var chkedCnt = jObj.length;  					// 체크한 승인수
+    		var checkList = $("input[name='approvalChk']"); // sNb 체크박스
+
+    		for( var i=0; i<checkList.length; i++ ){
+	    		if( checkList[i].checked ){
+	    			snbList += ',';
+	    			snbList += list[i].sNb;
+	    		}
+	    	}
+
+	    	snbList = snbList.substring(1); // 앞 ','제거
+
+	    	var approValMsg = chkedCnt + ' 건 모두 승인처리 하시겠습니까?';
+
+	    	if( confirm(approValMsg) ){
+	    		$("input[name='chkAll']").prop("checked", false);
+
+	    		var param = {sNbList : snbList};
+
+	    		var callback = function(result){
+	    	   		var obj = JSON.parse(result);
+	    	   		var cnt = obj.resultVal;
+
+	    	   		if( obj.result == "SUCCESS" ){
+	    	   			alert("승인되었습니다.");
+	    		   		fnObj.doSearch();
+	    		   		//myGrid.refresh();
+	    	   		}else{
+	    	   			alert("서버오류입니다.");
+	    	   		}
+
+	    	   	};
+	    		commonAjax("POST", url, param, callback, false, null, null);
+	    	}
+		}
+	},
+
+  	//검색
+    doSearch: function(){
+    	$(".click_memo").removeClass();
+    	$("#memoArea").css("display","none");
+    	var choiceYear 	= $("#choiceYear").val();
+    	var choiceMonth = $("#choiceMonth").val();
+    	var startDate = $("#startDate").val();
+    	var endDate = $("#endDate").val();
+    	var dv2 = $("#dv2").val();
+    	var nowDate = new Date().yyyy_mm_dd();
+    	var userList = [];
+    	if(choiceYear==''){
+    		choiceYear  = nowDate.substring(0,4);
+    	}
+
+    	var choiceDate ='';
+    	if(choiceMonth==''){
+    		choiceDate  = '';
+    		if(startDate>endDate){
+    			alert("시작일이 종료일보다 이후 입니다.");
+    			return false;
+    		}
+    	}else{
+    		if(parseInt(choiceMonth)<10 && choiceMonth.length<2){
+    			choiceMonth='0'+choiceMonth;
+    		}
+    		choiceDate =choiceYear+'-'+choiceMonth;
+    	}
+    	if(dv2 == 0){dv2 = '';}
+		var url = contextRoot + "/card/getCardList.do";
+    	var param = {
+		    			dv2 			: dv2,
+						choiceDate 		: choiceDate,
+						startDate 		: startDate,
+						endDate 		: endDate,
+						usrId 			: $("#usrId").val(),
+						searchDeptId 	: $("#searchDeptId").val(),
+						searchOrgId     : $("#searchOrgId").val(),
+						sorting			: '',
+						checkCount		: $('input:checkbox[name="chkboxStaff"]:checked').length
+    				};
+
+
+    	var callback = function(result){
+
+    		var obj = JSON.parse(result);
+    		cardList = obj.cardList;
+    		myGrid.setGridData({					//그리드 데이터 세팅	*** 2 ***
+								list: cardList		//그리드 테이터
+							});
+    		g_gridListStr = result;					//따로 전역변수에 넣어둔다
+    		//전체 건수 세팅
+			$('#total_count').html(' '+cardList.length);
+
+
+			//소팅 초기화
+			mySorting.clearSort();
+			//----- 하단 기본 소팅 설정은 기본정책에 따라 바꿔준다.
+			//mySorting.nowDirection = 'DESC';
+			mySorting.setSort(1);				//소팅객체를 소팅한다.(상태값들의 변화)
+			mySorting.applySortIcon();			//소팅화면적용
+			fnObj.sumSetting();
+
+			var targetOrgId = $("#treeOrg").val()==null?$("#targetOrgId").val():$("#treeOrg").val();
+
+			// 지출등록버튼 노출여부 판단.
+			if( orgCardLinkYn=="Y"){
+				$("#regYnBtn").hide();
+			}else{
+				$("#regYnBtn").show();
+			}
+
+			// 지출 승인버튼 노출 여부 판단.
+			if("${baseUserLoginInfo.orgId}" != targetOrgId||"${baseUserLoginInfo.userId}"!=staffUserId){
+				$("#btnApproval").hide();
+				$(".chkBoxArea").hide();
+			}else{
+				$("#btnApproval").show();
+				$(".chkBoxArea").show();
+			}
+
+			fnObj.tableChkBoxEventSet();
+			//카드 영역을 보여줄지 판단.
+			/* if("${baseUserLoginInfo.orgId}" != targetOrgId){
+				if(usedCardCnt == 0) $(".cardUseArea").hide();
+			}else{
+
+			}
+			if(usedCardCnt == 0 && cardUseCnt == 0 ){
+				$(".cardUseArea").hide();
+			} */
+    	};
+    	commonAjax("POST", url, param, callback, true, '', '');
+
+    },//end doSearch
+
+    //LEFT 사원 선택
+    selStaff : function(userList,orgId){
+    	$("#searchOrgId").val(orgId);
+    	$("#usrId").val(userList);
+    	fnObj.doSearch();
+    },
+
+    /* ====================================== 팝업 관련 : S ===================================*/
+
+    //지출등록팝업
+    cardReg: function(sNb){
+    	var url = "${pageContext.request.contextPath}/card/regCard/pop.do?cardSnb="+sNb;
+    	var option = "left=" + (screen.width > 1400?"700":"0") + ", top=" + (screen.height > 810?"100":"0") + ", width=900, height=700, menubar=no, status=no, toolbar=no, location=no, scrollbars=yes, resizable=no";
+    	window.open(url, "_blank", option);
+    },
+  	//지출등록팝업
+    cardRegView: function(sNb){
+    	var url = "${pageContext.request.contextPath}/card/regCardView/pop.do?cardSnb="+sNb;
+    	var option = "left=" + (screen.width > 1400?"700":"0") + ", top=" + (screen.height > 810?"100":"0") + ", width=900, height=700, menubar=no, status=no, toolbar=no, location=no, scrollbars=yes, resizable=no";
+    	window.open(url, "_blank", option);
+    },
+    //공지등록팝업
+    alarmReg : function(){
+    	location.href="<c:url value='/alarm/index.do'/>";
+    },
+
+    //메모팝업
+	openMemo : function(th,sNb){
+		//$(".click_memo").removeClass();
+		//$(th).addClass("click_memo");
+
+    	//메모 보이기
+    	//var left = $(th).position().left-220;
+    	//var top = $(th).position().top + $(th).height();
+
+    	//일단 비우고
+    	$(".memoInnerArea").empty();
+
+    	$("#feedbackSelect").val('');
+    	$("#memoText").val('');
+    	var obj = getRowObjectWithValue(cardList,'sNb',sNb);	//리스트중에 해당 sNb 의 정보를 뽑아낸다
+    	var memo = obj.feedback;
+    	if(memo == null || memo == ''){
+    		memo='';
+    		//if(g_permission >= '00020' || g_loginId == 'kmy' || g_loginId == 'jyl' || g_loginId == 'mjy'){	//권한사용자 기본세팅
+	    		var textAreaTxt ='';
+	        	$("#memoSave").css("display","");
+	    		$("#memoEdit").css("display","none");
+    		//}
+    	}else{
+    		$("#memoText").val(memo);
+    		$("#memoSave").css("display","none");
+    		$("#memoEdit").css("display","");
+    	}
+    	var txt = '';
+
+    	txt+='<div id="memoArea" class="memoAreaWrap">';
+   		txt+='	<h4 class="memotitle">[비고입력]</h4>';
+		txt+=' 	<div id="memoSpending"><textarea class="txtarea_b w100pro" id="memoText" placeholder="정해진 규정내 지출 필요합니다." value="" >'+memo+'</textarea></div>';
+		txt+='	<div class="btnzone">';
+		txt+='	<a href="javascript:fnObj.regMemo();" id="memoSave" class="btn_s_type_g" style="cursor:pointer;">'+(memo == null || memo == '' ? '등록' : '수정')+'</a>';
+		//txt+='	<a href="javascript:fnObj.regMemo();" id="memoEdit" class="btn_s_type_g" style="display:none;">수정</a>';
+		txt+='	<a href="javascript:fnObj.eleMemoDiv('+sNb+');" class="btn_s_type_g" style="cursor:pointer;">닫기</a>';
+		txt+='</div>';
+		txt+='</div>';
+
+    	$("#cardSnb").val(sNb);
+    	$("#memo_"+sNb).html(txt);
+		$("#memo_"+sNb).show();
+	},
+
+	//소모품 팝업
+	viewSupplies : function(sNb){
+    	var url = "${pageContext.request.contextPath}/card/popSupplies/pop.do?cardSnb="+sNb;
+    	var option = "left=" + (screen.width > 1400?"750":"0") + ", top=" + (screen.height > 810?"250":"0") + ", width=400, height=300, menubar=no, status=no, toolbar=no, location=no, scrollbars=yes, resizable=no";
+    	window.open(url, "_blank", option);
+    },
+
+    //통계
+    goStatistics : function(){
+    	location.href="<c:url value='/card/statistics.do'/>";
+    },
+
+	/* ====================================== 팝업 관련 : E ===================================*/
+	/* ====================================== 메모 관련 : S ===================================*/
+
+	//메모 셀렉트 변경 textArea 세팅
+    setText : function(memo){
+    	if($("#feedbackSelect").val() != ''){
+    		if(memo!=''){
+    			$("#memoText").val(memo+$("#feedbackSelect option:selected").text()+'\n');
+    		}else{
+    			$("#memoText").val($("#feedbackSelect option:selected").text());
+    		}
+    	}else{
+    		$("#memoText").val("");
+    	}
+    },
+
+    //메모등록,수정
+	regMemo : function(){
+			if($('#memoText').val() == ''){
+				alert("내용을 입력하세요");
+				return false;
+			}
+		    var url = "../card/insertCardFeedback.do";
+			$.ajax({
+				type:"POST",        					//POST GET
+				url:url,     							//PAGEURL
+				data : ({sNb: $("#cardSnb").val(),
+						feedback: $('#memoText').val()
+						}),
+				timeout : 30000,      					//제한시간 지정
+				cache : false,        					//true, false
+				success: function whenSuccess(arg){  	//SUCCESS FUNCTION
+					$("#memoArea").css("display","none");
+					alert("저장되었습니다.");
+					fnObj.doSearch();
+				},
+				error: function whenError(e){    		//ERROR FUNCTION
+					alert("code : " + e.status + "\r\nmessage : " + e.responseText);
+				}
+			});
+	},
+
+	//메모 click 초기화.
+	eleMemoDiv : function(sNb){
+		//$(".click_memo").removeClass();
+		$("#memo_"+sNb).empty();
+		$('#memo_'+sNb).hide();
+	},
+	/* ====================================== 메모 관련 : E ===================================*/
+
+	//삭제
+	doDelete: function(sNb){
+		if(confirm("삭제하시겠습니까?")){
+		   	var url = contextRoot + "/card/deleteCardUse.do";
+		   	var param = {sNb : sNb};
+		   	var callback = function(result){
+		   		var obj = JSON.parse(result);
+		   		var chk = obj.resultVal;
+		   		if(chk>0){
+		   			alert("삭제되었습니다.");
+			   		fnObj.doSearch();
+		   		}else{
+		   			alert("서버오류!!!.");
+		   		}
+
+		   	};
+			commonAjax("POST", url, param, callback, false, null, null);
+		}
+   	},//end doDelete
+
+   	//엑셀다운로드
+    excelDownList: function(){
+    	var htmlStr = "<table>";
+    	htmlStr += '<tr bgcolor=silver><td>지출일자</td><td>항목</td><td>금액</td><td>소속회사</td><td>이름</td><td>장소</td><td>지출내용</td><td>시너지참석자</td><td>등록자</td><td>상태</td></tr>';
+    	htmlStr += $('#SGridTarget').html().replace(/checkbox/gi,'hidden').replace(/<em>선택<\/em>/gi, '').replace(/img/gi, 'hidden').replace(/수정/gi, '');
+    	htmlStr += "</table>";
+    	htmlStr += "<table>";
+    	htmlStr += $('#SGridTargetSum').html();
+    	htmlStr += "</table>";
+    	excelDown(htmlStr, '지출'+(new Date().yyyy_mm_dd()));
+    },
+
+
+    /* ====================================== 화면 세팅 관련 : S ===================================*/
+
+
+
+    //그리드 div height toggle
+     showAllGrid: function(){
+    	var gridH = $('#SGridTarget').height() + 50;
+    	if($('.sp_scroll_body').height() == 450){
+    		$('.sp_scroll_body').css('height', gridH);
+    		$('.sp_scroll_body').css('max-height', gridH);
+    	}else{
+    		$('.sp_scroll_body').css('height', '450px');
+    		$('.sp_scroll_body').css('max-height', '450px');
+    	}
+    },//end showAllGrid
+
+
+    //컬럼 소팅
+    doSort: function(idx){
+    	// 로딩 이미지 보여주기 처리
+		$('.wrap-loading').removeClass('display-none');
+		//--------------------
+    	mySorting.setSort(idx);				//소팅객체를 소팅한다.(상태값들의 변화)
+    	//소팅
+        sortByKey(myGrid.getList(), mySorting.nowSortCol, mySorting.nowDirection);
+        myGrid.refresh();
+        mySorting.applySortIcon();			//소팅화면적용
+		//--------------------
+
+		// 로딩 이미지 감추기 처리
+        $('.wrap-loading').addClass('display-none');
+
+        var targetOrgId = $("#treeOrg").val()==null?$("#targetOrgId").val():$("#treeOrg").val();
+
+		// 지출등록버튼 노출여부 판단.
+		if( "${baseUserLoginInfo.orgId}" != targetOrgId||orgCardLinkYn=="Y"){
+			$("#regYnBtn").hide();
+		}else{
+			$("#regYnBtn").show();
+		}
+
+		// 지출 승인버튼 노출 여부 판단.
+		if("${baseUserLoginInfo.orgId}" != targetOrgId||"${baseUserLoginInfo.userId}"!=staffUserId){
+			$("#btnApproval").hide();
+			$(".chkBoxArea").hide();
+		}else{
+			$("#btnApproval").show();
+			$(".chkBoxArea").show();
+		}
+
+		fnObj.tableChkBoxEventSet();
+
+    },//end doSort
+
+
+    //dv -> 한글명 변환
+    dvSet : function(dv){
+    	var txt = '';
+    	var dvInfo = getRowObjectWithValue(dvList, 'CD', dv);		//리스트에서 해당 dv에 대한 공통코드 추출.
+    	txt = dvInfo.NM;
+    	return txt;
+    },
+
+    dvSet2 : function(dv){
+    	var txt = '';
+    	var dvInfo = getRowObjectWithValue(dvList, 'CD', dv);		//리스트에서 해당 dv에 대한 공통코드 추출.
+    	for(var i=0; i<dvList.length; i++){
+    		dvList[i].NM=dv;
+    		var test = dvList[i].NM;
+    		break;
+    	}
+		txt += test;
+    	return txt;
+    },
+
+
+    //분류세팅 -> 추후 코드화를 위해
+    searchTypeSetting : function(){
+    	var str = '<label for="dv2" class="carSearchtitle">분류</label><select id="dv2" class="select_b" onchange="fnObj.doSearch();">';
+    	str += '<option value="0">전체</option>';
+		for(var i=0; i< dv2List.length; i++){
+			str += '<option value="'+dv2List[i].CD+'">'+dv2List[i].NM+'</option>';
+		}
+    	str += '</select>';
+    	$("#searchTypeDiv").html(str);
+    },//end searchTypeSetting
+
+
+    //년도 세팅(셀렉트박스)
+    yearSetting : function(){
+
+    	var nowDate= new Date().yyyy_mm_dd();
+    	var nowYear = nowDate.substring(0,4);
+    	var str ='<label for="choiceYear" class="carSearchtitle mgl10">년도</label><select id="choiceYear" class="select_b w_date"  onchange="fnObj.doSearch();">';
+    	for(var i="${minYear}";i<=parseInt(nowYear)+1;i++){
+    		var chk ='';
+    		if(nowYear == i){
+    			chk ='selected="selected"';
+    		}
+    		str += '<option value="'+ i+'" '+chk+'>'+ i+'</option>';
+    	}
+    	str += '</select>';
+
+    	$("#yearDiv").html(str);
+    },//end yearSetting
+
+
+    //월 세팅
+    monthSetting : function(){
+    	var nowDate= new Date();
+    	var month = nowDate.getMonth() + 1;		//현재 월
+    	var str ='';
+    	for(var i=1;i<=12;i++){
+    		//str += '<a class="month_tag" style="cursor:pointer;" id="month_'+i+'" onclick="fnObj.monthClick('+i+');">'+i+'월</a>';
+    		//str += '<a class="btn_month_off" style="cursor:pointer;" id="month_'+i+'" onclick="fnObj.monthClick('+i+');">'+i+'월</a>';
+    		str += '<button type="button" id="month_'+i+'" onclick="fnObj.monthClick('+i+');">'+i+'월</button>';
+    	}
+    	$("#monthDiv").html(str);
+
+    	$("#month_"+month).addClass("on");
+    	$('#choiceMonth').val(month);
+
+    },//end monthSetting
+
+    //월 선택
+    monthClick : function(i){
+    	$(".on").removeClass();
+    	$("#month_"+i).addClass("on");
+    	//$(".btn_month_on").attr("class","");
+    	//$('#month_'+i).attr("class","on");
+    	$('#choiceMonth').val(i);
+    	$('#startDate').val('');
+    	$('#endDate').val('');
+    	fnObj.doSearch();
+    },//end monthClick
+
+    //검색버튼 클릭
+    clickSearch : function(){
+    	$(".select_m").removeClass("select_m");
+    	$('#choiceMonth').val('');
+    	fnObj.doSearch();
+    },
+
+  	//합계 세팅
+    sumSetting: function(){
+    	$("#detailSum").html('');
+
+    	dv2 = $("#dv2").val();
+    	var totalSum =0;
+    	var sumMap =newMap();
+    	var cardList2 = cardList.clone();
+
+    	sortByKey(cardList2, "dv", "ASC");		//dv 순서 정렬
+
+    	for(var i=0; i<cardList2.length; i++){
+			totalSum +=cardList2[i].price;		//전체 총 합계
+    	}
+
+
+    	//하나의 항목별 금액
+   		for(var p=0; p<dvList.length; p++){
+   			var sum =0;
+   			var dv ='';
+			for(var i=0; i<cardList2.length; i++){
+				if(dvList[p].CD == cardList2[i].dv){			//dv가 같을때
+					dv = cardList2[i].dv;								//dv세팅
+					sum += cardList2[i].price; 							//합계
+				}
+			}
+			sumMap.put(dv,sum);											//객체에 각 항목을 담는다.
+ 		}
+
+   		var str ='';
+   		var count =0;
+   		var idx =0;
+
+
+
+   		if(dv2==0){
+   			for(var i=0;i<dv2List.length;i++){							//분류리스트
+	    		var sum =0;
+
+	    		//항목 리스트
+	    		for(var k=0;k<dvList.length;k++){
+
+	    			if(dvList[k].codeName == dv2List[i].sonCodeName){	//항목리스트가 분류리스트(그룹이름)에 포함되어있으면
+	        			sum += sumMap.get(dvList[k].CD);		//객체에서 해당 금액 추출 합친다.
+	        		}
+	    		}
+
+
+	    		if(i == 0){
+    				str +='<tr>';
+    	   			str +='<th rowspan="'+dv2List.length+'">세<br>부<br>항<br>목</th>';
+    	   			str +='<th class="bg_gray">'+dv2List[i].NM+'</th>';
+    	   			str +='<td class="txt_money"><span>'+Number(sum).toLocaleString().split(".")[0]+'</span><em>원</em></td>';
+    	   			str +='</tr>';
+    			}else{
+    				str +='<tr>';
+    	   			str +='<th class="bg_gray">'+dv2List[i].NM+'</th>';
+    	   			str +='<td class="txt_money"><span>'+Number(sum).toLocaleString().split(".")[0]+'</span><em>원</em></td>';
+    	   			str +='</tr>';
+    			}
+
+	    	}
+
+
+   		}else{		//전체가 아닐때
+   			//getCountWithValue(arrayObj, key, value)
+	    	for(var i=0; i<dvList.length; i++){
+	    		var obj = getRowObjectWithValue(dv2List, 'sonCodeName', dvList[i].codeName);
+	    		if(obj.CD == dv2){					//항목리스트와 선택 분류(그룹이름)가 같으면
+	    			count++;
+	    		}
+	    	}
+
+	    	for(var i=0; i<dvList.length; i++){
+	    		var obj = getRowObjectWithValue(dv2List, 'sonCodeName', dvList[i].codeName);
+	    		if(obj.CD == dv2){					//항목리스트와 선택 분류(그룹이름)가 같으면
+	    			if(idx == 0){
+	    				str +='<tr>';
+	    	   			str +='<th rowspan="'+count+'">세<br>부<br>항<br>목</th>';
+	    	   			str +='<th class="bg_gray">'+dvList[i].NM+'</th>';
+	    	   			str +='<td class="txt_money"><span>'+Number(sumMap.get(dvList[i].CD)).toLocaleString().split(".")[0]+'</span><em>원</em></td>';
+	    	   			str +='</tr>';
+	    			}else{
+	    				str +='<tr>';
+	    	   			str +='<th class="bg_gray">'+dvList[i].NM+'</th>';
+	    	   			str +='<td class="txt_money"><span>'+Number(sumMap.get(dvList[i].CD)).toLocaleString().split(".")[0]+'</span><em>원</em></td>';
+	    	   			str +='</tr>';
+	    			}
+	    			idx++;
+	    		}
+	    	}
+
+   			//$("#dv2NameP").html($("#dv2 option:selected").text());
+   		}
+
+    	$("#totalSum").html(Number(totalSum).toLocaleString().split(".")[0]);
+    	$("#detailSum").html(str);
+
+    },//end sumSetting.
+
+	//사용자 트리 생성
+	setUserTree: function(){
+
+		var myUserTree = new UserTree();			//UserTree 객체생성
+
+		/* 사용자트리 설정정보 */
+		var configObj = {
+				targetID : 'userListAreaTree',							//대상 위치 id (div, span)
+				url : contextRoot + "/common/getOrgDeptUserList.do",	//데이터 URL
+				isCheckbox:true,
+				isOnlyOne : false,										//선택건수 1개 여부			(false: 복수,		그외,: 한명(default))
+				isAllOrg : false,										//전체 ORG 범위로의 여부		(true: 전체ORG, 		그외,: 나의권한ORG (default))
+				oneOrg : '${baseUserLoginInfo.applyOrgId}',				//전달받은 한개의 ORG ID
+				defaultSelectList : ['${baseUserLoginInfo.userId}'],	//기본 선택 id array 			(로딩시점 초기 기본 선택 노드 id list)
+				isDeptSelectable : true,								//부서선택 가능여부(= 하위 사용자 모두 선택)		(true: 해당부서하위모두선택, 	그외,:부서선택불가 (default))
+				callbackFn : fnObj.selStaff,							//콜백 function
+				useAllCheck : true,										//전체선택 기능 사용 여부		(true: 사용,			그외,: 미사용(default))
+				useNameSortList : true									//이름정렬선택 리스트 사용 여부 (true: 사용,			그외,: 미사용(default))
+		};
+
+		myUserTree.setConfig(configObj);	//설정정보 세팅
+		myUserTree.drawTree();				//트리 생성
+	},
+
+  	//datepicker 설정
+    setDatepicker : function(obj){
+		$('#'+obj).datepicker({
+			dateFormat: 'yy-mm-dd',
+			changeMonth: true,
+			changeYear: true,
+			showOn: "button",
+			maxDate: new Date(),
+			yearRange: 'c-7:c+7',
+		 	monthNames: ['1 월','2 월','3 월','4 월','5 월','6 월','7 월','8 월','9 월','10 월','11 월','12 월'], // 개월 텍스트 설정
+		    monthNamesShort: ['1 월','2 월','3 월','4 월','5 월','6 월','7 월','8 월','9 월','10 월','11 월','12 월'], // 개월 텍스트 설정
+		    dayNames: ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'], // 요일 텍스트 설정
+		    dayNamesShort: ['일','월','화','수','목','금','토'], // 요일 텍스트 축약 설정
+		    dayNamesMin: ['일','월','화','수','목','금','토'], // 요일 최소 축약 텍스트 설정
+		    showButtonPanel: false,
+			isRTL: false,
+
+		    buttonText: ""
+		});
+    },
+    //테이블 체크박스 컨트롤
+    tableChkBoxEventSet : function(){
+    	$(".tb_list_basic input[type = 'checkbox']").on("click",function(){
+			if($(this).attr("id")=="chkAll"){
+				if($(this).prop("checked")){
+					$("input[type = 'checkbox']").not("input[disabled = 'disabled']").prop("checked",true);
+				}else{
+					$("input[type = 'checkbox']").not("input[disabled = 'disabled']").prop("checked",false);
+				}
+				return;
+			}
+			var chkboxlength = $("input[type = 'checkbox']").not("input[disabled = 'disabled']").not("#chkAll").length;
+
+			if($("input[type = 'checkbox']:checked").not("#chkAll").length == chkboxlength){
+				$("#chkAll").prop("checked",true);
+			}else{
+				$("#chkAll").prop("checked",false);
+			}
+		});
+    }
+
+    /* ====================================== 화면 세팅 관련 : E ===================================*/
+
+
+    //################# else function :E #################
+};//end fnObj.
+
+function showlayer(id){
+	if( id.style.display == 'none' ){id.style.display='block';}
+	else{id.style.display = 'none';}
+}
+
+//화면재로딩
+function doRefreshPage(){
+	var url = contextRoot+"/card/cardIndex.do";
+
+	window.location.href = url;
+}
+/*
+ * 화면로딩완료후, 자바스크립트 화면세팅 과 그외동작들 호출.
+ */
+$(function(){
+	var cardLinkYnCnt = parseInt("${baseInfo.cardLinkYnCnt}");
+	cardUseCnt = parseInt("${baseInfo.cardUseCnt}");
+	var staffDeptId = "${baseInfo.staffDeptId}";
+	orgCardLinkYn = "${baseInfo.orgCardLinkYn}";
+	staffUserId   = "${baseInfo.staffUserId}";
+
+	fnObj.preloadCode();	//공통코드 or 각종선로딩코드
+	fnObj.pageStart();		//화면세팅
+
+
+	var targetOrgId = $("#treeOrg").val()==null?$("#targetOrgId").val():$("#treeOrg").val();
+
+	// 지출등록버튼 노출여부 판단.
+	if( orgCardLinkYn=="Y"){
+		$("#regYnBtn").hide();
+	}else{
+		$("#regYnBtn").show();
+	}
+	// 지출 승인버튼 노출 여부 판단.
+	if("${baseUserLoginInfo.orgId}" != targetOrgId||"${baseUserLoginInfo.userId}"!=staffUserId){
+		$("#btnApproval").hide();
+	}else{
+		$("#btnApproval").show();
+	}
+	// 부서트리 / 사용자트리 구분
+	if(staffDeptId == "${baseUserLoginInfo.deptId}"||"${baseUserLoginInfo.userId}"==staffUserId||"${baseUserLoginInfo.deptBossLevelYn}"=="Y"){
+
+		$("#userTreeArea").show();
+		$("#userDeptTreeArea").hide();
+		fnObj.setUserTree();
+
+	}else{
+		$("#userTreeArea").hide();
+		$("#userDeptTreeArea").show();
+
+		$(".chkBoxArea").hide();
+		fnObj.doLoadTreeview();       //검색
+	}
+
+});
+</script>

@@ -1,0 +1,348 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<script type="text/javascript">
+var colorObj = {};
+var comAppvDocNumRuleDate = getBaseCommonCode('APPV_DOC_NUM_RULE_DATE', null, 'CD', 'NM', null, '날짜선택','ALL', { orgId : "${baseUserLoginInfo.orgId}" });
+var comAppvDocNumRuleSeq = getBaseCommonCode('APPV_DOC_NUM_RULE_SEQ', null, 'CD', 'NM', null, '번호선택','ALL', { orgId : "${baseUserLoginInfo.orgId}" });
+
+//저장
+function doSave(){
+	var chk = true;
+	var url = "";
+	switch($("#actionType").val()){
+	    case 'receiver' :  //필수 수신/참조자 세팅
+	        url=contextRoot+"/approve/processAppvReceiverSetup.do";
+	        break;
+	    case 'read' :  //종결전 문서열람 세팅
+	        url = contextRoot+"/approve/processAppvReadSetup.do";
+	        break;
+	    case 'expense' :  //지출결의서 세팅
+	        url = contextRoot+"/approve/processAppvExpenseSetup.do";
+	        break;
+    }
+	if(confirm("저장하시겠습니까?")){
+		$("#frm").attr("action", url);
+		commonAjaxSubmit("POST",$("#frm"),saveCallback);
+	}
+}
+
+//저장콜백
+function saveCallback(data){
+	if(data.resultObject.result =="SUCCESS"){
+		toast.push('저장되었습니다.');
+		doSearch();
+	}else{
+		dialog.push({body:"서버 오류!", type:"", onConfirm:function(){}});
+	}
+}
+
+//조회
+function doSearch(){
+    var url = "";
+
+    switch($("#actionType").val()){
+	    case 'receiver' :  //필수 수신/참조자 세팅
+	        url = contextRoot+"/approve/getAppvReceiverSetupAjax.do";
+	        break;
+	    case 'read' :  //종결전 문서열람 세팅
+	        url = contextRoot+"/approve/getAppvReadSetupAjax.do";
+	        break;
+	    case 'expense' :  //지출결의서 세팅
+	        url = contextRoot+"/approve/getAppvExpenseSetupAjax.do";
+	        break;
+	    case 'pend' :  //미결알림 세팅
+	        url = contextRoot+"/approve/getPendAlarmAjax.do";
+	        break;
+    }
+    $("#frm").attr("action",url);
+    commonAjaxSubmit("POST",$("#frm"),searchCallback);
+
+	/* $("#frm").attr("action",contextRoot+"/approve/getAppvReceiverSetupAjax.do");
+	commonAjaxSubmit("POST",$("#frm"),resetCallback); */
+}
+//리셋 콜백
+function searchCallback(data){
+	$("#listArea").html(data);
+
+	numberFormatForNumberClass();
+
+	if("${baseUserLoginInfo.orgBasicAuth}" == "READ"){
+		$(".btn_auth").hide();
+	}else if("${baseUserLoginInfo.orgBasicAuth}" == "SUPER"){
+		$(".btn_auth").show();
+	}
+
+}
+
+//select box change
+function setExText($obj){
+	var chgName = $obj.attr("name");
+
+	var chgNameBuf = chgName.split("|");
+
+	var type = chgNameBuf[0];
+
+	var appvDocType = chgNameBuf[1];
+
+	var appvDocClass = chgNameBuf[2];
+
+	var dateCode = $("select[name='appvDocNumRuleDate|"+appvDocType+"|"+appvDocClass+"']").val();
+	var seqCode = $("select[name='appvDocNumRuleSeq|"+appvDocType+"|"+appvDocClass+"']").val();
+
+	var now = new Date();
+	//날짜 예시 셋팅
+	var dateStr = "";
+
+	switch(dateCode){
+	case 'YYYYMMDD':
+		var yyyy = now.getFullYear().toString();
+	    var mm = (now.getMonth() + 1).toString();
+	    var dd = now.getDate().toString();
+
+	    dateStr = yyyy + (mm[1] ? mm : '0'+mm[0]) + (dd[1] ? dd : '0'+dd[0]);
+
+		break;
+	case 'YYMMDD':
+		var yyyy = now.getFullYear().toString();
+	    var mm = (now.getMonth() + 1).toString();
+	    var dd = now.getDate().toString();
+	    dateStr = yyyy.substr(-2) + (mm[1] ? mm : '0'+mm[0]) + (dd[1] ? dd : '0'+dd[0]);
+		break;
+	case 'YYMM':
+		var yyyy = now.getFullYear().toString();
+	    var mm = (now.getMonth() + 1).toString();
+	    var dd = now.getDate().toString();
+	    dateStr = yyyy.substr(-2) + (mm[1] ? mm : '0'+mm[0]);
+		break;
+	case 'MMDD':
+		var yyyy = now.getFullYear().toString();
+	    var mm = (now.getMonth() + 1).toString();
+	    var dd = now.getDate().toString();
+	    dateStr = (mm[1] ? mm : '0'+mm[0]) + (dd[1] ? dd : '0'+dd[0]);
+		break;
+	}
+	var seqStr = "";
+	//번호 예시 셋팅
+	switch(seqCode){
+	case '5DIGIT':
+		seqStr="00001";
+		break;
+	case '4DIGIT':
+		seqStr="0001";
+		break;
+	case '3DIGIT':
+		seqStr="001";
+		break;
+	}
+
+	var $appvDocNumRuleMidName = $("input[name = 'appvDocNumRuleMidName|"+appvDocType+"|"+appvDocClass+"']").clone();
+	var beforeEx = $("#exStr_"+appvDocType).text();
+
+	beforeEx = beforeEx.trim();
+	var beforeExBuf = beforeEx.split("-");
+
+	var newEx = dateStr+"-"+beforeExBuf[1]+"-"+seqStr;
+
+	$("#exStr_"+appvDocType).text(newEx);
+
+	$("#exStr_"+appvDocType).append($appvDocNumRuleMidName);
+
+}
+
+/**********************************************************************************
+ * 신규추가
+ *********************************************************************************/
+ var g_userType = "";  //RECEIVER : 수신자, CC : 참조자
+ var g_spanKey = "";
+ var g_appvKey = "";  // APPV_DOC_CLASS|APPV_DOC_TYPE[또는 APPV_COMPANY_FORM_ID(사내서직인경우)]
+
+var fnObj = {
+		//직원선택 팝업
+		openEmpPopup: function(userType, appvKey, spanKey){
+			g_userType = userType;
+			g_appvKey = appvKey;
+			g_spanKey = spanKey;
+
+			//필수수신참조자 넣기 값: userId|APPV_DOC_CLASS|APPV_DOC_TYPE[또는 APPV_COMPANY_FORM_ID(사내서직인경우)]|RECEIVER[또는CC]|USER_ID값
+			var userStr ='';
+            var arr =[];
+			var selectUserList =$("input[name=arrUserId]");
+			for(var i=0;i<selectUserList.length;i++){
+				if(g_userType == "EXPENSE"){
+					arr.push(selectUserList[i].value);
+				}else if(g_userType == "RECEIVER"){
+                    var arrUser = selectUserList[i].value.split("|");
+                    if(appvKey == arrUser[1] + "|" + arrUser[2] && arrUser[3] == "RECEIVER"){
+                        arr.push(arrUser[4]);
+                    }
+                }else if(g_userType == "CC"){
+                    var arrUser = selectUserList[i].value.split("|");
+                    if(appvKey == arrUser[1] + "|" + arrUser[2] && arrUser[3] == "CC"){
+                        arr.push(arrUser[4]);
+                    }
+                }else{
+	                var arrUser = selectUserList[i].value.split("|");
+	                if(appvKey == arrUser[1] + "|" + arrUser[2]){
+	                    arr.push(arrUser[4]);
+	                }
+				}
+            }
+			userStr = arr.join(',');
+
+		     var paramList = [];
+		     var paramObj ={ name : 'userList'   ,value : userStr};
+		     paramList.push(paramObj);
+
+		     paramObj ={ name : 'hasDeptTopLevel' ,value : 'Y'};
+		     paramList.push(paramObj);  //부서의 회장 부서 표시여부
+		     if(userType != "EXPENSE"){
+			     paramObj ={ name : 'isAppoveLineAdd' ,value : 'Y'};
+	 	         paramList.push(paramObj);  //결재 라인 결재자 공개여부
+		     }
+		      userSelectPopCall(paramList);       //공통 선택 팝업 호출
+		},
+
+		//사원 및 부서 선택 팝업에서 선택한 데이터를 처리
+		getResult: function(resultList){
+		    var usrHtml = '';
+
+		    var spanName = "";
+		    var inputUserName = "";
+		    if(g_userType == "EXPENSE"){
+		    	spanName = "spanExpense";
+		    	inputUserName = "";
+		    }else if(g_userType == "RECEIVER"){
+		    	spanName = "spanReceiver_" + g_spanKey;
+		    	inputUserName = "userId|" +g_appvKey +"|"+g_userType +"|";
+		    }else if(g_userType == "CC"){
+		    	spanName = "spanCc_" + g_spanKey;
+		    	inputUserName = "userId|" +g_appvKey +"|"+g_userType +"|";
+		    }
+
+
+		    $("#"+spanName).html("");  //리셋
+
+		    //필수수신참조자 넣기 값: userId|APPV_DOC_CLASS|APPV_DOC_TYPE[또는 APPV_COMPANY_FORM_ID(사내서직인경우)]|RECEIVER[또는CC]|USER_ID값
+		    for(var i=0;i<resultList.length ;i++){
+		    	var orgNm = "";
+                if(resultList[i].orgId != '${baseUserLoginInfo.orgId}') orgNm = resultList[i].orgNm + "-";
+                else orgNm = "";
+
+                usrHtml = '';
+                usrHtml += '<span class="employee_list" >';
+                usrHtml += '<span>'+ resultList[i].userNm +'</span><a href="#" onClick="deleteEmp(this);"  class="btn_delete_employee"><em>삭제</em></a>';
+                usrHtml += '<input type="hidden" name="arrUserId" id="arrUserId" value="'+inputUserName +resultList[i].userId+'"/>';
+                usrHtml += '</span>';
+
+                $("#"+spanName).append(usrHtml);
+		    }
+		},
+
+		//지출일 설정 추가
+        addExpenseDay: function(){
+            var expenseDayHtml = '';
+            var expenseDay = $("#expenseDay option:selected").val();
+
+            var arrExpenseDay =$("input[name=arrExpenseDay]");
+            var isExist = false;
+            for(var i=0;i<arrExpenseDay.length;i++){
+                if(expenseDay == arrExpenseDay[i].value){
+                	alert("이미 등록된 지출일 입니다.");
+                	isExist = true;
+                }
+            }
+            var expenseDayStr = $("#expenseDay option:selected").text();
+            if(!isExist){
+            	 expenseDayHtml += '<span class="employee_list" >';
+                 expenseDayHtml += '<span>'+ expenseDayStr +'</span><a href="#" onClick="deleteEmp(this);"  class="btn_delete_employee"><em>삭제</em></a>';
+                 expenseDayHtml += '<input type="hidden" name="arrExpenseDay" id="arrExpenseDay" value="'+expenseDay+'"/>';
+                 expenseDayHtml += '</span>';
+                 $("#spanExpenseDay").append(expenseDayHtml);
+            }
+
+        }
+}
+
+//직원선택 삭제
+function deleteEmp(obj){
+    var span = $(obj).parent();
+    span.remove();
+}
+
+function moveTab(type){
+    $("#actionType").val(type);
+    $("#moveTabArea").find("li").removeClass();
+
+    var targetLi = type + "Li";
+
+    $("#"+targetLi).addClass("current");
+
+    doSearch();
+}
+
+//미결알람세팅 > 결재기준설정
+function chkAlarmSetupType(id){
+	var alamSetupType = $("input[name='"+id+"']:checked").val();
+
+	var appvAlarmSetupType = id.split("_")[1];
+	if(alamSetupType == "IMMEDIATELY"){
+		$("#baseSetupPeriod_"+appvAlarmSetupType).val("");
+		$("#baseSetupPeriod_"+appvAlarmSetupType).prop("disabled",true);
+	}else{
+		$("#baseSetupPeriod_"+appvAlarmSetupType).prop("disabled",false);
+	}
+}
+
+//미결알림 세팅 저장
+function doSaveAppvAlarmSetup(){
+
+	var isValid = true;
+
+	$("input[name*='baseSetupType_']:checked").each(function(){
+		var thisValue = $(this).val();
+
+		if(thisValue == "PERIOD"){
+			var thisName = $(this).attr("name");
+
+			var thisNameBuf = thisName.split("_");
+
+			var setupType = thisNameBuf[1];
+
+			if($("#baseSetupPeriod_"+setupType).val() == ""){
+				alert("설정 기간을 입력해 주세요.");
+				$("#baseSetupPeriod_"+setupType).focus();
+				isValid = false;
+				return false;
+			}else{
+				var period = parseInt($("#baseSetupPeriod_"+setupType).val().split(",").join(""));
+				if(period<1){
+					alert("설정 기간을 1일이상 입력해 주세요.");
+					$("#baseSetupPeriod_"+setupType).focus();
+					isValid = false;
+					return false;
+				}
+			}
+		}
+	});
+
+	if(!isValid) return;
+
+	if(!confirm("저장하시겠습니까?")) return;
+
+	var url = contextRoot+"/approve/processAppvAlarmSetup.do";
+
+	$("#frm").attr("action",url);
+
+	var callback = function(result){
+
+		alert("저장되었습니다.");
+
+		doSearch();
+	}
+    commonAjaxSubmit("POST",$("#frm"),callback);
+}
+</script>

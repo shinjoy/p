@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="menu">
+
+	<typeAlias alias="menuVO" type="ib.basic.interceptor.MenuVO"/>
+	
+
+	
+	<!-- 좌측 메뉴를 보여주기 위해서 메뉴 검색 -->	 
+	<select id="menu.selectMenuPosInfo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT 
+			   K.MENU_ID					as me
+			  ,K.MENU_PARENT_ID				as mu
+			  ,K.MENU_ROOT_ID				as mr
+			  ,TOP_MENU.MENU_ID 			as tmi  <!-- 최상위 메뉴 아이디 -->
+			  ,TOP_MENU.MENU_TITLE_KOR		as tmk
+			  ,SECOND_MENU.MENU_ID  		as smi	<!-- 상위 메뉴 아이디  -->
+			  ,SECOND_MENU.MENU_TITLE_KOR 	as smk
+			  ,L.MENU_TITLE_KOR				as mk
+			  ,L.MENU_TITLE_ENG				as mte
+
+		  FROM BS_ROLE_MENU_LIST	K
+		  JOIN BS_MENU_LIST			L ON K.MENU_ID = L.MENU_ID
+		  LEFT outer JOIN (
+							SELECT MR.MENU_ID AS MENU_ID, MM.MENU_TITLE_KOR
+							  FROM BS_ROLE_MENU_LIST MR
+							  JOIN BS_MENU_LIST MM ON MR.MENU_ID = MM.MENU_ID
+							 WHERE MR.ROLE_ID = #userRoleId#
+							   AND MR.ENABLE = 'Y'
+							   AND MM.ENABLE = 'Y'
+							   AND MR.MENU_LEVEL = 0
+							) TOP_MENU ON TOP_MENU.MENU_ID = K.MENU_ROOT_ID
+
+		  LEFT outer JOIN (
+							SELECT MR.MENU_ID AS MENU_ID, MM.MENU_TITLE_KOR
+							  FROM BS_ROLE_MENU_LIST MR
+							  JOIN BS_MENU_LIST MM ON MR.MENU_ID = MM.MENU_ID		
+							 WHERE MR.ROLE_ID = #userRoleId#
+							   AND MR.ENABLE = 'Y'
+							   AND MM.ENABLE = 'Y'
+							   AND MR.MENU_LEVEL = 1
+							) SECOND_MENU ON SECOND_MENU.MENU_ID = K.MENU_PARENT_ID
+		 WHERE 1=1
+		   AND L.MENU_PATH = #menuPath#
+		   AND (CASE WHEN L.MENU_TYPE = 'TREE' THEN K.ROLE_ID = #userRoleId# ELSE TRUE END)
+		   AND K.ENABLE = 'Y'
+		   AND L.ENABLE = 'Y'
+		 ORDER BY MENU_LEVEL DESC
+		 LIMIT 1
+		
+		/* menu.selectMenuPosInfo */
+	</select>
+	
+	<!-- 좌측메뉴를 위해 탭인 경우 사용 (1. url을 토대로 메뉴 정보 반환, 2. 탭인 경우 directMenuParentId(상위부모)의 정보를 반환)  -->
+	<select id="menu.selectMenuInfoBasic" parameterClass="menuVO" resultClass="menuVO">
+		SELECT 
+				 K.MENU_ID 					AS menuId
+				,IFNULL(K.MENU_PARENT_ID,0) AS menuParentId
+				,L.MENU_TITLE_KOR			AS menuKor
+				,L.MENU_ENG 				AS menuEng
+				,IFNULL(K.MENU_ROOT_ID,0)	AS menuRootId
+				,L.MENU_PATH 				AS menuPath
+				,L.MENU_TYPE 				AS menuType
+				,IFNULL((CASE WHEN K.MENU_PARENT_ID IS NULL || K.MENU_PARENT_ID = 0 THEN K.MENU_ROOT_ID ELSE K.MENU_PARENT_ID END), 0) AS directMenuParentId
+				
+		  FROM BS_ROLE_MENU_LIST	K
+		  JOIN BS_MENU_LIST			L ON K.MENU_ID = L.MENU_ID
+		 WHERE 1=1
+		   <!-- AND K.ROLE_ID  = #roleId# -->
+		   <isNotEmpty prepend="AND" property="menuPath">
+           	 L.MENU_PATH = #menuPath#
+           </isNotEmpty>
+           <isGreaterThan prepend="AND" property="menuId" compareValue="0">
+             K.MENU_ID = #menuId#
+           </isGreaterThan>
+		   AND K.ENABLE  = 'Y'
+		   AND L.ENABLE  = 'Y'
+		   LIMIT 1
+       /* menu.selectMenuInfoBasic */
+	</select>
+	
+	<!-- 탭에 대한 메뉴 정보 가져오기  -->
+	<select id="menu.selectMenuToTab" parameterClass="menuVO" resultClass="menuVO">
+		SELECT K.MENU_ID 					AS menuId
+			  ,IFNULL(K.MENU_PARENT_ID,0) 	AS menuParentId
+			  ,K.MENU_ROOT_ID 				AS menuRootId
+			  ,L.MENU_PATH     				AS menuPath
+			  ,L.MENU_KOR     				AS menuKor
+			  ,L.MENU_ENG      				AS menuEng
+			  
+		  FROM BS_ROLE_MENU_LIST	K
+		  JOIN BS_MENU_LIST			L ON K.MENU_ID = L.MENU_ID
+		 WHERE 1=1
+		   AND K.ROLE_ID  = #roleId#
+		   <isNotEmpty property="menuPath" prepend="AND">
+           	 L.MENU_PATH = #menuPath#
+           </isNotEmpty>
+           <isGreaterThan prepend="AND" property="menuId" compareValue="0">
+             K.MENU_ID = #menuId#
+           </isGreaterThan>
+		   AND K.ENABLE  = 'Y'
+		   AND L.ENABLE  = 'Y'
+		   ORDER BY K.MENU_LEVEL DESC
+           LIMIT 1
+         /* menu.selectMenuToTab */ 
+	</select>
+	
+	<!-- 화면 URL에 속한 탭 정보 리스트 -->
+	<select id="menu.selectTabMenuList" parameterClass="menuVO" resultClass="menuVO">
+		SELECT TM.MENU_ID 			as menuId
+			  ,TM.MENU_PARENT_ID 	as menuParentId
+			  ,TM.MENU_ROOT_ID 		as menuRootId
+			  ,TM.MENU_PATH			as menuPath
+			  ,TM.MENU_KOR			as menuKor
+			  ,TM.MENU_TYPE			as menuType
+		  FROM (
+					SELECT K.MENU_ID, IFNULL(K.MENU_PARENT_ID,0) AS MENU_PARENT_ID , K.MENU_ROOT_ID, L.MENU_PATH, 
+						   L.MENU_KOR, L.MENU_TYPE, 
+						   (CASE WHEN K.MENU_PARENT_ID IS NULL || K.MENU_PARENT_ID = 0 THEN K.MENU_ROOT_ID ELSE K.MENU_PARENT_ID END) AS DIRECT_MENU_PARENT_ID
+					  FROM BS_ROLE_MENU_LIST	K
+					  JOIN BS_MENU_LIST			L ON L.MENU_ID = K.MENU_ID
+					  JOIN BS_ORG_MENU_LIST		O ON O.MENU_ID = K.MENU_ID
+					 WHERE 1=1
+					   AND K.ROLE_ID = #roleId#
+					   AND O.ORG_ID = (SELECT ORG_ID FROM BS_ROLE_LIST WHERE ROLE_ID = #roleId#)
+					   AND K.ENABLE  = 'Y'
+					   AND L.ENABLE  = 'Y'
+					   AND O.ENABLE = 'Y'
+				) AS TM
+				
+		WHERE TM.DIRECT_MENU_PARENT_ID  = #menuId#
+		
+		/* menu.selectTabMenuList */
+	</select>
+	
+	<!-- 메뉴 권한 있는지 조회 -->
+	<select id="menu.chkMenuRoleExist" parameterClass="HashMap" resultClass="java.lang.Integer">
+		
+		SELECT COUNT(*)
+		  FROM BS_ROLE_MENU_LIST 			AS roleMenu
+		  LEFT OUTER JOIN BS_MENU_LIST  	AS menu 	ON menu.MENU_ID = roleMenu.MENU_ID
+		  LEFT OUTER JOIN BS_ORG_MENU_LIST  AS orgMenu 	ON menu.MENU_ID = orgMenu.MENU_ID
+		  
+		  WHERE roleMenu.ROLE_ID = #roleId# AND roleMenu.ORG_ID = #orgId#
+		  
+		  <isNotEmpty property="enable" prepend="AND">
+		  		orgMenu.enable = 'Y' AND roleMenu.enable ='Y'
+		 </isNotEmpty>
+		   
+		  AND menu.MENU_ENG = #menuCode#
+		  
+	</select>
+	<!--  LEFT MENU 정보 반환
+	<select id="menu.selectLeftMenuList" parameterClass="menuVO" resultClass="menuVO">
+		SELECT 
+				 TOP_ROLE.ROLE_ID 						as roleID
+				,TOP_ROLE.MENU_ID 						as menuId
+				,TOP_ROLE.MENU_LOC 						as menuLoc
+				,TOP_ROLE.MENU_LEVEL 					as menuLevel
+				
+			    ,TOP_MENU.MENU_ENG 						as menuEng
+			    ,TOP_MENU.MENU_KOR 						as menuKor
+			    ,TOP_MENU.MENU_PATH 					as menuPath
+			    ,TOP_MENU.MENU_ENG 						as menuEng
+			    
+				,IFNULL(MIDDLE_MENU.MIDDLE_PARENT_ID,0) as middleParentId
+				,MIDDLE_MENU.MIDDLE 					as middle 
+				,MIDDLE_MENU.BOTTOM 					as bottom
+				,IFNULL(MIDDLE_MENU.BOTTOM_PARENT_ID,0) as bottomParentId
+				
+		FROM BASE.BS_ROLE_MENU_LIST 	TOP_ROLE
+		JOIN BASE.BS_MENU_LIST 			TOP_MENU ON TOP_ROLE.MENU_ID = TOP_MENU.MENU_ID
+		LEFT JOIN (
+			SELECT
+				MR.MENU_ID AS MIDDLE_MENU_ID, MR.MENU_PARENT_ID AS MIDDLE_PARENT_ID,
+				GROUP_CONCAT(MR.MENU_ID, ',' ,MM.MENU_KOR, ',' , MM.MENU_ENG , ',', MM.MENU_PATH ) AS MIDDLE,
+				BOTTOM_MENU.BOTTOM , BOTTOM_MENU.BOTTOM_PARENT_ID
+			FROM BASE.BS_ROLE_MENU_LIST MR
+			JOIN BASE.BS_MENU_LIST MM ON MR.MENU_ID = MM.MENU_ID
+			LEFT OUTER JOIN (
+				SELECT 
+					BR.MENU_PARENT_ID AS BOTTOM_PARENT_ID 
+					,GROUP_CONCAT(BR.MENU_ID, ',' ,BM.MENU_KOR, ',' ,BM.MENU_ENG, ',', BM.MENU_PATH ORDER BY BR.SORT ASC SEPARATOR ':') AS BOTTOM
+				FROM BASE.BS_ROLE_MENU_LIST BR
+				JOIN BASE.BS_MENU_LIST BM ON BR.MENU_ID = BM.MENU_ID
+				WHERE
+					BR.MENU_LOC = 'top' AND BR.ROLE_ID = 1
+	                AND BR.ENABLE = 'Y'  AND BM.ENABLE = 'Y'
+					AND BR.MENU_LEVEL = 2 GROUP BY BR.MENU_PARENT_ID
+			) BOTTOM_MENU ON BOTTOM_MENU.BOTTOM_PARENT_ID = MR.MENU_ID
+			WHERE MR.MENU_LOC = 'top' AND MR.ROLE_ID = 1
+			AND MR.ENABLE = 'Y'  AND MM.ENABLE = 'Y'
+			AND MR.MENU_LEVEL = 1 GROUP BY MR.MENU_PARENT_ID, MR.MENU_ID ORDER BY MR.MENU_ID DESC
+		) MIDDLE_MENU ON MIDDLE_MENU.MIDDLE_PARENT_ID = TOP_MENU.MENU_ID
+		WHERE TOP_ROLE.MENU_LOC = 'TOP' AND TOP_ROLE.ROLE_ID = #roleId#
+		AND TOP_MENU.MENU_PATH LIKE concat(#menuPath#,'%')
+		AND TOP_ROLE.ENABLE = 'Y'
+        AND TOP_MENU.ENABLE = 'Y'
+		AND TOP_ROLE.MENU_LEVEL = 0
+		ORDER BY MIDDLE_MENU.MIDDLE_MENU_ID ASC;
+		
+		/* menu.selectLeftMenuList */
+	</select> -->
+	
+</sqlMap>

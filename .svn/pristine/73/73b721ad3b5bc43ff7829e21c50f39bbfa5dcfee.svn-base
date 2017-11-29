@@ -1,0 +1,476 @@
+package ib.user.service.impl;
+
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Service;
+
+import com.google.gson.Gson;
+
+import egovframework.rte.fdl.cmmn.AbstractServiceImpl;
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+import ib.person.service.impl.PersonDAO;
+import ib.system.service.impl.OrgCompanyRegDAO;
+import ib.system.service.impl.RolePerUserDAO;
+import ib.user.service.UserService;
+
+
+@Service("userService")
+public class UserServiceImpl extends AbstractServiceImpl implements UserService {
+
+    @Resource(name="userDAO")
+    private UserDAO userDAO;
+
+    @Resource(name="userProfileDAO")
+    private UserProfileDAO userProfileDAO;
+
+    @Resource(name="orgCompanyRegDAO")
+    private OrgCompanyRegDAO orgCompanyRegDAO;
+
+    @Resource(name="personDAO")
+    private PersonDAO personDAO;
+
+    @Resource(name="rolePerUserDAO")
+    private RolePerUserDAO rolePerUserDAO;
+
+
+    protected static final Log logger = LogFactory.getLog(UserServiceImpl.class);
+
+    //로그인 사용자정보
+  	public Map<String, Object> getUserLoginInfo(Map<String, Object> map) throws Exception {
+
+  		return userDAO.getUserLoginInfo(map);
+  	}
+
+    //로그인 사용자정보
+  	public Map<String, Object> getBaseUserInfo(Map<String, Object> map) throws Exception {
+
+  		return userDAO.getBaseUserInfo(map);
+  	}
+
+
+
+    //사용자 리스트
+	public List<Map> getUserList(Map<String, Object> param) throws Exception {
+
+		return userDAO.getUserList(param);
+	}
+
+
+	//직원형태 코드
+	public List<Map> getCompanyCode(Map<String, String> param) throws Exception {
+
+		return userDAO.getCompanyCode(param);
+	}
+
+
+	//고객 등록, 담당자등록, 네트워크 등록
+	public int insertCustomerAndManager(Map<String, Object> map) throws Exception {
+
+		int cusId = -1;
+
+		if("".equals(String.valueOf(map.get("cusId")))){
+
+			map.put("cstNm", 		map.get("userName").toString());
+			map.put("company", 		map.get("company").toString());
+			map.put("position", 	map.get("rankNm").toString());
+			map.put("phn1", 		map.get("mobileTel").toString());
+			map.put("phn2", 		map.get("companyTel").toString());
+			map.put("homePhone",	map.get("homeTel").toString());
+			map.put("fax", 			map.get("companyFax").toString());
+			map.put("relDegree",	"00001");
+			map.put("rgId", 		map.get("rgId").toString());
+			map.put("deptId", 		map.get("mainDeptId").toString());
+
+
+			cusId = personDAO.regCustomerByUser(map);							//1. 고객(인물) 등록
+			map.put("cusId", cusId);
+
+
+
+			map.put("cstId", cusId);
+			map.put("memo", "직원등록");					//관계메모
+			map.put("regOrgId", map.get("regOrgId"));			//orgId 추가...
+			personDAO.doSaveCstManagerDirect(map);								//2. 담당자 등록
+
+			map.put("snb1st", map.get("usrCusId"));		//담당자 cusId
+			map.put("snb2nd", cusId);					//고객 cusId
+			map.put("note",	"직원등록");
+			personDAO.regNetworkCst(map);										//3. 네트워크 등록
+
+		}
+
+		return cusId;
+	}
+
+	//고객 등록 / 수정
+	public int processCustomerAndManager(Map<String, Object> map) throws Exception {
+
+		int cusId = -1;
+
+		map.put("cstNm", 		map.get("userName").toString());
+		map.put("company", 		map.get("company").toString());
+		map.put("position", 	map.get("rankNm").toString());
+		map.put("phn1", 		map.get("mobileTel").toString());
+		map.put("phn2", 		map.get("companyTel").toString());
+		map.put("homePhone",	map.get("homeTel").toString());
+		map.put("fax", 			map.get("companyFax").toString());
+		map.put("relDegree",	"00001");
+		map.put("rgId", 		map.get("rgId").toString());
+		map.put("deptId", 		map.get("mainDeptId").toString());
+
+		if("".equals(String.valueOf(map.get("cusId")))){
+
+			cusId = personDAO.regCustomerByUser(map);							//1. 고객(인물) 등록
+			map.put("cusId", cusId);
+			map.put("memo", "직원등록");							//관계메모
+			map.put("regOrgId", map.get("regOrgId"));			//orgId 추가...
+			personDAO.doSaveCstManagerDirect(map);								//2. 담당자 등록
+
+			map.put("snb1st", map.get("usrCusId"));		//담당자 cusId
+			map.put("snb2nd", cusId);					//고객 cusId
+			map.put("note",	"직원등록");
+			personDAO.regNetworkCst(map);										//3. 네트워크 등록
+
+		}else{
+			cusId = personDAO.updateCustomerByUser(map);							//1. 고객(인물) 수정
+		}
+
+		return cusId;
+	}
+
+
+	//사용자등록(신규)
+	public int insertUser(Map<String, Object> map) throws Exception {
+
+		//고객 등록/수정 (네트워크 고객) -------------------
+		this.processCustomerAndManager(map);
+		//--------------------------------------------------------------------
+
+
+		logger.debug("########## UserService.insertUser() ########### param : [ "+ map.toString() +"]#######");
+		int userId = userDAO.insertUser(map);										//사용자등록 ... 1
+		//소속관계사의 접근권한 정보 입력.
+		map.put("authType", "WRITE");
+		userDAO.insertBsRelationCompanyAccessAuth(map);
+
+		Map<String,String>param = new HashMap();
+		param.put("userRole", map.get("userRole").toString());
+		param.put("orgId", map.get("orgId").toString());
+		param.put("userId", map.get("uId").toString());
+		param.put("userSeq", map.get("userSeq").toString());
+		rolePerUserDAO.mergeRoleCode(param);
+
+		map.put("categoryPersonCd", "00099");						//인물구분 : 직원
+
+		personDAO.doSaveOrgCustomerCate(map);						//고객 카테고리 저장
+
+		String deptIncharge = (String)map.get("deptIncharge");		//부서(직책) 정보
+		Gson gson = new Gson();
+		ArrayList<Map> deptInchargeList = null;
+		deptInchargeList = gson.fromJson(deptIncharge, java.util.ArrayList.class);
+
+		for(int i=0; i<deptInchargeList.size(); i++) {
+			Map p = deptInchargeList.get(i);
+			p.put("userId", map.get("uId"));
+			p.put("userSeq",(String)map.get("userSeq"));
+
+			p.put("mainYn", (p.get("deptId").toString().equals(map.get("mainDeptId").toString())?"Y":"N"));
+			userDAO.mergeDeptInchargeInfo(p);										//사용자 부서(직책) 등록 ... 2
+
+			//-------- bs_dept_manager 에 부서장 등록 -------
+			if("DEPT_MGR".equals(p.get("incharge").toString()))		//부서장 일때
+				userDAO.mergeDeptManagerInfo(p);									//사용자 부서(직책) 등록 ... 2-1
+			//---------------------------------------------
+		}
+
+
+		//관계사 세콤연동여부에 따라 신규유저 프로필설정을 다르게한다.
+		String secomeUseYn = map.get("secomeUseYn").toString();
+
+		if(secomeUseYn.equals("Y")){
+			map.put("mobileAttend", "N");
+			map.put("secomAttend", "Y");
+			map.put("loginAttend", "N");
+		}else{
+			map.put("mobileAttend", "N");
+			map.put("secomAttend", "N");
+			map.put("loginAttend", "Y");
+		}
+		userProfileDAO.insertUserProfile(map);										//사용자프로파일 ... 3
+
+		map.put("userId", map.get("uId"));
+		map.put("groupNm", "그룹");
+		map.put("groupOrd", 1);
+		map.put("enable", "Y");
+		userDAO.createUserGroup(map);												//유저그룹생성
+		return userId;
+	}
+
+
+	//사용자수정
+	public int updateUser(Map<String, Object> map) throws Exception {
+		//고객 등록/수정 (네트워크 고객) -------------------
+		this.processCustomerAndManager(map);
+		//--------------------------------------------------------------------
+
+		int svCnt = userDAO.updateUser(map);										//사용자수정 ... 1
+
+
+		//소속관계사의 접근권한 정보 입력.
+		int cnt = userDAO.selectBsRelationCompanyAccessAuth(map);
+		//기존 소속관계사에 대한 권한이 있는지 체크
+		if(cnt > 0){ //정보가 모두 있을 경우 삭제하고 WRITE권한 부여
+			userDAO.deleteBsRelationCompanyAccessAuth(map);
+		}
+		map.put("authType", "WRITE");
+		userDAO.insertBsRelationCompanyAccessAuth(map);
+		Map<String,String>param = new HashMap();
+		param.put("userRole", map.get("userRole").toString());
+		param.put("orgId", map.get("orgId").toString());
+		param.put("userId", map.get("uId").toString());
+		param.put("userSeq", map.get("userSeq").toString());
+		rolePerUserDAO.mergeRoleCode(param);
+
+		//ORG_ID 를 수정하려는 경우
+		if(!map.get("orgId").toString().equals(map.get("oriOrgId").toString())){
+			Map tmap = new HashMap<String,String>();
+			tmap.put("uId", map.get("uId").toString());
+			tmap.put("orgId", map.get("oriOrgId").toString());
+			//기존 ORG_ID 의 관계사 권한을 삭제한다.
+			userDAO.deleteBsRelationCompanyAccessAuth(tmap);
+		}
+
+
+		//소속회사(bs_user_master.company) 를 수정하려는 경우
+		if(!map.get("company").toString().equals(map.get("oriCompany").toString())){
+			userDAO.updateCusCpnByUserModify(map);
+		}
+
+
+		String deptIncharge = (String)map.get("deptIncharge");		//부서(직책) 정보
+		String deptInchargeDel = (String)map.get("deptInchargeDel");//부서(직책) 정보...삭제
+		Gson gson = new Gson();
+		ArrayList<Map> deptInchargeList = null;
+		ArrayList<Map> deptInchargeListDel = null;
+		deptInchargeList = gson.fromJson(deptIncharge, java.util.ArrayList.class);
+
+		//이전 부서 내용 지우기
+		List<String> deptIdList = new ArrayList<String>();
+		for(int i = 0 ; i < deptInchargeList.size(); i++){
+			Map item = deptInchargeList.get(i);
+			deptIdList.add((String)item.get("deptId"));
+			map.put("deptIdList", deptIdList);
+			userDAO.updateUserDepartment(map);
+		}
+
+		//사용자 부서장 초기화(없애기) ... 2-1
+		userDAO.updateDeptManagerInit(map);
+
+		for(int i=0; i<deptInchargeList.size(); i++){
+			Map p = deptInchargeList.get(i);
+			p.put("userId", (String)map.get("uId"));
+			p.put("userSeq",(String)map.get("userSeq"));
+			p.put("mainYn", (p.get("deptId").toString().equals(map.get("mainDeptId").toString())?"Y":"N"));
+			userDAO.mergeDeptInchargeInfo(p);										//사용자 부서(직책) 등록 ... 2-2
+
+			//-------- bs_dept_manager 에 부서장 등록 -------
+			if("DEPT_MGR".equals(p.get("incharge").toString()))		//부서장 일때
+				userDAO.mergeDeptManagerInfo(p);									//사용자 부서장 등록 ... 2-3
+			//---------------------------------------------
+		}
+
+
+		return svCnt;
+	}
+
+	//신규 사원번호
+	public String getNewUserNo(String orgId) throws Exception {
+
+		return userDAO.getNewUserNo(orgId);
+	}
+
+	//비밀번호 초기화
+	public int doInitPwd(Map<String, Object> map) throws Exception {
+
+		return userDAO.doInitPwd(map);
+	}
+
+	//조회 권한이 있는 관계사 리스트
+	public List<Map> getAccessOrgIdList(String userId) throws Exception {
+		return userDAO.getAccessOrgIdList(userId);
+	}
+
+	//전체 관계사 목록
+	public List<Map> getOrgIdList(String userId) throws Exception {
+		return userDAO.getOrgIdList(userId);
+	}
+
+	//요청 orgId 의 권한이 있는지 체크
+	public Integer getAccessOrgIdCnt(Map<String, Object> map) throws Exception {
+		return userDAO.getAccessOrgIdCnt(map);
+	}
+
+	//소속관계사를 참조하는 그룹핑된 회사 리스트
+	public Map getCompanyByGroupingList(Map<String, Object> param)
+			throws Exception {
+		// TODO Auto-generated method stub
+		logger.debug("################## UserService.getCompanyByGroupingList() #####################");
+
+		Map<String, Object> map = new HashMap<String, Object>();
+		// parameter
+		int pageSize = Integer.parseInt((String)param.get("pageSize"));
+		int pageNo = Integer.parseInt((String)param.get("pageNo"));
+
+		map.put("pageNo", param.get("pageNo")); // 넘어온 검색페이지번호도 세팅해서 그대로 반환해준다.
+
+		param.put("offset",0);
+		param.put("limit", 0);
+
+		// 총 건수
+		int totalCount = userDAO.getGroupingCompanyListCnt(param);
+		map.put("totalCount", totalCount);
+
+		int pageCount = (totalCount / pageSize);
+		pageCount = (totalCount > pageCount * pageSize) ? pageCount + 1
+				: pageCount; // 총 페이지수 ... (총수/페이지크기)떨어지는지, 절삭하는지 확인하여 총페이지크기를
+								// (+1)여부결정
+		map.put("pageCount", pageCount); // 총 페이지수
+
+		param.put("offset",(pageNo - 1) * pageSize);
+		param.put("limit", pageSize); // 페이지크기 pageSize
+		List<Map> list =  userDAO.getGroupingCompanyList(param); // 목록리스트
+		map.put("list", list);
+
+		return map; // Map map: pageNo(페이지번호), totalCount(총 건수), pageCount(총
+					// 페이지수), list(리스트)
+	}
+
+	//사번 유효성 검사
+	public Map getOrgPersabun(Map param) throws Exception {
+		// TODO Auto-generated method stub
+		logger.debug("################## UserService.getOrgPersabun() ################# param : ["+ param + "]##########");
+		//사번 중복여부 체크
+		int cnt = userDAO.getOrgPersabun(param);
+		//관계사 코드 반환
+		Map result = userDAO.getOrgCode(param);
+		result.put("cnt", cnt);
+		return result;
+	}
+
+	//사용자 등록 - 소속관계사 리스트( 시너지와 같은 그룹핑 회사인지까지 체크함)
+	public Map getAccessOrgInfoList(Map<String, Object> param) throws Exception {
+		// TODO Auto-generated method stub
+			logger.debug("################## UserService.getAccessOrgInfoList() #####################");
+
+			Map<String, Object> map = new HashMap<String, Object>();
+			// parameter
+			int pageSize = Integer.parseInt((String)param.get("pageSize"));
+			int pageNo = Integer.parseInt((String)param.get("pageNo"));
+
+			map.put("pageNo", param.get("pageNo")); // 넘어온 검색페이지번호도 세팅해서 그대로 반환해준다.
+
+			param.put("offset",0);
+			param.put("limit", 0);
+
+			// 총 건수
+			int totalCount = userDAO.getAccessOrgInfoListCnt(param);
+			map.put("totalCount", totalCount);
+
+			int pageCount = (totalCount / pageSize);
+			pageCount = (totalCount > pageCount * pageSize) ? pageCount + 1
+					: pageCount; // 총 페이지수 ... (총수/페이지크기)떨어지는지, 절삭하는지 확인하여 총페이지크기를
+									// (+1)여부결정
+			map.put("pageCount", pageCount); // 총 페이지수
+
+			param.put("offset",(pageNo - 1) * pageSize);
+			param.put("limit", pageSize); // 페이지크기 pageSize
+			List<Map> list =  userDAO.getAccessOrgInfoList(param); // 목록리스트
+			map.put("list", list);
+
+			return map; // Map map: pageNo(페이지번호), totalCount(총 건수), pageCount(총
+						// 페이지수), list(리스트)
+	}
+
+	// 관계사 세부 정보 반환
+	public Map getOrgInfoForGrouping(Map<String, Object> map) throws Exception {
+		// TODO Auto-generated method stub
+		logger.debug("################## UserService.getAccessOrgInfoList() ############ param : ["+ map+ "] #########");
+		return userDAO.getOrgInfoForGrouping(map);
+	}
+
+	//사용자 메인화면 모듈리스트
+	public List<EgovMap> getModuleList(Map<String,Object> map) throws Exception {
+		return userDAO.getModuleList(map);
+	}
+
+	//로그인 출근 연동여부를 판단하여 출근처리한다.
+	public Integer getUserAttendCnt(Map<String,Object> map) throws Exception{
+		return userDAO.getUserAttendCnt(map);
+	}
+	//유저 그룹관리 팝업에서 관계사 or 부서별 유저 조회
+	public List<Map> getOrgOrDeptUserList(Map map ) throws Exception{
+
+		if(map.get("searchDeptArr")!=null){
+			String searchDeptArrStr = map.get("searchDeptArr").toString();
+			map.put("deptArr", searchDeptArrStr.split(","));
+		}
+		return userDAO.getOrgOrDeptUserList(map);
+	}
+	//유저 그룹 생성
+	public Integer createUserGroup(Map<String,Object> map) throws Exception{
+		userDAO.createUserGroup(map);
+		return (Integer)map.get("userGroupId");
+	}
+	//유저 그룹 수정
+	public Integer modifyUserGroup(Map<String,Object> map) throws Exception{
+		userDAO.modifyUserGroup(map);
+		return 0;
+	}
+	//유저그룹 조회
+	public List<Map> getUserGroupList(Map map ) throws Exception{
+		return userDAO.getUserGroupList(map);
+	}
+	//유저 그룹별 사용자 리스트 조회
+	public List<Map> getGroupDetailUserList(Map map ) throws Exception{
+		return userDAO.getGroupDetailUserList(map);
+	}
+	//유저 그룹 삭제
+	public Integer deleteUserGroup(Map<String,Object> map) throws Exception{
+		userDAO.deleteUserGroupDetail(map);
+		userDAO.deleteUserGroup(map);
+		return userDAO.updateUserGroupForDelete(map);
+	}
+	//유저 그룹 복사
+	public Integer copyUserGroup(Map<String,Object> map) throws Exception{
+
+		Integer returnCnt = userDAO.insertCopyUserGroup(map);
+		userDAO.insertCopyUserGroupDetail(map);
+		return returnCnt;
+	}
+	//유저 그룹 유저 삭제/저장
+	public Integer procUserGroupDetail(Map<String,Object> map) throws Exception{
+		userDAO.deleteUserGroupDetail(map);
+		String[] userIdArr = (String[])map.get("userIdArr");
+		if(userIdArr.length>0&&!userIdArr[0].equals("")){
+
+			userDAO.insertUserGroupUserList(map);
+		}
+		return 0;
+	}
+	//유저 그룹 순서변경
+	public Integer procUserGroupSortOrder(Map<String,Object> map) throws Exception{
+		return userDAO.procUserGroupSortOrder(map);
+	}
+	//유저 프로필박스
+	public EgovMap getUserProfile(Map map ) throws Exception{
+		return userDAO.getUserProfile(map);
+	}
+}

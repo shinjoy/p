@@ -1,0 +1,50 @@
+@charset "utf-8";
+
+html, body, div, span, h1, h2, h3, h4, h5, h6, p, a, address, em, img, strong, dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, h1, h2, h3, h4, h5, h6, form, input, textarea, button, p, em {margin: 0; padding:0; border:0; border:none; }
+
+html {overflow: scroll; overflow-x: auto; -webkit-text-size-adjust:none; }
+
+body { font-family: 'Noto Sans KR', sans-serif;  color:#555; font-size:0.75em; }
+
+h1, h2, h3, h4, h5, h6 {font-weight:normal; font-size:100%;}
+
+table { border-collapse:collapse; border-spacing:0; } 
+img {border:none; vertical-align:top;}
+address, em{font-style:normal;}
+ol, ul{list-style:none;}
+li,dt,dd{line-height:140%;}
+
+fieldset { border:none; }
+input.btn { border:none; }
+input, textarea, select { vertical-align:middle; font-family:inherit; border:#cfcfcf solid 1px; }
+input[type="checkbox"] { border-radius:3px; }
+select, textarea { color:#666; }
+
+hr, legend, .blind, .hidden { position:absolute; top:-50000em; width:0px; height:0px; overflow:hidden; line-height:0; font-size:0; visibility:hidden; }
+
+label { cursor:pointer; vertical-align:middle; }
+
+address, caption, em { font-weight:normal; font-style:normal; }
+
+select, input, option, textarea { vertical-align:middle; }
+input, select, button { vertical-align:middle; }
+button { overflow:visible; background:transparent; cursor:pointer; }
+form, fieldset, iframe, button { border:0 none; text-decoration:none; margin: 0; padding:0; border:0; vertical-align:middle; }
+
+header,footer,section,article,aside,nav,hgroup,details,menu,figure,figcaption{ display:block; margin:0px; padding:0px; }
+img,video,audio,object,embed,iframe{ max-width:100%; height:auto; }
+
+a { color:#555; text-decoration:none; margin: 0; padding:0; border:0; vertical-align:middle; }
+a:visited { color:#555; }
+a:hover, a:focus, a:link { text-decoration:none; color:#555; }
+
+
+#skipNavigation {position:relative; z-index:10001;}
+#skipNavigation a {position:absolute; top:-40px; left:0; width:200px; height:24px; padding-top:4px; background-color:#000; text-align:center; color:#fff !important; font:bold 14px;}
+#skipNavigation a:active, #skipNavigation a:focus {top:0;}
+
+
+
+
+

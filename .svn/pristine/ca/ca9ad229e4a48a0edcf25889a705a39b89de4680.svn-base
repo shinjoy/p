@@ -1,0 +1,37 @@
+@charset "utf-8";
+
+@page a4sheet {
+	size: A4;
+}
+
+@media print{
+	#wrap { min-width:inherit; }
+	#sub_body { background:none; }
+	#skipNavigation { display:none; }
+	#IB_Gnb { display:none; }
+	#IB_Navi { display:none; }
+	#IB_Snb { display:none; }
+	#contentsWrap { background:none; }
+	#IB_footer { display:none; }
+	#detail_contents { padding:0; min-height:inherit; width:inherit; overflow:inherit; }
+	.doc_AllWrap .topline { display:none; }
+	.doc_viewWarp .doc_bottomcopy { display:none; }
+	.doctitleZone { display:none; }
+	.doc_aappline { display:none; }
+	.quickmnWrap { display:none; }
+	.con_titleZone { display:none; }
+	.doc_read_check { display:none; }
+	.printOut { display:none; }
+	.btn_baordZone2 { display:none; }
+
+	html, body { color:#000; font-family:"돋움",Dotum,"굴림",Gulim,arial,sans-serif; width: 210mm; height: 297mm; }
+	.doc_AllWrap { min-width:inherit; border: initial; border-radius:initial; width:inherit; max-width:inherit; min-height: initial; box-shadow: initial; background: initial; page-break-after:always; padding:0; margin:0;}
+	.doc_viewWarp { border:none; margin-top:0px; }
+	.doc_viewWarp .doc_viewWarp2 { padding:50px 0 0; }
+	.doc_viewWarp .doc_codenum { left:0; top:0; }
+	.doc_viewWarp .doc_print_tb_st01 img {max-width: 650px;}
+	.doc_viewWarp .doc_print_tb_st01 { table-layout:inherit; }
+	.doc_viewWarp .doc_print_tb_st01 table {max-width:650px;}
+	.signBoxWrap { margin-bottom:0px; }
+	.signBoxWrap .sign_tb_st .part_type td { padding:2px 0; min-width:69.3px; max-width:80.1px; }
+}

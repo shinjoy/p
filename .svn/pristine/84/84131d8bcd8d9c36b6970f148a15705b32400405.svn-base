@@ -1,0 +1,266 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<script src="${pageContext.request.contextPath}/js/sp/synergy_util.js"></script>
+
+<form name="activityModifyForm" id = "activityModifyForm" method="post">
+	<input type="hidden" id = "projectId" name = "projectId">
+	<input type="hidden" id = "activityId" name = "activityId" value="${activityId }">
+	<input type="hidden" id = "year" name = "year" value="${year }">
+	<input type="hidden" id = "searchStartDate" name = "searchStartDate" value="${startDate }">
+	<input type="hidden" id = "searchEndDate" name = "searchEndDate" value="${endDate }">
+	<div class="mo_container">
+		<input type="hidden" name="familyEventsId" id = "familyEventsId">
+		<table class="tb_basic_left">
+	    	<colgroup>
+				<col width="130" />
+				<col width="*" />
+			</colgroup>
+			<tbody>
+			    <tr>
+                    <th scope="row">기간</th>
+                    <td>
+                      	<input type="text" id = "startDate" name = "startDate" value="" class="input_b input_date_type" title="시작일" />
+                      	<input type="text" id = "endDate" name = "endDate" value="" class="input_b input_date_type mgl15" title="종료일" />
+                    </td>
+                </tr>
+			    <tr>
+                    <th scope="row"><label for="eventTypeSelectTag">참여자</label></th>
+                    <td>
+                    	<span id = "leaderArea">
+
+                    	</span>
+                    	<span id = "employeeArea">
+
+                    	</span>
+                    	<a href="#" id="activityUserAddBtn" onclick="openUserPopup();" class="btn_select_employee2 mgl6" style=""><em>직원선택</em></a>
+                    </td>
+                </tr>
+		 		<tr>
+		 			<th scope="row"><label for="amount">진척율</label></th>
+		 			<td>
+		 				<input type="text" name="progressRate" id="progressRate" class="applyinput_B w_st06 number" maxlength="3" style="width:30px;text-align:right;padding:2px;" value="${progressRate }">
+		 				<span>%</span>
+		 				<button type="button" id="btnReset" class="btn_s_replay mgl8" onclick="resetProgressRate('${year }','${activityId }')" style="display: inline-block;"><em>새로고침</em></button>
+		 			</td>
+		 		</tr>
+				<tr>
+		 			<th scope="row"><label for="period">사유</label></th>
+		 			<td>
+		 				<textarea id="updateReason" name="updateReason" class="textarea_basic w100pro" placeholder="사유를 입력하세요."></textarea>
+		 			</td>
+		 		</tr>
+
+			</tbody>
+		</table>
+		<div class="btnZoneBox">
+			<button id="btnSave" type="button" class="p_blueblack_btn" onclick="doActivityUpdate();"><strong>저장</strong></button>
+			<!-- <button id="btnDel" type="button" class="p_withelin_btn" onclick="fnObj.tryDelete();">삭제</button> -->
+			<button id="btnDel" type="button" class="p_withelin_btn" onclick="parent.myModal2.close();">닫기</button>
+		</div>
+	</div>
+</form>
+
+<script type="text/javascript">
+var project;
+var actObj;
+$(document).ready(function(){
+	numberFormatForNumberClass();
+
+	//프로젝트 엑티비티 셋팅
+	project = parent.project;
+
+	$("#projectId").val(project.projectId);
+
+	var isEmployeeAdd;
+	if(project.employee == "Y"){
+		 isEmployeeAdd = true;
+	}else{
+		$("#employeeArea").text("전직원");
+		isEmployeeAdd = false;
+		$("#activityUserAddBtn").hide();
+	}
+	var actList = parent.actList;
+	for(var i = 0 ; i<actList.length; i++){
+		if(parseInt(actList[i].activityId) == parseInt("${activityId }")){
+			actObj = actList[i];
+		}
+	}
+	///////////////////////////////날짜 DATEPICKER : S///////////////////////////////
+	var actEndDate = actObj.endDate;
+	var actStartDate = actObj.startDate;
+	$('#startDate').val(actStartDate);
+	$('#endDate').val(actEndDate);
+	$('#startDate').attr("readonly","readonly");
+	$('#endDate').attr("readonly","readonly");
+
+
+	//배정직원 리스트
+	var empList = actObj.empList;
+
+	for(var i=0; i<empList.length; i++){
+		if(actEndDate.split("-")[0]!="9999"){
+		if(actObj.confirm == 'Y'){		//확정일때
+			if((empList[i].scheChk !='' && empList[i].scheChk !=undefined) || (empList[i].apprChk !='' && empList[i].apprChk !=undefined)){
+			}else{
+				$('#startDate').datepicker(S_DatePickerOpt).parent().children('img').css({'vertical-align':'middle', 'line-height':'23px', 'margin-left':'5px'});
+				$('#endDate').datepicker(S_DatePickerOpt).parent().children('img').css({'vertical-align':'middle', 'line-height':'23px', 'margin-left':'5px'}).prop("readonly",true);
+
+
+				$('#endDate').datepicker("option", "maxDate", project.endDate);
+				$('#endDate').datepicker("option", "minDate", project.startDate);
+				$('#startDate').datepicker("option", "maxDate", project.endDate);
+				$('#startDate').datepicker("option", "minDate", project.startDate);
+
+				$('#startDate').datepicker("option", "onClose", function ( selectedDate ) {
+		            $("#endDate").datepicker( "option", "minDate", selectedDate );
+		         });
+				$('#endDate').datepicker("option", "onClose", function ( selectedDate ) {
+			            $("#startDate").datepicker( "option", "maxDate", selectedDate );
+			      });
+				}
+			}
+		}
+
+		var leaderYn = empList[i].leaderYn;
+		if(isEmployeeAdd&&leaderYn !="Y"){
+
+			var stStr = "";
+			stStr += "<span class=\"employee_list activityUserList\" id = 'activityUserList_"+empList[i].userId+"'>";
+
+			if(i>0) stStr+="<span><div id = 'activityUserList_comma' style='display:inline'>,</div>";
+			else stStr+="<span>";
+
+
+
+			stStr += empList[i].userNm+"</span><em>("+empList[i].position+")</em>";
+
+			stStr += "<input type=\"hidden\" name = \"activityUser\" value=\""+empList[i].userId+"\">";
+
+			stStr += "<a href=\"javascript:deleteStaff('"+empList[i].userId+"')\" class=\"btn_delete_employee\"><em>삭제</em></a></span>";
+			$("#employeeArea").append(stStr);
+		}
+
+		if(leaderYn == "Y"){
+			var stStr = "";
+			stStr += "<span class=\"employee_list activityUserList\" id = 'activityUserList_"+empList[i].userId+"'>";
+
+			stStr += "<input type=\"hidden\" name = \"activityLeaderUser\" value=\""+empList[i].userId+"\">";
+
+			stStr += empList[i].userNm+"</span><em>("+empList[i].position+")</em>";
+			stStr += "[리더]";
+			stStr += "<input type=\"hidden\" name = \"activityUser\" value=\""+empList[i].userId+"\">";
+
+			$("#leaderArea").append(stStr);
+		}
+	}
+
+});
+
+//참여자 추가 팝업
+function openUserPopup(){
+	var paramList = [];
+	var param = "";
+
+	var userStr ='';
+	var disabledStr ='';
+	var arr =[];
+	var disabledArr =[];
+	var selectUserList =$("input[name=activityUser]");
+	var disabledList =$("leaderArea input[name=activityUser]");
+	for(var i=0;i<selectUserList.length;i++){
+		arr.push(selectUserList[i].value);
+		}
+
+	userStr = arr.join(',');
+
+	for(var i=0;i<disabledList.length;i++){
+		disabledArr.push(disabledList[i].value);
+		}
+	disabledStr = arr.join(',');
+
+	var paramObj ={ name : 'userList'   ,value : userStr};
+    paramList.push(paramObj);
+
+    paramObj ={ name : 'disabledList'   ,value : disabledStr};		//선택 불가
+    paramList.push(paramObj);
+    paramObj ={ name : 'isOneOrg' ,value : 'Y'};
+    paramList.push(paramObj);
+
+    userSelectPopCall(paramList);		//공통 선택 팝업 호출
+}
+
+var fnObj = {
+
+	    //사원 및 부서 선택 팝업에서 선택한 데이터를 처리
+	    getResult: function(list){
+	    	fnObj.actionBySelData(list);
+	    },
+		 //사원 및 부서 선택 팝업에서 선택한 데이터를 처리
+	    actionBySelData: function(listObj){
+			$("#employeeArea").empty();
+	    	for(var i = 0 ; i <listObj.length; i++){
+	    		var stStr = "";
+				stStr += "<span class=\"employee_list activityUserList\" id = 'activityUserList_"+listObj[i].userId+"'>";
+
+				if(i>0) stStr+="<span><div id = 'activityUserList_comma' style='display:inline'>,</div>";
+				else stStr+="<span>";
+
+				stStr += listObj[i].userName+"</span><em>("+listObj[i].rankNm+")</em>";
+
+				stStr += "<input type=\"hidden\" name = \"activityUser\" value=\""+listObj[i].userId+"\">";
+
+				stStr += "<a href=\"javascript:deleteStaff('"+listObj[i].userId+"')\" class=\"btn_delete_employee\"><em>삭제</em></a></span>";
+				$("#employeeArea").append(stStr);
+	    	}
+
+	    }
+}
+
+//참여자 삭제
+function deleteStaff(userId){
+	$("#activityUserList_"+userId).remove();
+
+	$("span[id*='activityUserList_']").eq(0).find("#activityUserList_comma").remove();
+}
+//저장
+function doActivityUpdate(){
+
+	if($("#updateReason").val().trim() == ""){
+		alert("수정사유를 입력해 주세요.");
+		$("#updateReason").focus();
+		return;
+	}
+
+	if(confirm("저장하시겠습니까?")){
+		$("#activityModifyForm").attr("action",contextRoot+"/project/updateActivityInfoAjax.do");
+		commonAjaxSubmit("POST",$("#activityModifyForm"),doActivityUpdateCallback);
+	}
+}
+//저장 콜백
+function doActivityUpdateCallback(data){
+	if(data.resultObject.result =="SUCCESS"){
+		alert("저장되었습니다.");
+		parent.myModal2.close();
+		parent.moveTab("WBS");
+	}else{
+		alert("저장에 실패했습니다. 담당자에게 문의해 주세요.");
+	}
+}
+//진척율 리셋
+function resetProgressRate(year,activityId){
+	$("#activityModifyForm").attr("action",contextRoot+"/project/updateActivityProgressRate.do");
+	commonAjaxSubmit("POST",$("#activityModifyForm"),resetProgressRateCallback);
+}
+//진척율 리셋 콜백
+function resetProgressRateCallback(data){
+	if(data.resultObject.result =="SUCCESS"){
+		$("#startDate").val($("#searchStartDate").val());
+		$("#endDate").val($("#searchEndDate").val());
+		$("#activityModifyForm").attr("action",contextRoot+"/project/updateActivityInfo.do").submit();
+	}else{
+		alert("저장에 실패했습니다. 담당자에게 문의해 주세요.");
+	}
+}
+</script>

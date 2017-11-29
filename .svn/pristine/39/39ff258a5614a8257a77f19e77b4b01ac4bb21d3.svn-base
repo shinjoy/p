@@ -1,0 +1,1298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="projectStatis">
+
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+
+	<!-- 프로젝트전체(임시저장, 예정, 진행, 보류, 중단, 마감대기, 마감) -->
+	<select id="projectStatisDAO.getProjectStatus" parameterClass="HashMap" resultClass="egovMap">
+	/* projectStatisDAO.getProjectStatus */
+	SELECT IFNULL( SUM(X.TOTALCC    ), 0 ) AS TOTAL_CNT       /*전체*/
+	     , IFNULL( SUM(X.TEMP_SAVE  ), 0 ) AS TEMP_SAVE_CNT   /*임시저장*/
+	     , IFNULL( SUM(X.EXPECT     ), 0 ) AS EXPECT_CNT	  /*예정*/
+	     , IFNULL( SUM(X.PROGRESS   ), 0 ) AS PROGRESS_CNT	  /*진행*/
+	     , IFNULL( SUM(X.PENDING    ), 0 ) AS PENDING_CNT     /*보류*/
+	     , IFNULL( SUM(X.STOP       ), 0 ) AS STOP_CNT        /*중단*/
+	     , IFNULL( SUM(X.CLOSE_READY), 0 ) AS CLOSE_READY_CNT /*마감대기*/
+	     , IFNULL( SUM(X.CLOSED     ), 0 ) AS CLOSED_CNT	  /*마감*/
+	     /*
+	     , ROUND((SUM(X.EXPECT) / SUM(X.TOTALCC) *100 ),1)    AS EXPECT_RATE
+	     , ROUND((SUM(X.PROGRESS) / SUM(X.TOTALCC))*100,1)    AS PROGRESS_RATE
+	     , ROUND((SUM(X.CLOSE_READY) / SUM(X.TOTALCC))*100,1) AS CLOSE_READY_RATE
+	     , ROUND((SUM(X.CLOSED) / SUM(X.TOTALCC))*100,1)      AS CLOSED_RATE
+	     , ROUND((SUM(X.PENDING) / SUM(X.TOTALCC))*100,1)     AS PENDING_RATE
+	     , ROUND((SUM(X.STOP) / SUM(X.TOTALCC))*100,1)        AS STOP_RATE
+	     , ROUND((SUM(X.TEMP_SAVE) / SUM(X.TOTALCC))*100,1)   AS TEMP_SAVE_RATE
+	     */
+	     , ROUND( SUM(X.TEMP_SAVE)   / SUM(X.TOTALCC) * 100, 1) AS TEMP_SAVE_RATE      /*임시저장*/
+	     , ROUND( SUM(X.EXPECT)      / SUM(X.TOTALCC) * 100, 1) AS EXPECT_RATE         /*예정*/
+	     , ROUND( SUM(X.PROGRESS)    / SUM(X.TOTALCC) * 100, 1) AS PROGRESS_RATE       /*진행*/
+	     , ROUND( SUM(X.PENDING)     / SUM(X.TOTALCC) * 100, 1) AS PENDING_RATE        /*보류*/
+	     , ROUND( SUM(X.STOP)        / SUM(X.TOTALCC) * 100, 1) AS STOP_RATE           /*중단*/
+	     , ROUND( SUM(X.CLOSE_READY) / SUM(X.TOTALCC) * 100, 1) AS CLOSE_READY_RATE    /*마감대기*/
+	     , ROUND( SUM(X.CLOSED)      / SUM(X.TOTALCC) * 100, 1) AS CLOSED_RATE         /*마감*/
+	 FROM(
+	  /* 프로젝트-전체직원 */
+	  SELECT
+	         DISTINCT A.PROJECT_ID
+	       , 1 AS TOTALCC
+	       /*EXPECT(예정)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.START_DATE <![CDATA[ > ]]> CURDATE() THEN 1
+	               ELSE 0
+	               END) AS EXPECT
+	       /*PROGRESS(진행)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N'
+	                    AND  CURDATE() BETWEEN A.START_DATE AND IF(A.END_DATE <![CDATA[ > ]]> A.CLOSE_DATE, A.CLOSE_DATE, A.END_DATE) THEN 1
+	               ELSE 0
+	               END) AS PROGRESS
+	       /*CLOSE_READY(마감대기)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y'  AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N'
+	                    AND CURDATE() BETWEEN A.END_DATE AND A.CLOSE_DATE THEN 1
+	               ELSE 0
+	               END) AS CLOSE_READY
+	       /*CLOSED(마감)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.CLOSE_DATE <![CDATA[ < ]]> CURDATE() THEN 1
+	               ELSE 0
+	               END) AS CLOSED
+	       /*PENDING(보류)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'Y' THEN 1
+	               ELSE 0
+	               END) AS PENDING
+	       /*STOP(중단)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y' AND A.STOP_FLAG = 'Y' THEN 1
+	               ELSE 0
+	               END) AS STOP
+	       /*TEMP_SAVE(임시저장)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'N' THEN 1
+	               ELSE 0
+	               END) AS TEMP_SAVE
+	    FROM BS_PROJECT A
+	    LEFT JOIN BS_DEPARTMENT D ON A.ORG_ID = D.ORG_ID
+	    LEFT JOIN BS_USER_DEPARTMENT C	ON C.DEPT_ID = D.DEPT_ID
+	   WHERE A.ORG_ID = #applyOrgId#  /* 관계사 ID */
+	     AND C.DELETE_FLAG = 'N'
+	     AND C.ENABLE = 'Y'
+		 AND C.MAIN_YN = 'Y'
+	     AND D.ENABLE = 'Y'
+	     AND D.DELETE_FLAG = 'N'
+	     AND A.CONFIRM = 'Y'
+	     AND A.PENDING_FLAG	= 'N'
+	     AND A.STOP_FLAG = 'N'
+	     AND A.ENABLE = 'Y'
+	     AND A.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+	     AND A.EMPLOYEE = 'A'  			   /* 참여자는 전체직원 */
+	     /* 부서 선택시 */
+	     <isNotEqual property="deptId" compareValue="0">
+	     	/*부서선택iBatis*/
+	     	<isNotEmpty prepend="AND" property="deptId">
+	     	/*deptId null Chk*/
+	        D.DEPT_ID = #deptId#
+	     	</isNotEmpty>
+	     </isNotEqual>
+	     /* 사용자 선택시 */
+	     /* 조건없음 */
+	     UNION ALL
+	     /* 프로젝트-직원선택 */
+	  SELECT
+	         DISTINCT A.PROJECT_ID
+	       , 1 AS TOTALCC
+	       /*EXPECT(예정)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.START_DATE <![CDATA[ > ]]> CURDATE() THEN 1
+	               ELSE 0
+	               END) AS EXPECT
+	       /*PROGRESS(진행)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N'
+	                    AND  CURDATE() BETWEEN A.START_DATE AND IF(A.END_DATE <![CDATA[ > ]]> A.CLOSE_DATE, A.CLOSE_DATE, A.END_DATE) THEN 1
+	               ELSE 0
+	               END) AS PROGRESS
+	       /*CLOSE_READY(마감대기)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y'  AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N'
+	                    AND CURDATE() BETWEEN A.END_DATE AND A.CLOSE_DATE THEN 1
+	               ELSE 0
+	               END) AS CLOSE_READY
+	       /*CLOSED(마감)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.CLOSE_DATE <![CDATA[ < ]]> CURDATE() THEN 1
+	               ELSE 0
+	               END) AS CLOSED
+	       /*PENDING(보류)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'Y' THEN 1
+	               ELSE 0
+	               END) AS PENDING
+	       /*STOP(중단)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'Y' AND A.STOP_FLAG = 'Y' THEN 1
+	               ELSE 0
+	               END) AS STOP
+	       /*TEMP_SAVE(임시저장)*/
+	       , (CASE
+	               WHEN A.CONFIRM = 'N' THEN 1
+	               ELSE 0
+	               END) AS TEMP_SAVE
+	    FROM BS_PROJECT A
+	    LEFT JOIN BS_PROJECT_USER B ON A.PROJECT_ID = B.PROJECT_ID
+	    LEFT JOIN BS_USER_MASTER K ON B.USER_ID = K.USER_ID
+	    LEFT JOIN BS_USER_DEPARTMENT L	ON K.USER_ID = L.USER_ID
+	    LEFT JOIN BS_DEPARTMENT D ON L.DEPT_ID = D.DEPT_ID
+	   WHERE K.ORG_ID = #applyOrgId#
+	     AND L.DELETE_FLAG = 'N'
+	     AND L.ENABLE = 'Y'
+		 AND L.MAIN_YN = 'Y'
+	     AND D.ENABLE = 'Y'
+	     AND D.DELETE_FLAG = 'N'
+	     AND A.CONFIRM = 'Y'
+	     AND A.PENDING_FLAG	= 'N'
+	     AND A.STOP_FLAG = 'N'
+	     AND A.ENABLE = 'Y'
+	     AND B.ENABLE = 'Y'
+	     AND A.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+	     AND A.EMPLOYEE = 'Y'              /* 참여자는 직원선택 */
+	     /* 부서선택시 */
+	     <isNotEqual property="deptId" compareValue="0">
+	     	<isNotEmpty prepend="AND" property="deptId">
+	     	/*deptId null Chk*/
+	        D.DEPT_ID = #deptId#
+	     	</isNotEmpty>
+     	 </isNotEqual>
+	     /* 사용자 선택시 */
+	     <isNotEmpty prepend="AND" property="searchUserId">
+	     	B.USER_ID = #searchUserId#
+	     </isNotEmpty>
+	   ) X
+	</select>
+
+	<!-- 액티비티전체(예정, 진행, 사용안함, 마감) -->
+	<select id="projectStatisDAO.getActivityStatus" parameterClass="HashMap" resultClass="egovMap">
+	/* projectStatisDAO.getActivityStatus */
+	SELECT IFNULL( SUM(X.TOTALCC), 0 )  AS TOTAL_CNT	 /*전체*/
+	     , IFNULL( SUM(X.EXPECT), 0 )   AS EXPECT_CNT    /*예정*/
+	     , IFNULL( SUM(X.PROGRESS), 0 ) AS PROGRESS_CNT  /*진행*/
+	     , IFNULL( SUM(X.DISABLE), 0 )  AS DISABLE_CNT   /*사용안함*/
+	     , IFNULL( SUM(X.CLOSED ), 0 )  AS CLOSED_CNT    /*마감*/
+	     , ROUND( SUM(X.EXPECT)   / SUM(X.TOTALCC) *100, 1 ) AS EXPECT_RATE
+	     , ROUND( SUM(X.PROGRESS) / SUM(X.TOTALCC) *100, 1 ) AS PROGRESS_RATE
+	     , ROUND( SUM(X.DISABLE)  / SUM(X.TOTALCC) *100, 1 ) AS DISABLE_RATE
+	     , ROUND( SUM(X.CLOSED)   / SUM(X.TOTALCC) *100, 1 ) AS CLOSED_RATE
+	  FROM(
+	  /* 프로젝트-전체직원 */
+	  SELECT
+	         DISTINCT A.ACTIVITY_ID
+	       , 1 AS TOTALCC
+	       /*EXPECT(예정)*/
+	       , (CASE
+	               WHEN A.ENABLE = 'Y' AND A.START_DATE <![CDATA[ > ]]> CURDATE() THEN 1
+	               ELSE 0
+	               END) AS EXPECT
+	       /*PROGRESS(진행)*/
+	       , (CASE
+	               WHEN A.ENABLE = 'Y' AND A.END_DATE <![CDATA[ >= ]]> CURDATE() AND A.START_DATE <![CDATA[ <= ]]> CURDATE() THEN 1
+	               ELSE 0
+	               END) AS PROGRESS
+	       /*DISABLE(사용안함)*/
+	       , (CASE
+	              WHEN A.ENABLE = 'N' THEN 1
+	              ELSE 0
+	              END) AS DISABLE
+	       /*CLOSED(마감)*/
+	       , (CASE
+	               WHEN A.ENABLE = 'Y' AND A.END_DATE <![CDATA[ < ]]> CURDATE() THEN 1
+	               ELSE 0
+	               END) AS CLOSED
+	    FROM BS_ACTIVITY A
+	    LEFT JOIN BS_PROJECT P          ON A.PROJECT_ID = P.PROJECT_ID
+	    LEFT JOIN BS_DEPARTMENT D       ON P.ORG_ID = D.ORG_ID
+	    LEFT JOIN BS_USER_DEPARTMENT C	ON C.DEPT_ID = D.DEPT_ID
+	   WHERE P.ORG_ID = #applyOrgId#  /* 관계사 ID */
+	     AND C.DELETE_FLAG = 'N'
+	     AND C.ENABLE = 'Y'
+		 AND C.MAIN_YN = 'Y'
+	     AND D.ENABLE = 'Y'
+	     AND D.DELETE_FLAG = 'N'
+	     AND P.CONFIRM = 'Y'
+	     AND P.PENDING_FLAG	= 'N'
+	     AND P.STOP_FLAG = 'N'
+	     AND P.ENABLE = 'Y'
+	     AND P.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+	     AND P.EMPLOYEE = 'A'  /* 참여자는 전체직원 */
+	     AND A.EMPLOYEE = 'A'  /* 참여자는 전체직원 */
+
+	     /* 부서선택시 */
+	     <isNotEqual property="deptId" compareValue="0">
+	     	 <isNotEmpty prepend="AND" property="deptId">
+	     	 D.DEPT_ID = #deptId#
+	     	 </isNotEmpty>
+     	 </isNotEqual>
+	  	 /* 사용자 선택시 */
+	  /* 조건없음 */
+	  UNION ALL
+	  /* 프로젝트-직원선택 */
+	  SELECT
+	         DISTINCT A.ACTIVITY_ID
+	       , 1 AS TOTALCC
+	       /*EXPECT(예정)*/
+	       , (CASE
+	               WHEN A.ENABLE = 'Y' AND A.START_DATE <![CDATA[ > ]]> CURDATE() THEN 1
+	               ELSE 0
+	               END) AS EXPECT
+	       /*PROGRESS(진행)*/
+	       , (CASE
+	               WHEN A.ENABLE = 'Y' AND A.END_DATE <![CDATA[ >= ]]> CURDATE() AND A.START_DATE <![CDATA[ <= ]]> CURDATE() THEN 1
+	               ELSE 0
+	               END) AS PROGRESS
+	       /*DISABLE(사용안함)*/
+	       , (CASE
+	              WHEN A.ENABLE = 'N' THEN 1
+	              ELSE 0
+	              END) AS DISABLE
+	       /*CLOSED(마감)*/
+	       , (CASE
+	               WHEN A.ENABLE = 'Y' AND A.END_DATE <![CDATA[ < ]]> CURDATE() THEN 1
+	               ELSE 0
+	               END) AS CLOSED
+	    FROM BS_ACTIVITY A
+	    LEFT JOIN BS_PROJECT P      ON A.PROJECT_ID = P.PROJECT_ID
+	    LEFT JOIN BS_PROJECT_USER B ON P.PROJECT_ID = B.PROJECT_ID
+	    LEFT JOIN BS_USER_MASTER K ON B.USER_ID = K.USER_ID
+	    LEFT JOIN BS_USER_DEPARTMENT L	ON K.USER_ID = L.USER_ID
+	    LEFT JOIN BS_DEPARTMENT D ON L.DEPT_ID = D.DEPT_ID
+	   WHERE K.ORG_ID = #applyOrgId#
+	     AND L.DELETE_FLAG = 'N'
+	     AND L.ENABLE = 'Y'
+		 AND L.MAIN_YN = 'Y'
+	     AND D.ENABLE = 'Y'
+	     AND D.DELETE_FLAG = 'N'
+	     AND P.CONFIRM = 'Y'
+	     AND P.PENDING_FLAG = 'N'
+	     AND P.STOP_FLAG = 'N'
+	     AND P.ENABLE = 'Y'
+	     AND B.ENABLE = 'Y'
+	     AND P.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+	     AND P.EMPLOYEE = 'Y'  /* 참여자는 직원선택 */
+	     AND A.EMPLOYEE = 'Y'  /* 참여자는 직원선택 */
+
+	     /* 부서선택시 */
+	     <isNotEqual property="deptId" compareValue="0">
+	         <isNotEmpty prepend="AND" property="deptId">
+	         D.DEPT_ID = #deptId#
+	     	 </isNotEmpty>
+     	 </isNotEqual>
+	     /* 사용자 선택시 */
+	     <isNotEmpty prepend="AND" property="searchUserId">
+	         B.USER_ID = #searchUserId#
+	     </isNotEmpty>
+	) X
+	</select>
+
+	<!-- 업무일지전체(팀업무/개인업무) -->
+	<select id="projectStatisDAO.getOfficeDaily" parameterClass="HashMap" resultClass="egovMap">
+		/* projectStatisDAO.getOfficeDaily */
+		SELECT XX.WORK_TEAM_CNT    AS WORK_TEAM_CNT    /* 팀업무 카운트 */
+     		 , XX.WORK_PRIVATE_CNT AS WORK_PRIVATE_CNT /* 개인업무 카운트 */
+     		 , XX.WORK_TOTAL_CNT   AS WORK_TOTAL_CNT   /* 업무총 카운트 */
+     		 , IFNULL( ROUND( XX.WORK_TEAM_CNT / XX.WORK_TOTAL_CNT * 100, 1 ), 0 )    AS WORK_TEAM_RATE
+             , IFNULL( ROUND( XX.WORK_PRIVATE_CNT / XX.WORK_TOTAL_CNT * 100, 1 ), 0 ) AS WORK_PRIVATE_RATE
+  		  FROM (
+			SELECT ROUND(SUM(X.WORK_TEAM_CNT),1) AS WORK_TEAM_CNT  						   /* 팀업무 카운트 */
+	             , ROUND(SUM(X.WORK_PRIVATE_CNT),1) AS WORK_PRIVATE_CNT  				   /* 개인업무 카운트 */
+	             , ROUND(SUM(X.WORK_TEAM_CNT),1)+SUM(X.WORK_PRIVATE_CNT) AS WORK_TOTAL_CNT /* 업무총 카운트 */
+			  FROM(
+			  /* 개인업무 */
+			  SELECT 0 AS WORK_TEAM_CNT
+			       , COUNT(*) AS WORK_PRIVATE_CNT
+			    FROM BS_WORK_LIST A
+			    LEFT JOIN BS_USER_MASTER B ON A.EMP_ID = B.USER_ID
+			    LEFT JOIN BS_USER_DEPARTMENT C	ON B.USER_ID = C.USER_ID
+			   WHERE B.ORG_ID = #applyOrgId#  /* 관계사 ID */
+			     AND C.DELETE_FLAG = 'N'
+			     AND C.ENABLE = 'Y'
+				 AND C.MAIN_YN = 'Y'
+			     AND A.WORK_TYPE = 'PRIVATE'
+			     AND DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') = DATE_FORMAT(CURDATE(),'%Y-%m-%d')
+			     /* 부서선택시 */
+			     <isNotEqual property="deptId" compareValue="0">
+			  	 	 <isNotEmpty prepend="AND" property="deptId">
+			         C.DEPT_ID = #deptId#
+			     	 </isNotEmpty>
+				 </isNotEqual>
+			     /* 사용자 선택시 */
+			     <isNotEmpty prepend="AND" property="searchUserId">
+			         A.EMP_ID = #searchUserId#
+			     </isNotEmpty>
+			  UNION ALL
+			  /* 팀업무 등록자 및 참가자 */
+			  SELECT COUNT(*) AS WORK_TEAM_CNT
+			       , 0 AS WORK_PRIVATE_CNT
+			    FROM BS_WORK_LIST A
+			    LEFT JOIN BS_TEAM_LIST J	ON A.LIST_ID = J.LIST_ID
+			    LEFT JOIN BS_USER_MASTER K ON J.EMP_ID = K.USER_ID
+			    LEFT JOIN BS_USER_DEPARTMENT L ON K.USER_ID = L.USER_ID
+			   WHERE K.ORG_ID = #applyOrgId#
+			     AND L.DELETE_FLAG = 'N'
+			     AND L.ENABLE = 'Y'
+				 AND L.MAIN_YN = 'Y'
+			     AND A.WORK_TYPE = 'TEAM'
+			     AND DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') = DATE_FORMAT(CURDATE(),'%Y-%m-%d')
+			  	 /* 부서선택시 */
+			  	 <isNotEqual property="deptId" compareValue="0">
+			  	     <isNotEmpty prepend="AND" property="deptId">
+			         L.DEPT_ID = #deptId#
+			         </isNotEmpty>
+		         </isNotEqual>
+			     /* 사용자 선택시 */
+			     <isNotEmpty prepend="AND" property="searchUserId">
+			      	 J.EMP_ID = #searchUserId#
+			     </isNotEmpty>
+			   UNION ALL
+			  /* 팀업무 등록자의 메모추가 */
+			  SELECT COUNT(*)/2 AS WORK_TEAM_CNT
+			       , 0 AS WORK_PRIVATE_CNT
+			    FROM BS_WORK_LIST A
+			    LEFT JOIN BS_WORK_MEMO J ON A.LIST_ID = J.LIST_ID
+			    LEFT JOIN BS_USER_MASTER K ON A.EMP_ID = K.USER_ID
+			    LEFT JOIN BS_USER_DEPARTMENT L ON K.USER_ID = L.USER_ID
+			   WHERE K.ORG_ID = #applyOrgId#
+			     AND L.DELETE_FLAG = 'N'
+			     AND L.ENABLE = 'Y'
+				 AND L.MAIN_YN = 'Y'
+			     AND A.WORK_TYPE = 'TEAM'
+			     AND DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') = DATE_FORMAT(CURDATE(),'%Y-%m-%d')
+			     /* 부서선택시 */
+			     <isNotEqual property="deptId" compareValue="0">
+			     	 <isNotEmpty prepend="AND" property="deptId">
+			     	 L.DEPT_ID = #deptId#
+			  	 	 </isNotEmpty>
+		  	 	 </isNotEqual>
+			  	 /* 사용자 선택시 */
+			  	 <isNotEmpty prepend="AND" property="searchUserId">
+			  	 	 A.EMP_ID = #searchUserId#
+			  	 </isNotEmpty>
+			  UNION ALL
+			 /* 팀업무 참가자의 메모추가 */
+			 SELECT COUNT(*)/2 AS WORK_TEAM_CNT
+			      , 0 AS WORK_PRIVATE_CNT
+			   FROM BS_WORK_LIST A
+			   LEFT JOIN BS_TEAM_LIST J	ON A.LIST_ID = J.LIST_ID
+			   LEFT JOIN BS_TEAM_WORK_MEMO T ON J.TEAM_LIST_ID = T.TEAM_LIST_ID
+			   LEFT JOIN BS_USER_MASTER K ON T.USER_ID = K.USER_ID
+			   LEFT JOIN BS_USER_DEPARTMENT L	ON K.USER_ID = L.USER_ID
+			  WHERE K.ORG_ID = #applyOrgId#
+			    AND L.DELETE_FLAG = 'N'
+			    AND L.ENABLE = 'Y'
+				AND L.MAIN_YN = 'Y'
+			    AND A.WORK_TYPE = 'TEAM'
+			    AND DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') = DATE_FORMAT(CURDATE(),'%Y-%m-%d')
+			    /* 부서선택시 */
+			    <isNotEqual property="deptId" compareValue="0">
+			    	<isNotEmpty prepend="AND" property="deptId">
+			        L.DEPT_ID = #deptId#
+			    	</isNotEmpty>
+		    	</isNotEqual>
+			     /* 사용자 선택시 */
+				<isNotEmpty prepend="AND" property="searchUserId">
+			        T.USER_ID = #searchUserId#
+			    </isNotEmpty>
+			) X
+		) XX
+	</select>
+
+	<!-- 부서별비교(참여 프로젝트, 참여 액티비티, 팀업무, 개인업무) -->
+	<select id="projectStatisDAO.getDeptCompareList" parameterClass="HashMap" resultClass="egovMap">
+	  /* projectStatisDAO.getDeptCompareList */
+	  SELECT  X.DEPT_ID AS DEPT_ID  /* 부서ID */
+	         ,Y.KOR_NAME AS DEPT_NM  /* 부서명 */
+	         ,SUM(X.PROJECT_ATTEND_CNT) 		AS PROJECT_ATTEND_CNT  /* 참여프로젝트 카운트 */
+	         ,SUM(X.ACTIVITY_ATTEND_CNT) 		AS ACTIVITY_ATTEND_CNT /* 참여엑티비티 카운드 */
+	         ,ROUND(SUM(X.WORK_TEAM_CNT), 1) 	AS WORK_TEAM_CNT       /* 팀업무 카운트 */
+	         ,ROUND(SUM(X.WORK_PRIVATE_CNT), 1) AS WORK_PRIVATE_CNT    /* 개인업무 카운트 */
+	  FROM(
+	    /* 개인업무 */
+	    SELECT  D.DEPT_ID AS DEPT_ID
+	           ,0 AS WORK_TEAM_CNT
+	           ,COUNT(*) AS WORK_PRIVATE_CNT
+	           ,0 AS PROJECT_ATTEND_CNT
+	           ,0 AS ACTIVITY_ATTEND_CNT
+	    FROM BS_WORK_LIST A
+	        LEFT JOIN BS_USER_MASTER B ON A.EMP_ID = B.USER_ID
+	        LEFT JOIN BS_USER_DEPARTMENT C	ON B.USER_ID = C.USER_ID
+	        LEFT JOIN BS_DEPARTMENT D ON C.DEPT_ID = D.DEPT_ID
+	    WHERE B.ORG_ID = #applyOrgId#  /* 관계사 ID */
+	    AND C.DELETE_FLAG = 'N'
+	    AND C.ENABLE = 'Y'
+	  	AND C.MAIN_YN = 'Y'
+	    AND D.ENABLE = 'Y'
+	    AND D.DELETE_FLAG = 'N'
+	    AND A.WORK_TYPE = 'PRIVATE'
+		<isNotEmpty property="choiceDate">
+    	AND DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') BETWEEN #startDate# AND #endDate#
+		</isNotEmpty>
+	    /* 부서선택시 */
+    	<isNotEqual property="deptId" compareValue="0">
+	    	<isNotEmpty prepend="AND" property="deptId">
+	    	C.DEPT_ID = #deptId#
+	    	</isNotEmpty>
+    	</isNotEqual>
+	    GROUP BY D.DEPT_ID
+	    UNION ALL
+	    /* 팀업무 등록자 및 참가자 */
+	    SELECT  D.DEPT_ID AS DEPT_ID
+	           ,COUNT(*) AS WORK_TEAM_CNT
+	           ,0 AS WORK_PRIVATE_CNT
+	           ,0 AS PROJECT_ATTEND_CNT
+	           ,0 AS ACTIVITY_ATTEND_CNT
+	    FROM BS_WORK_LIST A
+	        LEFT JOIN BS_TEAM_LIST J	ON A.LIST_ID = J.LIST_ID
+	        LEFT JOIN BS_USER_MASTER K ON J.EMP_ID = K.USER_ID
+	        LEFT JOIN BS_USER_DEPARTMENT L	ON K.USER_ID = L.USER_ID
+	        LEFT JOIN BS_DEPARTMENT D ON L.DEPT_ID = D.DEPT_ID
+	    WHERE K.ORG_ID = #applyOrgId#
+	    AND L.DELETE_FLAG = 'N'
+	    AND L.ENABLE = 'Y'
+	  	AND L.MAIN_YN = 'Y'
+	    AND D.ENABLE = 'Y'
+	    AND D.DELETE_FLAG = 'N'
+	    AND A.WORK_TYPE = 'TEAM'
+		<isNotEmpty property="choiceDate">
+	    AND DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') BETWEEN #startDate# AND #endDate#
+		</isNotEmpty>
+	    /* 부서선택시 */
+	    <isNotEqual property="deptId" compareValue="0">
+	    	<isNotEmpty prepend="AND" property="deptId">
+	        L.DEPT_ID = #deptId#
+	    	</isNotEmpty>
+    	</isNotEqual>
+	    GROUP BY D.DEPT_ID
+	    UNION ALL
+	    /* 팀업무 등록자의 메모추가 */
+	    SELECT  D.DEPT_ID AS DEPT_ID
+	           ,COUNT(*)/2 AS WORK_TEAM_CNT
+	           ,0 AS WORK_PRIVATE_CNT
+	           ,0 AS PROJECT_ATTEND_CNT
+	           ,0 AS ACTIVITY_ATTEND_CNT
+	    FROM BS_WORK_LIST A
+	        LEFT JOIN BS_WORK_MEMO J	ON A.LIST_ID = J.LIST_ID
+	        LEFT JOIN BS_USER_MASTER K ON A.EMP_ID = K.USER_ID
+	        LEFT JOIN BS_USER_DEPARTMENT L	ON K.USER_ID = L.USER_ID
+	        LEFT JOIN BS_DEPARTMENT D ON L.DEPT_ID = D.DEPT_ID
+	    WHERE K.ORG_ID = #applyOrgId#
+	    AND L.DELETE_FLAG = 'N'
+	    AND L.ENABLE = 'Y'
+	  	AND L.MAIN_YN = 'Y'
+	    AND D.ENABLE = 'Y'
+	    AND D.DELETE_FLAG = 'N'
+	    AND A.WORK_TYPE = 'TEAM'
+		<isNotEmpty property="choiceDate">
+	    AND DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') BETWEEN #startDate# AND #endDate#
+		</isNotEmpty>
+	    /* 부서선택시 */
+	    <isNotEqual property="deptId" compareValue="0">
+	    	<isNotEmpty prepend="AND" property="deptId">
+	        L.DEPT_ID = #deptId#
+	    	</isNotEmpty>
+    	</isNotEqual>
+	    GROUP BY D.DEPT_ID
+	    UNION ALL
+	    /* 팀업무 참가자의 메모추가 */
+	    SELECT  D.DEPT_ID AS DEPT_ID
+	           ,COUNT(*)/2 AS WORK_TEAM_CNT
+	           ,0 AS WORK_PRIVATE_CNT
+	           ,0 AS PROJECT_ATTEND_CNT
+	           ,0 AS ACTIVITY_ATTEND_CNT
+	    FROM BS_WORK_LIST A
+	        LEFT JOIN BS_TEAM_LIST J	ON A.LIST_ID = J.LIST_ID
+	        LEFT JOIN BS_TEAM_WORK_MEMO T ON J.TEAM_LIST_ID = T.TEAM_LIST_ID
+	        LEFT JOIN BS_USER_MASTER K ON T.USER_ID = K.USER_ID
+	        LEFT JOIN BS_USER_DEPARTMENT L	ON K.USER_ID = L.USER_ID
+	        LEFT JOIN BS_DEPARTMENT D ON L.DEPT_ID = D.DEPT_ID
+	    WHERE K.ORG_ID = #applyOrgId#
+	    AND L.DELETE_FLAG = 'N'
+	    AND L.ENABLE = 'Y'
+	  	AND L.MAIN_YN = 'Y'
+	    AND D.ENABLE = 'Y'
+	    AND D.DELETE_FLAG = 'N'
+	    AND A.WORK_TYPE = 'TEAM'
+		<isNotEmpty property="choiceDate">
+	    AND DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') BETWEEN #startDate# AND #endDate#
+		</isNotEmpty>
+	    /* 부서선택시 */
+	    <isNotEqual property="deptId" compareValue="0">
+	    	<isNotEmpty prepend="AND" property="deptId">
+	        L.DEPT_ID = #deptId#
+	    	</isNotEmpty>
+    	</isNotEqual>
+	    GROUP BY D.DEPT_ID
+	    UNION ALL
+	    /* 참여 프로젝트-전체직원 */
+	    SELECT  D.DEPT_ID AS DEPT_ID
+	           ,0 AS WORK_TEAM_CNT
+	           ,0 AS WORK_PRIVATE_CNT
+	           ,COUNT(*) AS PROJECT_ATTEND_CNT
+	           ,0 AS ACTIVITY_ATTEND_CNT
+	    FROM BS_PROJECT A
+	        LEFT JOIN BS_DEPARTMENT D ON A.ORG_ID = D.ORG_ID
+	        LEFT JOIN BS_USER_DEPARTMENT C	ON C.DEPT_ID = D.DEPT_ID
+	    WHERE A.ORG_ID = #applyOrgId#  /* 관계사 ID */
+	    AND C.DELETE_FLAG = 'N'
+	    AND C.ENABLE = 'Y'
+	  	AND C.MAIN_YN = 'Y'
+	    AND D.ENABLE = 'Y'
+	    AND D.DELETE_FLAG = 'N'
+	    AND A.CONFIRM       = 'Y'
+	    AND	A.PENDING_FLAG	= 'N'
+	    AND	A.STOP_FLAG		= 'N'
+	    AND A.ENABLE = 'Y'
+	    AND A.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+	    AND A.EMPLOYEE = 'A'  /* 참여자는 전체직원 */
+		<isNotEmpty property="choiceDate">
+	    AND (
+	         A.START_DATE BETWEEN #startDate# AND #endDate#
+	         OR A.END_DATE BETWEEN #startDate# AND #endDate#
+	         OR (A.START_DATE  <![CDATA[ < ]]>  #startDate#  AND A.END_DATE > #endDate# )
+	        )
+        </isNotEmpty>
+
+	    /* 부서선택시 */
+	    <isNotEqual property="deptId" compareValue="0">
+	    	<isNotEmpty prepend="AND" property="deptId">
+	    	D.DEPT_ID = #deptId#
+	    	</isNotEmpty>
+    	</isNotEqual>
+	    GROUP BY D.DEPT_ID
+	    UNION ALL
+	    /* 참여 프로젝트-직원선택 */
+	    SELECT  D.DEPT_ID AS DEPT_ID
+	           ,0 AS WORK_TEAM_CNT
+	           ,0 AS WORK_PRIVATE_CNT
+	           ,COUNT(*) AS PROJECT_ATTEND_CNT
+	           ,0 AS ACTIVITY_ATTEND_CNT
+	    FROM BS_PROJECT A
+	        LEFT JOIN BS_PROJECT_USER B ON A.PROJECT_ID = B.PROJECT_ID
+	        LEFT JOIN BS_USER_MASTER K ON B.USER_ID = K.USER_ID
+	        LEFT JOIN BS_USER_DEPARTMENT L	ON K.USER_ID = L.USER_ID
+	        LEFT JOIN BS_DEPARTMENT D ON L.DEPT_ID = D.DEPT_ID
+	    WHERE K.ORG_ID = #applyOrgId#
+	    AND L.DELETE_FLAG = 'N'
+	    AND L.ENABLE = 'Y'
+	  	AND L.MAIN_YN = 'Y'
+	    AND D.ENABLE = 'Y'
+	    AND D.DELETE_FLAG = 'N'
+	    AND A.CONFIRM       = 'Y'
+	    AND	A.PENDING_FLAG	= 'N'
+	    AND	A.STOP_FLAG		= 'N'
+	    AND A.ENABLE = 'Y'
+	    AND B.ENABLE = 'Y'
+	    AND A.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+	    AND A.EMPLOYEE = 'Y'  /* 참여자는 직원선택 */
+		<isNotEmpty property="choiceDate">
+	    AND (
+	         A.START_DATE BETWEEN #startDate# AND #endDate#
+	         OR A.END_DATE BETWEEN #startDate# AND #endDate#
+	         OR (A.START_DATE  <![CDATA[ < ]]>  #startDate#  AND A.END_DATE > #endDate# )
+	        )
+		</isNotEmpty>
+	    /* 부서선택시 */
+	    <isNotEqual property="deptId" compareValue="0">
+	    	<isNotEmpty prepend="AND" property="deptId">
+	    	D.DEPT_ID = #deptId#
+	    	</isNotEmpty>
+    	</isNotEqual>
+	    GROUP BY D.DEPT_ID
+	    UNION ALL
+	    /* 참여 엑티비티-전체직원 */
+	    SELECT  D.DEPT_ID AS DEPT_ID
+	           ,0 AS WORK_TEAM_CNT
+	           ,0 AS WORK_PRIVATE_CNT
+	           ,0 AS PROJECT_ATTEND_CNT
+	           ,COUNT(*) AS ACTIVITY_ATTEND_CNT
+	    FROM BS_PROJECT A
+	        LEFT JOIN BS_ACTIVITY T ON A.PROJECT_ID = T.PROJECT_ID
+	        LEFT JOIN BS_DEPARTMENT D ON A.ORG_ID = D.ORG_ID
+	        LEFT JOIN BS_USER_DEPARTMENT C	ON C.DEPT_ID = D.DEPT_ID
+	    WHERE A.ORG_ID = #applyOrgId#  /* 관계사 ID */
+	    AND C.DELETE_FLAG = 'N'
+	    AND C.ENABLE = 'Y'
+	  	AND C.MAIN_YN = 'Y'
+	    AND D.ENABLE = 'Y'
+	    AND D.DELETE_FLAG = 'N'
+	    AND A.CONFIRM       = 'Y'
+	    AND	A.PENDING_FLAG	= 'N'
+	    AND	A.STOP_FLAG		= 'N'
+	    AND A.ENABLE = 'Y'
+	    AND T.ENABLE = 'Y'
+	    AND A.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+	    AND T.EMPLOYEE = 'A'  /* 참여자는 전체직원 */
+		<isNotEmpty property="choiceDate">
+	    AND (
+	         T.START_DATE BETWEEN #startDate# AND #endDate#
+	         OR T.END_DATE BETWEEN #startDate# AND #endDate#
+	         OR (T.START_DATE  <![CDATA[ < ]]>  #startDate#  AND T.END_DATE > #endDate# )
+	        )
+        </isNotEmpty>
+
+	    /* 부서선택시 */
+	    <isNotEqual property="deptId" compareValue="0">
+	    	<isNotEmpty prepend="AND" property="deptId">
+	    	D.DEPT_ID = #deptId#
+	    	</isNotEmpty>
+    	</isNotEqual>
+	    GROUP BY D.DEPT_ID
+	    UNION ALL
+	    /* 참여 엑티비티-직원선택 */
+	    SELECT  D.DEPT_ID AS DEPT_ID
+	           ,0 AS WORK_TEAM_CNT
+	           ,0 AS WORK_PRIVATE_CNT
+	           ,0 AS PROJECT_ATTEND_CNT
+	           ,COUNT(*) AS ACTIVITY_ATTEND_CNT
+	    FROM BS_PROJECT A
+	        LEFT JOIN BS_ACTIVITY T ON A.PROJECT_ID = T.PROJECT_ID
+	        LEFT JOIN BS_ACTIVITY_USER B ON T.ACTIVITY_ID = B.ACTIVITY_ID
+	        LEFT JOIN BS_USER_MASTER K ON B.USER_ID = K.USER_ID
+	        LEFT JOIN BS_USER_DEPARTMENT L	ON K.USER_ID = L.USER_ID
+	        LEFT JOIN BS_DEPARTMENT D ON L.DEPT_ID = D.DEPT_ID
+	    WHERE K.ORG_ID = #applyOrgId#
+	    AND L.DELETE_FLAG = 'N'
+	    AND L.ENABLE = 'Y'
+	  	AND L.MAIN_YN = 'Y'
+	    AND D.ENABLE = 'Y'
+	    AND D.DELETE_FLAG = 'N'
+	    AND A.CONFIRM       = 'Y'
+	    AND	A.PENDING_FLAG	= 'N'
+	    AND	A.STOP_FLAG		= 'N'
+	    AND A.ENABLE = 'Y'
+	    AND T.ENABLE = 'Y'
+	    AND B.ENABLE = 'Y'
+	    AND A.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+	    AND T.EMPLOYEE = 'Y'  /* 참여자는 직원선택 */
+		<isNotEmpty property="choiceDate">
+	    AND (
+	         T.START_DATE BETWEEN #startDate# AND #endDate#
+	         OR T.END_DATE BETWEEN #startDate# AND #endDate#
+	         OR (T.START_DATE  <![CDATA[ < ]]>  #startDate#  AND T.END_DATE > #endDate# )
+	        )
+        </isNotEmpty>
+
+	    /* 부서선택시 */
+	    <isNotEqual property="deptId" compareValue="0">
+	    	<isNotEmpty prepend="AND" property="deptId">
+	    	D.DEPT_ID = #deptId#
+	    	</isNotEmpty>
+    	</isNotEqual>
+	    GROUP BY D.DEPT_ID
+	  ) X  INNER JOIN BS_DEPARTMENT Y ON X.DEPT_ID = Y.DEPT_ID
+	  GROUP BY X.DEPT_ID
+	  ORDER BY Y.LEVEL_SEQ ASC, Y.DEPT_SEQ ASC, Y.KOR_NAME ASC
+	</select>
+
+	<!-- 프로젝트정보(프로젝트명, 액티비티명, 개인업무, 팀업무) -->
+	<select id="projectStatisDAO.getProjectInfoList" parameterClass="HashMap" resultClass="egovMap">
+	   /* projectStatisDAO.getProjectInfoList */
+	   SELECT ROUND(SUM(X.WORK_TEAM_CNT),1)    AS WORK_TEAM_CNT    /* 팀업무 카운트 */
+	        , ROUND(SUM(X.WORK_PRIVATE_CNT),1) AS WORK_PRIVATE_CNT /* 개인업무 카운트 */
+	        , ROUND(SUM(X.WORK_PRIVATE_CNT)+SUM(X.WORK_TEAM_CNT),1) AS WORK_PRIVATE_TEAM_TOT_CNT
+            , X.PROJECT_ID AS PROJECT_ID						   /* 프로젝트ID */
+            , X.ACTIVITY_ID AS ACTIVITY_ID						   /* 액티비티ID */
+            , (SELECT NAME FROM BS_PROJECT WHERE PROJECT_ID=X.PROJECT_ID)    AS PROJECT_NAME  /* 프로젝트명 */
+            , (SELECT NAME FROM BS_ACTIVITY WHERE ACTIVITY_ID=X.ACTIVITY_ID) AS ACTIVITY_NAME /* 액티비티명 */
+	     FROM(
+	    /* 개인업무 */
+	    SELECT 0             AS WORK_TEAM_CNT
+	         , COUNT(*)      AS WORK_PRIVATE_CNT
+	         , P.PROJECT_ID  AS PROJECT_ID
+             , T.ACTIVITY_ID AS ACTIVITY_ID
+	      FROM BS_WORK_LIST A
+	      LEFT JOIN BS_USER_MASTER B     ON A.EMP_ID  = B.USER_ID
+	      LEFT JOIN BS_USER_DEPARTMENT C ON B.USER_ID = C.USER_ID
+          LEFT JOIN BS_PROJECT P         ON A.PROJECT_ID = P.PROJECT_ID
+          LEFT JOIN BS_ACTIVITY T        ON P.PROJECT_ID = T.PROJECT_ID
+	     WHERE B.ORG_ID = #applyOrgId#  /* 관계사 ID */
+	       AND C.DELETE_FLAG  = 'N'
+	       AND C.ENABLE       = 'Y'
+	  	   AND C.MAIN_YN      = 'Y'
+	       AND A.WORK_TYPE    = 'PRIVATE'
+           AND P.CONFIRM        = 'Y'
+           AND P.PENDING_FLAG   = 'N'
+       	   AND P.STOP_FLAG	    = 'N'
+       	   AND P.ENABLE         = 'Y'
+       	   AND P.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+           AND P.EMPLOYEE       = 'A'              /* 참여자는 전체직원 */
+           AND T.EMPLOYEE       = 'A'              /* 참여자는 전체직원 */
+		   /*날짜선택시*/
+    	   AND DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') BETWEEN #startDate# AND #endDate#
+	       /* 부서선택시 */
+	       <isNotEqual property="deptId" compareValue="0">
+	           <isNotEmpty prepend="AND" property="deptId">
+	    	     C.DEPT_ID = #deptId#
+	    	     </isNotEmpty>
+    	   </isNotEqual>
+    	   /* 사용자 선택시 */
+	       <isNotEmpty prepend="AND" property="searchUserId">
+	           A.EMP_ID = #searchUserId#
+	       </isNotEmpty>
+	    GROUP BY A.PROJECT_ID, T.ACTIVITY_ID
+	    UNION ALL
+	    /* 팀업무 등록자 및 참가자 */
+	    SELECT COUNT(*)      AS WORK_TEAM_CNT
+	         , 0             AS WORK_PRIVATE_CNT
+             , P.PROJECT_ID  AS PROJECT_ID
+             , T.ACTIVITY_ID AS ACTIVITY_ID
+	      FROM BS_WORK_LIST A
+	      LEFT JOIN BS_TEAM_LIST J 	     ON A.LIST_ID = J.LIST_ID
+	      LEFT JOIN BS_USER_MASTER K     ON J.EMP_ID = K.USER_ID
+	      LEFT JOIN BS_USER_DEPARTMENT L ON K.USER_ID = L.USER_ID
+          LEFT JOIN BS_PROJECT P         ON A.PROJECT_ID = P.PROJECT_ID
+          LEFT JOIN BS_ACTIVITY T        ON P.PROJECT_ID = T.PROJECT_ID
+	     WHERE K.ORG_ID = #applyOrgId# /* 관계사 ID */
+	       AND L.DELETE_FLAG = 'N'
+	       AND L.ENABLE = 'Y'
+	  	   AND L.MAIN_YN = 'Y'
+	       AND A.WORK_TYPE = 'TEAM'
+           AND P.CONFIRM       = 'Y'
+           AND P.PENDING_FLAG	= 'N'
+     	   AND P.STOP_FLAG		= 'N'
+           AND P.ENABLE = 'Y'
+           AND P.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+           AND P.EMPLOYEE = 'Y'  /* 참여자는 전체직원 */
+           AND T.EMPLOYEE = 'Y'  /* 참여자는 전체직원 */
+		   /* 날짜선택시 */
+		   <isNotEmpty prepend="AND" property="choiceDate">
+	           DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') BETWEEN #startDate# AND #endDate#
+	       </isNotEmpty>
+	       /* 부서선택시 */
+	       <isNotEqual property="deptId" compareValue="0">
+	           <isNotEmpty prepend="AND" property="deptId">
+	    	     L.DEPT_ID = #deptId#
+	    	     </isNotEmpty>
+    	   </isNotEqual>
+    	   /* 사용자선택시 */
+    	   <isNotEmpty prepend="AND" property="searchUserId">
+	           A.EMP_ID = #searchUserId#
+	       </isNotEmpty>
+	    GROUP BY A.PROJECT_ID, T.ACTIVITY_ID
+	    UNION ALL
+	    /* 팀업무 등록자의 메모추가 */
+	    SELECT COUNT(*)/2    AS WORK_TEAM_CNT
+	         , 0             AS WORK_PRIVATE_CNT
+	         , P.PROJECT_ID  AS PROJECT_ID
+             , T.ACTIVITY_ID AS ACTIVITY_ID
+	      FROM BS_WORK_LIST A
+	      LEFT JOIN BS_WORK_MEMO J	     ON A.LIST_ID = J.LIST_ID
+	      LEFT JOIN BS_USER_MASTER K     ON A.EMP_ID = K.USER_ID
+	      LEFT JOIN BS_USER_DEPARTMENT L ON K.USER_ID = L.USER_ID
+          LEFT JOIN BS_PROJECT P         ON A.PROJECT_ID = P.PROJECT_ID
+          LEFT JOIN BS_ACTIVITY T        ON P.PROJECT_ID = T.PROJECT_ID
+	     WHERE K.ORG_ID = #applyOrgId# /* 관계사 ID */
+	       AND L.DELETE_FLAG = 'N'
+	       AND L.ENABLE = 'Y'
+	  	   AND L.MAIN_YN = 'Y'
+	       AND A.WORK_TYPE = 'TEAM'
+           AND P.CONFIRM       = 'Y'
+           AND P.PENDING_FLAG	= 'N'
+           AND P.STOP_FLAG		= 'N'
+           AND P.ENABLE = 'Y'
+           AND P.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+           AND P.EMPLOYEE = 'A'  /* 참여자는 전체직원 */
+           AND T.EMPLOYEE = 'A'  /* 참여자는 전체직원 */
+		   /* 날짜선택시 */
+		   <isNotEmpty prepend="AND" property="choiceDate">
+	           DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') BETWEEN #startDate# AND #endDate#
+	       </isNotEmpty>
+		   /* 부서선택시 */
+		   <isNotEqual property="deptId" compareValue="0">
+	           <isNotEmpty prepend="AND" property="deptId">
+	    	   L.DEPT_ID = #deptId#
+	    	   </isNotEmpty>
+    	   </isNotEqual>
+    	   /* 사용자선택시 */
+    	   <isNotEmpty prepend="AND" property="searchUserId">
+	           A.EMP_ID = #searchUserId#
+	       </isNotEmpty>
+	    GROUP BY A.PROJECT_ID, T.ACTIVITY_ID
+	    UNION ALL
+	    /* 팀업무 참가자의 메모추가 */
+	    SELECT COUNT(*)/2    AS WORK_TEAM_CNT
+	         , 0             AS WORK_PRIVATE_CNT
+             , P.PROJECT_ID  AS PROJECT_ID
+             , S.ACTIVITY_ID AS ACTIVITY_ID
+	      FROM BS_WORK_LIST A
+	      LEFT JOIN BS_TEAM_LIST J	     ON A.LIST_ID = J.LIST_ID
+	      LEFT JOIN BS_TEAM_WORK_MEMO T  ON J.TEAM_LIST_ID = T.TEAM_LIST_ID
+	      LEFT JOIN BS_USER_MASTER K     ON T.USER_ID = K.USER_ID
+	      LEFT JOIN BS_USER_DEPARTMENT L ON K.USER_ID = L.USER_ID
+          LEFT JOIN BS_PROJECT P         ON A.PROJECT_ID = P.PROJECT_ID
+          LEFT JOIN BS_ACTIVITY S        ON P.PROJECT_ID = S.PROJECT_ID
+	     WHERE K.ORG_ID = #applyOrgId# /* 관계사 ID */
+	       AND L.DELETE_FLAG = 'N'
+	       AND L.ENABLE = 'Y'
+	  	   AND L.MAIN_YN = 'Y'
+	       AND A.WORK_TYPE = 'TEAM'
+           AND P.CONFIRM       = 'Y'
+	       AND P.PENDING_FLAG	= 'N'
+	       AND P.STOP_FLAG		= 'N'
+	       AND P.ENABLE = 'Y'
+	       AND P.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+	       AND P.EMPLOYEE = 'Y'  /* 참여자는 전체직원 */
+           AND S.EMPLOYEE = 'Y'  /* 참여자는 전체직원 */
+		   /* 날짜선택시 */
+		   <isNotEmpty prepend="AND" property="choiceDate">
+	           DATE_FORMAT(A.WORK_DATE,'%Y-%m-%d') BETWEEN #startDate# AND #endDate#
+	       </isNotEmpty>
+		   /* 부서선택시 */
+	       <isNotEqual property="deptId" compareValue="0">
+	           <isNotEmpty prepend="AND" property="deptId">
+	    	   L.DEPT_ID = #deptId#
+	    	   </isNotEmpty>
+    	   </isNotEqual>
+    	   /* 사용자선택시 */
+    	   <isNotEmpty prepend="AND" property="searchUserId">
+	           A.EMP_ID = #searchUserId#
+	       </isNotEmpty>
+	    GROUP BY A.PROJECT_ID, S.ACTIVITY_ID
+      UNION ALL
+      /* 참여 프로젝트-직원선택 */
+	    SELECT 0             AS WORK_TEAM_CNT
+	         , 0             AS WORK_PRIVATE_CNT
+             , A.PROJECT_ID  AS PROJECT_ID
+             , T.ACTIVITY_ID AS ACTIVITY_ID
+	      FROM BS_PROJECT A
+	      LEFT JOIN BS_PROJECT_USER B    ON A.PROJECT_ID = B.PROJECT_ID
+	      LEFT JOIN BS_USER_MASTER K     ON B.USER_ID = K.USER_ID
+	      LEFT JOIN BS_USER_DEPARTMENT L ON K.USER_ID = L.USER_ID
+          LEFT JOIN BS_ACTIVITY T        ON A.PROJECT_ID = T.PROJECT_ID
+	     WHERE K.ORG_ID = #applyOrgId# /* 관계사 ID */
+	       AND L.DELETE_FLAG = 'N'
+	       AND L.ENABLE = 'Y'
+	  	   AND L.MAIN_YN = 'Y'
+	       AND A.CONFIRM       = 'Y'
+	       AND A.PENDING_FLAG	= 'N'
+	       AND A.STOP_FLAG		= 'N'
+	       AND A.ENABLE = 'Y'
+	       AND B.ENABLE = 'Y'
+	       AND A.PROJECT_CLASS != 'VACATION' /* 휴가프로젝트는 제외 */
+	       AND A.EMPLOYEE = 'Y'  			 /* 참여자는 직원선택 */
+           AND T.EMPLOYEE = 'Y'  			 /* 참여자는 직원선택 */
+		   /* 날짜선택시 */
+           <isNotEmpty property="choiceDate">
+ 	       AND (
+ 	           A.START_DATE BETWEEN #startDate# AND #endDate#
+ 	           OR A.END_DATE BETWEEN #startDate# AND #endDate#
+ 	           OR (A.START_DATE  <![CDATA[ < ]]>  #startDate#  AND A.END_DATE > #endDate# )
+ 	           )
+ 		     </isNotEmpty>
+	       /* 부서선택시 */
+		   <isNotEqual property="deptId" compareValue="0">
+ 	           <isNotEmpty prepend="AND" property="deptId">
+ 	    	   L.DEPT_ID = #deptId#
+ 	    	   </isNotEmpty>
+     	   </isNotEqual>
+     	   /* 사용자선택시 */
+    	   <isNotEmpty prepend="AND" property="searchUserId">
+	           B.USER_ID = #searchUserId#
+	       </isNotEmpty>
+	    GROUP BY A.PROJECT_ID, T.ACTIVITY_ID
+      ) X
+        GROUP BY X.PROJECT_ID, X.ACTIVITY_ID
+      ORDER BY X.PROJECT_ID, X.ACTIVITY_ID
+	</select>
+
+	<!-- 유저 -->
+	<select id="projectStatisDAO.getUserName" parameterClass="HashMap" resultClass="egovMap">
+		/* projectStatisDAO.getUserName */
+		SELECT A.USER_ID  AS userId
+     	  	 , A.NAME     AS userNm
+  		  FROM BS_USER_MASTER A
+         WHERE 1=1
+           AND A.ORG_ID = #applyOrgId#
+           /* 사용자 */
+           AND A.USER_ID = #searchUserId#
+ 	       LIMIT 1
+	</select>
+
+	<!-- 부서 -->
+	<select id="projectStatisDAO.getDeptName" parameterClass="HashMap" resultClass="egovMap">
+		/* projectStatisDAO.getDeptName */
+		SELECT KOR_NAME AS deptNm
+		  FROM BS_DEPARTMENT K
+		 WHERE 1=1
+		   AND K.ORG_ID  = #applyOrgId#
+		   AND K.DEPT_ID = #deptId#
+	</select>
+
+	<!-- 액티비티 진행상태 -->
+	<select id="projectStatisDAO.getProjectActivityStatus" parameterClass="HashMap" resultClass="egovMap">
+		/* projectStatisDAO.getProjectActivityStatus */
+		SELECT IFNULL( SUM(X.TOTALCC), 0 )  AS TOTAL_CNT	 /*전체*/
+	         , IFNULL( SUM(X.EXPECT), 0 )   AS EXPECT_CNT    /*예정*/
+	   		 , IFNULL( SUM(X.PROGRESS), 0 ) AS PROGRESS_CNT  /*진행*/
+	   		 , IFNULL( SUM(X.DISABLE), 0 )  AS DISABLE_CNT   /*사용안함*/
+	   		 , IFNULL( SUM(X.CLOSED ), 0 )  AS CLOSED_CNT    /*마감*/
+	   		 , IFNULL( ROUND( SUM(X.EXPECT)   / SUM(X.TOTALCC) *100, 1 ), 0) AS EXPECT_RATE
+	   		 , IFNULL( ROUND( SUM(X.PROGRESS) / SUM(X.TOTALCC) *100, 1 ), 0) AS PROGRESS_RATE
+	   		 , IFNULL( ROUND( SUM(X.DISABLE)  / SUM(X.TOTALCC) *100, 1 ), 0) AS DISABLE_RATE
+	   	     , IFNULL( ROUND( SUM(X.CLOSED)   / SUM(X.TOTALCC) *100, 1 ), 0) AS CLOSED_RATE
+     		 , X.ACTIVITY_ID AS ACTIVITY_ID
+     		 , X.PROJECT_ID  AS PROJECT_ID
+     		 , (SELECT Y.NAME FROM BS_ACTIVITY Y WHERE Y.ACTIVITY_ID = X.ACTIVITY_ID) AS ACTIVITY_NAME
+     		 , (SELECT E.NAME FROM BS_PROJECT E WHERE X.PROJECT_ID = E.PROJECT_ID) AS PROJECT_NAME
+     		 , CASE WHEN X.OPEN_FLAG = 'Y' THEN '공개' ELSE '비공개' END AS OPEN_FLAG
+     		 , X.OPEN_FLAG AS PROJECT_FLAG
+	  	  FROM(
+	     SELECT
+ 	            /* DISTINCT A.ACTIVITY_ID */
+                A.ACTIVITY_ID
+              , P.PROJECT_ID
+              , P.OPEN_FLAG
+	       	  , 1 AS TOTALCC
+	            /*EXPECT(예정)*/
+	       	  , (CASE
+	             WHEN A.ENABLE = 'Y' AND A.START_DATE  <![CDATA[ > ]]>  CURDATE() THEN 1
+	             ELSE 0
+	             END) AS EXPECT
+	             /*PROGRESS(진행)*/
+	             , (CASE
+	                WHEN A.ENABLE = 'Y' AND A.END_DATE  <![CDATA[ >= ]]>  CURDATE() AND A.START_DATE  <![CDATA[ <= ]]>  CURDATE() THEN 1
+	                ELSE 0
+	                END) AS PROGRESS
+	            /*DISABLE(사용안함)*/
+	          , (CASE
+	              WHEN A.ENABLE = 'N' THEN 1
+	              ELSE 0
+	              END) AS DISABLE
+	            /*CLOSED(마감)*/
+	          , (CASE
+	             WHEN A.ENABLE = 'Y' AND A.END_DATE  <![CDATA[ < ]]>  CURDATE() THEN 1
+	             ELSE 0
+	             END) AS CLOSED
+	       FROM BS_ACTIVITY A
+	       LEFT JOIN BS_PROJECT P         ON A.PROJECT_ID = P.PROJECT_ID
+	       LEFT JOIN BS_PROJECT_USER B    ON P.PROJECT_ID = B.PROJECT_ID
+	       LEFT JOIN BS_USER_MASTER K     ON B.USER_ID = K.USER_ID
+ 	       /*LEFT JOIN BS_USER_DEPARTMENT L ON K.USER_ID = L.USER_ID*/
+ 	       /*LEFT JOIN BS_DEPARTMENT D      ON L.DEPT_ID = D.DEPT_ID*/
+	      WHERE 1=1
+ 	        /*AND P.ENABLE = 'Y'*/
+ 	        /*AND B.ENABLE = 'Y'*/
+	        /* 프로젝트 선택시*/
+	        <isNotEmpty prepend="AND" property="projectId">
+ 	        P.PROJECT_ID = #projectId#
+ 	        </isNotEmpty>
+ 	        /* 직원:전체 / 단일선택 */
+ 	        AND K.ORG_ID = #applyOrgId#
+ 	     	/* 사용자 선택시 */
+	        <isNotEqual prepend="AND" property="searchUserId" compareValue="0">
+	        K.USER_ID = #searchUserId#
+	        </isNotEqual>
+ 	     	/* 액티비티 선택시 */
+ 	     	<isNotEmpty prepend="AND" property="searchActivityId">
+ 	     	A.ACTIVITY_ID = #searchActivityId#
+ 	     	</isNotEmpty>
+	) X
+	</select>
+
+	<select id="projectStatisDAO.getProjectTeamPrivateWorkList" parameterClass="HashMap" resultClass="egovMap">
+		/* projectStatisDAO.getProjectTeamPrivateWorkList */
+		SELECT
+		       (CASE WHEN X.COMPLETE = 'Y' THEN '완료'
+				     	   ELSE Y.VALUE_MEAN_KOR
+					       END) AS PROGRESS_TXT
+		     /*, SUM(X.WORK_PRIVATE_CNT) AS WORK_PRIVATE_CNT*/       /* 개인업무 카운트 */
+		     , IFNULL(ROUND(SUM(X.WORK_TEAM_CNT),1),0.0) AS WORK_TEAM_CNT  		 /* 팀업무 카운트 */
+		     , IFNULL(ROUND(SUM(X.WORK_PRIVATE_CNT),1),0.0) AS WORK_PRIVATE_CNT    /* 개인업무 카운트 */
+     		 , IFNULL(ROUND(SUM(X.WORK_TEAM_CNT)+SUM(X.WORK_PRIVATE_CNT),1),0.0) AS TOTAL_CNT /* 토탈 카운트 */
+		  FROM(
+		  /* 개인업무 */
+		  SELECT
+		         A.PROGRESS
+		       , A.COMPLETE
+		       , 0 AS WORK_TEAM_CNT
+		       , COUNT(*) AS WORK_PRIVATE_CNT
+		    FROM BS_WORK_LIST A
+		    LEFT JOIN BS_USER_MASTER B ON A.EMP_ID = B.USER_ID
+		   WHERE 1=1
+		     /* 직원:전체 / 단일선택 */
+		  AND  B.ORG_ID = #applyOrgId#  /* 관계사 ID */
+		     <isNotEqual prepend="AND" property="searchUserId" compareValue="0">
+	         B.USER_ID = #searchUserId#
+	         </isNotEqual>
+		     AND A.WORK_TYPE = 'PRIVATE'
+		     AND A.PROJECT_ID = #projectId#
+		     <isNotEmpty prepend="AND" property="searchActivityId">
+		     A.ACTIVITY_ID = #searchActivityId#
+		     </isNotEmpty>
+		     /* 사용자 선택시 */
+		     /* AND B.USER_ID = 384 */
+		     /* 엑티비티 선택시 */
+		     /* AND A.ACTIVITY_ID = 383 */
+		GROUP BY A.PROGRESS, A.COMPLETE
+		  UNION ALL
+		  /* 팀업무 등록자 및 참가자 */
+		  SELECT
+		         A.PROGRESS
+		       , A.COMPLETE
+		       , COUNT(*) AS WORK_TEAM_CNT
+		       , 0 AS WORK_PRIVATE_CNT
+		    FROM BS_WORK_LIST A
+		    LEFT JOIN BS_TEAM_LIST J	ON A.LIST_ID = J.LIST_ID
+		    LEFT JOIN BS_USER_MASTER K ON J.EMP_ID = K.USER_ID
+		   WHERE 1=1
+		     /* 직원:전체 / 단일선택 */
+		    AND K.ORG_ID = #applyOrgId#
+	   		 <isNotEqual prepend="AND" property="searchUserId" compareValue="0">
+	   		 K.USER_ID = #searchUserId#
+	   		 </isNotEqual>
+	   		 <isNotEmpty prepend="AND" property="searchActivityId">
+	   		 A.ACTIVITY_ID = #searchActivityId#
+	   		 </isNotEmpty>
+		     AND A.WORK_TYPE = 'TEAM'
+		     AND A.PROJECT_ID = #projectId#
+		     /* 사용자 선택시 */
+		     /* AND K.USER_ID = 384 */
+		     /* 엑티비티 선택시 */
+		     /* AND A.ACTIVITY_ID = 383 */
+		GROUP BY A.PROGRESS, A.COMPLETE
+		  UNION ALL
+		  /* 팀업무 등록자의 메모추가 */
+		  SELECT
+		         A.PROGRESS
+		       , A.COMPLETE
+		       , COUNT(*)/2 AS WORK_TEAM_CNT
+		       , 0 AS WORK_PRIVATE_CNT
+		    FROM BS_WORK_LIST A
+		    LEFT JOIN BS_WORK_MEMO J	ON A.LIST_ID = J.LIST_ID
+		    LEFT JOIN BS_USER_MASTER K ON A.EMP_ID = K.USER_ID
+		   WHERE 1=1
+		     /* 직원:전체 / 단일선택 */
+		   AND  K.ORG_ID = #applyOrgId#
+		     <isNotEqual prepend="AND" property="searchUserId" compareValue="0">
+		     K.USER_ID = #searchUserId#
+		     </isNotEqual>
+		     <isNotEmpty prepend="AND" property="searchActivityId">
+		     A.ACTIVITY_ID = #searchActivityId#
+		     </isNotEmpty>
+		     AND A.WORK_TYPE = 'TEAM'
+		     AND A.PROJECT_ID = #projectId#
+		     /* 사용자 선택시 */
+		     /* AND K.USER_ID = 384 */
+		     /* 엑티비티 선택시 */
+		     /* AND A.ACTIVITY_ID = 383 */
+		GROUP BY A.PROGRESS, A.COMPLETE
+		  UNION ALL
+		  /* 팀업무 참가자의 메모추가 */
+		  SELECT
+		         A.PROGRESS
+		       , A.COMPLETE
+		       , COUNT(*)/2 AS WORK_TEAM_CNT
+		       , 0 AS WORK_PRIVATE_CNT
+		    FROM BS_WORK_LIST A
+		    LEFT JOIN BS_TEAM_LIST J	ON A.LIST_ID = J.LIST_ID
+		    LEFT JOIN BS_TEAM_WORK_MEMO T ON J.TEAM_LIST_ID = T.TEAM_LIST_ID
+		    LEFT JOIN BS_USER_MASTER K ON T.USER_ID = K.USER_ID
+		   WHERE 1=1
+		   	 /* 직원:전체 / 단일선택 */
+		   	AND K.ORG_ID = #applyOrgId#
+		   	 <isNotEqual prepend="AND" property="searchUserId" compareValue="0">
+		   	 A.ACTIVITY_ID = #searchUserId#
+		   	 </isNotEqual>
+		   	 <isNotEmpty prepend="AND" property="searchActivityId">
+		   	 A.ACTIVITY_ID = #searchActivityId#
+		   	 </isNotEmpty>
+		     AND A.WORK_TYPE = 'TEAM'
+		     AND A.PROJECT_ID = #projectId#
+		     /* 사용자 선택시 */
+		     /* AND K.USER_ID = 384 */
+		     /* 엑티비티 선택시 */
+		     /* AND A.ACTIVITY_ID = 383 */
+		GROUP BY A.PROGRESS, A.COMPLETE
+		) X
+		RIGHT JOIN
+				(SELECT CODE_VALUE,VALUE_MEAN_KOR, SORT, VALUE_ID
+				FROM BS_CODE_GV
+				WHERE CODE_NAME = 'WORKDAILY_PROGRESS'
+				AND ORG_ID = #applyOrgId#
+				) Y ON  Y.CODE_VALUE= X.PROGRESS
+		GROUP BY (CASE WHEN X.COMPLETE = 'Y' THEN '완료'
+				      	  ELSE Y.VALUE_MEAN_KOR
+					   END)
+		ORDER BY (CASE WHEN X.COMPLETE = 'Y' THEN 9
+				      	  ELSE 0
+					    END) ASC, Y.SORT ASC, Y.VALUE_ID ASC
+
+		/* projectStatisDAO.getProjectTeamPrivateWorkList */
+	</select>
+
+	<!-- 직원 -->
+	<select id="projectStatisDAO.getProjectUserList" parameterClass="HashMap" resultClass="egovMap">
+		/* projectStatisDAO.getProjectUserList */
+	  <isEqual property="employee" compareValue="Y">
+            SELECT A.USER_ID
+                     , B.NAME
+            FROM BS_PROJECT_USER A
+                LEFT JOIN BS_USER_MASTER B ON A.USER_ID = B.USER_ID
+            WHERE A.PROJECT_ID = #projectId#
+            AND A.ENABLE = 'Y'
+        </isEqual>
+        <isEqual property="employee" compareValue="A">
+            SELECT U.USER_ID
+	             , U.NAME
+	          FROM BS_USER_MASTER U
+	         WHERE U.USER_STATUS IN ('W','H','L')
+	           AND U.ORG_ID = #applyOrgId#
+	      ORDER BY U.NAME
+        </isEqual>
+	</select>
+
+	<!-- 액티비티 -->
+	<select id="projectStatisDAO.getActivityList" parameterClass="HashMap" resultClass="egovMap">
+	    /* projectStatisDAO.getActivityList */
+	    SELECT A.ACTIVITY_ID
+             , A.NAME
+	      FROM BS_ACTIVITY A
+	     WHERE A.PROJECT_ID = #projectId#
+	     AND A.ENABLE = 'Y'
+	  ORDER BY A.NAME
+	</select>
+
+
+	<select id="projectStatisDAO.getProjectWorkList" parameterClass="HashMap" resultClass="egovMap">
+        /* projectStatisDAO.getProjectWorkList */
+        SELECT
+               (SELECT NAME FROM BS_USER_MASTER K WHERE Y.USER_ID = K.USER_ID) AS USER_NAME
+             , IFNULL(ROUND(SUM(X.WORK_TEAM_CNT),1),0.0) AS WORK_TEAM_CNT        /* 팀업무 카운트 */
+             , IFNULL(ROUND(SUM(X.WORK_PRIVATE_CNT),1),0.0) AS WORK_PRIVATE_CNT    /* 개인업무 카운트 */
+             , IFNULL(ROUND(SUM(X.WORK_TEAM_CNT)+SUM(X.WORK_PRIVATE_CNT),1),0.0) AS TOTAL_CNT /* 토탈 카운트 */
+          FROM(
+          /* 개인업무 */
+          SELECT
+                 B.USER_ID
+               , A.COMPLETE
+               , 0 AS WORK_TEAM_CNT
+               , COUNT(*) AS WORK_PRIVATE_CNT
+            FROM BS_WORK_LIST A
+            LEFT JOIN BS_USER_MASTER B ON A.EMP_ID = B.USER_ID
+           WHERE 1=1
+             /* 직원:전체 / 단일선택 */
+           AND  B.ORG_ID = #applyOrgId#  /* 관계사 ID */
+             <isNotEqual prepend="AND" property="searchUserId" compareValue="0">
+             B.USER_ID = #searchUserId#
+             </isNotEqual>
+             AND A.WORK_TYPE = 'PRIVATE'
+             AND A.PROJECT_ID = #projectId#
+             <isNotEmpty prepend="AND" property="searchActivityId">
+             A.ACTIVITY_ID = #searchActivityId#
+             </isNotEmpty>
+             /* 사용자 선택시 */
+             /* AND B.USER_ID = 384 */
+             /* 엑티비티 선택시 */
+             /* AND A.ACTIVITY_ID = 383 */
+        GROUP BY A.PROGRESS, A.COMPLETE
+          UNION ALL
+          /* 팀업무 등록자 및 참가자 */
+          SELECT
+                 K.USER_ID
+               , A.COMPLETE
+               , COUNT(*) AS WORK_TEAM_CNT
+               , 0 AS WORK_PRIVATE_CNT
+            FROM BS_WORK_LIST A
+            LEFT JOIN BS_TEAM_LIST J    ON A.LIST_ID = J.LIST_ID
+            LEFT JOIN BS_USER_MASTER K ON J.EMP_ID = K.USER_ID
+           WHERE 1=1
+             /* 직원:전체 / 단일선택 */
+           AND K.ORG_ID = #applyOrgId#
+             <isNotEqual prepend="AND" property="searchUserId" compareValue="0">
+             K.USER_ID = #searchUserId#
+             </isNotEqual>
+             <isNotEmpty prepend="AND" property="searchActivityId">
+             A.ACTIVITY_ID = #searchActivityId#
+             </isNotEmpty>
+             AND A.WORK_TYPE = 'TEAM'
+             AND A.PROJECT_ID = #projectId#
+             /* 사용자 선택시 */
+             /* AND K.USER_ID = 384 */
+             /* 엑티비티 선택시 */
+             /* AND A.ACTIVITY_ID = 383 */
+        GROUP BY A.PROGRESS, A.COMPLETE
+          UNION ALL
+          /* 팀업무 등록자의 메모추가 */
+          SELECT
+                 K.USER_ID
+               , A.COMPLETE
+               , COUNT(*)/2 AS WORK_TEAM_CNT
+               , 0 AS WORK_PRIVATE_CNT
+            FROM BS_WORK_LIST A
+            LEFT JOIN BS_WORK_MEMO J    ON A.LIST_ID = J.LIST_ID
+            LEFT JOIN BS_USER_MASTER K ON A.EMP_ID = K.USER_ID
+           WHERE 1=1
+             /* 직원:전체 / 단일선택 */
+            AND  K.ORG_ID = #applyOrgId#
+             <isNotEqual prepend="AND" property="searchUserId" compareValue="0">
+             K.USER_ID = #searchUserId#
+             </isNotEqual>
+             <isNotEmpty prepend="AND" property="searchActivityId">
+             A.ACTIVITY_ID = #searchActivityId#
+             </isNotEmpty>
+             AND A.WORK_TYPE = 'TEAM'
+             AND A.PROJECT_ID = #projectId#
+             /* 사용자 선택시 */
+             /* AND K.USER_ID = 384 */
+             /* 엑티비티 선택시 */
+             /* AND A.ACTIVITY_ID = 383 */
+        GROUP BY A.PROGRESS, A.COMPLETE
+          UNION ALL
+          /* 팀업무 참가자의 메모추가 */
+          SELECT
+                K.USER_ID
+               , A.COMPLETE
+               , COUNT(*)/2 AS WORK_TEAM_CNT
+               , 0 AS WORK_PRIVATE_CNT
+            FROM BS_WORK_LIST A
+            LEFT JOIN BS_TEAM_LIST J    ON A.LIST_ID = J.LIST_ID
+            LEFT JOIN BS_TEAM_WORK_MEMO T ON J.TEAM_LIST_ID = T.TEAM_LIST_ID
+            LEFT JOIN BS_USER_MASTER K ON T.USER_ID = K.USER_ID
+           WHERE 1=1
+             /* 직원:전체 / 단일선택 */
+            AND  K.ORG_ID = #applyOrgId#
+             <isNotEqual prepend="AND" property="searchUserId" compareValue="0">
+             A.ACTIVITY_ID = #searchUserId#
+             </isNotEqual>
+             <isNotEmpty prepend="AND" property="searchActivityId">
+             A.ACTIVITY_ID = #searchActivityId#
+             </isNotEmpty>
+             AND A.WORK_TYPE = 'TEAM'
+             AND A.PROJECT_ID = #projectId#
+             /* 사용자 선택시 */
+             /* AND K.USER_ID = 384 */
+             /* 엑티비티 선택시 */
+             /* AND A.ACTIVITY_ID = 383 */
+        GROUP BY A.PROGRESS, A.COMPLETE
+        ) X
+        <isEqual property="employee" compareValue="Y">
+	        RIGHT JOIN
+	                (SELECT USER_ID
+					FROM BS_PROJECT_USER
+					WHERE PROJECT_ID = #projectId#
+					AND ENABLE = 'Y'
+	                ) Y ON  X.USER_ID= Y.USER_ID
+        </isEqual>
+        <isEqual property="employee" compareValue="A">
+            RIGHT JOIN
+                    ( SELECT U.USER_ID
+			          FROM BS_USER_MASTER U
+			           WHERE U.USER_STATUS IN ('W','H','L')
+			           AND U.ORG_ID = #applyOrgId#
+                    ) Y ON  X.USER_ID= Y.USER_ID
+        </isEqual>
+        GROUP BY Y.USER_ID
+        ORDER BY Y.USER_ID ASC
+    </select>
+
+</sqlMap>

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="file">
+
+
+
+	<!--파일 리스트 -->
+	<select id="file.getFileList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			 file_seq 		AS fileSeq
+			,upload_id		AS uploadId
+			,upload_type	AS uploadType
+			,org_file_nm	AS orgFileNm
+			,new_file_nm	AS newFileNm
+			,file_path		AS filePath
+			,file_size		AS fileSize
+			,delete_flag	AS deleteFlag
+
+		FROM bs_file_list
+		WHERE delete_flag = 'N'
+
+
+		<isNotEmpty prepend="AND" property="uploadId">
+			upload_id = #uploadId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="fileSeq">
+			file_seq = #fileSeq#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="fileArr">				<!-- 파일seq 가 배열로 오는 경우 in -->
+			<iterate prepend="file_seq IN " property="fileArr" open="(" close=")" conjunction=",">
+					<![CDATA[	#fileArr[]#]]>
+			</iterate>
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="uploadType">
+			upload_type = #uploadType#
+		</isNotEmpty>
+
+		ORDER BY fileSeq ASC;
+	</select>
+
+	<!-- 파일정보 등록 -->
+	<insert id="file.insertFileList" parameterClass="HashMap">
+	    INSERT INTO bs_file_list(
+	    					 upload_id
+	    					,upload_type
+			               	,org_file_nm
+			               	,new_file_nm
+			               	,file_path
+			               	,file_size
+			               	,file_ext
+			               	,file_mime
+			               	,file_desc
+			               	,thumb_yn
+			               	,created_date
+			               	,created_by
+
+			               )VALUES(
+			               	 #uploadId#
+			               	,#uploadType#
+			                ,#orgFileNm#
+			               	,#newFileNm#
+			               	,#filePath#
+			               	,#fileSize#
+			               	,#fileExt#
+			               	,#fileMime#
+			               	,#fileDesc#
+			               	,#thumbYn#
+			               	,now()
+			               	,#usrSeq#
+			               )
+		<selectKey resultClass="int" type="post" keyProperty="seq">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/*file.insertFileList*/
+	</insert>
+
+	<!-- 파일 삭제 -->
+	<update id="file.updateDelFlag" parameterClass="HashMap">
+	    UPDATE bs_file_list	SET
+	    					  delete_flag	=	'Y'
+	    					 ,updated_date	=	now()
+	    					 ,updated_by	=	#usrSeq#
+
+		WHERE file_seq = #fileSeq#
+
+
+		/*file.updateDelFlag*/
+	</update>
+
+	<!-- 파일 삭제 (유저프로필) -->
+	<update id="file.updateDelFlagUserProfileImg" parameterClass="HashMap">
+	    UPDATE bs_file_list	SET
+	    					  delete_flag	=	'Y'
+	    					 ,updated_date	=	now()
+	    					 ,updated_by	=	#userId#
+
+		WHERE upload_id = #userId#
+		  AND UPLOAD_TYPE = #uploadType#
+		/*file.updateDelFlagUserProfileImg*/
+	</update>
+
+	<!-- 파일 seq조회 (유저프로필) -->
+	<select id="file.getUserProfileImgSeq" parameterClass="HashMap" resultClass = "Integer">
+		SELECT IFNULL(
+			(SELECT FILE_SEQ
+			  FROM bs_file_list
+			 WHERE upload_id = #userId#
+			   AND UPLOAD_TYPE = #uploadType#
+			   AND DELETE_FLAG = 'N')
+		   ,0) AS RESULT
+	</select>
+
+
+</sqlMap>

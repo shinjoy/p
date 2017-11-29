@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE tiles-definitions PUBLIC
+        "-//Apache Software Foundation//DTD Tiles Configuration 2.0//EN"
+        "http://tiles.apache.org/dtds/tiles-config_2_0.dtd">
+
+<tiles-definitions>
+
+	<!--   모바일 : S -->
+
+	<!-- 레이아웃 없는 모바일 -->
+    <definition name="layout_mobile_noLayout" template="/WEB-INF/jsp/m/layout_m_noLayout.jsp">
+        <put-attribute name="title">PASS</put-attribute>
+        <put-attribute name="header"	value="/WEB-INF/jsp/m/includeJSP/header.jsp"/>
+     	<put-attribute name="content" 	value=""/>
+    </definition>
+
+    <!-- 레이아웃 없는 모바일(jsp include 도 없음) -->
+    <definition name="layout_mobile_empty" template="/WEB-INF/jsp/m/layout_m_empty.jsp">
+        <put-attribute name="title">PASS</put-attribute>
+        <put-attribute name="content" 	value=""/>
+    </definition>
+
+	<!-- 모바일 퀵메뉴(header + top + 퀵메뉴) -->
+    <definition name="layout_mobile" template="/WEB-INF/jsp/m/layout_m.jsp">
+        <put-attribute name="title">PASS</put-attribute>
+        <put-attribute name="header"	value="/WEB-INF/jsp/m/includeJSP/header.jsp"/>
+     	<put-attribute name="content" 	value=""/>
+     	<put-attribute name="footer" 	value="/WEB-INF/jsp/m/includeJSP/quickmenu.jsp"/>
+    </definition>
+
+
+    <!-- 레이아웃 없는 모바일 2Depth  -->
+    <definition name="m/*/noLayout" extends="layout_mobile_noLayout">
+        <put-attribute name="content" value="/WEB-INF/jsp/m/{1}.jsp" />
+    </definition>
+
+    <!-- 레이아웃 없는 모바일 3Depth-->
+    <definition name="m/*/*/noLayout" extends="layout_mobile_noLayout">
+        <put-attribute name="content" value="/WEB-INF/jsp/m/{1}/{2}.jsp" />
+    </definition>
+
+     <!-- 빈페이지 모바일 2Depth-->
+    <definition name="m/*/empty" extends="layout_mobile_empty">
+        <put-attribute name="content" value="/WEB-INF/jsp/m/{1}.jsp" />
+    </definition>
+
+    <!-- 빈페이지 모바일 3Depth  -->
+    <definition name="m/*/*/empty" extends="layout_mobile_empty">
+        <put-attribute name="content" value="/WEB-INF/jsp/m/{1}/{2}.jsp" />
+    </definition>
+
+    <!-- 모바일 퀵메뉴 2Depth -->
+    <definition name="m/*" extends="layout_mobile">
+        <put-attribute name="content" value="/WEB-INF/jsp/m/{1}.jsp" />
+    </definition>
+
+    <!-- 모바일 퀵메뉴 3Depth -->
+    <definition name="m/*/*" extends="layout_mobile">
+        <put-attribute name="content" value="/WEB-INF/jsp/m/{1}/{2}.jsp" />
+    </definition>
+
+
+
+	<!-- //모바일 : E//-->
+
+	<!-- 메인화면 레이아웃 -->
+    <definition name="layout_main" template="/WEB-INF/jsp/common/layout_main.jsp">
+        <put-attribute name="title">PASS</put-attribute>
+        <put-attribute name="header"	value="/WEB-INF/jsp/common/header.jsp"/>
+        <put-attribute name="topMenu" 	value="/WEB-INF/jsp/common/topMenu.jsp"/>
+        <put-attribute name="leftMenu" 	value="/WEB-INF/jsp/common/leftMenu_main.jsp"/>
+        <put-attribute name="content" 	value=""/>
+        <put-attribute name="footer" 	value="/WEB-INF/jsp/common/footer.jsp"/>
+        <put-attribute name="authStyle" value="/WEB-INF/jsp/common/auth_style.jsp"/>
+    </definition>
+
+	<!-- 일반 메뉴있는 레이아웃 -->
+    <definition name="layout" template="/WEB-INF/jsp/common/layout.jsp">
+        <put-attribute name="title">PASS</put-attribute>
+        <put-attribute name="header"	value="/WEB-INF/jsp/common/header.jsp"/>
+        <put-attribute name="topMenu" 	value="/WEB-INF/jsp/common/topMenu.jsp"/>
+        <put-attribute name="leftMenu" 	value="/WEB-INF/jsp/common/leftMenu.jsp"/>
+        <put-attribute name="content" 	value=""/>
+        <put-attribute name="footer" 	value="/WEB-INF/jsp/common/footer.jsp"/>
+        <put-attribute name="authStyle" value="/WEB-INF/jsp/common/auth_style.jsp"/>
+    </definition>
+
+	<!-- 팝업 or 메뉴없는 레이아웃 -->
+    <definition name="layout_null" template="/WEB-INF/jsp/common/layout_null.jsp">
+        <put-attribute name="title">PASS</put-attribute>
+        <put-attribute name="header" 	value="/WEB-INF/jsp/common/header.jsp"/>
+        <put-attribute name="content" 	value=""/>
+        <put-attribute name="authStyle" value="/WEB-INF/jsp/common/auth_style.jsp"/>
+    </definition>
+
+    <!-- 헤더없이 순수 jsp만있는 레이아웃(ajax, inc) -->
+    <definition name="layout_noHeader" template="/WEB-INF/jsp/common/layout_noHeader.jsp">
+        <put-attribute name="title">PASS</put-attribute>
+        <put-attribute name="content" 	value=""/>
+    </definition>
+
+    <!-- 고정된 왼쪽 메뉴 있는 레이아웃 (header를 위한 )-->
+    <definition name="layout_fixLeft" template="/WEB-INF/jsp/common/layout.jsp">
+        <put-attribute name="title">PASS</put-attribute>
+        <put-attribute name="header" 	value="/WEB-INF/jsp/common/header.jsp"/>
+        <put-attribute name="topMenu" 	value="/WEB-INF/jsp/common/topMenu.jsp"/>
+    	<put-attribute name="leftMenu" 	value="/WEB-INF/jsp/common/leftMenu_fix.jsp"/>
+        <put-attribute name="content" 	value=""/>
+        <put-attribute name="footer" 	value="/WEB-INF/jsp/common/footer.jsp"/>
+        <put-attribute name="authStyle" value="/WEB-INF/jsp/common/auth_style.jsp"/>
+    </definition>
+
+    <!-- 왼쪽메뉴 없는 레이아웃(메인페이지) -->
+    <definition name="layout_noLeft" template="/WEB-INF/jsp/common/layout_noLeft.jsp">
+        <put-attribute name="title">PASS</put-attribute>
+        <put-attribute name="header" 	value="/WEB-INF/jsp/common/header.jsp"/>
+        <put-attribute name="topMenu" 	value="/WEB-INF/jsp/common/topMenu.jsp"/>
+        <put-attribute name="content" 	value=""/>
+        <put-attribute name="footer" 	value="/WEB-INF/jsp/common/footer.jsp"/>
+        <put-attribute name="authStyle" value="/WEB-INF/jsp/common/auth_style.jsp"/>
+    </definition>
+
+	<!-- 왼쪽메뉴만 있는 레이아웃(탑메뉴 없이) -->
+    <definition name="layout_noTop" template="/WEB-INF/jsp/common/layout_noTop.jsp">
+        <put-attribute name="title">PASS</put-attribute>
+        <put-attribute name="header" 	value="/WEB-INF/jsp/common/header.jsp"/>
+        <put-attribute name="leftMenu" 	value="/WEB-INF/jsp/common/leftMenu.jsp"/>
+        <put-attribute name="content" 	value=""/>
+        <put-attribute name="footer" 	value="/WEB-INF/jsp/common/footer.jsp"/>
+        <put-attribute name="authStyle" value="/WEB-INF/jsp/common/auth_style.jsp"/>
+    </definition>
+
+ 	<!-- mainPage -->
+    <definition name="basic/mainNew" extends="layout_main">
+        <put-attribute name="content" value="/WEB-INF/jsp/basic/mainNew.jsp" />
+    </definition>
+
+    <!-- 2Depth layout -->
+ 	<definition name="*/*" extends="layout">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}.jsp" />
+    </definition>
+	<!-- 2Depth noHeader -->
+    <definition name="*/*/noHeader" extends="layout_noHeader">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}.jsp" />
+    </definition>
+    <!-- 2Depth ajax -->
+    <definition name="*/*/ajax" extends="layout_noHeader">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}.jsp" />
+    </definition>
+    <!-- 2Depth noLeft -->
+    <definition name="*/*/noLeft" extends="layout_noLeft">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}.jsp" />
+    </definition>
+    <!-- 2Depth fixLeft -->
+    <definition name="*/*/fixLeft" extends="layout_fixLeft">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}.jsp" />
+    </definition>
+	<!-- 2Depth pop -->
+  	<definition name="*/*/pop" extends="layout_null">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}.jsp" />
+    </definition>
+    <!-- 2Depth noTop -->
+    <definition name="*/*/noTop" extends="layout_noTop">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}.jsp" />
+    </definition>
+
+
+	<!-- 3Depth layout -->
+	<definition name="*/*/*" extends="layout">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}/{3}.jsp" />
+    </definition>
+	<!-- 3Depth include -->
+    <definition name="*/*/*/inc" extends="layout_noHeader">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}/{3}.jsp" />
+    </definition>
+    <!-- 3Depth fixLeft -->
+    <definition name="*/*/*/fixLeft" extends="layout_fixLeft">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}/{3}.jsp" />
+    </definition>
+	<!-- 3Depth pop -->
+    <definition name="*/*/*/pop" extends="layout_null">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}/{3}.jsp" />
+    </definition>
+
+    <!-- 4Depth pop -->
+    <definition name="*/*/*/*/pop" extends="layout_null">
+        <put-attribute name="content" value="/WEB-INF/jsp/{1}/{2}/{3}/{4}.jsp" />
+    </definition>
+
+
+</tiles-definitions>

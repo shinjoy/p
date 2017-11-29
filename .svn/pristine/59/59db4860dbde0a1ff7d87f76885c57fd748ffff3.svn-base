@@ -1,0 +1,143 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+
+<jsp:scriptlet>
+	pageContext.setAttribute("lf", "\n");
+</jsp:scriptlet>
+
+ <table class="tb_list_basic" summary="프로젝트 수정이력">
+       <caption>프로젝트 수정이력</caption>
+       <colgroup>
+           <col width="100" />
+           <col width="210" />
+           <col width="80" />
+           <col width="80" />
+           <col width="160" />
+           <col width="80" />
+           <col width="200" />
+           <col width="80" />
+           <col width="80" />
+       </colgroup>
+       <thead>
+           <tr>
+        	   <th scope="col">기간</th>
+               <th scope="col">직원배정</th>
+               <th scope="col">공개여부</th>
+               <th scope="col">상태</th>
+               <th scope="col">사유</th>
+               <th scope="col" colspan="2">단위업무 수정이력</th>
+               <th scope="col">수정일</th>
+               <th scope="col">수정자</th>
+           </tr>
+       </thead>
+       <tbody>
+       		<c:forEach items="${projectHistoryList }" var="data">
+
+       			<tr>
+       				<td class="num_date_type" rowspan="${fn:length(data.activityList)}">
+	                	<div><fmt:formatDate value="${data.startDate }" pattern="yyyy/MM/dd" /></div>
+	                	~
+	                	<div><fmt:formatDate value="${data.endDate }" pattern="yyyy/MM/dd" /></div>
+	                </td>
+
+	                <td rowspan="${fn:length(data.activityList)}">
+	       				${fn:replace(data.concatStr,'#leader#','<span class = \"joinmb_list\"><span class=\"task_leader\"></span></span>') }
+	       			</td>
+
+	       			<td rowspan="${fn:length(data.activityList)}">
+	       				${data.openFlag == 'Y' ? '공개' : '비공개' }
+	       			</td>
+
+	       			<td class="app_state" rowspan="${fn:length(data.activityList)}">
+	       				<c:choose>
+	       					<c:when test="${data.pendingFlag == 'Y' }">
+	       						<span class="icon st_reject">보류</span>
+	       					</c:when>
+	       					<c:when test="${data.stopFlag == 'Y' }">
+	       						<span class="icon st_finish">중단</span>
+	       					</c:when>
+	       					<c:otherwise>
+	       						<span class="icon st_ing">진행</span>
+	       					</c:otherwise>
+	       				</c:choose>
+	       			</td>
+
+	       			<td rowspan="${fn:length(data.activityList)}">
+	       				${fn:replace(data.updateReason,lf,'<br>') }
+	       			</td>
+
+	       			<!-- 첫 단위업무 수정 이력 -->
+	       			<c:choose>
+	       				<c:when test="${fn:length(data.activityList) > 0}">
+
+	       					<td style="color: #334879;">${data.activityList[0].activityTitle }</td>
+
+				       		<td style="text-align:left;">
+		   						<div>
+		   							<span>기간 :</span> <fmt:formatDate value="${data.activityList[0].startDate }" pattern="yyyy/MM/dd" /> ~ <fmt:formatDate value="${data.activityList[0].endDate }" pattern="yyyy/MM/dd" />
+		   						</div>
+		   						<div>
+		   							<span>참여자 :</span> ${fn:replace(data.activityList[0].concatStr,'#leader#','<span class = \"joinmb_list\"><span class=\"task_leader\"></span></span>') }
+		   						</div>
+		   					</td>
+
+	       				</c:when>
+	       				<c:otherwise>
+	       					<td colspan="2" class="no_result">
+								<p class="nr_des">조회된 데이터가 없습니다.</p>
+							</td>
+						</c:otherwise>
+	       			</c:choose>
+	       			<!-- //첫 단위업무 수정 이력// -->
+
+	       			<td class="num_date_type"  rowspan="${fn:length(data.activityList)}">
+	                	<fmt:formatDate value="${data.updateDate }" pattern="yyyy-MM-dd" />
+	                </td>
+
+	       			<td  rowspan="${fn:length(data.activityList)}">
+	       				${data.createdNm }<c:if test="${data.createdBy eq data.projectCreatedBy }">PM</c:if>
+	       			</td>
+
+	       		</tr>
+
+	       		<!-- 두번째 단위업무 수정이력 부터 -->
+	       		<c:forEach items="${data.activityList }" var="act" varStatus="i">
+		       		<c:if test="${i.index > 0 }">
+		       		<tr>
+			       		<td style="width: 100px;color: #334879;">${act.activityTitle }</td>
+
+			       		<td style="width: 300px;text-align:left;">
+	   						<div>
+	   							<span>기간 :</span> <fmt:formatDate value="${act.startDate }" pattern="yyyy/MM/dd" /> ~ <fmt:formatDate value="${act.endDate }" pattern="yyyy/MM/dd" />
+	   						</div>
+	   						<div>
+	   							<span>참여자 :</span> ${fn:replace(act.concatStr,'#leader#','<span class = \"joinmb_list\"><span class=\"task_leader\"></span></span>') }
+	   						</div>
+	   					</td>
+	   				</tr>
+	   				</c:if>
+   				</c:forEach>
+   				<!-- //두번째 단위업무 수정이력 부터// -->
+
+		    </c:forEach>
+       		<c:if test="${fn:length(projectHistoryList)<=0 }">
+				<tr>
+					<td colspan="9" class="no_result">
+						<p class="nr_des">조회된 데이터가 없습니다.</p>
+					</td>
+				</tr>
+			</c:if>
+
+       </tbody>
+</table>
+<!--페이지목록-->
+<div class="btnPageZone">
+    <ui:pagination paginationInfo="${paginationInfo}" type="ib" jsFunction="projectViewLinkPage" />
+
+    <input type="hidden" name = "pageIndex" id = "pageIndex" value="${paginationInfo.currentPageNo }">
+</div>
+<!--//페이지목록//-->

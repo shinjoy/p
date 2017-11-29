@@ -1,0 +1,524 @@
+package ib.system.web;
+
+import java.sql.Date;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.ibm.icu.text.SimpleDateFormat;
+import com.ibm.icu.util.Calendar;
+
+import ib.cmm.util.sim.service.AjaxResponse;
+import ib.system.service.CalendarRegService;
+import ib.system.service.CertificationRqmtService;
+
+@Controller("certificationRqmtController")
+public class CertificationRqmtController {
+
+	protected static final Log logger = LogFactory
+			.getLog(CertificationRqmtController.class);
+
+	@Resource(name = "certificationRqmtService")
+	private CertificationRqmtService certificationRqmtService;
+
+	@Resource(name = "calendarRegService")
+	private CalendarRegService calendarRegService;
+
+	private String todayDate(){
+		Calendar cal = Calendar.getInstance();
+		Date d = new Date(cal.getTimeInMillis());
+		SimpleDateFormat sp = new SimpleDateFormat("yyyy-MM-dd");
+		String spd = sp.format(d);
+		return spd;
+	}
+
+	// 카운트 prefix
+ 	String prefix = "<span class=\"menuRipple\">(";
+ 	// 카운트 suffix
+ 	String suffix = ")</span>";
+
+    @ModelAttribute
+	public void common(Model model, HttpServletRequest request, HttpSession session) {
+		Map<String, Object> menuMap = new HashMap<String, Object>();
+
+		///////////////// ajax조회면 실행하지 않는다 : S
+		String ajaxHeader = request.getHeader("X-Requested-With");
+		if (ajaxHeader != null && ajaxHeader.equals("XMLHttpRequest"))
+			return;
+		///////////////// ajax조회면 실행하지 않는다 : E
+		try{
+			Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+			Map<String,Object> paramMap = new HashMap<String, Object>();
+			paramMap.put("targetOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+			Calendar car = Calendar.getInstance();
+
+			String month = (car.get(Calendar.MONTH)+1)+"";
+			month = String.format("%02d", Integer.parseInt(month));
+			paramMap.put("month", month);
+			paramMap.put("year", car.get(Calendar.YEAR));
+
+			Integer certDocRqmtListCnt = certificationRqmtService.getCertDocRqmtListCnt(paramMap);
+			menuMap.put("MENU_CERT_DOC_RQMT_MNG",prefix + certDocRqmtListCnt + suffix);
+
+			model.addAttribute("menuSummaryMap", menuMap);
+		}catch(Exception e){
+			logger.info(
+					"=========================================업무지원 좌측메뉴 새글알림 조회도중 오류발생=============================== ");
+			e.printStackTrace();
+		}
+    }
+
+	// 증명서 처리내역(관리자)
+	@RequestMapping(value = "/system/certDocRqmtForMng.do")
+	public String certDocRqmtForMng(HttpServletRequest request, @RequestParam Map map,
+			ModelMap model) throws Exception {
+
+		logger.debug("############   CertificationController.certDocRqmtForMng() ########### param : [ "+ map.toString() +"] #######");
+
+		HttpSession session = (HttpSession) request.getSession();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		String spd = todayDate();
+		String[] spdArray = spd.split("-");
+
+		if(StringUtils.isEmpty((String)map.get("year"))) map.put("year",spdArray[0]);
+		if(StringUtils.isEmpty((String)map.get("month")))  map.put("month",spdArray[1]);
+
+
+
+		//사용자의 orgId 기준으로.
+		map.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		map.put("userId", baseUserLoginInfo.get("userId").toString());
+
+		Map param = new HashMap();
+		param.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+		model.addAttribute("maxYear", calendarRegService.selectMaxCalendarYear(param));
+
+		//전달받은 타겟 orgId가 있는 경우
+		String targetOrgId = (String)map.get("targetOrgId");
+		if(StringUtils.isNotEmpty(targetOrgId)){
+			map.put("targetOrgId", targetOrgId);
+		}else{
+			map.put("targetOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		}
+
+		//선택가능한 관계사 정보(userId 필요)
+		model.addAttribute("orgList", certificationRqmtService.getOrgListByUser(map));
+		//현재 사용자의 orgId에 해당하는 사원 리스트 반환(요청자)
+		model.addAttribute("empList", certificationRqmtService.getPerList(map));
+		//현재 사용자의 orgId에 해당하는 퇴사자 리스트 반환(대상자)
+		model.addAttribute("allEmpList", certificationRqmtService.getAllPerList(map));
+		model.addAttribute("vo", map);
+
+		return "system/certDocRqmtForMng";
+	}
+
+
+	// 증명서 요청 내역( 로그인한 사용자가 대상자거나 요청자인 경우에만 목록 노출 )
+	@RequestMapping(value = "/system/certDocRqmt.do")
+	public String certDocRqmt(HttpServletRequest request,@RequestParam Map map, ModelMap model) throws Exception {
+
+		logger.debug("############   CertificationController.certDocRqmt() ##################");
+
+		HttpSession session = (HttpSession)request.getSession();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		String spd = todayDate();
+		String[] spdArray = spd.split("-");
+
+		//로그인한 사용자 정보 담기.
+		map.put("keyWord", baseUserLoginInfo.get("userId").toString());
+
+		if(StringUtils.isEmpty((String)map.get("year"))) map.put("year",spdArray[0]);
+		if(StringUtils.isEmpty((String)map.get("month")))  map.put("month",spdArray[1]);
+
+		Map param = new HashMap();
+		param.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+		model.addAttribute("maxYear", calendarRegService.selectMaxCalendarYear(param));
+
+		model.addAttribute("vo", map);
+
+		return "system/certDocRqmt";
+	}
+
+
+	// 증명서 요청 내역 목록
+	@RequestMapping(value = "/system/certDocRqmtList.do")
+	public void certDocRqmtList(HttpServletResponse response, @RequestParam Map map,HttpSession session) throws Exception {
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("targetOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		if(StringUtils.isNotEmpty((String)map.get("month"))){
+			String month = (String)map.get("month");
+			month = String.format("%02d", Integer.parseInt(month));
+			map.put("month", month);
+		}
+
+		Map resultMap = certificationRqmtService.getCertDocRqmtList(map);
+		AjaxResponse.responseAjaxSelectForPage(response, resultMap);
+
+	}
+
+	// 증명서 상세보기(관리자용)
+	@RequestMapping(value = "/system/certDocViewForMng.do")
+	public String certDocViewForMng(HttpServletRequest request,
+			@RequestParam Map map, ModelMap model) throws Exception {
+		logger.debug("################ CertificationController.FormDocView() ######### param : [ "+ map + " ]####");
+
+		Map formDocVo = certificationRqmtService.getCertDocView(map);
+		model.addAttribute("formDocVO", formDocVo);
+		model.addAttribute("vo", map);
+
+		String pageStr = "";
+		// 출력버튼 클릭 시
+
+		//if ("Print".equals((String) map.get("docType"))) {
+			HttpSession session = request.getSession();
+			Map baseUserLoginInfo = (Map) session.getAttribute("baseUserLoginInfo");
+			// 처리자 정보 넣기.
+			map.put("reqEndUserId", baseUserLoginInfo.get("userId").toString());
+			map.put("reqStatus", "End");
+
+			if("Print".equals((String)map.get("docType"))) {
+				// 증명서 상태 변경.
+				certificationRqmtService.updateCertDocStatus(map);
+				pageStr = "/pop";
+			}
+
+			/*
+			 * 증명서 하단 회사정보 가져오기.
+			 * 1. 관계사가 시너지그룹인 경우.
+			 * 시너지 그룹인 경우 com_position정보를 기준으로
+			 * ib_company에서 addr과 로고파일을 반환.
+			 *
+			 * 2. 시너지그룹이외의 관계사인 경우
+			 * org_id정보 기준으로 bs_org에서 로고파일과 주소를 반환.
+			 *
+			 */
+			/*int comOrgId = (Integer)formDocVo.get("orgId");
+			if(comOrgId ==1){
+				Map comInfo = certificationRqmtService.getComInfoForSynergy(formDocVo);
+				model.addAttribute("comInfo", comInfo);
+			}else{//관계사의 상세 정보 반환하기.
+				model.addAttribute("comInfo", certificationRqmtService.getOrgCompanyInfo(formDocVo));
+			}*/
+			//관계사의 상세 정보 반환하기.
+			model.addAttribute("comInfo", certificationRqmtService.getOrgCompanyInfo(formDocVo));
+		//}
+
+		model.addAttribute("userType","MNG");		//처리자
+
+		model.addAttribute("returnListUrl", "/system/certDocRqmtForMng.do");
+
+		String reqStatus = formDocVo.get("reqStatus").toString();
+
+		String docType = "";
+
+		if(map.containsKey("docType")) {
+			docType = map.get("docType").toString();
+			model.addAttribute("docType",docType);
+		}
+
+		String mngTempPageYn = "";
+
+		if(map.containsKey("mngTempPageYn")) {
+			mngTempPageYn=map.get("mngTempPageYn").toString();
+		}
+
+		if((reqStatus.equals("Temp")||mngTempPageYn.equals("Y"))&&!docType.equals("mngCert")){
+			pageStr = "system/careerDocTemp" + pageStr;
+		}else if ("WorkDoc".equals((String) formDocVo.get("formDocCd")))
+			pageStr = "system/workDocView" + pageStr;
+		else
+			pageStr = "system/careerDocView" + pageStr;
+
+		return pageStr;
+	}
+
+	// 증명서 상세보기
+	@RequestMapping(value = "/system/certDocView.do")
+		public String formDocView(HttpServletRequest request, @RequestParam Map map, ModelMap model) throws Exception {
+			logger.debug("################ CertificationController.FormDocView() ########  param : [ "+ map + "] ###");
+
+			//증명서 상세 정보
+			Map formDocVo = certificationRqmtService.getCertDocView(map);
+			model.addAttribute("formDocVO", formDocVo);
+			model.addAttribute("vo", map);
+
+			String pageStr = "";
+			//출력버튼 클릭 시
+
+				HttpSession session = request.getSession();
+				Map baseUserLoginInfo = (Map) session.getAttribute("baseUserLoginInfo");
+				//처리자 정보 넣기.
+				map.put("reqEndUserId", baseUserLoginInfo.get("userId").toString());
+				map.put("reqStatus", "End");
+				//증명서 상태 변경.
+				if("Print".equals((String)map.get("docType"))) {
+					certificationRqmtService.updateCertDocStatus(map);
+					pageStr = "/pop";
+				}
+
+
+				/*
+				 * 증명서 하단 회사정보 가져오기.
+				 * 1. 관계사가 시너지그룹인 경우.
+				 * 시너지 그룹인 경우 com_position정보를 기준으로
+				 * ib_company에서 addr과 로고파일을 반환.
+				 *
+				 * 2. 시너지그룹이외의 관계사인 경우
+				 * org_id정보 기준으로 bs_org에서 로고파일과 주소를 반환.
+				 *
+				 */
+				/*int comOrgId = (Integer)formDocVo.get("orgId");
+				if(comOrgId ==1){
+					Map comInfo = certificationRqmtService.getComInfoForSynergy(formDocVo);
+					model.addAttribute("comInfo", comInfo);
+				}else{//관계사의 상세 정보 반환하기.
+					model.addAttribute("comInfo", certificationRqmtService.getOrgCompanyInfo(formDocVo));
+				}*/
+			//}
+			model.addAttribute("comInfo", certificationRqmtService.getOrgCompanyInfo(formDocVo));
+			String userType = String.valueOf(map.get("userType"));
+			if(StringUtils.isNotEmpty(userType) && StringUtils.equals(userType, "MNG")){
+				model.addAttribute("userType","PRN");
+			}else{
+				model.addAttribute("userType","USR");		//처리자
+			}
+			model.addAttribute("returnListUrl", "/system/certDocRqmt.do");
+			if("WorkDoc".equals((String)formDocVo.get("formDocCd")))
+				pageStr = "system/workDocView" + pageStr;
+			else
+				pageStr = "system/careerDocView" + pageStr;
+
+
+			return pageStr;
+		}
+
+	// 증명서 요청 취소 완료
+	@RequestMapping(value = "/system/cancelCertDoc.do")
+	public void cancelCertDoc(HttpServletResponse response, @RequestParam Map map)
+			throws Exception {
+
+		try {
+			logger.debug("########### CertficationController.cancelCertDoc() #################");
+			certificationRqmtService.cancelCertDoc(map);
+			AjaxResponse.responseAjaxObject(response, null); // 결과전송
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response,	"요청 취소 도중 오류가 발생하였습니다.");
+		}
+	}
+
+
+	// 증명서 반려 완료
+	@RequestMapping(value = "/system/returnCertDoc.do")
+	public void returnCertDoc(HttpServletResponse response, @RequestParam Map map, HttpSession session)
+			throws Exception {
+
+		try {
+			logger.debug("########### CertficationController.cancelCertDoc() #################");
+
+			Map loginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+			map.put("reqEndUserId", loginInfo.get("userId").toString());		//처리자 아이디
+
+			certificationRqmtService.returnCertDoc(map);
+			AjaxResponse.responseAjaxObject(response, null); // 결과전송
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response,	"요청 취소 도중 오류가 발생하였습니다.");
+		}
+	}
+
+
+	// 증명서 발급 페이지(재직증명서)
+	@RequestMapping(value = "/system/employCert.do")
+	public String employCert(HttpServletRequest request, @RequestParam Map map, ModelMap model) throws Exception {
+		HttpSession session = request.getSession();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		logger.debug("#######"+ baseUserLoginInfo.toString());
+
+		map.put("formDocNm", "재직증명서");
+		map.put("formDocCd","WorkDoc");
+
+
+		//페이지 초기화 시 사용자의 orgId 기준
+		String orgId = baseUserLoginInfo.get("orgId").toString();
+		map.put("orgId", orgId);
+		map.put("userId", baseUserLoginInfo.get("userId").toString());
+
+
+		//선택가능한 관계사 정보
+		model.addAttribute("orgList", certificationRqmtService.getOrgListByUser(map));
+
+		//관계사를 선택한 경우
+		String targetOrgId = (String)map.get("targetOrgId");
+		if(StringUtils.isNotEmpty(targetOrgId)){
+			map.put("targetOrgId", targetOrgId);
+		}else{
+			map.put("targetOrgId", orgId);
+		}
+		//사원 정보
+		model.addAttribute("empList", certificationRqmtService.getPerList(map));
+		//model.addAttribute("smsSeq", certificationRqmtService.getSmsSeq());
+
+		String spd = todayDate();
+		String[] spdArray = spd.split("-");
+		model.addAttribute("today", spdArray[0] + "년 " + spdArray[1] + "월 " + spdArray[2] + "일");
+
+		if(targetOrgId == null && StringUtils.isEmpty((String)map.get("targetUserId"))){
+			//초기화시 현재 사용자 정보 세팅
+			map.put("targetUserId" , baseUserLoginInfo.get("userId").toString());
+			model.addAttribute("perInfo", certificationRqmtService.getPerInfo(map));
+		}else if(StringUtils.isNotEmpty((String)map.get("targetUserId"))){
+			//타겟팅된 사원이 있는 경우
+			map.put("targetUserId", (String)map.get("targetUserId"));
+			model.addAttribute("perInfo", certificationRqmtService.getPerInfo(map));
+		}
+
+		model.addAttribute("vo", map);
+		return "system/workDocProc";
+
+	}
+
+	// 증명서 발급 페이지(경력증명서)
+	@RequestMapping(value = "/system/careerCert.do")
+	public String careerCert(HttpServletRequest request, @RequestParam Map map, ModelMap model) throws Exception {
+
+		logger.debug("####################### CertificationController.careerCert() #################");
+		HttpSession session = request.getSession();
+		Map baseUserLoginInfo = (Map) session.getAttribute("baseUserLoginInfo");
+
+		map.put("formDocNm", "경력증명서");
+		map.put("formDocCd","CareerDoc");
+
+		//내 관계사 기준으로 발급함.
+		map.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		map.put("userId", baseUserLoginInfo.get("userId").toString());
+
+		//관계사 정보
+		model.addAttribute("orgList", certificationRqmtService.getOrgListByUser(map));
+
+		//관계사를 선택한 경우
+		String targetOrgId = (String)map.get("targetOrgId");
+		if(StringUtils.isNotEmpty(targetOrgId)){
+			map.put("targetOrgId", targetOrgId);
+		}else{
+			map.put("targetOrgId", baseUserLoginInfo.get("orgId").toString());
+		}
+
+		//사용자의 관계사에서 퇴사한사원 정보
+		model.addAttribute("empList", certificationRqmtService.getAllPerList(map));
+
+		String spd = todayDate();
+		String[] spdArray = spd.split("-");
+		model.addAttribute("today", spdArray[0] + "년 " + spdArray[1] + "월 "	+ spdArray[2] + "일");
+
+		//타케팅 사원 정보(targetUserId)
+		if(StringUtils.isNotEmpty((String)map.get("targetUserId"))){
+			Map resultMap = certificationRqmtService.getPerInfo(map);
+			model.addAttribute("perInfo",	resultMap);
+		}
+
+		model.addAttribute("vo", map);
+		return "system/careerDocProc";
+	}
+
+	// 증명서 발급 요청 완료
+	@RequestMapping(value = "/system/certDocReqEnd.do")
+	public void FormDocReqEnd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map map) throws Exception {
+
+		try{
+			logger.debug("####################### CertificationController.FormDocReqEnd() ############### param : ["+ map.toString() +"]#########");
+
+			//증명서 정보 저장
+			int formDocReqSeq = certificationRqmtService.insertCertDoc(map);
+
+
+			AjaxResponse.responseAjaxObject(response, formDocReqSeq); // 결과전송
+		}catch(Exception ex){
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response,	"요청 취소 도중 오류가 발생하였습니다.");
+		}
+
+	}
+
+	// 경력증명서 관리자 처리
+	@RequestMapping(value = "/system/certDocReqProc.do")
+	public void certDocReqProc(HttpServletRequest request, HttpServletResponse response, @RequestParam Map map) throws Exception {
+
+		try{
+			logger.debug("####################### CertificationController.FormDocReqEnd() ############### param : ["+ map.toString() +"]#########");
+
+			//증명서 정보 저장
+			certificationRqmtService.certDocReqProc(map);
+
+			AjaxResponse.responseAjaxObject(response, null); // 결과전송
+		}catch(Exception ex){
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response,	"요청 취소 도중 오류가 발생하였습니다.");
+		}
+
+	}
+
+	// 증명서 발급 페이지(경력증명서)
+		@RequestMapping(value = "/system/careerMngCert.do")
+		public String careerMngCert(HttpServletRequest request, @RequestParam Map map, ModelMap model) throws Exception {
+
+			logger.debug("####################### CertificationController.careerCert() #################");
+			HttpSession session = request.getSession();
+			Map baseUserLoginInfo = (Map) session.getAttribute("baseUserLoginInfo");
+
+			map.put("formDocNm", "경력증명서");
+			map.put("formDocCd","CareerDoc");
+
+			//내 관계사 기준으로 발급함.
+			map.put("orgId", baseUserLoginInfo.get("orgId").toString());
+			map.put("userId", baseUserLoginInfo.get("userId").toString());
+
+			//관계사 정보
+			model.addAttribute("orgList", certificationRqmtService.getOrgListByUser(map));
+
+			//관계사를 선택한 경우
+			String targetOrgId = (String)map.get("targetOrgId");
+			if(StringUtils.isNotEmpty(targetOrgId)){
+				map.put("targetOrgId", targetOrgId);
+			}else{
+				map.put("targetOrgId", baseUserLoginInfo.get("orgId").toString());
+			}
+
+			//사용자의 관계사에서 퇴사한사원 정보
+			model.addAttribute("empList", certificationRqmtService.getAllPerList(map));
+
+			String spd = todayDate();
+			String[] spdArray = spd.split("-");
+			model.addAttribute("today", spdArray[0] + "년 " + spdArray[1] + "월 "	+ spdArray[2] + "일");
+
+			//타케팅 사원 정보(targetUserId)
+			if(StringUtils.isNotEmpty((String)map.get("targetUserId"))){
+				Map resultMap = certificationRqmtService.getPerInfo(map);
+				model.addAttribute("perInfo",	resultMap);
+			}
+
+			model.addAttribute("vo", map);
+
+			model.addAttribute("mngChk","Y");
+			return "system/careerDocProc";
+		}
+}

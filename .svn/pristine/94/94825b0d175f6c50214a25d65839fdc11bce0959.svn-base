@@ -1,0 +1,477 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+
+<!-- -------- each page css :S -------- -->
+<style>
+.existChild{
+	display:none;
+}
+</style>
+<!-- -------- each page css :E -------- -->
+
+
+
+<form name="myForm" method="post">
+	<div class="mo_container">
+		<table class="tb_basic_left">
+	    	<colgroup>
+			<col width="140" />
+			<col width="*" />
+			<col width="140" />
+			<col width="*" />
+			</colgroup>
+			<tbody>
+			<tr style="display:none;">	<!-- 부서분류는 ORG(조직도)로 FIX (1타입으로만 사용) -->
+	 			<th scope="row"><label for="">부서분류</label></th>
+	 			<td bgcolor="#F7F7F7" colspan="3">
+	 				<span id="deptClassSelectTag"></span>
+	   				<!-- <input id="inputDeptClass" type="text" name="deptClass" placeholder="분류를 입력" value="" class="input_b w100pro" /> -->
+	   			</td>
+	 		</tr>
+	 		<tr style="display:none;">
+	 			<!-- <th scope="row"><label for="inputDeptCode">부서코드</label></th>
+	 			<td><input id="inputDeptCode" type="text" name="deptCode" placeholder="부서코드를 입력" value="" class="input_b w100pro" maxlength="15" /></td> -->
+	 			<th scope="row"><label for="inputDeptId">부서아이디</label></th>
+	 			<td bgcolor="#F7F7F7" colspan="3"><input id="inputDeptId" type="text" name="deptId" placeholder="자동설정" value="" class="input_b w100pro" readonly="readonly" /></td>
+
+
+	 		</tr>
+			<tr>
+				<th scope="row"><label for="inputDeptKor">한글부서명</label></th>
+	 			<td><input id="inputDeptKor" type="text" name="korName" placeholder="한글부서명을 입력" value="" class="input_b w100pro" /></td>
+	 			<th scope="row"><label for="inputDeptEng">영문부서명</label></th>
+	 			<td><input id="inputDeptEng" type="text" name="engName" placeholder="영문부서명을 입력" value="" class="input_b w100pro" /></td>
+	 		</tr>
+	 		<tr>
+	 			<th scope="row"><label for="inputDeptDesc">설명</label></th>
+	 			<td colspan="3"><input id="inputDeptDesc" type="text" name="deptDesc" placeholder="설명을 입력" value="" class="input_b w100pro" /></td>
+	 		</tr>
+	 		<tr>
+	 			<th scope="row"><label for="parentDeptId">상위부서</label></th>
+	 			<td id="parentDeptArea"><span id="parentDeptSelectTag"></span></td>
+	 			<th scope="row"><label for="selDeptLevel">부서레벨</label></th>
+	 			<td bgcolor="#F7F7F7"><span id="deptLevelSelectTag"></span></td>
+	 		</tr>
+	 		<tr>
+	 			<th scope="row"><label for="selEnable">사용여부</label></th>
+	 			<td id="selEnableArea" colspan="3">
+	   				<select id="selEnable" name="enable" class="select_b" onchange="fnObj.selEnableChnged(this);">
+	   					<option value='Y'>Y</option>
+	   					<option value='N' style='background-color:#eee;'>N</option>
+	   				</select>
+	 			</td>
+
+	 		</tr>
+	 		<tr style="display:none;">
+	 			<th scope="row"><label for="selDummy">가상 부서 여부</label></th>
+	 			<td>
+	 				<select id="selDummy" name="dummy" class="select_b" onchange="fnObj.selEnableChnged(this);">
+	   					<option value='Y'>Y</option>
+	   					<option value='N' style='background-color:#eee;'>N</option>
+	   				</select>
+	   			</td>
+
+	 		</tr>
+	 		<tr style="display:none;">
+	 			<th scope="row"><label for="selProjectYn">${baseUserLoginInfo.projectTitle}할당 여부</label></th>
+	 			<td>
+	  				<select id="selProjectYn" name="projectYn" class="select_b" onchange="fnObj.selEnableChnged(this);">
+	   					<option value='Y'>Y</option>
+	   					<option value='N' style='background-color:#eee;'>N</option>
+	   				</select>
+	 			</td>
+	 			<th scope="row"><label for="selActivityYn">활동 할당 여부</label></th>
+	 			<td>
+	  				<select id="selActivityYn" name="activityYn" class="select_b" onchange="fnObj.selEnableChnged(this);">
+	   					<option value='Y'>Y</option>
+	   					<option value='N' style='background-color:#eee;'>N</option>
+	   				</select>
+	 			</td>
+	 		</tr>
+	 		<tr style="display:none;">
+	 			<th scope="row"><label for="selCostingYn">비용분석 여부</label></th>
+	 			<td>
+	  				<select id="selCostingYn" name="costingYn" class="select_b" onchange="fnObj.selEnableChnged(this);">
+	   					<option value='Y'>Y</option>
+	   					<option value='N' style='background-color:#eee;'>N</option>
+	   				</select>
+	 			</td>
+	 			<th scope="row"><label for="selApproveYn">결제 부서 여부</label></th>
+	 			<td>
+	  				<select id="selApproveYn" name="approveYn" class="select_b" onchange="fnObj.selEnableChnged(this);">
+	   					<option value='Y'>Y</option>
+	   					<option value='N' style='background-color:#eee;'>N</option>
+	   				</select>
+	 			</td>
+	 		</tr>
+	 		</tbody>
+		</table>
+		<div class="sys_p_noti mgt10">
+			<span class="icon_noti existUser"></span>
+			<span class="pointB existUser">해당 부서의 사원이 존재</span><span class="existUser">시 삭제 및 사용여부 수정 불가합니다.</span>
+			<!-- <p class="pointred mgr10 existChild"> 하위부서가 존재시 상위부서와 사용여부 수정불가, 해당부서 삭제 불가합니다.</p> -->
+			<p class="pointred mgr10 existChild"> 하위부서가 존재시 사용여부 수정불가, 해당부서 삭제 불가합니다.</p>
+			<p class="pointred mgr10 existChild"> 부서이동은 트리 메뉴에서 변경 시켜주세요.</p>
+		</div>
+		<div class="btnZoneBox">
+			<button id="btnSave" type="button" class="p_blueblack_btn btn_auth" onclick="fnObj.doSave();"><strong>저장</strong></button>
+			<c:if test="${mode ne 'new'}">
+			<button id="btnDel" type="button" class="p_blueblack_btn btn_auth" onclick="fnObj.tryDelete();">삭제</button>
+			</c:if>
+			<button id="btnSave" type="button" class="p_withelin_btn btn_auth" onclick="fnObj.myWinClose();"><strong>닫기</strong></button>
+		</div>
+	</div>
+</form>
+
+<div id = "groupLevelBufArea" style="display: none;"></div>
+
+
+<script type="text/javascript">
+
+//Global variables :S ---------------
+var lang = '${baseUserLoginInfo.lang}';
+
+//공통코드
+var comCodeDeptClass;				//부서분류
+var comCodeLevelClass;				//부서레벨
+var deptListCombo;					//부서리스트
+
+var mode = "<c:out value='${mode==null?"new":mode}'/>";		//"new", "update"
+var deptInfoObj = "<c:out value='${deptInfoObj}'/>";
+var g_deptId = "<c:out value='${deptId}'/>";
+var parentDeptId = "<c:out value='${parentDeptId==null?"null":parentDeptId}'/>";
+var level = "<c:out value='${level}'/>";
+var codeList = "${codeList}";								//기존 등록된 부서 코드 리스트 문자열 ex) 'EAM,SYSTEM,ROL_PER_USER,...'
+
+var targetOrgId = "${targetOrgId}";
+
+//var inputTitleBorder;				//제목 border style
+//var contentBorder;					//내용 border style
+
+//Global variables :E ---------------
+
+
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+var fnObj = {
+
+	//################# init function :S #################
+
+	//선로딩코드
+	preloadCode: function(){
+		//공통코드
+		comCodeDeptClass = getBaseCommonCode('DEPT_CLASS', lang, 'CD', 'NM', null, '', '', {orgId : targetOrgId});		//메뉴타입 공통코드 (Sync ajax)
+		//console.log(comCodeDeptClass);
+		if(comCodeDeptClass == null){
+			comCodeDeptClass= [{'CD':'', 'NM': '선택'}];
+		}
+		comCodeDeptLevel = getBaseCommonCode('DEPT_LEVEL', lang, 'CD', 'NM', null, '', '', {orgId : targetOrgId});		//메뉴타입 공통코드 (Sync ajax)
+		if(comCodeDeptLevel == null){
+			comCodeDeptLevel= [{'CD':'', 'NM': '선택'}];
+		}
+		deptListCombo = getCodeInfo(lang, 'CD', 'NM', null, null, '', '/system/getDeptListCombo.do?targetOrgId='+targetOrgId);		//부서목록(콤보용) 호출
+		if(deptListCombo != null){
+			deptListCombo.unshift({NM : "없음", CD : "0"});
+
+			if(mode=="update"){
+				var idx = getRowIndexWithValue(deptListCombo, 'CD', g_deptId);		//선택한 부서는 자기자신을 부모로 지정할 수 없도록 찾아서
+				deptListCombo.splice(idx, 1);										//빼준다.
+			}
+
+		}else{
+			deptListCombo = [{NM : "없음", CD : "0"}];
+		}
+
+		var colorObj = {};
+		var deptClassSelectTag = createSelectTag('selDeptClass', comCodeDeptClass, 'CD', 'NM', this.value, '', colorObj);		//select tag creator 함수 호출 (common.js)
+		$("#deptClassSelectTag").html(deptClassSelectTag);
+
+		if(mode=="new"){
+			var deptListComboSelectTag = createSelectTag('parentDeptId', deptListCombo, 'CD', 'NM', this.parentDeptId, '', colorObj, null, 'select_b w100pro');      //select tag creator 함수 호출 (common.js)
+	        $("#parentDeptSelectTag").html(deptListComboSelectTag);
+		}else{
+			var strHtml = "<input type='hidden' name='parentDeptId' id='parentDeptId' value='"+ this.parentDeptId +"'/>";
+			$("#parentDeptSelectTag").html(strHtml);
+		}
+
+
+
+		var deptLevelSelectTag = createSelectTag('selDeptLevel', comCodeDeptLevel, 'CD', 'NM', 'L05', '', colorObj, null, 'select_b w100pro');		//select tag creator 함수 호출 (common.js)
+		$("#deptLevelSelectTag").html(deptLevelSelectTag);
+
+		//부서레벨,  시너지 : 회장(L00), 그룹대표(L10), 대표(L20), 그룹사에 관계사가 여러회사인경우: 그룹대표, 대표 사용
+		if('${baseUserLoginInfo.isSynergyYn}' == 'N' && '${businessGroupCnt}' == '1'){
+			$("select[name='selDeptLevel'] option[value='L00']").remove();
+			$("select[name='selDeptLevel'] option[value='L10']").remove();
+		}else if('${baseUserLoginInfo.isSynergyYn}' == 'N' && '${businessGroupCnt}' > '1'){
+			$("select[name='selDeptLevel'] option[value='L00']").remove();
+        }
+	},
+
+
+	//화면세팅
+    pageStart: function(){
+
+    	$("#inputSort").bindNumber({min:0, max:1000});
+    },//end pageStart.
+  	//################# init function :E #################
+
+
+    //################# else function :S #################
+
+  	//저장
+    doSave: function(){
+
+    	//-------------------- validation :S --------------------
+    	var frm = document.myForm;
+
+
+    	if(isEmpty(frm.selDeptClass.value)){		//부서분류
+    		dialog.push({body:"<b>확인!</b> 부서분류를 선택해주세요!", type:"", onConfirm:function(){frm.deptClass.focus();}});
+    		return;
+    	}
+    	/* if(isEmpty(frm.deptCode.value)){			//부서코드
+    		dialog.push({body:"<b>확인!</b> 부서코드를 입력해주세요!", type:"", onConfirm:function(){frm.deptCode.focus();}});
+    		return;
+    	} */
+    	if(isEmpty(frm.korName.value)){			//한글부서명
+    		dialog.push({body:"<b>확인!</b> 한글부서명을 입력해주세요!", type:"", onConfirm:function(){frm.korName.focus();}});
+    		return;
+    	}
+    	if(isEmpty(frm.parentDeptId.value)){		//영문부서명
+    		dialog.push({body:"<b>확인!</b> 상위부서코드를 입력해주세요!", type:"", onConfirm:function(){frm.parentDeptId.focus();}});
+    		return;
+    	}
+
+    	if(frm.parentDeptId.value != "0" && frm.selDeptLevel.value == "L00"){
+    		dialog.push({body:"<b>확인!</b> 상위부서가 있을경우 부서레벨을 회장으로 선택할 수 없습니다.", type:"", onConfirm:function(){frm.parentDeptId.focus();}});
+    		return;
+    	}
+    	//----- 부서코드명가 이미 존재하는 코드인지
+		/* var deptCode = frm.deptCode.value.toUpperCase();		//등록하려는 코드
+    	var codeListArr = codeList.split(',');
+
+    	for(var i=0; i<codeListArr.length; i++){
+    		if(codeListArr[i] == deptCode){		//기 등록 코드명이면
+    			dialog.push({body:"<b>확인!</b> 이미 등록된 부서코드 입니다! <br><br> 다른 코드명을 입력해주세요!", type:"", onConfirm:function(){frm.deptCode.select();}});
+        		return;
+    		}
+    	}
+ */
+    	//-------------------- validation :E --------------------
+
+    	var url = contextRoot + "/system/doSaveDept.do";
+    	var param = {
+    			mode: mode,			//화면 모드 mode : "new", "update"
+    			deptId			: frm.deptId.value,
+    			deptClass		: frm.selDeptClass.value,
+    		//	deptCode		: frm.deptCode.value,
+    			korName			: frm.korName.value,
+    			engName			: frm.engName.value,
+    			deptDesc		: frm.deptDesc.value,
+    			enable			: frm.enable.value,
+    			dummy			: 'N',				//frm.dummy.value,		가상부서여부...'N' 으로 고정(현재안쓰니) 20170419
+    			level			: frm.selDeptLevel.value,
+    			levelName		: frm.selDeptLevel.value,
+    			levelSeq		: frm.selDeptLevel.selectedIndex,
+    			approveYn		: frm.approveYn.value,
+    			projectYn		: frm.projectYn.value,
+    			activityYn		: frm.activityYn.value,
+    			costingYn		: frm.costingYn.value,
+    			parentDeptId	: frm.parentDeptId.value,
+    			targetOrgId 	: targetOrgId
+    	}
+
+    	var callback = function(result){
+
+    		var obj = JSON.parse(result);
+
+    		//세션로그아웃 >> 재로그인
+    		if(obj.result=='FAIL' && obj.resultVal=='SESSION'){
+    			window.open('<c:url value="/login/loginPop.do" />', 'loginPop', 'width=500 height=200');
+    		}
+
+    		var cnt = obj.resultVal;	//결과수
+
+    		if(obj.result == "SUCCESS"){
+
+    			parent.fnObj.doLoadTreeview();				//목록화면 재조회 호출.
+    			parent.myModal.close();					//글쓰기 창 닫기.
+    			//parent.dialog.push("등록OK!");
+    			parent.toast.push("저장OK!");
+    		}else{
+    			//alertMsg();
+    		}
+
+    	};
+
+    	commonAjax("POST", url, param, callback);
+    },//end doSave
+
+
+    //부서정보 가져오기
+    getDeptInfo: function(mode){
+
+    	var frm = document.myForm;
+
+    	if(mode=="update" && deptInfoObj.length>0){
+
+        	var deptInfo = JSON.parse(deptInfoObj.replace(/&#034;/gi,'"'));
+
+        	//부서정보 세팅
+	    	frm.deptId.value = deptInfo.deptId;
+	    	//console.debug('deptInfo.deptClass : ' + deptInfo.deptClass);
+			frm.selDeptClass.value = deptInfo.deptClass;
+			//frm.deptCode.value = deptInfo.deptCode;
+			frm.korName.value = deptInfo.korName;
+			frm.engName.value = deptInfo.engName;
+			frm.deptDesc.value = deptInfo.deptDesc;
+			frm.enable.value = deptInfo.enable;
+			frm.dummy.value = deptInfo.dummy;
+			//console.debug('deptInfo.levelName : ' + deptInfo.levelName);
+			//console.debug('deptInfo.levelSeq : ' + deptInfo.levelSeq);
+			frm.selDeptLevel.value = deptInfo.level;
+
+			//frm.levelSeq.value = deptInfo.levelSeq;
+			frm.approveYn.value = deptInfo.approveYn;
+			frm.projectYn.value = deptInfo.projectYn;
+			frm.activityYn.value = deptInfo.activityYn;
+			frm.costingYn.value = deptInfo.costingYn;
+			frm.parentDeptId.value = deptInfo.parentDeptId;
+			//console.debug(deptInfo.parentDeptId);
+			fnObj.selEnableChnged(frm.enable);	//enable 'N'배경색 반영
+			//console.log(deptInfo.userCount);
+			if(deptInfo.childCount>0 || deptInfo.userCount>0){	//하위부서가 존재하거나 현재 부서에 등록된 사람이 있을때( 메인외 부서원들까지..)
+				$("#btnDel").hide();
+				$("#selEnableArea").append("<b>수정불가</b>");
+				$("#selEnable").hide();
+
+				/* if(deptInfo.childCount>0){
+					$(".existChild").show();		//하위부서에 관련한 문구
+					$("#parentDeptId").hide();
+					$("#parentDeptArea").append("<b>수정불가</b>");
+				} */
+			}
+
+			if(deptInfo.userCount==0){
+				$(".existUser").hide();				//사원선택에 관련한 문구
+			}
+
+			//수정시 상위부서 수정불가
+			$(".existChild").show();     //하위부서에 관련한 문구
+            $("#parentDeptId").hide();
+            $("#parentDeptArea").append(deptInfo.parentDeptNm);
+		}else{
+    		if( parentDeptId != 'undefined' ){
+    			frm.parentDeptId.value = parentDeptId;
+    			//frm.level.value = level;
+    		}
+    		else{
+    			//frm.level.value  = 0;
+    		}
+    	}
+
+
+
+    },//end getArticle
+
+
+    //권한삭제 (일단 enable(사용여부 N 으로... 사용여부N으로 하고 저장하는 부분과 중복이나, 바서 진짜 삭제해도 되면 삭제!!!!!!))
+    tryDelete: function(){
+    	/*
+    	dialog.push({body:'<b>Caution</b> 삭제하시겠습니까?',
+    				 type:'Caution',
+    				 onConfirm:fnObj.doDelete,
+    				 data:'onConfirmData'});
+    	*/
+
+    	dialog.push({
+		    body:'<b>Caution</b>&nbsp;&nbsp;삭제하시겠습니까?', top:0, type:'Caution', buttons:[
+                {buttonValue:'삭제', buttonClass:'Red', onClick:fnObj.doDelete},	//, data:{param:"222"}},	//Red W100
+                {buttonValue:'취소', buttonClass:'Blue', onClick:function(){}}	//, data:'data2'},
+                //{buttonValue:'button3', buttonClass:'Green', onClick:fnObj.btnClick, data:'data3'}
+		    ]});
+    },
+    doDelete: function(){
+
+    	var url = contextRoot + "/system/deleteDept.do";
+    	var param = {
+    			deptId: document.myForm.deptId.value
+    	}
+    	var callback = function(result){
+
+    		var obj = JSON.parse(result);
+
+    		//세션로그아웃 >> 재로그인
+    		if(obj.result=='FAIL' && obj.resultVal=='SESSION'){
+    			window.open('<c:url value="/login/loginPop.do" />', 'loginPop', 'width=500 height=200');
+    		}
+
+    		var cnt = obj.resultVal;	//결과수
+
+    		if(obj.result == "SUCCESS"){
+    			parent.fnObj.doLoadTreeview();		//부서트리 세팅
+
+    			parent.myModal.close();					//글쓰기 창 닫기.
+    			//parent.dialog.push("등록OK!");
+    			parent.toast.push("삭제OK!");
+    		}else{
+    			//alertMsg();
+    		}
+
+    	};
+
+    	commonAjax("POST", url, param, callback);
+
+    },
+
+    //사용여부 선택
+    selEnableChnged: function(obj){
+    	//background-color
+    	var styleStr = $("#" + obj.id + " > option[value='" + obj.value + "']").attr('style');
+    	$(obj).attr('style', styleStr);
+
+    	if( obj.id == "selProjectYn" && obj.value =="N"){
+
+    		var tmpObj = document.getElementById("selActivityYn");
+    		tmpObj.value = "N";
+    		$(tmpObj).attr('style', styleStr);
+
+    		tmpObj = document.getElementById("selCostingYn");
+    		tmpObj.value = "N";
+    		$(tmpObj).attr('style', styleStr);
+    	}
+
+    	//var tmpObj =  document.getElementById("selProjectYn");
+
+
+    	//alert(styleStr);
+    },
+    myWinClose: function(){
+    	parent.myModal.close();
+    }
+
+  	//################# else function :E #################
+
+};//end fnObj.
+
+
+
+/*
+ * 화면로딩완료후, 자바스크립트 화면세팅 과 그외동작들 호출.
+ */
+$(function(){
+	fnObj.preloadCode();	//공통코드 or 각종선로딩코드
+	fnObj.pageStart();		//화면세팅
+
+	//수정모드일때 내용가져오기
+	fnObj.getDeptInfo(mode);
+
+
+});
+
+</script>

@@ -1,0 +1,4325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="project">
+
+	<!--
+
+	<typeAlias  alias="carVO" type="ib.car.service.CarVO"/>
+	 -->
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+
+	<!-- ############################ 프로젝트 관리 :S ############################ -->
+
+	<!-- 프로젝트 리스트 -->
+	<select id="project.selectProjectList" parameterClass="HashMap" resultClass="HashMap">
+		/* project.selectProjectList */
+		SELECT
+			   A.PROJECT_ID			AS projectId
+			  ,A.ORG_ID				AS orgId
+			  ,A.NAME				AS name
+			  ,A.PROJECT_CODE        AS projectCode
+		      ,A.DESCRIPTION		AS description
+		      ,A.PROJECT_TYPE		AS projectType
+		      ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = #orgId# AND X.CODE_NAME = 'PROJECT_TYPE' AND X.CODE_VALUE = A.PROJECT_TYPE) AS projectTypeNm
+		      ,A.PERIOD				AS period
+ 			  ,A.CONFIRM			AS confirm
+		      ,DATE_FORMAT(A.START_DATE, "%Y-%m-%d")	AS startDate
+			  ,DATE_FORMAT(A.END_DATE, "%Y-%m-%d")		AS endDate
+
+			  ,DATE_FORMAT(A.ORIGIN_END_DATE, "%Y-%m-%d")	AS originEndDate
+			  ,DATE_FORMAT(A.CLOSE_DATE, "%Y-%m-%d")		AS closeDate
+			  ,DATE_FORMAT(A.ORIGIN_CLOSE_DATE, "%Y-%m-%d")		AS originCloseDate
+
+		      ,A.BUDGET				AS budget
+		      ,A.BUDGET_AMT			AS budgetAmt
+		      ,A.EMPLOYEE			AS employee
+		      ,A.EXPENSE			AS expense
+		      ,A.OT_EXPENSE			AS overEx
+		      ,A.OVER_EXPENSE		AS overExpense
+		      ,A.TIMESHEET			AS timesheet
+		      ,A.OT_TIMESHEET		AS overTs
+			  ,A.SORT				AS sort
+
+			  ,IFNULL((SELECT
+				  		GROUP_CONCAT(X.SORT, ',')
+				  	FROM BS_PROJECT AS X WHERE 1=1
+				  	AND X.SORT IS NOT NULL
+				  	<isNotEmpty prepend="AND" property="orgId">
+						X.ORG_ID = #orgId#
+					</isNotEmpty>
+			  	),'')				AS sortArr
+		      ,A.ENABLE				AS enable
+		      ,A.CLOSE_DATE			AS closed
+			  ,A.PENDING_FLAG 		AS pendingFlag
+			  ,A.STOP_FLAG			AS stopFlag
+		      ,A.ATTR1				AS attr1
+		      ,A.ATTR2				AS attr2
+		      ,A.ATTR3				AS attr3
+		      ,A.ATTR4				AS attr4
+		      ,A.ATTR5				AS attr5
+			  ,A.OPEN_FLAG			AS openFlag
+		      ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			  ,A.CREATED_BY			AS createdBy
+			  ,(SELECT NAME FROM BASE.BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			  ,A.UPDATED_BY			AS updatedBy
+			  ,(SELECT NAME FROM BASE.BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+			  ,0 					AS chk	<!-- checkbox 사용 위해 -->
+			  ,(SELECT CASE WHEN A.CREATE_DATE &gt;= DATE_ADD(NOW(), INTERVAL -1 DAY)  THEN 'Y' ELSE 'N' END)	AS newYn
+
+			  ,IFNULL((SELECT
+				  			IFNULL(SUM(AMOUNT ),0) + IFNULL((SELECT SUM(PRICE) FROM IB_CARD_USED WHERE PROJECT_ID = A.PROJECT_ID AND EXPENSE_DOC_YN = 'N'),0)
+
+				  		FROM BS_APPV_DOC AS appr
+				  		WHERE appr.PROJECT_ID = A.PROJECT_ID
+				  			AND  appr.APPV_DOC_CLASS IN 	('EXPENSE')
+				  			AND  appr.DOC_STATUS  NOT IN ('WORKING', 'REJECT', 'CNL_COMMIT'))	,0	)	AS cardExpenseSum		<!-- 카드금액 전자결재 합계 -->
+              ,A.PROJECT_CLASS AS projectClass
+              ,A.OPEN_FLAG AS openFlag
+              <!-- 상태 :  EXPECT 예정, PROGRESS 진행 ,CLOSE_READY 마감대기, CLOSED 마감, PENDING 보류, STOP 중단, TEMP_SAVE 임시저장-->
+              ,(CASE WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'Y' THEN '보류'
+                       WHEN A.CONFIRM = 'Y' AND A.STOP_FLAG = 'Y' THEN '중단'
+                       WHEN A.CONFIRM = 'N' THEN '임시저장'
+                       WHEN A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.START_DATE <![CDATA[ > ]]>  CURDATE()THEN '예정'
+                       WHEN A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.START_DATE AND IF(A.END_DATE <![CDATA[>]]>A.CLOSE_DATE , A.CLOSE_DATE,A.END_DATE)
+                          THEN (CASE WHEN A.CLOSE_DATE BETWEEN CURDATE() AND CURDATE() + INTERVAL 7 DAY THEN CONCAT('진행(',DATEDIFF(CLOSE_DATE,CURDATE()),')')
+                                          ELSE '진행'
+                                   END)
+                       WHEN A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.END_DATE AND A.CLOSE_DATE
+                           THEN (CASE WHEN A.CLOSE_DATE BETWEEN CURDATE() AND CURDATE() + INTERVAL 7 DAY THEN CONCAT('마감대기(',DATEDIFF(CLOSE_DATE,CURDATE()),')')
+                                          ELSE '마감대기'
+                                   END)
+                       WHEN A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.CLOSE_DATE <![CDATA[ < ]]> CURDATE() THEN '마감'
+               END) AS projectStatusNm
+             ,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'PROJECT_TYPE' AND CODE_VALUE = A.PROJECT_TYPE AND ORG_ID = A.ORG_ID)  AS projectTypeNm
+			 ,(CASE WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'Y' THEN 'PENDING'												/*보류*/
+                       WHEN A.CONFIRM = 'Y' AND A.STOP_FLAG = 'Y' THEN 'STOP'													/*중단*/
+                       WHEN A.CONFIRM = 'N' THEN 'TEMP_SAVE'												/*임시저장*/
+			 		   WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND  A.START_DATE <![CDATA[ > ]]> CURDATE() THEN 'EXPECT'		/*예정*/
+                       WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND  CURDATE()  BETWEEN  A.START_DATE AND IF(A.END_DATE <![CDATA[>]]>A.CLOSE_DATE , A.CLOSE_DATE,A.END_DATE)
+                          THEN 'PROGRESS'																	/*진행*/
+                       WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND  CURDATE()  BETWEEN  A.END_DATE AND A.CLOSE_DATE THEN 'CLOSE_READY' /*마감대기*/
+                       WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND  A.CLOSE_DATE <![CDATA[ < ]]> CURDATE() THEN 'CLOSED'		/*마감*/
+               END) AS projectStatus
+           , (  SELECT COUNT(*) -1
+	            FROM BS_PROJECT_USER N
+	            WHERE  A.PROJECT_ID = N.PROJECT_ID
+	            AND N.ENABLE = 'Y' ) AS projectAttendUserCnt
+	       , (  SELECT M.NAME
+                FROM BS_PROJECT_USER N, BS_USER_MASTER M
+                WHERE  A.PROJECT_ID = N.PROJECT_ID
+                AND N.USER_ID = M.USER_ID
+                AND N.ENABLE = 'Y'
+                ORDER BY N.USER_ID LIMIT 1) AS projectAttendUser
+		  FROM BS_PROJECT				A
+		  WHERE 1=1
+		  AND IFNULL(A.PROJECT_CLASS,'') != 'VACATION'  /* 2017.03.20 휴가는 관리목록에서 제외함 */
+          AND (
+                    CASE WHEN #deptBossLevelYn# = 'Y' THEN 1=1  <!-- 부서가 회장, 그룹대표, 대표인 경우 조회가능 -->
+                           WHEN A.OPEN_FLAG = 'Y' THEN 1=1       <!-- 공개여부 Y 일땐 조회가능 -->
+                           ELSE (CASE WHEN A.EMPLOYEE = 'Y' THEN   <!-- 직원배정 Y 일땐 내것만, 아니면 조건없음 -->
+			                                                                 EXISTS (
+					                                                            SELECT 1
+					                                                             FROM BS_PROJECT_USER N
+					                                                             WHERE  A.PROJECT_ID = N.PROJECT_ID
+					                                                             AND N.ENABLE = 'Y'
+					                                                             AND N.USER_ID = #userId#
+					                                                         )
+                                   ELSE 1=1 END)
+                    END
+                )
+
+
+		<isNotEmpty prepend="AND" property="orgId">
+			A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="projectId">
+			A.PROJECT_ID = #projectId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="" property="search">
+			<isEqual prepend="AND" property="knd" compareValue="1">
+				A.NAME LIKE concat('%', #search#, '%')
+			</isEqual>
+			<isEqual prepend="AND" property="knd" compareValue="2">
+				A.DESCRIPTION LIKE concat('%', #search#, '%')
+			</isEqual>
+			<isEmpty prepend="AND" property="knd">
+				(A.NAME LIKE concat('%', #search#, '%')		OR
+				A.DESCRIPTION LIKE concat('%', #search#, '%'))
+			</isEmpty>
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="employee">		<!-- 구분 : 직원배정,전직원 -->
+			A.EMPLOYEE = #employee#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="projectType">   <!-- 유형 :  신제품 개발, 기존제품, 개선, 고객관리, 기타-->
+            A.PROJECT_TYPE = #projectType#
+        </isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="openFlag">   <!-- 공개 :  공개, 비공개 -->
+            A.OPEN_FLAG = #openFlag#
+        </isNotEmpty>
+        <isEqual prepend="AND" property="onlyMy" compareValue="Y"> <!-- 나의 업무 구분만 -->
+            A.CREATED_BY = #userId#
+        </isEqual>
+
+        <isNotEqual prepend="AND" property="enableAllYn" compareValue="Y"> <!-- 사용안함 포함 -->
+            A.ENABLE = 'Y'
+        </isNotEqual>
+
+		<isNotEmpty prepend="AND" property="projectStatus">		<!-- 상태 :  EXPECT 예정, PROGRESS 진행 ,CLOSE_READY 마감대기, CLOSED 마감, PENDING 보류, STOP 중단, TEMP_SAVE 임시저장-->
+			<isEqual property="projectStatus" compareValue="EXPECT">
+                (A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.START_DATE <![CDATA[ > ]]>  CURDATE())
+            </isEqual>
+			<isEqual property="projectStatus" compareValue="PROGRESS">
+				(A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.START_DATE AND IF(A.END_DATE <![CDATA[>]]>A.CLOSE_DATE , A.CLOSE_DATE,A.END_DATE) )
+			</isEqual>
+			<isEqual property="projectStatus" compareValue="CLOSE_READY">
+                (A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.END_DATE AND A.CLOSE_DATE)
+            </isEqual>
+			<isEqual property="projectStatus" compareValue="CLOSED">
+                (A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.CLOSE_DATE <![CDATA[ < ]]> CURDATE())
+            </isEqual>
+            <isEqual property="projectStatus" compareValue="PENDING">
+                A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'Y'
+            </isEqual>
+            <isEqual property="projectStatus" compareValue="STOP">
+                A.CONFIRM = 'Y' AND A.STOP_FLAG = 'Y'
+            </isEqual>
+            <isEqual property="projectStatus" compareValue="TEMP_SAVE">
+                A.CONFIRM = 'N'
+            </isEqual>
+		</isNotEmpty>
+
+		<isEqual prepend="AND" property="nearClose" compareValue="Y">   <!-- 마감임박 : Y, N -->
+            A.CONFIRM = 'Y' AND A.CLOSE_DATE BETWEEN CURDATE() AND CURDATE() + INTERVAL 7 DAY
+        </isEqual>
+
+		<isEqual prepend="AND"  property="confirm" compareValue="Y">  <!-- 확정여부 -->
+            A.CONFIRM = 'Y'
+        </isEqual>
+
+		<isEmpty prepend="" property="sortCol">
+			ORDER BY IF(A.SORT IS NULL ,A.SORT, A.SORT*-1) DESC
+
+			, IF(A.PROJECT_CLASS='BASE',1,9) ASC, A.CREATE_DATE DESC
+		</isEmpty>
+		<isNotEmpty prepend="" property="sortCol">
+		    <isEqual property="sortCol" compareValue="START_DATE">
+	            ORDER BY (CASE WHEN A.PERIOD ='N' THEN '9999-12-31' ELSE DATE_FORMAT(A.START_DATE,'%Y-%m-%d')  END) $sortVal$
+	        </isEqual>
+	        <isNotEqual property="sortCol" compareValue="START_DATE">
+                ORDER BY A.$sortCol$ $sortVal$
+            </isNotEqual>
+		</isNotEmpty>
+
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#,#limit#
+		</isNotEmpty>
+
+		/* project.selectProjectList */
+	</select>
+
+
+	<!-- 프로젝트 리스트 총 건수 -->
+	<select id="project.selectProjectListCount" parameterClass="HashMap" resultClass="Integer">
+		/* project.selectProjectListCount */
+		SELECT COUNT(*)
+		  FROM BS_PROJECT             A
+          WHERE 1=1
+          AND IFNULL(A.PROJECT_CLASS,'') != 'VACATION'  /* 2017.03.20 휴가는 관리목록에서 제외함 */
+          AND (
+                    CASE WHEN #deptBossLevelYn# = 'Y' THEN 1=1  <!-- 부서가 회장, 그룹대표, 대표인 경우 조회가능 -->
+                           WHEN A.OPEN_FLAG = 'Y' THEN 1=1       <!-- 공개여부 Y 일땐 조회가능 -->
+                           ELSE (CASE WHEN A.EMPLOYEE = 'Y' THEN   <!-- 직원배정 Y 일땐 내것만, 아니면 조건없음 -->
+                                                                             EXISTS (
+                                                                                SELECT 1
+                                                                                 FROM BS_PROJECT_USER N
+                                                                                 WHERE  A.PROJECT_ID = N.PROJECT_ID
+                                                                                 AND N.ENABLE = 'Y'
+                                                                                 AND N.USER_ID = #userId#
+                                                                             )
+                                   ELSE 1=1 END)
+                    END
+                )
+
+
+        <isNotEmpty prepend="AND" property="orgId">
+            A.ORG_ID = #orgId#
+        </isNotEmpty>
+
+        <isNotEmpty prepend="AND" property="projectId">
+            A.PROJECT_ID = #projectId#
+        </isNotEmpty>
+
+        <isNotEmpty prepend="" property="search">
+            <isEqual prepend="AND" property="knd" compareValue="1">
+                A.NAME LIKE concat('%', #search#, '%')
+            </isEqual>
+            <isEqual prepend="AND" property="knd" compareValue="2">
+                A.DESCRIPTION LIKE concat('%', #search#, '%')
+            </isEqual>
+            <isEmpty prepend="AND" property="knd">
+                (A.NAME LIKE concat('%', #search#, '%')     OR
+                A.DESCRIPTION LIKE concat('%', #search#, '%'))
+            </isEmpty>
+        </isNotEmpty>
+
+        <isNotEmpty prepend="AND" property="employee">      <!-- 구분 : 직원배정,전직원 -->
+            A.EMPLOYEE = #employee#
+        </isNotEmpty>
+
+        <isNotEmpty prepend="AND" property="projectType">   <!-- 유형 :  신제품 개발, 기존제품, 개선, 고객관리, 기타-->
+            A.PROJECT_TYPE = #projectType#
+        </isNotEmpty>
+
+        <isNotEmpty prepend="AND" property="openFlag">   <!-- 공개 :  공개, 비공개 -->
+            A.OPEN_FLAG = #openFlag#
+        </isNotEmpty>
+         <isEqual prepend="AND" property="onlyMy" compareValue="Y"> <!-- 나의 업무 구분만 -->
+            A.CREATED_BY = #userId#
+        </isEqual>
+
+        <isNotEqual prepend="AND" property="enableAllYn" compareValue="Y"> <!-- 사용안함 포함 -->
+            A.ENABLE = 'Y'
+        </isNotEqual>
+
+        <isNotEmpty prepend="AND" property="projectStatus">     <!-- 상태 :  EXPECT 예정, PROGRESS 진행 ,CLOSE_READY 마감대기, CLOSED 마감, PENDING 보류, STOP 중단, TEMP_SAVE 임시저장-->
+            <isEqual property="projectStatus" compareValue="EXPECT">
+                (A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.START_DATE <![CDATA[ > ]]>  CURDATE())
+            </isEqual>
+            <isEqual property="projectStatus" compareValue="PROGRESS">
+                (A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.START_DATE AND IF(A.END_DATE <![CDATA[>]]>A.CLOSE_DATE , A.CLOSE_DATE,A.END_DATE) )
+            </isEqual>
+            <isEqual property="projectStatus" compareValue="CLOSE_READY">
+                (A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.END_DATE AND A.CLOSE_DATE)
+            </isEqual>
+            <isEqual property="projectStatus" compareValue="CLOSED">
+                (A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.CLOSE_DATE <![CDATA[ < ]]> CURDATE())
+            </isEqual>
+            <isEqual property="projectStatus" compareValue="PENDING">
+                A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'Y'
+            </isEqual>
+            <isEqual property="projectStatus" compareValue="STOP">
+                A.CONFIRM = 'Y' AND A.STOP_FLAG = 'Y'
+            </isEqual>
+            <isEqual property="projectStatus" compareValue="TEMP_SAVE">
+                A.CONFIRM = 'N'
+            </isEqual>
+        </isNotEmpty>
+
+        <isEqual prepend="AND" property="nearClose" compareValue="Y">   <!-- 마감임박 : Y, N -->
+            A.CONFIRM = 'Y' AND A.CLOSE_DATE BETWEEN CURDATE() AND CURDATE() + INTERVAL 7 DAY
+        </isEqual>
+
+        <isEqual prepend="AND"  property="confirm" compareValue="Y">  <!-- 확정여부 -->
+            A.CONFIRM = 'Y'
+        </isEqual>
+
+		/* project.selectProjectListCount */
+	</select>
+	<!-- 프로젝트 디테일 -->
+	<select id="project.getProjectInfo" parameterClass="HashMap" resultClass="HashMap">
+			SELECT
+
+				   A.PROJECT_ID			AS projectId
+				  ,A.ORG_ID				AS orgId
+				  ,A.NAME				AS name
+				  ,A.PROJECT_CODE        AS projectCode
+			      ,A.DESCRIPTION		AS description
+			      ,A.PROJECT_TYPE		AS projectType
+			      ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = #orgId# AND X.CODE_NAME = 'PROJECT_TYPE' AND X.CODE_VALUE = A.PROJECT_TYPE) AS projectTypeNm
+			      ,A.PERIOD				AS period
+	 			  ,A.CONFIRM			AS confirm
+			      ,DATE_FORMAT(A.START_DATE, "%Y-%m-%d")	AS startDate
+				  ,DATE_FORMAT(A.END_DATE, "%Y-%m-%d")		AS endDate
+
+				  ,DATE_FORMAT(A.ORIGIN_END_DATE, "%Y-%m-%d")	AS originEndDate
+				  ,DATE_FORMAT(A.CLOSE_DATE, "%Y-%m-%d")		AS closeDate
+				  ,DATE_FORMAT(A.ORIGIN_CLOSE_DATE, "%Y-%m-%d")		AS originCloseDate
+
+			      ,A.BUDGET				AS budget
+			      ,A.BUDGET_AMT			AS budgetAmt
+			      ,A.EMPLOYEE			AS employee
+			      ,A.EXPENSE			AS expense
+			      ,A.OT_EXPENSE			AS overEx
+			      ,A.OVER_EXPENSE		AS overExpense
+			      ,A.TIMESHEET			AS timesheet
+			      ,A.OT_TIMESHEET		AS overTs
+
+			      ,A.ENABLE				AS enable
+			      ,A.CLOSE_DATE			AS closed
+				  ,A.PENDING_FLAG 		AS pendingFlag
+				  ,A.STOP_FLAG			AS stopFlag
+			      ,A.ATTR1				AS attr1
+			      ,A.ATTR2				AS attr2
+			      ,A.ATTR3				AS attr3
+			      ,A.ATTR4				AS attr4
+			      ,A.ATTR5				AS attr5
+				  ,A.OPEN_FLAG			AS openFlag
+			      ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+				  ,A.CREATED_BY			AS createdBy
+				  ,(SELECT NAME FROM BASE.BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+				  ,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = B.RANK AND ORG_ID = B.ORG_ID)	AS position
+				  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+				  ,A.UPDATED_BY			AS updatedBy
+				  ,(SELECT NAME FROM BASE.BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+				  ,0 					AS chk	<!-- checkbox 사용 위해 -->
+
+				  ,(SELECT CASE WHEN A.CREATE_DATE &gt;= DATE_ADD(NOW(), INTERVAL -1 DAY)  THEN 'Y' ELSE 'N' END)	AS newYn
+
+				  ,IFNULL((SELECT
+					  			IFNULL(SUM(AMOUNT ),0) + IFNULL((SELECT SUM(PRICE) FROM IB_CARD_USED WHERE PROJECT_ID = A.PROJECT_ID AND EXPENSE_DOC_YN = 'N'),0)
+					  			- IFNULL (
+					  						(SELECT SUM(IF(X.DEDUCT_YN = 'Y',0,X.EXPENSE_AMOUNT))
+					  						  FROM BS_PROJECT_EXPENSE X
+					  						 WHERE PROJECT_EXPENSE_ID IN (
+					  						 							SELECT MAX(Y.PROJECT_EXPENSE_ID)
+									  						  			  FROM BS_PROJECT_EXPENSE Y
+									  						  			 WHERE Y.PROJECT_ID= A.PROJECT_ID
+									  						  			GROUP BY Y.PROJECT_EXPENSE_TYPE , Y.PROJECT_EXPENSE_CLASS, Y.PROJECT_EXPENSE_REF_ID
+
+					  						 							)
+					  						 ),0
+					  					)
+					  		FROM BS_APPV_DOC AS appr
+					  		WHERE appr.PROJECT_ID = A.PROJECT_ID
+					  			AND  appr.APPV_DOC_CLASS IN 	('EXPENSE')
+					  			AND  appr.DOC_STATUS  NOT IN ('WORKING', 'REJECT', 'CNL_COMMIT'))	,0	)	AS cardExpenseSum		<!-- 카드금액 전자결재 합계 -->
+	              ,A.PROJECT_CLASS AS projectClass
+
+				 ,(CASE    WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'Y' THEN 'PENDING'												/*보류*/
+	                       WHEN A.CONFIRM = 'Y' AND A.STOP_FLAG = 'Y' THEN 'STOP'													/*중단*/
+	                       WHEN A.CONFIRM = 'N' THEN 'TEMP_SAVE'												/*임시저장*/
+				 		   WHEN A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.START_DATE <![CDATA[ > ]]> CURDATE() THEN 'EXPECT'		/*예정*/
+	                       WHEN A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.START_DATE AND IF(A.END_DATE <![CDATA[>]]>A.CLOSE_DATE , A.CLOSE_DATE,A.END_DATE)
+	                          THEN 'PROGRESS'																	/*진행*/
+	                       WHEN A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.END_DATE AND A.CLOSE_DATE THEN 'CLOSE_READY' /*마감대기*/
+	                       WHEN A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.CLOSE_DATE <![CDATA[ < ]]> CURDATE() THEN 'CLOSED'		/*마감*/
+	               END) AS projectStatus
+
+			  FROM BS_PROJECT				A
+			  LEFT JOIN BS_USER_MASTER		B	ON A.CREATED_BY = B.USER_ID
+
+			 WHERE 1=1
+			 AND IFNULL(A.PROJECT_CLASS,'') != 'VACATION'  /* 2017.03.20 휴가는 관리목록에서 제외함 */
+
+			<isNotEmpty prepend="AND" property="orgId">
+				A.ORG_ID = #orgId#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="projectId">
+				A.PROJECT_ID = #projectId#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="enable">
+				A.ENABLE = #enable#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="projectType">
+				A.PROJECT_TYPE = #projectType#
+			</isNotEmpty>
+			<isNotEmpty prepend="" property="search">
+				<isEqual prepend="AND" property="knd" compareValue="1">
+					A.NAME LIKE concat('%', #search#, '%')
+				</isEqual>
+				<isEqual prepend="AND" property="knd" compareValue="2">
+					A.DESCRIPTION LIKE concat('%', #search#, '%')
+				</isEqual>
+				<isEmpty prepend="AND" property="knd">
+					(A.NAME LIKE concat('%', #search#, '%')		OR
+					A.DESCRIPTION LIKE concat('%', #search#, '%'))
+				</isEmpty>
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="employee">		<!-- 직원배정유형 -->
+				A.EMPLOYEE = #employee#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="status">		<!-- 진행여부 -->
+
+				<isEqual property="status" compareValue="Y">
+					(A.CONFIRM = 'Y' AND  DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN  DATE_FORMAT(A.START_DATE,'%Y-%m-%d') AND DATE_FORMAT(A.CLOSE_DATE,'%Y-%m-%d'))
+
+				</isEqual>
+
+				<isEqual property="status" compareValue="N">
+					(A.CONFIRM = 'N' OR  (DATE_FORMAT(NOW(),'%Y-%m-%d') &lt; DATE_FORMAT(A.START_DATE,'%Y-%m-%d') OR DATE_FORMAT(NOW(),'%Y-%m-%d') &gt; DATE_FORMAT(A.CLOSE_DATE,'%Y-%m-%d')))
+				</isEqual>
+
+			</isNotEmpty>
+
+			<isEqual prepend="AND"  property="confirm" compareValue="Y">  <!-- 확정여부 -->
+	            A.CONFIRM = 'Y'
+	        </isEqual>
+
+			<isEmpty prepend="" property="sortCol">
+				ORDER BY IF(A.PROJECT_CLASS='BASE',1,9) ASC, A.CREATE_DATE DESC
+			</isEmpty>
+			<isNotEmpty prepend="" property="sortCol">
+			 	ORDER BY A.$sortCol$ $sortVal$
+			</isNotEmpty>
+
+			<isNotEmpty prepend="" property="limit">
+				LIMIT #offset#,#limit#
+			</isNotEmpty>
+
+			/* project.getProjectInfo */
+		</select>
+
+	<!-- 프로젝트 배정직원 리스트 -->
+	<select id="project.selectProjectUserList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.PROJECT_ID		AS projectId
+			  ,A.USER_ID		AS userId
+			  ,A.DEFAULT_YN		AS defaultYn
+			  ,A.`ENABLE`		AS enable
+			  ,B.NAME			AS userNm
+			  ,B.EMP_NO			AS empNo
+			  ,SUBSTRING_INDEX(B.EMP_NO, '_', -1) AS empNoView	/* 마지막 SELECT절, VIEW USE */
+			  ,B.LOGIN_ID		AS loginId
+
+		      ,IFNULL(
+		  		(SELECT MAX(SCHE_E_DATE)
+		  			FROM  ERP_SCHEDULE AS sche
+		  			WHERE sche.PROJECT_ID = #projectId#
+			  			AND sche.DEL_FLAG = 'N'
+			  			AND sche.PER_SABUN = B.EMP_NO
+			  			AND DATE_FORMAT(now(),'%Y-%m-%d') &lt;= SCHE_E_DATE),'') AS scheChk			<!-- 오늘 이후 스케쥴 -->
+			  ,IFNULL(
+			  		(SELECT DATE_FORMAT(MAX(ifnull(appr.DATE_TO,appr.CREATE_DATE)), '%Y-%m-%d')
+			  			FROM BS_APPV_DOC AS appr
+			  			WHERE appr.PROJECT_ID = #projectId#
+			  				AND appr.USER_ID= B.USER_ID
+				  			 ),'') AS apprChk		<!-- 오늘 이후 전자결재 -->
+			  ,IFNULL(
+		  		(SELECT MAX(SCHE_E_DATE)
+		  			FROM  ERP_SCHEDULE AS sche
+		  			WHERE sche.PROJECT_ID = #projectId#
+			  			AND sche.DEL_FLAG = 'N'
+			  			AND sche.PER_SABUN = B.EMP_NO
+			  			),'') AS scheChk2																<!-- 등록된 스케쥴체크 -->
+			  ,IFNULL(
+			  		(SELECT DATE_FORMAT(MAX(appr.DATE_TO), '%Y-%m-%d')
+			  			FROM BS_APPV_DOC AS appr
+			  			WHERE appr.PROJECT_ID = #projectId#
+			  				AND appr.USER_ID= B.USER_ID
+
+				  			),'') AS apprChk2															<!--등록된 전자결재 체크-->
+			  ,IFNULL(
+			  		(SELECT DATE_FORMAT(MAX(work.WORK_DATE), '%Y-%m-%d')
+			  			FROM BS_WORK_LIST AS work
+			  			WHERE work.PROJECT_ID = #projectId#
+			  				AND work.EMP_ID= B.USER_ID
+			  				AND work.WORK_TYPE = 'PRIVATE'
+				  			),'') AS memoPrivateChk															<!--등록된 개인 업무 체크-->
+			  ,IFNULL(
+			  		(SELECT MAX(list.WORK_DATE) AS WORK_DATE
+						FROM BS_TEAM_LIST team , BS_WORK_LIST list
+						WHERE  team.LIST_ID = list.LIST_ID
+						  AND list.PROJECT_ID = #projectId#
+						  AND (team.EMP_ID= B.USER_ID or team.CREATED_BY=B.USER_ID)
+			  				AND list.WORK_TYPE = 'TEAM'
+				  			),'') AS memoTeamChk															<!--등록된  팀업무 체크-->
+              ,D.KOR_NAME   AS deptNm
+              ,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = B.RANK AND ORG_ID = B.ORG_ID)       AS position
+              ,B.ORG_ID AS orgId
+              ,(SELECT CPN_NM FROM BS_ORG X, IB_COMPANY Y WHERE X.ORG_ID= B.ORG_ID AND Y.S_NB = X.COMPANY_SNB)   AS orgNm    <!-- ORG 명 -->
+		  FROM BS_PROJECT_USER	A
+		  LEFT JOIN BS_USER_MASTER	B ON A.USER_ID = B.USER_ID
+		  LEFT JOIN BS_USER_DEPARTMENT   C ON B.USER_ID = C.USER_ID
+                                                 AND C.MAIN_YN = 'Y'
+                                                 AND C.ENABLE = 'Y'
+                                                 AND C.DELETE_FLAG = 'N'
+          LEFT JOIN BS_DEPARTMENT   D ON C.DEPT_ID = D.DEPT_ID
+
+		 WHERE A.PROJECT_ID = #projectId#
+		   AND A.ENABLE = 'Y'
+
+		 ORDER BY B.NAME ASC
+
+		/* project.selectProjectUserList */
+	</select>
+
+
+	<!-- 프로젝트 등록(신규) -->
+	<insert id="project.insertProject" parameterClass="HashMap">
+		INSERT INTO BS_PROJECT(
+											 ORG_ID
+											,PROJECT_CODE
+											,NAME
+										 	,DESCRIPTION
+											,PROJECT_TYPE
+											,PROJECT_CLASS
+											,PERIOD
+											,START_DATE
+											,END_DATE
+
+											,ORIGIN_END_DATE			<!-- 최초종료일 -->
+											,CLOSE_DATE					<!-- 마감일 -->
+											,ORIGIN_CLOSE_DATE
+											,BUDGET
+											,BUDGET_AMT
+											,EMPLOYEE
+											,EXPENSE
+											,OT_EXPENSE
+											,OVER_EXPENSE
+											,TIMESHEET
+											,OT_TIMESHEET
+											,ENABLE
+
+											,CONFIRM					<!-- 확정여부 -->
+											,OPEN_FLAG
+											,CREATE_DATE
+											,CREATED_BY
+											,UPDATE_DATE
+											,UPDATED_BY
+
+										)VALUES(
+
+											 #orgId#
+										    ,#projectCode#
+											,#projectName#
+											,#projectDesc#
+											,#projectType#
+											,#projectClass#
+											,#period#
+											,IF((#startDate# IS NOT NULL AND #startDate# != ''), STR_TO_DATE(#startDate#, '%Y-%m-%d'), NULL)
+											,IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+											,IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+											,IF((#closeDate# IS NOT NULL AND #closeDate# != ''), STR_TO_DATE(#closeDate#, '%Y-%m-%d'), NULL)
+											,IF((#closeDate# IS NOT NULL AND #closeDate# != ''), STR_TO_DATE(#closeDate#, '%Y-%m-%d'), NULL)
+											,#budget#
+											,#budgetAmt#
+											,#employee#
+											,#expense#
+											,#overEx#
+											,#overExpense#
+											,#timesheet#
+											,#overTs#
+											,#enable#
+
+											,#confirm#
+											,#openFlag#
+											,now()
+											,#userSeq#
+											,now()
+											,#userSeq#
+										)
+
+		<selectKey resultClass="int" type="post" keyProperty="projectId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* project.insertProject */
+	</insert>
+
+	<!-- 기본 프로젝트 등록 -->
+	<insert id="project.insertBaseProject" parameterClass="Map">
+		INSERT INTO BS_PROJECT(
+											 ORG_ID
+											,PROJECT_CODE
+											,NAME
+										 	,DESCRIPTION
+											,PROJECT_TYPE
+											,PROJECT_CLASS
+											,PERIOD
+											,START_DATE
+											,END_DATE
+
+											,ORIGIN_END_DATE			<!-- 최초종료일 -->
+											,CLOSE_DATE					<!-- 마감일 -->
+											,ORIGIN_CLOSE_DATE
+
+											,BUDGET
+											,BUDGET_AMT
+											,EMPLOYEE
+											,EXPENSE
+											,OT_EXPENSE
+											,OVER_EXPENSE
+											,TIMESHEET
+											,OT_TIMESHEET
+											,ENABLE
+
+											,CONFIRM					<!-- 확정여부 -->
+											,OPEN_FLAG
+
+											,CREATE_DATE
+											,CREATED_BY
+											,UPDATE_DATE
+											,UPDATED_BY
+
+										)
+								VALUES
+								(
+								 #orgId#
+							    ,(SELECT IFNULL(
+									        CONCAT(B.ORG_CODE,'P',DATE_FORMAT(NOW(),'%y%m'), LPAD(RIGHT(MAX(A.PROJECT_CODE),3) + 1,3,'0'))
+									       ,CONCAT(B.ORG_CODE,'P',DATE_FORMAT(NOW(),'%y%m'), '001')
+									       ) AS NEW_PROJECT_CODE
+									FROM BS_PROJECT A, BS_ORG B
+									WHERE A.ORG_ID = B.ORG_ID
+									AND B.ORG_ID = #orgId#
+									AND MID(A.PROJECT_CODE,-7,4) = DATE_FORMAT(NOW(),'%y%m'))
+								,#name#
+								,#description#
+								,#projectType#
+								,#projectClass#
+								,#period#
+								,'2017-02-01 00:00:00'
+								,IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+								,IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+
+								,IF((#closeDate# IS NOT NULL AND #closeDate# != ''), STR_TO_DATE(#closeDate#, '%Y-%m-%d'), NULL)
+								,IF((#closeDate# IS NOT NULL AND #closeDate# != ''), STR_TO_DATE(#closeDate#, '%Y-%m-%d'), NULL)
+
+								,#budget#
+								,#budgetAmt#
+								,#employee#
+								,#expense#
+								,#overEx#
+								,#overExpense#
+								,#timesheet#
+								,#overTs#
+								,#enable#
+
+								,IF(#projectClass# = 'VACATION','Y','N')
+								,#openFlag#
+
+								,now()
+								,#userSeq#
+								,now()
+								,#userSeq#
+
+								)
+		<selectKey resultClass="int" type="post" keyProperty="projectId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		/* project.insertBaseProject */
+	</insert>
+
+
+	<!-- activity 등록 -->
+	<insert id="project.mergeActivity" parameterClass="Map">
+		<selectKey resultClass="int" keyProperty="nextActivityId">
+			SELECT IFNULL(MAX(ACTIVITY_ID),0) + 1 FROM BS_ACTIVITY
+		</selectKey>
+
+		INSERT INTO BS_ACTIVITY(
+										 ACTIVITY_ID
+										,PROJECT_ID
+									  	,LEVEL
+									  	,SORT
+									  	,NAME
+									  	,DESCRIPTION
+									  	,START_DATE
+									  	,END_DATE
+									  	,BUDGET
+									  	,BUDGET_AMT
+									  	,EMPLOYEE
+									  	,EXPENSE
+									  	,OVER_EXPENSE
+									  	,TIMESHEET
+									  	,ENABLE
+									  	,MNG_ACTIVITY_FLAG
+									 <!--  	,CLOSED -->
+
+									  	,CREATE_DATE
+										,CREATED_BY
+										,UPDATE_DATE
+										,UPDATED_BY
+									)
+							VALUES
+									(
+										 IFNULL(#activityId#, #nextActivityId#)
+										,#projectId#
+										,#level#
+										,#sort#
+										,#name#
+										,#description#
+										,IF((#startDate# IS NOT NULL AND #startDate# != ''), STR_TO_DATE(#startDate#, '%Y-%m-%d'), NULL)
+										,IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+										,#budget#
+										,(case when #budgetAmt# = '' then null else #budgetAmt# end)
+										,#employee#
+										,#expense#
+										,#overExpense#
+										,#timesheet#
+										,#enable#
+										,#mngActivityFlag#
+										<!-- ,'N' -->
+
+										,now()
+										,#userSeq#
+										,now()
+										,#userSeq#
+									)
+
+					ON DUPLICATE KEY
+					UPDATE
+							 SORT 			= #sort#
+							,NAME 			= #name#
+							,DESCRIPTION 	= #description#
+							,START_DATE 	= IF((#startDate# IS NOT NULL AND #startDate# != ''), STR_TO_DATE(#startDate#, '%Y-%m-%d'), NULL)
+							,END_DATE 		= IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+							,BUDGET 		= #budget#
+							,BUDGET_AMT 	= #budgetAmt#
+							,EMPLOYEE 		= #employee#
+							,EXPENSE 		= #expense#
+							,OVER_EXPENSE 	= #overExpense#
+							,TIMESHEET 		= #timesheet#
+							,ENABLE 		= #enable#
+
+							,UPDATE_DATE 	= now()
+							,UPDATED_BY 	= #userSeq#
+
+		/* project.mergeActivity */
+	</insert>
+	<!-- 기본 activity 등록 -->
+	<insert id="project.insertBaseActivity" parameterClass="Map">
+		INSERT INTO BS_ACTIVITY(
+										 PROJECT_ID
+										,LEVEL
+										,PARENT_ID
+										,SORT
+										,NAME
+										,DESCRIPTION
+										,START_DATE
+										,END_DATE
+										,BUDGET
+										,BUDGET_AMT
+										,EMPLOYEE
+										,EXPENSE
+										,OVER_EXPENSE
+										,TIMESHEET
+										,ENABLE
+										,CAR_USE
+										,CLIENT
+										,TIME_SPAN
+										,COLOR
+										,APPV_DOC_CLASS
+										,APPV_DOC_TYPE
+										,CREATE_DATE
+										,CREATED_BY
+										,UPDATE_DATE
+										,UPDATED_BY
+									)
+						<dynamic>
+							<iterate prepend="VALUES" conjunction=","  property="baseActivityMapList">
+							(
+							 				 #projectId#
+											,#baseActivityMapList[].level#
+											,#baseActivityMapList[].parentId#
+											,#baseActivityMapList[].sort#
+											,#baseActivityMapList[].name#
+											,#baseActivityMapList[].description#
+											,'2017-02-01 00:00:00'
+											,#baseActivityMapList[].endDate#
+											,#baseActivityMapList[].budget#
+											,#baseActivityMapList[].budgetAmt#
+											,#baseActivityMapList[].employee#
+											,#baseActivityMapList[].expense#
+											,#baseActivityMapList[].overExpense#
+											,#baseActivityMapList[].timesheet#
+											,#baseActivityMapList[].enable#
+											,#baseActivityMapList[].carUse#
+											,#baseActivityMapList[].client#
+											,#baseActivityMapList[].timeSpan#
+											,#baseActivityMapList[].color#
+											,IF(#baseActivityMapList[].appvDocClass# = '',NULL,#baseActivityMapList[].appvDocClass#)
+											,IF(#baseActivityMapList[].appvDocType# = '',NULL,#baseActivityMapList[].appvDocType#)
+											,now()
+											,#userSeq#
+											,now()
+											,#userSeq#
+
+							)
+							</iterate>
+						</dynamic>
+		/* project.insertBaseActivity */
+	</insert>
+
+	<!-- activity 수정 ... (parent_id 일괄추가수정) -->
+	<update id="project.updateActivityParentId" parameterClass="HashMap">
+		UPDATE BS_ACTIVITY			A
+		  LEFT JOIN BS_ACTIVITY		B ON A.PROJECT_ID = B.PROJECT_ID
+										 AND B.LEVEL = 0
+										 AND SUBSTR(B.SORT, 1, LENGTH(B.SORT)-2) = SUBSTR(A.SORT, 1, LENGTH(A.SORT)-2)
+
+				   SET A.PARENT_ID = B.ACTIVITY_ID
+
+				WHERE A.PROJECT_ID = #projectId#
+				  AND A.LEVEL = 1
+
+		/* project.updateActivityParentId */
+	</update>
+
+
+	<!-- activity 리스트 -->
+	<select id="project.selectActivityList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT DISTINCT
+			   A.ACTIVITY_ID		AS activityId
+			  ,A.PROJECT_ID			AS projectId
+			  ,B.NAME				AS projectNm
+			  ,B.DESCRIPTION		AS projectDesc
+			  ,A.LEVEL				AS level
+			  ,A.PARENT_ID			AS parentId
+			  ,A.SORT				AS sort
+			  ,A.NAME				AS name
+			  ,A.DESCRIPTION		AS description
+
+			  ,(SELECT PERIOD FROM BASE.BS_PROJECT WHERE PROJECT_ID = A.PROJECT_ID)	AS period
+			  ,DATE_FORMAT(A.START_DATE, "%Y-%m-%d")	AS startDate
+			  ,DATE_FORMAT(A.END_DATE, "%Y-%m-%d")		AS endDate
+
+			  ,A.BUDGET				AS budget
+			  ,A.BUDGET_AMT			AS budgetAmt
+			  ,A.EMPLOYEE			AS employee
+			  ,A.EXPENSE			AS expense
+			  ,A.OVER_EXPENSE		AS overExpense
+			  ,A.TIMESHEET			AS timesheet
+			  ,A.ENABLE				AS enable
+			  ,A.MNG_ACTIVITY_FLAG  AS mngActivityFlag
+			  ,B.CONFIRM			AS confirm
+
+
+			  ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			  ,A.CREATED_BY			AS createdBy
+			  ,(SELECT NAME FROM BASE.BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			  ,A.UPDATED_BY			AS updatedBy
+			  ,(SELECT NAME FROM BASE.BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+			  ,IF((SELECT COUNT(ACTIVITY_ID) FROM BASE.BS_ACTIVITY_USER	WHERE ACTIVITY_ID = A.ACTIVITY_ID AND ENABLE = 'Y' AND USER_ID = #userId#)>0, 'Y', 'N')	AS allocate
+			  ,IF((SELECT COUNT(ACTIVITY_ID) FROM BASE.BS_ACTIVITY_USER	WHERE ACTIVITY_ID = A.ACTIVITY_ID AND ENABLE = 'Y' AND USER_ID = #userId# AND DEFAULT_YN = 'Y')>0, 'Y', 'N')	as `default`
+
+			  ,IFNULL((SELECT
+				  			IFNULL(SUM(AMOUNT ),0) + IFNULL((SELECT SUM(PRICE) FROM IB_CARD_USED WHERE ACTIVITY_ID = A.ACTIVITY_ID),0)
+				  			- IFNULL (
+					  						(SELECT SUM(IF(X.DEDUCT_YN = 'Y',0,X.EXPENSE_AMOUNT))
+					  						  FROM BS_PROJECT_EXPENSE X
+					  						 WHERE PROJECT_EXPENSE_ID IN (
+					  						 							SELECT MAX(Y.PROJECT_EXPENSE_ID)
+									  						  			  FROM BS_PROJECT_EXPENSE Y
+									  						  			 WHERE Y.ACTIVITY_ID =  A.ACTIVITY_ID
+									  						  			GROUP BY Y.PROJECT_EXPENSE_TYPE , Y.PROJECT_EXPENSE_CLASS, Y.PROJECT_EXPENSE_REF_ID
+
+					  						 							)
+					  						 ),0
+					  					)
+				  		FROM BS_APPV_DOC AS appr
+				  		WHERE appr.ACTIVITY_ID = A.ACTIVITY_ID
+				  			AND  appr.APPV_DOC_CLASS IN ('EXPENSE')
+				  			AND  appr.DOC_STATUS  NOT IN ('WORKING', 'REJECT', 'CNL_COMMIT')),0	)	AS cardExpenseSum	<!-- 카드금액 전자결재 합계 -->
+			  ,( SELECT COUNT(*)
+			       FROM BS_WORK_LIST X
+			      WHERE X.ACTIVITY_ID = A.ACTIVITY_ID
+			    ) AS workCnt
+
+		  FROM BS_ACTIVITY			A
+		  LEFT JOIN BS_PROJECT		B 	ON A.PROJECT_ID = B.PROJECT_ID
+		 WHERE 1=1
+
+		<isNotEmpty prepend="AND" property="projectId">
+			A.PROJECT_ID = #projectId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="employee">
+			A.EMPLOYEE = #employee#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="enable">
+			A.ENABLE = #enable#
+		</isNotEmpty>
+
+		 ORDER BY A.SORT ASC
+
+		/* project.selectActivityList */
+	</select>
+
+
+	<!-- 개인별 activity 리스트 -->
+	<select id="project.selectUserActivityList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.ACTIVITY_ID		AS activityId
+			  ,A.PROJECT_ID			AS projectId
+			  ,B.NAME				AS projectNm
+			  ,B.PROJECT_CODE        AS projectCode
+			  ,B.DESCRIPTION		AS projectDesc
+			  ,A.LEVEL				AS level
+			  ,A.PARENT_ID			AS parentId
+			  ,A.SORT				AS sort
+			  ,A.NAME				AS name
+			  ,A.DESCRIPTION		AS description
+
+			  ,(SELECT PERIOD FROM BASE.BS_PROJECT WHERE PROJECT_ID = A.PROJECT_ID)	AS period
+			  ,DATE_FORMAT(A.START_DATE, "%Y-%m-%d")	AS startDate
+			  ,DATE_FORMAT(A.END_DATE, "%Y-%m-%d")		AS endDate
+
+			  ,A.BUDGET				AS budget
+			  ,A.BUDGET_AMT			AS budgetAmt
+			  ,A.EMPLOYEE			AS employee
+			  ,A.EXPENSE			AS expense
+			  ,A.OVER_EXPENSE		AS overExpense
+			  ,A.TIMESHEET			AS timesheet
+			  ,A.ENABLE				AS enable
+
+
+			  ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			  ,A.CREATED_BY			AS createdBy
+			  ,(SELECT NAME FROM BASE.BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			  ,A.UPDATED_BY			AS updatedBy
+			  ,(SELECT NAME FROM BASE.BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+			  ,IF((SELECT COUNT(ACTIVITY_ID) FROM BS_ACTIVITY_USER	WHERE ACTIVITY_ID = A.ACTIVITY_ID AND  ENABLE = 'Y' AND USER_ID = #userId#)>0, 'Y', 'N')	AS allocate
+			  ,IF((SELECT COUNT(ACTIVITY_ID) FROM BS_ACTIVITY_USER	WHERE ACTIVITY_ID = A.ACTIVITY_ID AND  ENABLE = 'Y' AND USER_ID = #userId# AND DEFAULT_YN = 'Y')>0, 'Y', 'N')	as `default`
+
+			  ,IFNULL((SELECT MAX(X.DEFAULT_YN)
+			    FROM BS_ACTIVITY_USER X
+			    WHERE X.ACTIVITY_ID = A.ACTIVITY_ID
+			    AND X.USER_ID = #userId#
+			    AND X.ENABLE = 'Y'
+			    AND X.DEFAULT_YN = 'Y'
+			    ),'N') AS defaultYn
+
+		  FROM BS_ACTIVITY			A
+		  LEFT JOIN BS_PROJECT		B ON A.PROJECT_ID = B.PROJECT_ID
+		  <!-- LEFT OUTER JOIN BS_ACTIVITY_USER        C ON A.ACTIVITY_ID = C.ACTIVITY_ID -->
+
+         WHERE 1=1
+         <!-- AND (
+                    CASE WHEN B.EMPLOYEE = 'Y' THEN  C.USER_ID = #userId# AND C.ENABLE = 'Y'    직원배정 Y 일땐 내것만, 아니면 조건없음
+                         ELSE 1=1 END
+              ) -->
+        AND (CASE WHEN B.EMPLOYEE = 'Y' THEN  A.ACTIVITY_ID IN (
+														                SELECT DISTINCT X.ACTIVITY_ID
+														                FROM BS_ACTIVITY_USER X
+														                WHERE X.ACTIVITY_ID = A.ACTIVITY_ID
+														                AND X.USER_ID = #userId#
+														                AND X.ENABLE = 'Y'
+													                 )   /* 직원배정 Y 일땐 내것만, 아니면 조건없음 */
+                         WHEN B.EMPLOYEE = 'A'  THEN 1=1
+               END)
+		<isNotEmpty prepend="AND" property="projectId">
+			A.PROJECT_ID = #projectId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="employee">
+			A.EMPLOYEE = #employee#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="enable">
+			A.ENABLE = #enable#
+		</isNotEmpty>
+
+		 ORDER BY A.SORT ASC
+
+		/* project.selectUserActivityList */
+	</select>
+
+
+	<!-- 개인별 activity 리스트(타임시트 사용가능 리스트) -->
+	<select id="project.selectUserActivityListForTimesheet" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.ACTIVITY_ID		AS actId
+			  ,A.NAME				AS actNm
+
+			  ,A.PROJECT_ID			AS pjtId
+			  ,B.NAME				AS pjtNm
+
+			  ,A.SORT				AS sort
+
+		  FROM BS_ACTIVITY			A
+		  LEFT JOIN BS_PROJECT		B ON A.PROJECT_ID = B.PROJECT_ID
+		  JOIN BS_ACTIVITY_USER		C ON A.ACTIVITY_ID = C.ACTIVITY_ID
+		  								 AND C.ENABLE = 'Y'
+		  								 AND C.USER_ID = #userId#			<!-- 개인 id -->
+		  								 AND B.ORG_ID = #applyOrgId#
+		 WHERE 1=1
+		   AND A.ENABLE = 'Y'
+		   AND A.TIMESHEET = 'Y'
+
+		 ORDER BY A.PROJECT_ID, A.SORT
+		/* project.selectUserActivityListForTimesheet */
+	</select>
+
+
+	<!-- activity 배정직원 리스트 -->
+	<select id="project.selectActivityUserList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.ACTIVITY_ID	AS activityId
+			  ,A.USER_ID		AS userId
+			  ,A.DEFAULT_YN		AS defaultYn
+			  ,A.`ENABLE`		AS enable
+			  ,A.LEADER_YN		AS leaderYn
+			  ,B.NAME			AS userNm
+			  ,B.EMP_NO			AS empNo
+			  ,B.LOGIN_ID		AS loginId
+			  ,IFNULL(
+			  		(SELECT MAX(SCHE_E_DATE)
+			  			FROM  ERP_SCHEDULE AS sche
+			  			WHERE sche.ACTIVITY_ID = #activityId#
+				  			AND sche.DEL_FLAG = 'N'
+				  			AND sche.PER_SABUN = B.EMP_NO
+				  			AND DATE_FORMAT(now(),'%Y-%m-%d') &lt;= SCHE_E_DATE),'') AS scheChk			<!-- 오늘 이후 스케쥴 -->
+
+			  ,IFNULL(
+			  		(SELECT DATE_FORMAT(MAX(ifnull(appr.DATE_TO,appr.CREATE_DATE)), '%Y-%m-%d')
+			  			FROM BS_APPV_DOC AS appr
+			  			WHERE appr.ACTIVITY_ID = #activityId#
+			  			  AND appr.USER_ID = B.USER_ID
+				  			 ),'') AS apprChk		<!--  전자결재 -->
+			  ,IFNULL(
+			  		(SELECT DATE_FORMAT(MAX(work.WORK_DATE), '%Y-%m-%d')
+			  			FROM BS_WORK_LIST AS work
+			  			WHERE work.ACTIVITY_ID = #activityId#
+			  				AND work.EMP_ID= B.USER_ID
+			  				AND work.WORK_TYPE = 'PRIVATE'
+				  			),'') AS memoPrivateChk															<!--등록된 개인 업무 체크-->
+			  ,IFNULL(
+			  		(SELECT MAX(list.WORK_DATE) AS WORK_DATE
+						FROM BS_TEAM_LIST team , BS_WORK_LIST list
+						WHERE  team.LIST_ID = list.LIST_ID
+						  AND list.ACTIVITY_ID = #activityId#
+						  AND team.EMP_ID= B.USER_ID
+			  				AND list.WORK_TYPE = 'TEAM'
+				  			),'') AS memoTeamChk															<!--등록된  팀업무 체크-->
+			  ,D.KOR_NAME   AS deptNm
+              ,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = B.RANK AND ORG_ID = B.ORG_ID)       AS position
+              ,B.ORG_ID AS orgId
+              ,(SELECT CPN_NM FROM BS_ORG X, IB_COMPANY Y WHERE X.ORG_ID= B.ORG_ID AND Y.S_NB = X.COMPANY_SNB)   AS orgNm    <!-- ORG 명 -->
+		  FROM BS_ACTIVITY_USER	A
+		  LEFT JOIN BS_USER_MASTER	B ON A.USER_ID = B.USER_ID
+		  LEFT JOIN BS_USER_DEPARTMENT   C ON B.USER_ID = C.USER_ID
+                                                 AND C.MAIN_YN = 'Y'
+                                                 AND C.ENABLE = 'Y'
+                                                 AND C.DELETE_FLAG = 'N'
+          LEFT JOIN BS_DEPARTMENT   D ON C.DEPT_ID = D.DEPT_ID
+		 WHERE A.ACTIVITY_ID = #activityId#
+		   AND A.ENABLE = 'Y'
+
+		 ORDER BY IF(A.LEADER_YN='Y',0,1), B.NAME ASC
+
+		/* project.selectActivityUserList */
+	</select>
+
+
+	<!-- activity 별 직원배정 등록 -->
+	<insert id="project.mergeActivityUser" parameterClass="Map">
+		INSERT INTO BS_ACTIVITY_USER(
+										 ACTIVITY_ID
+										,USER_ID
+										,DEFAULT_YN
+										,`ENABLE`
+										,LEADER_YN
+										,CREATE_DATE
+										,CREATED_BY
+										,UPDATE_DATE
+										,UPDATED_BY
+								)VALUES(
+										 #activityId#
+										,#userId#
+										<isNotEmpty prepend="" property="defaultYn">
+                                            , #defaultYn#
+                                        </isNotEmpty>
+                                        <isEmpty prepend="" property="defaultYn">
+                                            ,'N'
+                                        </isEmpty>
+										,'Y'
+										,#leaderYn#
+										,now()
+										,#userSeq#
+										,now()
+										,#userSeq#
+								)
+								ON DUPLICATE KEY
+								UPDATE
+									 LEADER_YN = #leaderYn#
+									,UPDATE_DATE = now()
+									,UPDATED_BY = #userSeq#
+                                <isNotEqual property="actionType" compareValue="UPDATE">
+						            <isNotEmpty prepend="" property="defaultYn">
+	                                    ,DEFAULT_YN = #defaultYn#
+	                                </isNotEmpty>
+						        </isNotEqual>
+								<isNotEmpty prepend="" property="enable">
+									,`ENABLE` = #enable#
+								</isNotEmpty>
+
+		/* project.mergeActivityUser */
+	</insert>
+
+
+	<!-- activity 별 직원배정 삭제(enable 'N', default 'N') -->
+	<insert id="project.updateDisableActivityUser" parameterClass="Map">
+		UPDATE BS_ACTIVITY_USER
+		   SET
+				`ENABLE` = 'N'
+				,LEADER_YN = 'N'
+				<!-- ,DEFAULT_YN = 'N' -->
+
+			 	,UPDATE_DATE = now()
+				,UPDATED_BY = #userSeq#
+
+		 WHERE ACTIVITY_ID = #activityId#
+
+			<iterate prepend="AND USER_ID NOT IN " property="empList" open="(" conjunction="," close=")">
+				#empList[].userId#
+			</iterate>
+
+		/* project.updateDisableActivityUser */
+	</insert>
+
+
+	<!-- project 별 직원배정 삭제(enable 'N', default 'N') -->
+	<insert id="project.updateDisableProjectUser" parameterClass="Map">
+		UPDATE BS_PROJECT_USER
+		   SET
+				`ENABLE` = 'N'
+				<!-- ,DEFAULT_YN = 'N' -->
+
+			 	,UPDATE_DATE = now()
+				,UPDATED_BY = #userSeq#
+
+		 WHERE PROJECT_ID = #projectId#
+
+			<iterate prepend="AND USER_ID NOT IN " property="pEmpList" open="(" conjunction="," close=")">
+				#pEmpList[].userId#
+			</iterate>
+
+		/* project.updateDisableProjectUser */
+	</insert>
+
+
+	<!-- project 별 직원배정 등록 -->
+	<insert id="project.mergeProjectUser" parameterClass="Map">
+		INSERT INTO BS_PROJECT_USER(
+										 PROJECT_ID
+										,USER_ID
+										,DEFAULT_YN
+										,`ENABLE`
+
+										,CREATE_DATE
+										,CREATED_BY
+										,UPDATE_DATE
+										,UPDATED_BY
+								)VALUES(
+										 #projectId#
+										,#userId#
+										<isNotEmpty prepend="" property="defaultYn">
+                                            , #defaultYn#
+                                        </isNotEmpty>
+                                        <isEmpty prepend="" property="defaultYn">
+                                            ,'N'
+                                        </isEmpty>
+										,'Y'
+
+										,now()
+										,#userSeq#
+										,now()
+										,#userSeq#
+								)
+								ON DUPLICATE KEY
+								UPDATE
+
+									 UPDATE_DATE = now()
+									,UPDATED_BY = #userSeq#
+                                <isNotEqual property="actionType" compareValue="UPDATE">
+                                    <isNotEmpty prepend="" property="defaultYn">
+                                        ,DEFAULT_YN = #defaultYn#
+                                    </isNotEmpty>
+                                </isNotEqual>
+								<isNotEmpty prepend="" property="enable">
+									,`ENABLE` = #enable#
+								</isNotEmpty>
+
+		/* project.mergeProjectUser */
+	</insert>
+
+
+	<!-- 직원별 기본 project 초기화 -->
+	<update id="project.updateInitUserDefaultProject" parameterClass="Map">
+		UPDATE BS_PROJECT_USER
+		   SET DEFAULT_YN = 'N'
+		   	  ,UPDATE_DATE = now()
+			  ,UPDATED_BY = #userSeq#
+
+		 WHERE USER_ID = #userId#
+		/*   AND DEFAULT_YN = 'Y'  */
+		/* project.updateInitUserDefaultProject */
+	</update>
+
+
+	<!-- 직원별 프로젝트별 기본 activity 초기화 -->
+	<update id="project.updateInitUserDefaultActivity" parameterClass="Map">
+		UPDATE BS_ACTIVITY_USER
+		   SET DEFAULT_YN = 'N'
+		   	  ,UPDATE_DATE = now()
+			  ,UPDATED_BY = #userSeq#
+
+		 WHERE USER_ID = #userId#
+         AND ACTIVITY_ID IN (SELECT ACTIVITY_ID FROM BASE.BS_ACTIVITY WHERE PROJECT_ID = #projectId#)
+
+		/* project.updateInitUserDefaultActivity */
+	</update>
+
+
+	<!-- 프로젝트 수정 -->
+	<update id="project.updateProject" parameterClass="HashMap">
+		UPDATE BS_PROJECT
+		   SET
+		  	  	NAME 			= #projectName#
+		  	   ,PROJECT_CODE  = #projectCode#
+		  	   ,DESCRIPTION		= #projectDesc#
+
+		  	   ,PERIOD			= #period#
+			   ,START_DATE		= IF((#startDate# IS NOT NULL AND #startDate# != ''), STR_TO_DATE(#startDate#, '%Y-%m-%d'), NULL)
+			   ,END_DATE		= IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+
+			  <isEqual property="beforeConfirm" compareValue="N">		<!-- 전에 값이 확정이 아닐때 -->
+
+			   ,ORIGIN_END_DATE	= IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)				<!-- 최초종료일 -->
+
+			  </isEqual>
+
+
+
+			   ,CLOSE_DATE		= IF((#closeDate# IS NOT NULL AND #closeDate# != ''), STR_TO_DATE(#closeDate#, '%Y-%m-%d'), NULL)		<!-- 마감일 -->
+
+			   ,PROJECT_TYPE	= #projectType#
+			   ,BUDGET			= #budget#
+			   ,BUDGET_AMT		= (CASE WHEN #budgetAmt# = '' THEN NULL ELSE #budgetAmt# END)
+			   ,TIMESHEET		= #timesheet#
+			   ,OT_TIMESHEET	= #overTs#
+
+			   ,EXPENSE			= #expense#
+			   ,OT_EXPENSE		= #overEx#
+			   ,OVER_EXPENSE	= #overExpense#
+
+			   ,ENABLE			= #enable#
+			   ,CONFIRM			= #confirm#			<!-- 확정여부 -->
+			   ,OPEN_FLAG		= #openFlag#
+			   ,EMPLOYEE		= #employee#
+
+			   <isEqual property="enable" compareValue="N">		<!-- 사용 여부 n 일떄 -->
+			   ,SORT			= NULL
+			   </isEqual>
+
+		  	   ,UPDATE_DATE		= now()
+			   ,UPDATED_BY		= #userSeq#
+
+		WHERE PROJECT_ID = #projectId#
+
+		/* project.updateProject */
+	</update>
+
+
+	<!-- 개인별 프로젝트 리스트 -->
+	<select id="project.selectUserProjectList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			   DISTINCT(A.PROJECT_ID)	AS projectId
+			  ,A.ORG_ID				AS orgId
+			  ,A.NAME				AS name
+			  ,A.PROJECT_CODE        AS projectCode
+		      ,A.DESCRIPTION		AS description
+		      ,A.PROJECT_TYPE		AS projectType
+		      ,A.PERIOD				AS period
+
+		      ,DATE_FORMAT(A.START_DATE, "%Y-%m-%d")	AS startDate
+			  ,DATE_FORMAT(A.END_DATE, "%Y-%m-%d")		AS endDate
+			  ,DATE_FORMAT(A.CLOSE_DATE, "%Y-%m-%d")	AS closeDate
+
+			  ,A.CONFIRM			AS confirm
+
+		      ,A.BUDGET				AS budget
+		      ,A.BUDGET_AMT			AS budgetAmt
+		      ,A.EMPLOYEE			AS employee
+		      ,A.EXPENSE			AS expense
+		      ,A.OVER_EXPENSE		AS overExpense
+		      ,A.TIMESHEET			AS timesheet
+
+		      ,A.OT_TIMESHEET		AS overTs
+		      ,A.OT_EXPENSE			AS overEx
+
+		      ,A.ENABLE				AS enable
+		      ,A.CLOSE_DATE			AS closed
+
+		      ,A.ATTR1				AS attr1
+		      ,A.ATTR2				AS attr2
+		      ,A.ATTR3				AS attr3
+		      ,A.ATTR4				AS attr4
+		      ,A.ATTR5				AS attr5
+
+		      ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			  ,A.CREATED_BY			AS createdBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			  ,A.UPDATED_BY			AS updatedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+			  ,0 					AS chk	<!-- checkbox 사용 위해 -->
+
+			  ,(SELECT CASE WHEN A.CREATE_DATE &gt;= DATE_ADD(NOW(), INTERVAL -1 DAY)  THEN 'Y' ELSE 'N' END)	AS newYn
+
+			  ,IFNULL((SELECT MAX(X.DEFAULT_YN)
+                FROM BS_PROJECT_USER X
+                WHERE X.PROJECT_ID = A.PROJECT_ID
+                AND X.USER_ID = #userId#
+                AND X.ENABLE = 'Y'
+                AND X.DEFAULT_YN = 'Y'
+                ),'N') AS defaultYn
+               <!-- 상태 :  EXPECT 예정, PROGRESS 진행 ,CLOSE_READY 마감대기, CLOSED 마감, PENDING 보류, STOP 중단, TEMP_SAVE 임시저장-->
+               ,(CASE WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'Y' THEN '보류'
+                       WHEN A.CONFIRM = 'Y' AND A.STOP_FLAG = 'Y' THEN '중단'
+                       WHEN A.CONFIRM = 'N' THEN '임시저장'
+                       WHEN A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.START_DATE <![CDATA[ > ]]>  CURDATE()THEN '예정'
+                       WHEN A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.START_DATE AND IF(A.END_DATE <![CDATA[>]]>A.CLOSE_DATE , A.CLOSE_DATE,A.END_DATE)
+                          THEN (CASE WHEN A.CLOSE_DATE BETWEEN CURDATE() AND CURDATE() + INTERVAL 7 DAY THEN CONCAT('진행(',DATEDIFF(CLOSE_DATE,CURDATE()),')')
+                                          ELSE '진행'
+                                   END)
+                       WHEN A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.END_DATE AND A.CLOSE_DATE
+                           THEN (CASE WHEN A.CLOSE_DATE BETWEEN CURDATE() AND CURDATE() + INTERVAL 7 DAY THEN CONCAT('마감대기(',DATEDIFF(CLOSE_DATE,CURDATE()),')')
+                                          ELSE '마감대기'
+                                   END)
+                       WHEN A.CONFIRM = 'Y' AND A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.CLOSE_DATE <![CDATA[ < ]]> CURDATE() THEN '마감'
+               END) AS projectStatusNm
+            ,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'PROJECT_TYPE' AND CODE_VALUE = A.PROJECT_TYPE AND ORG_ID = A.ORG_ID)  AS projectTypeNm
+
+		  FROM BS_PROJECT				A
+		  LEFT OUTER JOIN BS_PROJECT_USER			B	ON A.PROJECT_ID = B.PROJECT_ID
+		 WHERE 1=1
+		   AND A.ENABLE = 'Y'
+		   AND A.CONFIRM ='Y'
+		   AND A.ORG_ID = #applyOrgId#
+		  <!--  AND B.USER_ID = #userId# -->
+		   AND (
+		   		 	CASE WHEN A.EMPLOYEE = 'Y' THEN B.USER_ID = #userId#  AND B.ENABLE = 'Y'		<!-- 직원배정 Y 일땐 내것만, 아니면 조건없음 -->
+		   		 		 ELSE 1=1 END
+		   		)
+
+
+		<isNotEmpty prepend="AND" property="projectType">
+			A.PROJECT_TYPE = #projectType#
+		</isNotEmpty>
+		<isNotEmpty prepend="" property="search">
+			<isEqual prepend="AND" property="knd" compareValue="1">
+				A.NAME LIKE concat('%', #search#, '%')
+			</isEqual>
+			<isEqual prepend="AND" property="knd" compareValue="2">
+				A.DESCRIPTION LIKE concat('%', #search#, '%')
+			</isEqual>
+			<isEmpty prepend="AND" property="knd">
+				(A.NAME LIKE concat('%', #search#, '%')		OR
+				A.DESCRIPTION LIKE concat('%', #search#, '%'))
+			</isEmpty>
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="projectId">
+			A.PROJECT_ID = #projectId#
+		</isNotEmpty>
+		<isEmpty prepend="" property="sortCol">
+			ORDER BY B.DEFAULT_YN DESC,IF(A.SORT IS NULL ,A.SORT, A.SORT*-1) DESC
+
+			, IF(A.PROJECT_CLASS='BASE',1,9) ASC, A.CREATE_DATE DESC
+		</isEmpty>
+
+		<isNotEmpty prepend="" property="sortCol">
+		    <isEqual property="sortCol" compareValue="START_DATE">
+                ORDER BY (CASE WHEN A.PERIOD ='N' THEN '1900-01-01' ELSE DATE_FORMAT(A.START_DATE,'%Y-%m-%d')  END) $sortVal$
+            </isEqual>
+            <isNotEqual property="sortCol" compareValue="START_DATE">
+                ORDER BY A.$sortCol$ $sortVal$
+            </isNotEqual>
+		</isNotEmpty>
+
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#,#limit#
+		</isNotEmpty>
+
+		/* project.selectUserProjectList */
+	</select>
+
+
+	<!-- 개인별 프로젝트 리스트 총 건수 -->
+	<select id="project.selectUserProjectListCount" parameterClass="HashMap" resultClass="Integer">
+		SELECT COUNT(DISTINCT(A.PROJECT_ID))
+
+		FROM BS_PROJECT               A
+          LEFT OUTER JOIN BS_PROJECT_USER           B   ON A.PROJECT_ID = B.PROJECT_ID
+         WHERE 1=1
+           AND A.ENABLE = 'Y'
+           AND A.CONFIRM ='Y'
+           AND A.ORG_ID = #applyOrgId#
+          <!--  AND B.USER_ID = #userId# -->
+           AND (
+                    CASE WHEN A.EMPLOYEE = 'Y' THEN B.USER_ID = #userId#  AND B.ENABLE = 'Y'        <!-- 직원배정 Y 일땐 내것만, 아니면 조건없음 -->
+                         ELSE 1=1 END
+                )
+
+
+        <isNotEmpty prepend="AND" property="projectType">
+            A.PROJECT_TYPE = #projectType#
+        </isNotEmpty>
+        <isNotEmpty prepend="" property="search">
+            <isEqual prepend="AND" property="knd" compareValue="1">
+                A.NAME LIKE concat('%', #search#, '%')
+            </isEqual>
+            <isEqual prepend="AND" property="knd" compareValue="2">
+                A.DESCRIPTION LIKE concat('%', #search#, '%')
+            </isEqual>
+            <isEmpty prepend="AND" property="knd">
+                (A.NAME LIKE concat('%', #search#, '%')     OR
+                A.DESCRIPTION LIKE concat('%', #search#, '%'))
+            </isEmpty>
+        </isNotEmpty>
+
+        <isNotEmpty prepend="AND" property="projectId">
+            A.PROJECT_ID = #projectId#
+        </isNotEmpty>
+
+		/* project.selectUserProjectListCount */
+	</select>
+
+
+	<!-- 프로젝트 삭제 -->
+	<delete id="project.deleteProject" parameterClass="Map">
+		DELETE FROM BS_PROJECT
+		WHERE PROJECT_ID = #projectId#
+
+		/* project.deleteProject */
+	</delete>
+
+
+	<!-- 프로젝트 User 삭제 -->
+	<delete id="project.deleteProjectUser" parameterClass="Map">
+		DELETE FROM BS_PROJECT_USER
+		WHERE PROJECT_ID = #projectId#
+        <isEqual property="actionType" compareValue="UPDATE">
+            AND IFNULL(DEFAULT_YN,'N') = 'N'
+        </isEqual>
+		/* project.deleteProjectUser */
+	</delete>
+
+
+	<!-- activity 삭제 -->
+	<delete id="project.deleteActivity" parameterClass="Map">
+		DELETE FROM BS_ACTIVITY
+		WHERE PROJECT_ID = #projectId#
+
+		/* project.deleteActivity */
+	</delete>
+
+
+	<!-- activity User 삭제 -->
+	<delete id="project.deleteActivityUser" parameterClass="Map">
+		DELETE FROM BS_ACTIVITY_USER
+		WHERE ACTIVITY_ID IN (SELECT ACTIVITY_ID FROM(SELECT X.ACTIVITY_ID FROM BS_ACTIVITY AS X WHERE X.PROJECT_ID = #projectId#) AS A )
+        <isEqual property="actionType" compareValue="UPDATE">
+            AND IFNULL(DEFAULT_YN,'N') = 'N'
+        </isEqual>
+		/* project.deleteActivityUser */
+	</delete>
+
+	<!-- activity User 삭제 -->
+	<delete id="project.deleteActivityUser2" parameterClass="Map">
+		DELETE FROM BS_ACTIVITY_USER
+		WHERE ACTIVITY_ID =#activityId#
+
+		/* project.deleteActivityUser */
+	</delete>
+
+	<!-- 공통프로젝트조회(BASE) -->
+	<select id="project.getBaseCommonProject" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+        SELECT  DISTINCT
+                A.PROJECT_ID    AS #code#
+               ,A.NAME          AS #name#
+               ,DATE_FORMAT(A.START_DATE,'%Y-%m-%d') AS startDate
+               ,DATE_FORMAT(IF(A.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, A.END_DATE, A.CLOSE_DATE),'%Y-%m-%d') AS lastDate
+               ,A.OT_EXPENSE AS  otExpense
+               ,A.EMPLOYEE AS employee
+               <isNotEmpty property="userId">
+                   ,(SELECT DEFAULT_YN FROM BS_PROJECT_USER X WHERE A.PROJECT_ID = X.PROJECT_ID AND X.USER_ID = #userId# LIMIT 1) AS defaultYn
+               </isNotEmpty>
+               <isEmpty property="userId">
+                   ,'N' AS defaultYn
+               </isEmpty>
+               ,A.OPEN_FLAG AS openFlag
+        FROM    BS_PROJECT       A
+               ,BS_ACTIVITY      B
+        WHERE   A.PROJECT_ID    = B.PROJECT_ID
+        AND     A.CONFIRM       = 'Y'
+        AND		A.PENDING_FLAG	= 'N'
+        AND		A.STOP_FLAG		= 'N'
+        AND		A.CLOSE_DATE >=	CURDATE()
+        AND     A.ORG_ID        = #orgId#
+        AND     A.ENABLE        = 'Y'
+        AND     B.ENABLE        = 'Y'
+		<isNotEmpty property="startDate">
+			AND     DATE(#startDate#) BETWEEN B.START_DATE AND IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE)
+		</isNotEmpty>
+		<isNotEmpty property="incApproveActivity">
+            <isEqual property="incApproveActivity" compareValue="N">
+                AND     B.APPV_DOC_CLASS IS NULL
+            </isEqual>
+            <isEqual property="incApproveActivity" compareValue="S">
+                AND     IFNULL(B.APPV_DOC_TYPE ,'') NOT IN ('REST', 'SICK')
+            </isEqual>
+		</isNotEmpty>
+		<isNotEmpty property="userId">
+            AND
+            	#userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+
+		</isNotEmpty>
+         ORDER BY IF(A.SORT IS NULL ,A.SORT, A.SORT*-1) DESC
+
+			, IF(A.PROJECT_CLASS='BASE',1,9) ASC, A.START_DATE DESC
+		/* project.getBaseCommonProject */
+	</select>
+
+
+	<!-- 공통액티비티조회(BASE) -->
+	<select id="project.getBaseCommonActivity" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+        SELECT  DISTINCT
+                B.ACTIVITY_ID   AS #code#
+               ,B.NAME          AS #name#
+			   ,DATE_FORMAT(B.START_DATE,'%Y-%m-%d')    AS startDate
+               ,DATE_FORMAT(IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE),'%Y-%m-%d') AS endDate
+               ,B.EMPLOYEE AS employee
+               ,B.APPV_DOC_TYPE AS appvDocType
+               ,(CASE WHEN B.APPV_DOC_TYPE IN ('ANNUAL_ALL','EVENT','SICK','REST','ANNUAL_AM','ANNUAL_PM','ETC_ALL','ETC_AM','ETC_PM') THEN 'Y' ELSE 'N' END) AS vacationYn
+               <isNotEmpty property="userId">
+                   ,(SELECT DEFAULT_YN FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.USER_ID = #userId# LIMIT 1) AS defaultYn
+               </isNotEmpty>
+               <isEmpty property="userId">
+                   ,'N' AS defaultYn
+               </isEmpty>
+        FROM    BS_PROJECT       A
+               ,BS_ACTIVITY      B
+		WHERE   A.PROJECT_ID    = #projectId#
+        AND     A.PROJECT_ID    = B.PROJECT_ID
+        <isNotEmpty property="enableChk">
+        	<isEqual property="enableChk" compareValue="Y">
+        		 AND     B.ENABLE        = 'Y'
+        	</isEqual>
+        </isNotEmpty>
+        <isEmpty property="enableChk">
+        AND     B.ENABLE        = 'Y'
+        </isEmpty>
+        <isNotEmpty property="activityId">
+			AND   B.ACTIVITY_ID = #activityId#
+		</isNotEmpty>
+		<isNotEmpty property="startDate">
+			AND     DATE(#startDate#) BETWEEN B.START_DATE AND IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE)
+		</isNotEmpty>
+		<isNotEmpty property="incApproveActivity">
+            <isEqual property="incApproveActivity" compareValue="N">
+                AND     B.APPV_DOC_CLASS IS NULL
+            </isEqual>
+            <isEqual property="incApproveActivity" compareValue="S">
+                AND     IFNULL(B.APPV_DOC_TYPE ,'') NOT IN ('REST', 'SICK')
+            </isEqual>
+		</isNotEmpty>
+		<isNotEmpty property="userId">
+            AND     #userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+		</isNotEmpty>
+        ORDER BY B.START_DATE DESC
+		/* project.getBaseCommonActivity */
+	</select>
+
+	<!-- 공통프로젝트조회(BASE) 지출 -->
+	<select id="project.getBaseCommonProjectForCard" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+         SELECT  DISTINCT
+                A.PROJECT_ID    AS #code#
+               ,A.NAME          AS #name#
+               ,A.OT_EXPENSE    AS otExpense
+               ,DATE_FORMAT(A.START_DATE,'%Y-%m-%d') AS startDate
+               ,DATE_FORMAT(IF(A.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, A.END_DATE, A.CLOSE_DATE),'%Y-%m-%d') AS lastDate
+               ,A.OT_EXPENSE AS  otExpense
+               <isNotEmpty property="userId">
+                   ,(SELECT DEFAULT_YN FROM BS_PROJECT_USER X WHERE A.PROJECT_ID = X.PROJECT_ID AND X.USER_ID = #userId# LIMIT 1) AS defaultYn
+               </isNotEmpty>
+               <isEmpty property="userId">
+                   ,'N' AS defaultYn
+               </isEmpty>
+        FROM    BS_PROJECT       A
+               ,BS_ACTIVITY      B
+        WHERE   A.PROJECT_ID    = B.PROJECT_ID
+        AND     A.CONFIRM       = 'Y'
+        AND     A.ORG_ID        = #orgId#
+        AND		A.PENDING_FLAG	= 'N'
+        AND		A.STOP_FLAG		= 'N'
+        AND		A.CLOSE_DATE >=	CURDATE()
+        AND     A.ENABLE        = 'Y'
+        AND     B.ENABLE        = 'Y'
+        AND     B.EXPENSE       = 'Y'
+        AND     B.APPV_DOC_CLASS IS NULL
+		<isNotEmpty property="startDate">
+			AND     DATE(#startDate#) BETWEEN IF(A.OT_EXPENSE = 'Y', A.START_DATE, B.START_DATE)
+                                      AND     IF(A.OT_EXPENSE = 'Y', IF(A.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, A.END_DATE, A.CLOSE_DATE), IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE))
+            AND     EXISTS (SELECT * FROM BS_WEEK_CAL X WHERE X.ORG_ID = A.ORG_ID AND DATE(#startDate#) BETWEEN X.START_DATE AND X.END_DATE AND X.OPEN = 'O')
+		</isNotEmpty>
+		<isEmpty property="startDate">
+			<isEmpty property="endDate">
+			    AND IF(A.OT_EXPENSE = 'Y', IF(A.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, A.END_DATE, A.CLOSE_DATE), IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE)) <![CDATA[>=]]>  DATE(NOW())
+			</isEmpty>
+		</isEmpty>
+		<isNotEmpty property="userId">
+            AND     #userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+		</isNotEmpty>
+        ORDER BY IF(A.SORT IS NULL ,A.SORT, A.SORT*-1) DESC
+
+			, IF(A.PROJECT_CLASS='BASE',1,9) ASC, A.START_DATE DESC
+		/* project.getBaseCommonProjectForCard */
+	</select>
+
+
+	<!-- 공통액티비티조회(BASE) 지출 -->
+	<select id="project.getBaseCommonActivityForCard" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+        SELECT  DISTINCT
+                B.ACTIVITY_ID   AS #code#
+               ,B.NAME          AS #name#
+			   ,DATE_FORMAT(B.START_DATE,'%Y-%m-%d')    AS startDate
+               ,DATE_FORMAT(IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE),'%Y-%m-%d') AS endDate
+               <isNotEmpty property="userId">
+                   ,(SELECT DEFAULT_YN FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.USER_ID = #userId# LIMIT 1) AS defaultYn
+               </isNotEmpty>
+               <isEmpty property="userId">
+                   ,'N' AS defaultYn
+               </isEmpty>
+        FROM    BS_PROJECT       A
+               ,BS_ACTIVITY      B
+		WHERE   A.PROJECT_ID    = #projectId#
+        AND     A.PROJECT_ID    = B.PROJECT_ID
+        AND     B.ENABLE        = 'Y'
+        AND     B.EXPENSE       = 'Y'
+        AND     B.APPV_DOC_CLASS IS NULL
+        <isNotEmpty property="activityId">
+			AND   B.ACTIVITY_ID = #activityId#
+		</isNotEmpty>
+		<isNotEmpty property="startDate">
+			AND     DATE(#startDate#) BETWEEN IF(A.OT_EXPENSE = 'Y', A.START_DATE, B.START_DATE)
+                                      AND     IF(A.OT_EXPENSE = 'Y', IF(A.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, A.END_DATE, A.CLOSE_DATE), IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE))
+            AND     EXISTS (SELECT * FROM BS_WEEK_CAL X WHERE X.ORG_ID = A.ORG_ID AND DATE(#startDate#) BETWEEN X.START_DATE AND X.END_DATE AND X.OPEN = 'O')
+		</isNotEmpty>
+		<isEmpty property="startDate">
+			<isEmpty property="endDate">
+			    AND IF(A.OT_EXPENSE = 'Y', IF(A.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, A.END_DATE, A.CLOSE_DATE), IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE)) <![CDATA[>=]]>  DATE(NOW())
+			</isEmpty>
+		</isEmpty>
+		<isNotEmpty property="userId">
+            AND     #userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+		</isNotEmpty>
+        ORDER BY B.START_DATE DESC
+		/* project.getBaseCommonActivityForCard */
+	</select>
+
+	<!-- 공통프로젝트조회(BASE) 스케줄 조회용-->
+    <select id="project.getBaseCommonProjectForScheSearch" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+    SELECT X.* FROM (
+        SELECT  DISTINCT
+                A.PROJECT_ID    AS #code#
+               ,A.NAME          AS #name#
+               ,DATE_FORMAT(A.START_DATE,'%Y-%m-%d') AS startDate
+               ,DATE_FORMAT(IF(A.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, A.END_DATE, A.CLOSE_DATE),'%Y-%m-%d') AS lastDate
+               <isNotEmpty property="userId">
+                   ,(SELECT DEFAULT_YN FROM BS_PROJECT_USER X WHERE A.PROJECT_ID = X.PROJECT_ID AND X.USER_ID = #userId# LIMIT 1) AS defaultYn
+               </isNotEmpty>
+               <isEmpty property="userId">
+                   ,'N' AS defaultYn
+               </isEmpty>
+               ,A.SORT
+               ,A.PROJECT_CLASS
+        FROM    BS_PROJECT       A
+               ,BS_ACTIVITY      B
+        WHERE   A.PROJECT_ID    = B.PROJECT_ID
+        AND     A.CONFIRM       = 'Y'
+        AND     A.ORG_ID        = #orgId#
+        AND     A.ENABLE        = 'Y'
+        AND     B.ENABLE        = 'Y'
+        <isNotEmpty property="startDate">
+            <isNotEmpty property="endDate">
+                AND     ((B.START_DATE BETWEEN DATE(#startDate#) AND DATE(#endDate#) )
+                             OR (IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE) BETWEEN DATE(#startDate#) AND DATE(#endDate#) )
+                             OR (DATE(#startDate#) BETWEEN  B.START_DATE AND IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE))
+                             OR (DATE(#endDate#)  BETWEEN B.START_DATE AND IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE))
+                           )
+            </isNotEmpty>
+        </isNotEmpty>
+        <isNotEmpty property="userId">
+            AND     #userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+        </isNotEmpty>
+        UNION
+        SELECT  DISTINCT
+                A.PROJECT_ID    AS #code#
+               ,A.NAME          AS #name#
+               ,DATE_FORMAT(A.START_DATE,'%Y-%m-%d') AS startDate
+               ,DATE_FORMAT(IF(A.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, A.END_DATE, A.CLOSE_DATE),'%Y-%m-%d') AS lastDate
+               <isNotEmpty property="userId">
+                   ,(SELECT DEFAULT_YN FROM BS_PROJECT_USER X WHERE A.PROJECT_ID = X.PROJECT_ID AND X.USER_ID = #userId# LIMIT 1) AS defaultYn
+               </isNotEmpty>
+               <isEmpty property="userId">
+                   ,'N' AS defaultYn
+               </isEmpty>
+               ,A.SORT
+               ,A.PROJECT_CLASS
+        FROM ERP_SCHEDULE S
+               ,BS_PROJECT       A
+               ,BS_ACTIVITY      B
+               , (SELECT DISTINCT SCHE_SEQ
+                 FROM ERP_SCHEDULE_ENTRY E
+                WHERE DEL_FLAG = 'N'
+                  AND E.PER_SABUN = (SELECT EMP_NO FROM BS_USER_MASTER WHERE USER_ID = #userId#)
+                  ) E
+        WHERE   S.PROJECT_ID    = A.PROJECT_ID
+        AND S.ACTIVITY_ID = B.ACTIVITY_ID
+        AND A.PROJECT_ID    = B.PROJECT_ID
+        AND     A.ORG_ID        = #orgId#
+        AND S.DEL_FLAG = 'N'
+        AND S.SCHE_SEQ = E.SCHE_SEQ
+        <isNotEmpty property="startDate">
+            <isNotEmpty property="endDate">
+                AND     ((S.SCHE_S_DATE BETWEEN #startDate# AND #endDate#)
+                             OR (S.SCHE_E_DATE BETWEEN #startDate# AND #endDate#)
+                             OR (#startDate# BETWEEN  S.SCHE_S_DATE AND S.SCHE_E_DATE)
+                             OR (#endDate# BETWEEN S.SCHE_S_DATE AND S.SCHE_E_DATE)
+                           )
+            </isNotEmpty>
+        </isNotEmpty>
+        ) X
+
+         ORDER BY IF(X.SORT IS NULL ,X.SORT, X.SORT*-1) DESC
+
+			, IF(X.PROJECT_CLASS='BASE',1,9) ASC,X.startDate DESC
+        /* project.getBaseCommonProjectForScheSearch */
+    </select>
+
+
+    <!-- 공통액티비티조회(BASE) 스케줄 조회용 -->
+    <select id="project.getBaseCommonActivityForScheSearch" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+        SELECT X.* FROM (
+        SELECT  DISTINCT
+                B.ACTIVITY_ID   AS #code#
+               ,B.NAME          AS #name#
+               ,DATE_FORMAT(B.START_DATE,'%Y-%m-%d')    AS startDate
+               ,DATE_FORMAT(IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE),'%Y-%m-%d') AS endDate
+               <isNotEmpty property="userId">
+                   ,(SELECT DEFAULT_YN FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.USER_ID = #userId# LIMIT 1) AS defaultYn
+               </isNotEmpty>
+               <isEmpty property="userId">
+                   ,'N' AS defaultYn
+               </isEmpty>
+        FROM    BS_PROJECT       A
+               ,BS_ACTIVITY      B
+        WHERE   A.PROJECT_ID    = #projectId#
+        AND     A.PROJECT_ID    = B.PROJECT_ID
+        AND     B.ENABLE        = 'Y'
+        <isNotEmpty property="startDate">
+            <isNotEmpty property="endDate">
+                AND     ((B.START_DATE BETWEEN DATE(#startDate#) AND DATE(#endDate#) )
+                             OR (IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE) BETWEEN DATE(#startDate#) AND DATE(#endDate#) )
+                             OR (DATE(#startDate#) BETWEEN  B.START_DATE AND IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE))
+                             OR (DATE(#endDate#)  BETWEEN B.START_DATE AND IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE))
+                           )
+            </isNotEmpty>
+        </isNotEmpty>
+        UNION
+        SELECT  DISTINCT
+                B.ACTIVITY_ID   AS #code#
+               ,B.NAME          AS #name#
+               ,DATE_FORMAT(B.START_DATE,'%Y-%m-%d')    AS startDate
+               ,DATE_FORMAT(IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE),'%Y-%m-%d') AS endDate
+               <isNotEmpty property="userId">
+                   ,(SELECT DEFAULT_YN FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.USER_ID = #userId# LIMIT 1) AS defaultYn
+               </isNotEmpty>
+               <isEmpty property="userId">
+                   ,'N' AS defaultYn
+               </isEmpty>
+        FROM  ERP_SCHEDULE S
+               ,BS_PROJECT       A
+               ,BS_ACTIVITY      B
+               , (SELECT DISTINCT SCHE_SEQ
+                 FROM ERP_SCHEDULE_ENTRY E
+                WHERE DEL_FLAG = 'N'
+                  AND E.PER_SABUN = (SELECT EMP_NO FROM BS_USER_MASTER WHERE USER_ID = #userId#)
+                  ) E
+        WHERE   S.PROJECT_ID    = A.PROJECT_ID
+        AND S.ACTIVITY_ID = B.ACTIVITY_ID
+        AND A.PROJECT_ID    = B.PROJECT_ID
+        AND A.PROJECT_ID    = #projectId#
+        AND S.DEL_FLAG = 'N'
+        AND S.SCHE_SEQ = E.SCHE_SEQ
+        <isNotEmpty property="startDate">
+            <isNotEmpty property="endDate">
+                AND     ((S.SCHE_S_DATE BETWEEN #startDate# AND #endDate#)
+                             OR (S.SCHE_E_DATE BETWEEN #startDate# AND #endDate#)
+                             OR (#startDate# BETWEEN  S.SCHE_S_DATE AND S.SCHE_E_DATE)
+                             OR (#endDate# BETWEEN S.SCHE_S_DATE AND S.SCHE_E_DATE)
+                           )
+            </isNotEmpty>
+        </isNotEmpty>
+        ) X
+        ORDER BY X.startDate DESC
+        /* project.getBaseCommonActivityForScheSearch */
+    </select>
+
+
+    <!-- 마감일 조회 -->
+	<select id="project.chkCloseDateInfo" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+        SELECT  										 <!-- 프로젝트 마감시 Validation -->
+		         MAX(WORK_CNT        ) AS workCnt        <!-- /* 완료되지 않은 업무일지 */ -->
+		       , MAX(SCH_CNT         ) AS schCnt         <!-- /* 마감일보다 이후 종료일정 */ -->
+		       , MAX(SCH_LAST_DATE   ) AS schLastDate    <!-- /* 마지막 일정 일자 */ -->
+		       , MAX(APPV_CNT        ) AS appvCnt        <!-- /* 마감일보다 이후 결재건 */ -->
+		       , MAX(APPV_LAST_DATE  ) AS appvLastDate   <!-- /* 마지막 결재 일자 */ -->
+		       , (CASE 	WHEN MAX(SCH_LAST_DATE) IS NULL AND MAX(APPV_LAST_DATE) IS NULL THEN NULL
+		             	WHEN MAX(SCH_LAST_DATE) IS NOT NULL AND MAX(APPV_LAST_DATE) IS NULL THEN MAX(SCH_LAST_DATE)
+		             	WHEN MAX(SCH_LAST_DATE) IS NULL AND MAX(APPV_LAST_DATE) IS NOT NULL THEN MAX(APPV_LAST_DATE)
+		             	ELSE IF(MAX(SCH_LAST_DATE) > MAX(APPV_LAST_DATE), MAX(SCH_LAST_DATE), MAX(APPV_LAST_DATE))
+		             	END
+		         )AS endLastDate 						  <!-- /* 프로젝트 마감가능 일자 */ -->
+
+		FROM    (
+			        SELECT  COUNT(*)        WORK_CNT   										<!-- /* 완료되지 않은 업무일지 */ -->
+			               ,NULL            SCH_CNT
+			               ,NULL            SCH_LAST_DATE
+			               ,NULL            APPV_CNT
+			               ,NULL            APPV_LAST_DATE
+			        FROM    BS_WORK_LIST X
+			        WHERE	X.PROJECT_ID    = #projectId#
+			        AND     X.COMPLETE      = 'N'
+			        UNION ALL
+			        SELECT  NULL                WORK_CNT
+			               ,COUNT(*)            SCH_CNT   									 <!-- /* 마감일보다 이후 종료일정 */ -->
+			               ,MAX(X.SCHE_E_DATE)  SCH_LAST_DATE
+			               ,NULL                APPV_CNT
+			               ,NULL                APPV_LAST_DATE
+			        FROM    ERP_SCHEDULE X
+			        WHERE	X.PROJECT_ID    = #projectId#
+			        AND     X.DEL_FLAG      = 'N'
+			        AND     X.SCHE_E_DATE   > #changeCloseDate#
+			        UNION ALL
+			        SELECT  NULL                WORK_CNT
+			               ,NULL                SCH_CNT
+			               ,NULL                SCH_LAST_DATE
+			               ,COUNT(*)            APPV_CNT   									<!-- /* 마감일보다 이후 결재건 */ -->
+			               ,DATE_FORMAT(X.DATE_TO, '%Y-%m-%d') APPV_LAST_DATE
+			        FROM    BS_APPV_DOC X
+			        WHERE	X.PROJECT_ID = #projectId#
+				        AND     X.DATE_TO        > DATE(#changeCloseDate#)
+        ) X
+
+
+		/* project.chkCloseDateInfo */
+	</select>
+
+	<!-- 출장비, 구매품의 ,교육품의,지출 프로젝트 금액 벨리데이션 -->
+	<select id = "project.getProjectExpenseValid" parameterClass = "HashMap" resultClass = "egovMap">
+				SELECT  /* PROJECT ACTIVITY의 지출가능 금액 추출 */
+		        A.PROJECT_ID
+		       ,A.ACTIVITY_ID
+		       ,A.PROJECT_BUDGET                /* 프로젝트 예산여부 */
+		       ,A.PROJECT_BUDGET_AMT            /* 프로젝트 예산 */
+		       ,A.PROJECT_EXPENSE               /* 프로젝트 비용지출여부 */
+		       ,A.PROJECT_OT_EXPENSE            /* 프로젝트 기간초과비용가능여부 */
+		       ,A.PROJECT_OVER_EXPENSE          /* 프로젝트 예산초과지출가능여부 */
+		       ,A.PROJECT_USED_AMT              /* 프로젝트 사용금액 */
+		       ,A.ACTIVITY_BUDGET               /* 액티비티 예산여부 */
+		       ,A.ACTIVITY_BUDGET_AMT           /* 액티비티 예산 */
+		       ,A.ACTIVITY_EXPENSE              /* 액티비티 비용지출여부 */
+		       ,A.ACTIVITY_OVER_EXPENSE         /* 액티비티 예산초과지출가능여부 */
+		       ,A.ACTIVITY_USED_AMT             /* 액티비티 사용금액 */
+		       ,A.ACTIVITY_BUDGET_SUM_AMT       /* 액티비티 총예산 */
+               ,A.ACTIVITY_EXPENSE_USED_AMT     /* 액티비티 초과 사용금액 */
+               ,A.ACTIVITY_EXPENSE_USED_SUM_AMT /* 액티비티 초과 사용금액 합계 */
+		       ,CASE WHEN A.ACTIVITY_EXPENSE = 'N' THEN 0                                                                               /* 1 액티비티의 지출이 N이면 지출등록 불가. 프로그램에서는 0이 아닌 ACTIVITY_EXPENSE로 체크*/
+		       		 WHEN ACTIVITY_BUDGET = 'N' AND PROJECT_BUDGET = 'N' AND PROJECT_EXPENSE = 'Y' THEN 999999999999				    /* 2 액티비티의 예산이 N,액티비티지출이 Y,프로젝트 지출이 Y,프로젝트 예산이 N 이면 무제한*/
+		       		 WHEN ACTIVITY_BUDGET = 'N' THEN 																					/* 3 프로젝트의 예산이 Y이고 예산초과지출가능여부가 N이면  , 엑티비티 예산은 없지만 지출이있을때*/
+						A.PROJECT_BUDGET_AMT - A.ACTIVITY_BUDGET_SUM_AMT                                       							/*   지출가능한 금액은 = 프로젝트 예산 - 총예산 */
+                                             -  A.ACTIVITY_USED_AMT - (A.ACTIVITY_EXPENSE_USED_SUM_AMT - A.ACTIVITY_EXPENSE_USED_AMT)   /*                 - 액티비티 지출 금액 - (총 초과 지출 - 내 초과 지출) */
+		             WHEN A.ACTIVITY_BUDGET = 'Y' AND A.ACTIVITY_OVER_EXPENSE = 'N' THEN A.ACTIVITY_BUDGET_AMT-A.ACTIVITY_EXPENSE_USED_AMT /* 4 액티비티의 예산이 Y이고 예상초과지출가능여부가 N이면 액티비티 금액 -액티비티 사용금액*/
+		             WHEN (A.PROJECT_BUDGET = 'N' OR (A.PROJECT_BUDGET = 'Y' AND A.PROJECT_OVER_EXPENSE = 'Y')) THEN 999999999999       /* 5 프로젝트의 예산이 N이거나 프로젝트 예산이 Y이고 예산초과지출가능여부가 Y명 무제한 */
+		             WHEN A.PROJECT_BUDGET = 'Y' AND A.PROJECT_OVER_EXPENSE = 'N' THEN                                                  /* 6 프로젝트의 예산이 Y이고 예산초과지출가능여부가 N이면 */
+		                A.PROJECT_BUDGET_AMT - (A.ACTIVITY_BUDGET_SUM_AMT - A.ACTIVITY_BUDGET_AMT)                                      /*   지출가능한 금액은 = 프로젝트 예산 - (총예산 - 액티비티예산) */
+                                             -  A.ACTIVITY_USED_AMT - (A.ACTIVITY_EXPENSE_USED_SUM_AMT - A.ACTIVITY_EXPENSE_USED_AMT)   /*                                     - 액티비티 지출 금액 - (총 초과 지출 - 내 초과 지출) */
+		        END AVAL_AMT
+        FROM    (
+                SELECT  /* PROJECT ACTIVITY의 지출가능 금액 추출 */
+                        A.PROJECT_ID
+                       ,A.ACTIVITY_ID
+                       ,A.PROJECT_BUDGET            /* 프로젝트 예산여부 */
+                       ,A.PROJECT_BUDGET_AMT        /* 프로젝트 예산 */
+                       ,A.PROJECT_EXPENSE           /* 프로젝트 비용지출여부 */
+                       ,A.PROJECT_OT_EXPENSE        /* 프로젝트 기간초과비용가능여부 */
+                       ,A.PROJECT_OVER_EXPENSE      /* 프로젝트 예산초과지출가능여부 */
+                       ,A.PROJECT_USED_AMT          /* 프로젝트 사용금액 */
+                       ,A.ACTIVITY_BUDGET           /* 액티비티 예산여부 */
+                       ,A.ACTIVITY_BUDGET_AMT       /* 액티비티 예산 */
+                       ,A.ACTIVITY_EXPENSE          /* 액티비티 비용지출여부 */
+                       ,A.ACTIVITY_OVER_EXPENSE     /* 액티비티 예산초과지출가능여부 */
+                       ,A.ACTIVITY_USED_AMT         /* 액티비티 사용금액 */
+                       ,A.ACTIVITY_BUDGET_SUM_AMT   /* 액티비티 총예산 */
+                       ,IF(IFNULL(A.ACTIVITY_BUDGET_AMT, 0) > 0, IF(A.ACTIVITY_USED_AMT - A.ACTIVITY_BUDGET_AMT > 0, A.ACTIVITY_USED_AMT - A.ACTIVITY_BUDGET_AMT, 0), 0) ACTIVITY_EXPENSE_USED_AMT /* 액티비티 초과 사용금액 */
+                       ,(
+                            SELECT  SUM(IF(IFNULL(Y.BUDGET_AMT, 0) > 0, IF(Y.ACTIVITY_USED_AMT - Y.BUDGET_AMT > 0, Y.ACTIVITY_USED_AMT - Y.BUDGET_AMT, 0), 0))
+                            FROM    (
+                                    SELECT  Y.BUDGET_AMT
+                                          ,(SELECT  /* 지출 */
+                                                    IFNULL(SUM(X.PRICE), 0)
+                                            FROM    IB_CARD_USED X
+                                            WHERE   X.ORG_ID        = #orgId#
+                                            AND     X.PROJECT_ID    = #projectId#
+                                            AND     X.ACTIVITY_ID   = Y.ACTIVITY_ID
+                                            AND		X.EXPENSE_DOC_YN = 'N'
+                                            )
+                                            +
+                                           (SELECT  /* 지출결의서 */
+                                                    IFNULL(SUM(X.AMOUNT), 0)
+                                            FROM    BS_APPV_DOC X
+                                            WHERE   X.ORG_ID        = #orgId#
+                                            AND     X.PROJECT_ID    = #projectId#
+                                            AND     X.ACTIVITY_ID   = Y.ACTIVITY_ID
+                                            AND     X.DOC_STATUS    NOT IN ('WORKING', 'REJECT', 'CNL_COMMIT') /* 작성중, 반려, 취소승인 제외 */
+                                            AND 	X.APPV_DOC_CLASS = 'EXPENSE'
+                                            )
+                                            - IFNULL (
+								  						(SELECT SUM(IF(X.DEDUCT_YN = 'Y',0,X.EXPENSE_AMOUNT))
+								  						  FROM BS_PROJECT_EXPENSE X
+								  						 WHERE PROJECT_EXPENSE_ID IN (
+								  						 							SELECT MAX(Y.PROJECT_EXPENSE_ID)
+												  						  			  FROM BS_PROJECT_EXPENSE Y
+												  						  			 WHERE Y.ACTIVITY_ID =  Y.ACTIVITY_ID
+												  						  			GROUP BY Y.PROJECT_EXPENSE_TYPE , Y.PROJECT_EXPENSE_CLASS, Y.PROJECT_EXPENSE_REF_ID
+
+								  						 							)
+								  						 ),0
+								  					) ACTIVITY_USED_AMT
+                                    FROM    BS_ACTIVITY Y
+                                    WHERE   Y.PROJECT_ID = #projectId#
+                                    ) Y
+                        ) ACTIVITY_EXPENSE_USED_SUM_AMT
+                FROM    (
+                        SELECT  /* 프로젝트 액티비티 */
+                                A.PROJECT_ID
+                               ,B.ACTIVITY_ID
+                               ,A.BUDGET        PROJECT_BUDGET          /* 프로젝트 예산여부 */
+                               ,A.BUDGET_AMT    PROJECT_BUDGET_AMT      /* 프로젝트 예산 */
+                               ,A.EXPENSE       PROJECT_EXPENSE         /* 프로젝트 비용지출여부 */
+                               ,A.OT_EXPENSE    PROJECT_OT_EXPENSE      /* 프로젝트 기간초과비용가능여부 */
+                               ,A.OVER_EXPENSE  PROJECT_OVER_EXPENSE    /* 프로젝트 예산초과지출가능여부 */
+                               ,B.BUDGET        ACTIVITY_BUDGET         /* 액티비티 예산여부 */
+                               ,B.BUDGET_AMT    ACTIVITY_BUDGET_AMT     /* 액티비티 예산 */
+                               ,B.EXPENSE       ACTIVITY_EXPENSE        /* 액티비티 비용지출여부 */
+                               ,B.OVER_EXPENSE  ACTIVITY_OVER_EXPENSE   /* 액티비티 예산초과지출가능여부 */
+                               ,(SELECT IFNULL(SUM(X.BUDGET_AMT), 0)
+                                 FROM   BS_ACTIVITY X
+                                 WHERE  X.PROJECT_ID = A.PROJECT_ID
+                                ) ACTIVITY_BUDGET_SUM_AMT   /* 액티비티 총예산 */
+                               ,(
+                                   (SELECT  /* 지출 */
+                                            IFNULL(SUM(X.PRICE), 0)
+                                    FROM    IB_CARD_USED X
+                                    WHERE   X.ORG_ID        = A.ORG_ID
+                                    AND     X.PROJECT_ID    = A.PROJECT_ID
+                                    AND		X.EXPENSE_DOC_YN = 'N'
+                                    )
+                                    +
+                                   (SELECT  /* 전자결재 */
+                                            IFNULL(SUM(X.AMOUNT), 0)
+                                    FROM    BS_APPV_DOC X
+                                    WHERE   X.ORG_ID        = A.ORG_ID
+                                    AND     X.PROJECT_ID    = A.PROJECT_ID
+                                    AND     X.DOC_STATUS    NOT IN ('WORKING', 'REJECT', 'CNL_COMMIT') /* 작성중, 반려, 취소승인 제외 */
+                                    AND 	X.APPV_DOC_CLASS = 'EXPENSE'
+                                    )
+                                    - IFNULL (
+						  						(SELECT SUM(IF(X.DEDUCT_YN = 'Y',0,X.EXPENSE_AMOUNT))
+						  						  FROM BS_PROJECT_EXPENSE X
+						  						 WHERE PROJECT_EXPENSE_ID IN (
+						  						 							SELECT MAX(Y.PROJECT_EXPENSE_ID)
+										  						  			  FROM BS_PROJECT_EXPENSE Y
+										  						  			 WHERE Y.PROJECT_ID =  Y.PROJECT_ID
+										  						  			GROUP BY Y.PROJECT_EXPENSE_TYPE , Y.PROJECT_EXPENSE_CLASS, Y.PROJECT_EXPENSE_REF_ID
+
+						  						 							)
+						  						 ),0
+						  					)
+                                ) PROJECT_USED_AMT  /* 프로젝트 사용금액 */
+                               ,(
+                                   (SELECT  /* 지출 */
+                                            IFNULL(SUM(X.PRICE), 0)
+                                    FROM    IB_CARD_USED X
+                                    WHERE   X.ORG_ID        = A.ORG_ID
+                                    AND     X.PROJECT_ID    = A.PROJECT_ID
+                                    AND     X.ACTIVITY_ID   = B.ACTIVITY_ID
+                                    AND		X.EXPENSE_DOC_YN = 'N'
+                                    )
+                                    +
+                                   (SELECT  /* 전자결재*/
+                                            IFNULL(SUM(X.AMOUNT), 0)
+                                    FROM    BS_APPV_DOC X
+                                    WHERE   X.ORG_ID        = A.ORG_ID
+                                    AND     X.PROJECT_ID    = A.PROJECT_ID
+                                    AND     X.ACTIVITY_ID   = B.ACTIVITY_ID
+                                    AND     X.DOC_STATUS    NOT IN ('WORKING', 'REJECT', 'CNL_COMMIT') /* 작성중, 반려, 취소승인 제외 */
+                                    AND 	X.APPV_DOC_CLASS = 'EXPENSE'
+                                    )
+                                    - IFNULL (
+						  						(SELECT SUM(IF(X.DEDUCT_YN = 'Y',0,X.EXPENSE_AMOUNT))
+						  						  FROM BS_PROJECT_EXPENSE X
+						  						 WHERE PROJECT_EXPENSE_ID IN (
+						  						 							SELECT MAX(Y.PROJECT_EXPENSE_ID)
+										  						  			  FROM BS_PROJECT_EXPENSE Y
+										  						  			 WHERE Y.ACTIVITY_ID =  Y.ACTIVITY_ID
+										  						  			GROUP BY Y.PROJECT_EXPENSE_TYPE , Y.PROJECT_EXPENSE_CLASS, Y.PROJECT_EXPENSE_REF_ID
+
+						  						 							)
+						  						 ),0
+						  					)
+                                ) ACTIVITY_USED_AMT /* 액티비티 사용금액 */
+                        FROM    BS_PROJECT  A
+                               ,BS_ACTIVITY B
+                        WHERE   A.ORG_ID        = #orgId#
+                        AND     A.PROJECT_ID    = #projectId#
+                        AND     A.PROJECT_ID    = B.PROJECT_ID
+                        ) A
+                    ) A
+		WHERE   A.ACTIVITY_ID = #activityId#
+	</select>
+
+	<!-- 프로젝트 지출내역  -->
+	<select id = "project.getExpenseList" parameterClass = "HashMap" resultClass = "HashMap">
+
+		SELECT
+				 A.*
+				,project.name	AS projectName
+				,activity.name  AS activityName
+				,user.name  	AS userName
+
+			FROM
+
+			(
+				SELECT
+					 	  appr.AMOUNT  		AS price
+					 	 ,appr.PROJECT_ID 	AS projectId
+					 	 ,appr.ACTIVITY_ID 	AS activityId
+					 	 ,appr.USER_ID		AS userId
+					 	 ,'APPR'		AS expenseType
+					 	 ,DATE_FORMAT(appr.SUBMIT_DATE,'%Y-%m-%d')		AS createDate
+						 ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = #orgId# AND X.CODE_NAME = 'APPV_DOC_CLASS' AND X.CODE_VALUE = appr.APPV_DOC_CLASS) AS expenseNm
+						 ,appr.APPV_DOC_NUM AS title
+						 ,(SELECT GROUP_CONCAT(X.COMMENT SEPARATOR <![CDATA['<br>']]>)
+			      			 FROM BS_PROJECT_EXPENSE X
+			      			WHERE appr.APPV_DOC_ID = X.PROJECT_EXPENSE_REF_ID
+			      			  AND X.PROJECT_EXPENSE_TYPE = 'APPROVE'
+			      			  AND X.PROJECT_EXPENSE_CLASS = appr.APPV_DOC_CLASS
+			      			  ORDER BY X.PROJECT_EXPENSE_ID ASC
+			      			) 															AS comment 				/* 비고 히스토리 */
+			      		 ,appr.APPV_DOC_ID 												AS projectExpenseRefId  /* 지출구분별키값 */
+			      		 ,'APPROVE'														AS projectExpenseType	/* 프로젝트지출구분 */
+			      		 ,appr.APPV_DOC_CLASS											AS projectExpenseClass	/* 프로젝트지출등록종류 */
+			      		 ,IFNULL(
+			      		 	(SELECT X.DEDUCT_YN
+			      		 	   FROM BS_PROJECT_EXPENSE X
+			      		 	  WHERE X.PROJECT_EXPENSE_REF_ID = appr.APPV_DOC_ID
+			      		 	  	AND X.PROJECT_EXPENSE_TYPE = 'APPROVE'
+			      		 	    AND X.PROJECT_EXPENSE_CLASS = appr.APPV_DOC_CLASS
+			      		 	  ORDER BY PROJECT_EXPENSE_ID DESC
+			      		 	  LIMIT 1
+			      		 	),'Y' )														AS lastProjectDeductYn  /*차감여부*/
+			      		 ,(SELECT X.PROJECT_EXPENSE_ID
+			      		 	   FROM BS_PROJECT_EXPENSE X
+			      		 	  WHERE X.PROJECT_EXPENSE_REF_ID = appr.APPV_DOC_ID
+			      		 	  	AND X.PROJECT_EXPENSE_TYPE = 'APPROVE'
+			      		 	    AND X.PROJECT_EXPENSE_CLASS = appr.APPV_DOC_CLASS
+			      		 	  ORDER BY PROJECT_EXPENSE_ID DESC
+			      		 	  LIMIT 1
+			      		 	)															AS	lastProjectExpenseId  /*차감,비차감 처리 id*/
+		  		FROM BS_APPV_DOC AS appr
+		  		WHERE appr.PROJECT_ID = #projectId#
+		  			AND  appr.APPV_DOC_CLASS IN 	('EXPENSE')
+		  			AND  appr.DOC_STATUS  NOT IN ('WORKING', 'REJECT', 'CNL_COMMIT')
+
+		  		UNION ALL
+
+		  		SELECT
+
+		  				 A.PRICE 			AS price
+		  				,A.PROJECT_ID 	AS projectId
+		  				,A.ACTIVITY_ID 	AS activityId
+		  				,A.RG_ID			AS userId
+		  				,'CARD'			AS expenseType
+		  				,DATE_FORMAT(A.RG_DT,'%Y-%m-%d')			AS createDate
+						,'지출등록' AS expenseNm
+						,'-' AS title
+						,(SELECT GROUP_CONCAT(X.COMMENT SEPARATOR <![CDATA['<br>']]>)
+			      			 FROM BS_PROJECT_EXPENSE X
+			      			WHERE A.S_NB = X.PROJECT_EXPENSE_REF_ID
+			      			  AND X.PROJECT_EXPENSE_TYPE = 'CARD'
+			      			  AND X.PROJECT_EXPENSE_CLASS = 'INDI_CARD'
+			      			  ORDER BY X.PROJECT_EXPENSE_ID ASC
+			      			) 															AS comment 				/* 비고 히스토리 */
+			      		,A.S_NB 														AS projectExpenseRefId  /* 지출구분별키값 */
+			      		,'CARD'															AS projectExpenseType	/* 프로젝트지출구분 */
+			      		,'INDI_CARD'													AS projectExpenseClass	/* 프로젝트지출등록종류 */
+			      		,IFNULL(
+			      		 	(SELECT X.DEDUCT_YN
+			      		 	   FROM BS_PROJECT_EXPENSE X
+			      		 	  WHERE X.PROJECT_EXPENSE_REF_ID = A.S_NB
+			      		 	  	AND X.PROJECT_EXPENSE_TYPE = 'CARD'
+			      		 	    AND X.PROJECT_EXPENSE_CLASS = 'INDI_CARD'
+			      		 	  ORDER BY PROJECT_EXPENSE_ID DESC
+			      		 	  LIMIT 1
+			      		 	),'Y' )														AS lastProjectDeductYn  /*차감여부*/
+			      		,(SELECT X.PROJECT_EXPENSE_ID
+			      		 	   FROM BS_PROJECT_EXPENSE X
+			      		 	  WHERE X.PROJECT_EXPENSE_REF_ID = A.S_NB
+			      		 	  	AND X.PROJECT_EXPENSE_TYPE = 'CARD'
+			      		 	    AND X.PROJECT_EXPENSE_CLASS = 'INDI_CARD'
+			      		 	  ORDER BY PROJECT_EXPENSE_ID DESC
+			      		 	  LIMIT 1
+			      		 	)															AS lastProjectExpenseId  /*차감,비차감 처리 id*/
+		  		FROM IB_CARD_USED A
+		  		WHERE A.PROJECT_ID = #projectId#
+				  AND A.EXPENSE_DOC_YN = 'N'
+	  		)AS A
+
+	  		LEFT OUTER JOIN BS_USER_MASTER AS user 		ON A.userId = user.USER_ID
+	  		LEFT OUTER JOIN BS_ACTIVITY	   AS activity  ON A.activityId = activity.ACTIVITY_ID
+	  		LEFT OUTER JOIN BS_PROJECT	   AS project 	ON A.projectId = project.PROJECT_ID
+
+	  		WHERE  project.PROJECT_ID = #projectId#
+
+
+			<isEmpty prepend="" property="sortCol">
+				ORDER BY A.createDate ASC
+			</isEmpty>
+			<isNotEmpty prepend="" property="sortCol">
+			 	ORDER BY $sortCol$ $sortVal$
+			</isNotEmpty>
+
+			<isNotEmpty prepend="" property="limit">
+				LIMIT #offset#,#limit#
+			</isNotEmpty>
+
+
+		/* project.getExpenseList */
+	</select>
+
+	<!-- 프로젝트 지출개수  -->
+	<select id = "project.getExpenseListCount" parameterClass = "HashMap" resultClass = "Integer">
+
+		SELECT
+				 COUNT(*)
+
+			FROM
+
+			(
+				SELECT
+
+					 	  appr.AMOUNT  		AS price
+					 	 ,appr.PROJECT_ID 	AS projectId
+					 	 ,appr.ACTIVITY_ID 	AS activityId
+					 	 ,appr.USER_ID		AS userId
+					 	 ,'APPR'		AS expenseType
+					 	 ,appr.DATE_TO		AS createDate
+
+		  		FROM BS_APPV_DOC AS appr
+		  		WHERE appr.PROJECT_ID =  #projectId#
+		  			AND  appr.APPV_DOC_CLASS IN 	('EXPENSE')
+		  			AND  appr.DOC_STATUS  NOT IN ('WORKING', 'REJECT', 'CNL_COMMIT')
+
+		  		UNION ALL
+
+		  		SELECT
+
+		  				 PRICE 			AS price
+		  				,PROJECT_ID 	AS projectId
+		  				,ACTIVITY_ID 	AS activityId
+		  				,RG_ID			AS userId
+		  				,'CARD'			AS expenseType
+		  				,RG_DT			AS createDate
+
+		  		FROM IB_CARD_USED
+		  		WHERE PROJECT_ID =  #projectId#
+				  AND EXPENSE_DOC_YN = 'N'
+	  		)AS A
+
+	  		LEFT OUTER JOIN BS_USER_MASTER AS user 		ON A.userId = user.USER_ID
+	  		LEFT OUTER JOIN BS_ACTIVITY	   AS activity 	ON A.activityId = activity.ACTIVITY_ID
+	  		LEFT OUTER JOIN BS_PROJECT	   AS project 	ON A.projectId = project.PROJECT_ID
+
+
+
+		/* project.getExpenseListCount*/
+	</select>
+
+	<!-- 프로젝트 등록(신규) -->
+    <insert id="project.copyProject" parameterClass="HashMap">
+        INSERT INTO BS_PROJECT(
+              ORG_ID
+             ,PROJECT_CODE
+             ,NAME
+             ,DESCRIPTION
+             ,PROJECT_TYPE
+             ,PERIOD
+             ,START_DATE
+             ,END_DATE
+             ,ORIGIN_END_DATE            <!-- 최초종료일 -->
+             ,CLOSE_DATE                 <!-- 마감일 -->
+             ,BUDGET
+             ,BUDGET_AMT
+             ,EMPLOYEE
+             ,EXPENSE
+             ,OT_EXPENSE
+             ,OVER_EXPENSE
+             ,TIMESHEET
+             ,OT_TIMESHEET
+             ,ENABLE
+             ,CONFIRM                    <!-- 확정여부 -->
+             ,CREATE_DATE
+             ,CREATED_BY
+             ,UPDATE_DATE
+             ,UPDATED_BY
+         )
+         SELECT
+             ORG_ID
+             ,#projectCode# AS PROJECT_CODE
+             ,NAME
+             ,DESCRIPTION
+             ,PROJECT_TYPE
+             ,PERIOD
+             ,START_DATE
+             ,END_DATE
+             ,ORIGIN_END_DATE            <!-- 최초종료일 -->
+             ,CLOSE_DATE                 <!-- 마감일 -->
+             ,BUDGET
+             ,BUDGET_AMT
+             ,EMPLOYEE
+             ,EXPENSE
+             ,OT_EXPENSE
+             ,OVER_EXPENSE
+             ,TIMESHEET
+             ,OT_TIMESHEET
+             ,ENABLE
+             ,'N'                    <!-- 확정여부 -->
+             ,now()
+             ,#userSeq#
+             ,now()
+             ,#userSeq#
+         FROM BS_PROJECT
+         WHERE PROJECT_ID = #oldProjectId#
+
+        <selectKey resultClass="int" type="post" keyProperty="projectId">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+
+        /* project.copyProject */
+    </insert>
+
+    <!-- project 별 직원배정 등록 -->
+    <insert id="project.copyProjectUser" parameterClass="Map">
+        INSERT INTO BS_PROJECT_USER(
+                 PROJECT_ID
+                ,USER_ID
+                ,DEFAULT_YN
+                ,`ENABLE`
+                ,CREATE_DATE
+                ,CREATED_BY
+                ,UPDATE_DATE
+                ,UPDATED_BY
+        )
+        SELECT
+                 #newProjectId# AS PROJECT_ID
+                ,A.USER_ID
+                ,'N' AS DEFAULT_YN
+                ,A.`ENABLE`
+                 ,now()
+                 ,#userSeq#
+                 ,now()
+                 ,#userSeq#
+        FROM BS_PROJECT_USER A
+                , BS_PROJECT B
+        WHERE A.PROJECT_ID = B.PROJECT_ID
+        AND B.PROJECT_ID = #oldProjectId#
+        AND B.EMPLOYEE = 'Y'
+
+        /* project.copyProjectUser */
+    </insert>
+
+    <insert id="project.copyActivity" parameterClass="Map">
+
+        INSERT INTO BS_ACTIVITY(
+            PROJECT_ID
+            ,LEVEL
+            ,SORT
+            ,NAME
+            ,DESCRIPTION
+            ,START_DATE
+            ,END_DATE
+            ,BUDGET
+            ,BUDGET_AMT
+            ,EMPLOYEE
+            ,EXPENSE
+            ,OVER_EXPENSE
+            ,TIMESHEET
+            ,ENABLE
+
+            ,CREATE_DATE
+            ,CREATED_BY
+            ,UPDATE_DATE
+            ,UPDATED_BY
+        )
+        SELECT
+             #newProjectId# AS PROJECT_ID
+            ,LEVEL
+            ,SORT
+            ,NAME
+            ,DESCRIPTION
+            ,START_DATE
+            ,END_DATE
+            ,BUDGET
+            ,BUDGET_AMT
+            ,EMPLOYEE
+            ,EXPENSE
+            ,OVER_EXPENSE
+            ,TIMESHEET
+            ,ENABLE
+
+             ,now()
+             ,#userSeq#
+             ,now()
+             ,#userSeq#
+        FROM BS_ACTIVITY
+        WHERE ACTIVITY_ID = #oldActivityId#
+
+        <selectKey resultClass="int" type="post" keyProperty="activityId">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+
+        /* project.copyActivity */
+    </insert>
+
+    <insert id="project.copyActivityUser" parameterClass="Map">
+        INSERT INTO BS_ACTIVITY_USER(
+             ACTIVITY_ID
+            ,USER_ID
+            ,DEFAULT_YN
+            ,`ENABLE`
+
+            ,CREATE_DATE
+            ,CREATED_BY
+            ,UPDATE_DATE
+            ,UPDATED_BY
+        )
+      SELECT
+            #newActivityId# AS ACTIVITY_ID
+            ,A.USER_ID
+            ,'N' AS DEFAULT_YN
+            ,A.`ENABLE`
+
+            ,now()
+            ,#userSeq#
+            ,now()
+            ,#userSeq#
+      FROM BS_ACTIVITY_USER A
+              , BS_ACTIVITY B
+      WHERE A.ACTIVITY_ID = B.ACTIVITY_ID
+      AND B.ACTIVITY_ID = #oldActivityId#
+      AND B.EMPLOYEE = 'Y'
+
+        /* project.copyActivityUser */
+    </insert>
+
+    <!-- 프로젝트 수정 -->
+    <update id="project.updateProjectEmployee" parameterClass="HashMap">
+        UPDATE BS_PROJECT
+           SET
+               EMPLOYEE        = #employee#
+               ,UPDATE_DATE     = now()
+               ,UPDATED_BY      = #userSeq#
+        WHERE PROJECT_ID = #projectId#
+
+        /* project.updateProjectEmployee */
+    </update>
+
+    <!-- activity 수정 ... (parent_id 일괄추가수정) -->
+    <update id="project.updateActivityEmployee" parameterClass="HashMap">
+        UPDATE BS_ACTIVITY
+           SET
+               EMPLOYEE        = #employee#
+               ,UPDATE_DATE     = now()
+               ,UPDATED_BY      = #userSeq#
+        WHERE PROJECT_ID = #projectId#
+        /* project.updateActivityEmployee */
+    </update>
+
+    <!-- 프로젝트코드 채번 -->
+    <select id="project.getNewProjectCode" parameterClass="HashMap" resultClass="String">
+        SELECT IFNULL(
+		        CONCAT(B.ORG_CODE,'P',DATE_FORMAT(NOW(),'%y%m'), LPAD(RIGHT(MAX(A.PROJECT_CODE),3) + 1,3,'0'))
+		       ,CONCAT(B.ORG_CODE,'P',DATE_FORMAT(NOW(),'%y%m'), '001')
+		       ) AS NEW_PROJECT_CODE
+		FROM BS_PROJECT A, BS_ORG B
+		WHERE A.ORG_ID = B.ORG_ID
+		AND B.ORG_ID = #orgId#
+		AND MID(A.PROJECT_CODE,-7,4) = DATE_FORMAT(NOW(),'%y%m')
+
+        /* project.getNewProjectCode */
+    </select>
+
+    <!-- ############################ 기본 프로젝트 :S ############################ -->
+
+	<!-- 기본 프로젝트 조회-->
+    <select id="project.getBaseProjectList" parameterClass="HashMap" resultClass="HashMap">
+    	SELECT     A.PROJECT_ID			AS projectId
+				  ,A.NAME				AS name
+			      ,A.DESCRIPTION		AS description
+			      ,A.PROJECT_TYPE		AS projectType
+			      ,A.PROJECT_CLASS		AS projectClass
+			      ,A.PERIOD				AS period
+			      ,DATE_FORMAT(A.START_DATE, "%Y-%m-%d")	AS startDate
+				  ,DATE_FORMAT(A.END_DATE, "%Y-%m-%d")		AS endDate
+				  ,DATE_FORMAT(A.ORIGIN_END_DATE, "%Y-%m-%d")	AS originEndDate
+				  ,DATE_FORMAT(A.CLOSE_DATE, "%Y-%m-%d")		AS closeDate
+			      ,A.BUDGET				AS budget
+			      ,A.BUDGET_AMT			AS budgetAmt
+			      ,A.EMPLOYEE			AS employee
+			      ,A.EXPENSE			AS expense
+			      ,A.OT_EXPENSE			AS overEx
+			      ,A.OVER_EXPENSE		AS overExpense
+			      ,A.TIMESHEET			AS timesheet
+			      ,A.OT_TIMESHEET		AS overTs
+			      ,A.ENABLE				AS enable
+			      ,A.CLOSE_DATE			AS closed
+			      ,A.ATTR1				AS attr1
+			      ,A.ATTR2				AS attr2
+			      ,A.ATTR3				AS attr3
+			      ,A.ATTR4				AS attr4
+			      ,A.ATTR5				AS attr5
+			      ,#orgId#				AS orgId
+			      ,#userSeq#			AS userSeq
+			      ,A.OPEN_FLAG     AS openFlag
+		FROM BS_BASE_PROJECT A
+    </select>
+    <!-- 기본 액티비티 조회 -->
+    <select id="project.getBaseActivityList" parameterClass="HashMap" resultClass="HashMap">
+   		 SELECT  A.ACTIVITY_ID      AS activityId
+				,A.PROJECT_ID       AS projectId
+				,A.LEVEL            AS level
+				,A.PARENT_ID        AS parentId
+				,A.SORT             AS sort
+				,A.NAME             AS name
+				,A.DESCRIPTION      AS description
+				,DATE_FORMAT(A.START_DATE, "%Y-%m-%d")    AS startDate
+                ,DATE_FORMAT(A.END_DATE, "%Y-%m-%d")      AS endDate
+				,A.BUDGET           AS budget
+				,A.BUDGET_AMT       AS budgetAmt
+				,A.EMPLOYEE         AS employee
+				,A.EXPENSE          AS expense
+				,A.OVER_EXPENSE     AS overExpense
+				,A.TIMESHEET        AS timesheet
+				,A.ENABLE           AS enable
+				,A.CAR_USE          AS carUse
+				,A.CLIENT           AS client
+				,A.TIME_SPAN        AS timeSpan
+				,A.COLOR            AS color
+				,IFNULL(A.APPV_DOC_CLASS,'') AS appvDocClass
+                ,IFNULL(A.APPV_DOC_TYPE,'') AS appvDocType
+				,#orgId#			AS orgId
+			    ,#userSeq#			AS userSeq
+		FROM BS_BASE_ACTIVITY A
+		WHERE A.PROJECT_ID = #baseProjectId#
+		/* project.getBaseActivityList */
+    </select>
+
+    <!-- 프로젝트 ID 값 구하기 -->
+    <select id = "project.getBaseProjectId" parameterClass = "HashMap" resultClass = "egovMap">
+        SELECT A.PROJECT_ID
+        FROM BS_BASE_PROJECT A
+        WHERE PROJECT_CLASS = #projectClass#
+        LIMIT 1
+        /* project.getBaseProjectId */
+    </select>
+
+    <!-- 기본프로젝트 정보 -->
+    <select id="project.getBaseProjectInfo" parameterClass="HashMap" resultClass="egovMap">
+        SELECT
+               A.PROJECT_ID         AS projectId
+              ,A.NAME               AS name
+              ,A.DESCRIPTION        AS description
+              ,A.PROJECT_TYPE       AS projectType
+              ,A.PROJECT_CLASS     AS projectClass
+              ,A.PERIOD             AS period
+              ,DATE_FORMAT(A.START_DATE, "%Y-%m-%d")    AS startDate
+              ,DATE_FORMAT(A.END_DATE, "%Y-%m-%d")      AS endDate
+
+              ,DATE_FORMAT(A.ORIGIN_END_DATE, "%Y-%m-%d")   AS originEndDate
+              ,DATE_FORMAT(A.CLOSE_DATE, "%Y-%m-%d")        AS closeDate
+
+              ,A.BUDGET             AS budget
+              ,A.BUDGET_AMT         AS budgetAmt
+              ,A.EMPLOYEE           AS employee
+              ,A.EXPENSE            AS expense
+              ,A.OT_EXPENSE         AS overEx
+              ,A.OVER_EXPENSE       AS overExpense
+              ,A.TIMESHEET          AS timesheet
+              ,A.OT_TIMESHEET       AS overTs
+              ,A.ENABLE             AS enable
+              ,A.CLOSE_DATE         AS closed
+              ,A.ATTR1              AS attr1
+              ,A.ATTR2              AS attr2
+              ,A.ATTR3              AS attr3
+              ,A.ATTR4              AS attr4
+              ,A.ATTR5              AS attr5
+              ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")   AS createDate
+              ,A.CREATED_BY         AS createdBy
+              ,(SELECT NAME FROM BASE.BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)  AS createNm
+              ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")   AS updateDate
+              ,A.UPDATED_BY         AS updatedBy
+              ,(SELECT NAME FROM BASE.BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)  AS updateNm
+              ,0                    AS chk  <!-- checkbox 사용 위해 -->
+              ,(SELECT CASE WHEN A.CREATE_DATE &gt;= DATE_ADD(NOW(), INTERVAL -1 DAY)  THEN 'Y' ELSE 'N' END)   AS newYn
+         FROM BS_BASE_PROJECT               A
+         WHERE 1=1
+         AND A.PROJECT_ID = #projectId#
+        /* project.getBaseProjectInfo */
+    </select>
+
+
+    <!-- 프로젝트 수정 -->
+    <update id="project.updateBaseProject" parameterClass="HashMap">
+        UPDATE BS_BASE_PROJECT
+           SET
+                NAME            = #projectName#
+               ,DESCRIPTION     = #projectDesc#
+               ,UPDATE_DATE     = now()
+               ,UPDATED_BY      = #userSeq#
+        WHERE PROJECT_ID = #projectId#
+
+        /* project.updateBaseProject */
+    </update>
+
+    <!-- activity 등록 -->
+    <insert id="project.mergeBaseActivity" parameterClass="Map">
+        <selectKey resultClass="int" keyProperty="nextActivityId">
+            SELECT IFNULL(MAX(ACTIVITY_ID),0) + 1 FROM BS_BASE_ACTIVITY
+        </selectKey>
+        INSERT INTO BS_BASE_ACTIVITY(
+                                         ACTIVITY_ID
+                                        ,PROJECT_ID
+                                        ,LEVEL
+                                        ,SORT
+                                        ,NAME
+                                        ,DESCRIPTION
+                                        ,START_DATE
+                                        ,END_DATE
+                                        ,BUDGET
+                                        ,BUDGET_AMT
+                                        ,EMPLOYEE
+                                        ,EXPENSE
+                                        ,OVER_EXPENSE
+                                        ,TIMESHEET
+                                        ,ENABLE
+                                        ,CREATE_DATE
+                                        ,CREATED_BY
+                                        ,UPDATE_DATE
+                                        ,UPDATED_BY
+                                    )
+                            VALUES
+                                    (
+                                         IFNULL(#activityId#, #nextActivityId#)
+                                        ,#projectId#
+                                        ,#level#
+                                        ,#sort#
+                                        ,#name#
+                                        ,#description#
+                                        ,IF((#startDate# IS NOT NULL AND #startDate# != ''), STR_TO_DATE(#startDate#, '%Y-%m-%d'), NULL)
+                                        ,IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+                                        , 'N'
+                                        ,(case when #budgetAmt# = '' then null else #budgetAmt# end)
+                                        ,'A'
+                                        ,#expense#
+                                        ,'N'
+                                        ,'Y'
+                                        ,#enable#
+                                        ,now()
+                                        ,#userSeq#
+                                        ,now()
+                                        ,#userSeq#
+                                    )
+
+                    ON DUPLICATE KEY
+                    UPDATE
+                             SORT           = #sort#
+                            ,NAME           = #name#
+                            ,DESCRIPTION    = #description#
+                            ,START_DATE     = IF((#startDate# IS NOT NULL AND #startDate# != ''), STR_TO_DATE(#startDate#, '%Y-%m-%d'), NULL)
+                            ,END_DATE       = IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+                            ,BUDGET         = 'N'
+                            ,BUDGET_AMT     = #budgetAmt#
+                            ,EMPLOYEE       = 'A'
+                            ,EXPENSE        = #expense#
+                            ,OVER_EXPENSE   = 'N'
+                            ,TIMESHEET      = 'Y'
+                            ,ENABLE         = #enable#
+                            ,UPDATE_DATE    = now()
+                            ,UPDATED_BY     = #userSeq#
+
+        /* project.mergeBaseActivity */
+    </insert>
+
+ 	<!--  프로젝트 상태변경(보류,중단,보류취소,중단취소) -->
+    <update id="project.updateProjectStatus" parameterClass="HashMap">
+        UPDATE BS_PROJECT
+           SET
+                PENDING_FLAG  = #pendingFlag#
+               ,STOP_FLAG     = #stopFlag#
+               <isEqual property="pendingFlag" compareValue="N">
+               		<isEqual property="stopFlag" compareValue="N">
+               			,END_DATE = IF(CURDATE() <![CDATA[>]]> END_DATE OR CURDATE() <![CDATA[>]]> CLOSE_DATE , DATE_ADD(NOW(), INTERVAL +7 DAY), END_DATE)
+               			,CLOSE_DATE = IF(CURDATE() <![CDATA[>]]> END_DATE OR CURDATE() <![CDATA[>]]> CLOSE_DATE , DATE_ADD(NOW(), INTERVAL +14 DAY), CLOSE_DATE)
+               		</isEqual>
+				</isEqual>
+               ,UPDATE_DATE     = now()
+               ,UPDATED_BY      = #userSeq#
+        WHERE PROJECT_ID = #pId#
+        /* project.updateProjectStatus */
+    </update>
+
+    <!-- 프로젝트 현황 상세>> 리스트 -->
+	<select id="project.searchProjectStatusList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.*
+		FROM (
+     			SELECT A.LIST_ID													AS keyId	   /*데이터의 pk*/
+					  ,CONCAT('WORK_DAILY_',A.WORK_TYPE)							AS type		   /*업무타입*/
+					  ,DATE_FORMAT(A.WORK_DATE, '%Y/%m/%d')							AS startDate   /*시작일/작성일*/
+					  ,DATE_FORMAT(A.COMPLETE_DATE, '%Y/%m/%d') 					As endDate	   /*종료일*/
+					  ,CASE WHEN A.complete = 'Y' THEN '완료'
+				      	ELSE
+				      		(SELECT VALUE_MEAN_KOR
+					         FROM BS_CODE_GV
+					         WHERE CODE_NAME = 'WORKDAILY_PROGRESS'
+					         	AND CODE_VALUE= A.PROGRESS
+					         	AND ORG_ID = A.ORG_ID
+					         )
+					    END 														AS progressTxt	/*진행상태 text*/
+					  ,A.ACTIVITY_NAME												AS activityNm   /*액티비티 이름*/
+					  ,A.ACTIVITY_ID												AS activityId   /*액티비티 아이디*/
+					  ,A.created_by													AS userId       /*작성자아이디*/
+					  ,A.MEMO														AS memo			/*상세*/
+					  ,(SELECT G.VALUE_MEAN_KOR
+		                          FROM BS_CODE_GV G
+		                         WHERE G.CODE_NAME = 'RANK'
+		                           AND G.CODE_VALUE = A.RANK
+		                           AND G.ORG_ID = A.ORG_ID) 						AS rankNm		/*작성자 직급*/
+					  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY_SNB)	AS orgNm 		/*작성자 회사 이름*/
+					  ,A.KOR_NAME 													AS deptNm		/*작성자 부서*/
+					  ,A.COMPANY_TEL												AS companyTel   /*작성자 회사번호*/
+					  ,A.MOBILE_TEL													AS mobileTel	/*작성자 핸드폰번호*/
+					  ,A.EMAIL														AS email		/*작성자 메일*/
+					  ,A.NAME														AS name			/*작성자 이름*/
+					 ,IFNULL((SELECT CONCAT(SUBSTRING_INDEX(FL.file_path, '/', -3), FL.NEW_FILE_NM)
+		                  FROM bs_file_list FL
+		                 WHERE upload_id = A.USER_ID
+		                   AND UPLOAD_TYPE = 'PROFILEIMG'
+		                   AND DELETE_FLAG = 'N'),'')  								AS photoNm    	/*작성자 프로필 사진*/
+					  ,A.TITLE														AS title		/*제목*/
+					  ,DATE_FORMAT(A.create_date, '%Y/%m/%d')						AS createDate	/*작성일*/
+					  ,(SELECT  COUNT(*)
+				            FROM bs_file_list
+				            WHERE delete_flag = 'N'
+				        AND upload_id IN (SELECT X.WORK_MEMO_ID FROM BS_WORK_MEMO X WHERE A.LIST_ID = X.LIST_ID)
+				        AND upload_type = 'WORK_MEMO'
+				        ) 															AS fileCnt		/*첨부파일*/
+				      , IF(A.WORK_TYPE = 'PRIVATE',A.WORK_MEMO_ID
+				      								 ,(SELECT GROUP_CONCAT(DISTINCT X.WORK_MEMO_ID SEPARATOR ',')
+				      								     FROM BS_WORK_MEMO X WHERE A.LIST_ID = X.LIST_ID)) 				AS fileUploadId /*첨부업로드 아이디*/
+				      ,TO_DAYS(NOW())-TO_DAYS(IF(A.WORK_TYPE = 'PRIVATE',A.create_date,A.WORK_DATE) )					AS daydiff      /*기준일과 오늘날짜의 차이*/
+				      ,DATE_FORMAT(A.CREATE_DATE_MEMO, '%Y/%m/%d')														AS attr1		/*첫번째 메모 작성일*/
+				      ,''															AS attr2
+				      ,''															AS attr3
+				      ,''															AS attr4
+				      ,''															AS attr5
+				      ,''															AS attr6
+				      ,''															AS attr7
+				      ,''															AS attr8
+				      ,''															AS attr9
+			      FROM (
+
+
+			      SELECT A.*
+			            ,user.ORG_ID
+			            ,user.RANK
+			            ,org.COMPANY_SNB
+			            ,dept.KOR_NAME
+						,user.COMPANY_TEL
+						,user.MOBILE_TEL
+						,user.EMAIL
+						,user.NAME
+			            ,Q.NAME AS ACTIVITY_NAME
+			            ,user.USER_ID
+			        FROM (
+						SELECT memo.LIST_ID
+							  ,list.WORK_TYPE
+							  ,list.WORK_DATE
+			                  ,list.COMPLETE_DATE
+			                  ,list.complete
+			                  ,list.TITLE
+			                  ,memo.WORK_MEMO_ID
+			                  ,memo.CREATE_DATE AS CREATE_DATE_MEMO
+			                  ,list.created_by
+			                  ,list.create_date
+			                  ,memo.MEMO
+			                  ,list.PROGRESS
+							  ,list.ACTIVITY_ID
+			                  ,list.PROJECT_ID
+
+			            FROM
+						BS_WORK_LIST AS list
+						INNER JOIN BS_WORK_MEMO AS memo ON list.LIST_ID = memo.LIST_ID
+			            WHERE list.PROJECT_ID = #pId#
+			            GROUP BY memo.LIST_ID
+						) A
+				INNER JOIN BS_USER_MASTER AS user ON user.user_id = A.created_by
+			    INNER JOIN BS_USER_DEPARTMENT AS userDept ON userDept.user_id = user.user_id
+			        AND main_yn = 'Y'
+			    INNER JOIN BS_DEPARTMENT AS dept ON dept.dept_id = userDept.dept_id
+			    INNER JOIN BS_ACTIVITY AS Q ON A.ACTIVITY_ID = Q.ACTIVITY_ID
+			    INNER JOIN BS_PROJECT AS P ON A.PROJECT_ID = P.PROJECT_ID
+			    INNER JOIN BS_ORG AS org ON user.ORG_ID = org.ORG_ID
+
+				<isNotEmpty prepend="AND" property="searchUserId">
+					A.created_by = #searchUserId#
+				</isNotEmpty>
+				<isNotEmpty prepend="AND" property="searchActivityId">
+					A.ACTIVITY_ID = #searchActivityId#
+				</isNotEmpty>
+				<isNotEmpty property="type">
+					<isNotEqual prepend="" property="type" compareValue="ALL">
+						<isNotEqual prepend="AND" property="type" compareValue="FILE">
+							CONCAT('WORK_DAILY_',A.WORK_TYPE) = #type#
+						</isNotEqual>
+					</isNotEqual>
+				</isNotEmpty>
+				<isNotEmpty property="searchOrder">
+					<isEqual prepend="" property="searchOrder" compareValue="timeAsc">
+						ORDER BY A.create_date ASC
+					</isEqual>
+					<isEqual prepend="" property="searchOrder" compareValue="timeDesc">
+						ORDER BY A.create_date DESC
+					</isEqual>
+				</isNotEmpty>
+				<isEmpty property="searchOrder">
+					ORDER BY A.create_date ASC
+				</isEmpty>
+				LIMIT $maxPageRowBuf$
+			    ) A
+			UNION ALL
+
+			SELECT S.SCHE_SEQ													AS keyId	   /*데이터의 pk*/
+				  ,'SCHE'														AS type		   /*업무타입*/
+				  ,DATE_FORMAT(S.SCHE_S_DATE, '%Y/%m/%d')						AS startDate   /*시작일/작성일*/
+				  ,DATE_FORMAT(S.SCHE_E_DATE, '%Y/%m/%d') 						As endDate	   /*종료일*/
+				  ,S.SCHE_CHK_FLAG												AS progressTxt	/*진행상태 text*/
+
+				  ,Q.NAME														AS activityNm   /*액티비티 이름*/
+				  ,Q.ACTIVITY_ID												AS activityId   /*액티비티 아이디*/
+				  ,user.USER_ID													AS userId       /*작성자아이디*/
+				  ,S.SCHE_CON													AS memo			/*상세*/
+				  ,(SELECT G.VALUE_MEAN_KOR
+	                          FROM BS_CODE_GV G
+	                         WHERE G.CODE_NAME = 'RANK'
+	                           AND G.CODE_VALUE = user.RANK
+	                           AND G.ORG_ID = org.ORG_ID) 						AS rankNm		/*작성자 직급*/
+				  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = org.COMPANY_SNB) AS orgNm 		/*작성자 회사 이름*/
+				  ,dept.KOR_NAME 												AS deptNm		/*작성자 부서*/
+				  ,user.COMPANY_TEL												AS companyTel   /*작성자 회사번호*/
+				  ,user.MOBILE_TEL												AS mobileTel	/*작성자 핸드폰번호*/
+				  ,user.EMAIL													AS email		/*작성자 메일*/
+				  ,user.NAME													AS name			/*작성자 이름*/
+				 ,IFNULL((SELECT CONCAT(SUBSTRING_INDEX(FL.file_path, '/', -3), FL.NEW_FILE_NM)
+	                  FROM bs_file_list FL
+	                 WHERE upload_id = user.USER_ID
+	                   AND UPLOAD_TYPE = 'PROFILEIMG'
+	                   AND DELETE_FLAG = 'N'),'')  								AS photoNm    	/*작성자 프로필 사진*/
+				  ,S.SCHE_TITLE													AS title		/*제목*/
+				  ,DATE_FORMAT(S.REG_DATE, '%Y/%m/%d')							AS createDate	/*작성일*/
+				  ,0 															AS fileCnt		/*첨부파일*/
+			      ,''															AS fileUploadId /*첨부업로드 아이디*/
+			      ,TO_DAYS(NOW())-TO_DAYS(S.SCHE_S_DATE)						AS daydiff      /*기준일과 오늘날짜의 차이*/
+
+			      , (SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = S.CUSTOMER_ID) AS attr1		/*고객*/
+			      , (SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = S.COMPANY_ID) 	AS attr2		/*회사*/
+			      , CASE S.SCHE_REPET_FLAG WHEN 'None' THEN '없음'
+			      						   WHEN 'Year' THEN '매년'
+			      						   WHEN 'Quarter' THEN '분기'
+			      						   WHEN 'Month' THEN '매월'
+			      						   WHEN 'Week' THEN '매주'
+			      						   WHEN 'Date' THEN '매일'
+			      						   ELSE '없음' END  						AS attr3		/*반복설정*/
+			      , S.CAR_USE_FLAG 												AS attr4		/*차량사용여부*/
+			      , (SELECT CAR_NUMBER FROM BS_CAR_LIST WHERE CAR_ID = S.CAR_ID) AS attr5		/*차량번호*/
+			      , S.SCHE_AREA 												AS attr6		/*장소*/
+			      , CASE SCHE_ALARM_FLAG WHEN '7' THEN '일주일전'
+			      						 WHEN '0' THEN '당일'
+			      						 WHEN 'None' THEN '없음'
+			      						 ELSE CONCAT('직접입력 (', Sche_alarm_flag, '일전)')
+			      						 END  									AS attr7		/*알림*/
+	              , CASE SCHE_ALARM_HOW WHEN 'Pop' THEN '팝업만'
+	              						WHEN 'PopSMS' THEN '팝업, 문자 모두'
+	              						ELSE '없음'
+	              						END  									AS attr8		/*알림방법*/
+	              , S.SCHE_IMPORTANT 											AS attr9		/*중요도*/
+			FROM ERP_SCHEDULE S
+			LEFT OUTER JOIN BS_USER_MASTER AS user 	ON user.EMP_NO = S.PER_SABUN
+			LEFT JOIN BS_USER_DEPARTMENT	AS userDept	ON userDept.user_id = user.user_id AND main_yn ='Y'
+			LEFT JOIN BS_DEPARTMENT		AS dept		ON dept.dept_id = userDept.dept_id
+			LEFT OUTER JOIN BS_ACTIVITY AS Q ON S.ACTIVITY_ID = Q.ACTIVITY_ID
+			LEFT OUTER JOIN BS_PROJECT AS P ON S.PROJECT_ID = P.PROJECT_ID
+			LEFT JOIN BS_ORG  AS  org   ON user.ORG_ID = org.ORG_ID
+			WHERE S.DEL_FLAG = 'N'
+			AND S.SCHE_SEQ IN (
+			SELECT DISTINCT SCHE_SEQ
+			                   FROM ERP_SCHEDULE_ENTRY
+			                    WHERE 1=1
+			                    AND DEL_FLAG = 'N')
+			AND S.PROJECT_ID = #pId#
+
+			UNION ALL
+
+			SELECT DOC.APPV_DOC_ID												AS keyId	   /*데이터의 pk*/
+				  ,'APPROVE'													AS type		   /*업무타입*/
+				  ,DATE_FORMAT(DOC.DATE_FROM, '%Y/%m/%d')						AS startDate   /*시작일/작성일*/
+				  ,DATE_FORMAT(DOC.DATE_TO, '%Y/%m/%d') 						As endDate	   /*종료일*/
+				  ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X
+				  	 WHERE X.ORG_ID = user.ORG_ID
+				  	   AND X.CODE_NAME = 'DOC_STATUS'
+				  	   AND X.CODE_VALUE =DOC.DOC_STATUS) 						AS progressTxt	/*진행상태 text*/
+				  ,Q.NAME														AS activityNm   /*액티비티 이름*/
+				  ,Q.ACTIVITY_ID												AS activityId   /*액티비티 아이디*/
+				  ,DOC.created_by												AS userId       /*작성자아이디*/
+				  ,DOC.MEMO													AS memo			/*상세*/
+				  ,(SELECT G.VALUE_MEAN_KOR
+	                          FROM BS_CODE_GV G
+	                         WHERE G.CODE_NAME = 'RANK'
+	                           AND G.CODE_VALUE = user.RANK
+	                           AND G.ORG_ID = org.ORG_ID) 						AS rankNm		/*작성자 직급*/
+				  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = org.COMPANY_SNB) AS orgNm 		/*작성자 회사 이름*/
+				  ,dept.KOR_NAME 												AS deptNm		/*작성자 부서*/
+				  ,user.COMPANY_TEL												AS companyTel   /*작성자 회사번호*/
+				  ,user.MOBILE_TEL												AS mobileTel	/*작성자 핸드폰번호*/
+				  ,user.EMAIL													AS email		/*작성자 메일*/
+				  ,user.NAME													AS name			/*작성자 이름*/
+				 ,IFNULL((SELECT CONCAT(SUBSTRING_INDEX(FL.file_path, '/', -3), FL.NEW_FILE_NM)
+	                  FROM bs_file_list FL
+	                 WHERE upload_id = user.USER_ID
+	                   AND UPLOAD_TYPE = 'PROFILEIMG'
+	                   AND DELETE_FLAG = 'N'),'')  								AS photoNm    	/*작성자 프로필 사진*/
+				  ,DOC.DOC_TITLE												AS title		/*제목*/
+				  ,DATE_FORMAT(DOC.create_date, '%Y/%m/%d')						AS createDate	/*작성일*/
+				  ,(SELECT COUNT(*)
+			            FROM bs_file_list
+			            WHERE delete_flag = 'N'
+			        AND upload_id = DOC.APPV_DOC_ID
+			        AND upload_type = DOC.APPV_DOC_CLASS
+			        GROUP BY upload_id) 										AS fileCnt		/*첨부파일*/
+			      , DOC.APPV_DOC_ID												AS fileUploadId /*첨부업로드 아이디*/
+			      ,TO_DAYS(NOW())-TO_DAYS(DOC.DATE_FROM)						AS daydiff      /*기준일과 오늘날짜의 차이*/
+			      ,(SELECT X.VALUE_MEAN_KOR
+			      	  FROM BS_CODE_GV X
+			      	 WHERE X.ORG_ID = user.ORG_ID
+			      	   AND X.CODE_NAME = 'APPV_DOC_CLASS'
+			      	   AND X.CODE_VALUE = DOC.APPV_DOC_CLASS)					AS attr1		/*품의서 종류*/
+			      ,DOC.APPV_DOC_CLASS											AS attr2		/*APPV_DOC_CLASS*/
+			      ,DOC.APPV_DOC_TYPE											AS attr3		/*APPV_DOC_TYPE*/
+			      ,DOC.DOC_STATUS												AS attr4		/*DOC_STATUS*/
+			      ,user.ORG_ID													AS attr5		/*ORG_ID*/
+			      ,''															AS attr6
+			      ,''															AS attr7
+			      ,''															AS attr8
+			      ,''															AS attr9
+			FROM BS_APPV_DOC DOC
+			LEFT OUTER JOIN BS_USER_MASTER AS user 	ON user.USER_ID = DOC.USER_ID
+			LEFT JOIN BS_USER_DEPARTMENT	AS userDept	ON userDept.user_id = user.user_id AND main_yn ='Y'
+			LEFT JOIN BS_DEPARTMENT		AS dept		ON dept.dept_id = userDept.dept_id
+			LEFT OUTER JOIN BS_ACTIVITY AS Q ON DOC.ACTIVITY_ID = Q.ACTIVITY_ID
+			LEFT OUTER JOIN BS_PROJECT AS P ON DOC.PROJECT_ID = P.PROJECT_ID
+			LEFT JOIN BS_ORG  AS  org   ON user.ORG_ID = org.ORG_ID
+			WHERE DOC.DOC_STATUS!= 'WORKING'
+			AND DOC.PROJECT_ID = #pId#
+		) A
+		WHERE 1=1
+		<isNotEmpty prepend="AND" property="searchUserId">
+			A.userId = #searchUserId#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="searchActivityId">
+			A.activityId = #searchActivityId#
+		</isNotEmpty>
+		<isNotEmpty property="type">
+			<isNotEqual prepend="" property="type" compareValue="ALL">
+				<isNotEqual prepend="AND" property="type" compareValue="FILE">
+					A.type = #type#
+				</isNotEqual>
+				<isEqual prepend="AND" property="type" compareValue="FILE">
+					A.fileCnt>0
+				</isEqual>
+			</isNotEqual>
+		</isNotEmpty>
+		<isNotEmpty property="searchOrder">
+			<isEqual prepend="" property="searchOrder" compareValue="timeAsc">
+				ORDER BY A.createDate ASC
+			</isEqual>
+			<isEqual prepend="" property="searchOrder" compareValue="timeDesc">
+				ORDER BY A.createDate DESC
+			</isEqual>
+		</isNotEmpty>
+		<isEmpty property="searchOrder">
+			ORDER BY A.createDate ASC
+		</isEmpty>
+		LIMIT $maxPageRowBuf$
+		<!-- <isNotEmpty property="chkSearchMore">
+			<isEqual prepend="" property="chkSearchMore" compareValue="N">
+				LIMIT 5
+			</isEqual>
+		</isNotEmpty> -->
+	</select>
+
+	<!-- 전자계약 : 기본양식 : 프로젝트 조회 -->
+	<select id="project.getAppvProjectList" remapResults="true" parameterClass="HashMap" resultClass="egovMap">
+        SELECT	 DISTINCT
+                 A.PROJECT_ID
+                ,A.EMPLOYEE
+                ,IF(A.EMPLOYEE = 'Y','직원배정','전직원') AS EMPLOYEE_NM
+                ,A.NAME
+                ,A.PROJECT_CODE
+                ,A.PROJECT_TYPE
+		      	,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = #orgId# AND X.CODE_NAME = 'PROJECT_TYPE' AND X.CODE_VALUE = A.PROJECT_TYPE) AS PROJECT_TYPE_NM
+                ,A.DESCRIPTION
+                ,A.PERIOD
+ 			  	,A.CONFIRM
+		      	,DATE_FORMAT(A.START_DATE, "%Y/%m/%d")	AS START_DATE
+			 	,DATE_FORMAT(A.END_DATE, "%Y/%m/%d")	AS END_DATE
+                ,DATE_FORMAT(A.CLOSE_DATE, "%Y-%m-%d")	AS CLOSE_DATE
+                ,(CASE WHEN A.PENDING_FLAG = 'Y' THEN '보류'
+                       WHEN A.STOP_FLAG = 'Y' THEN '중단'
+                       WHEN A.CONFIRM = 'N' THEN '임시저장'
+                       WHEN A.CONFIRM = 'Y' AND  A.START_DATE <![CDATA[ > ]]>  CURDATE()THEN '예정'
+                       WHEN A.CONFIRM = 'Y' AND  CURDATE()  BETWEEN  A.START_DATE AND IF(A.END_DATE <![CDATA[>]]>A.CLOSE_DATE , A.CLOSE_DATE,A.END_DATE)
+                          THEN (CASE WHEN A.CLOSE_DATE BETWEEN CURDATE() AND CURDATE() + INTERVAL 7 DAY THEN CONCAT('진행(',DATEDIFF(CLOSE_DATE,CURDATE()),')')
+                                          ELSE '진행'
+                                   END)
+                       WHEN A.CONFIRM = 'Y' AND  CURDATE()  BETWEEN  A.END_DATE AND A.CLOSE_DATE
+                           THEN (CASE WHEN A.CLOSE_DATE BETWEEN CURDATE() AND CURDATE() + INTERVAL 7 DAY THEN CONCAT('마감대기(',DATEDIFF(CLOSE_DATE,CURDATE()),')')
+                                          ELSE '마감대기'
+                                   END)
+                       WHEN A.CONFIRM = 'Y' AND  A.CLOSE_DATE <![CDATA[ < ]]> CURDATE() THEN '마감'
+               			END) AS PROJECT_STATUS_NM
+               ,DATE_FORMAT(A.CREATE_DATE, "%Y/%m/%d")	AS CREATE_DATE
+			   ,(SELECT NAME FROM BASE.BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS CREATE_NM
+               ,A.OPEN_FLAG
+        FROM    BS_PROJECT       A
+               ,BS_ACTIVITY      B
+        WHERE   A.PROJECT_ID    = B.PROJECT_ID
+        AND     A.CONFIRM       = 'Y'
+        AND     A.ORG_ID        = #orgId#
+		AND     B.APPV_DOC_CLASS IS NULL
+        AND		IFNULL(#selectStaffId#,#userId#) = IF(B.EMPLOYEE = 'A', IFNULL(#selectStaffId#,#userId#), (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = IFNULL(#selectStaffId#,#userId#)))
+        ORDER BY A.START_DATE DESC
+        <isNotEqual property="recordCountPerPage" compareValue="0">
+			LIMIT #firstIndex#, #recordCountPerPage#
+		</isNotEqual>
+		/* project.getAppvProjectList */
+	</select>
+
+	<!-- 전자계약 : 기본양식 : 프로젝트 조회 : 총개수 -->
+	<select id="project.getAppvProjectListTotalCnt" remapResults="true" parameterClass="HashMap" resultClass="Integer">
+        SELECT  COUNT(*)
+	      FROM (
+	        SELECT DISTINCT
+	               A.PROJECT_ID
+	        FROM    BS_PROJECT       A
+	               ,BS_ACTIVITY      B
+	        WHERE   A.PROJECT_ID    = B.PROJECT_ID
+	        AND     A.CONFIRM       = 'Y'
+	        AND     A.ORG_ID        = #orgId#
+			AND     B.APPV_DOC_CLASS IS NULL
+	        AND		IFNULL(#selectStaffId#,#userId#) = IF(B.EMPLOYEE = 'A', IFNULL(#selectStaffId#,#userId#), (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = IFNULL(#selectStaffId#,#userId#)))
+	        ) A
+			/* project.getAppvProjectListTotalCnt */
+	</select>
+	<!-- 지출  차감/비차감 INSERT 처리 -->
+    <insert id="project.insertProcessNonExpenseAll" parameterClass="HashMap">
+    	INSERT /* project.insertProcessNonExpenseAll */
+    	  INTO BS_PROJECT_EXPENSE (
+    	  							 PROJECT_ID
+									,ACTIVITY_ID
+									,PROJECT_EXPENSE_TYPE
+									,PROJECT_EXPENSE_CLASS
+									,PROJECT_EXPENSE_REF_ID
+									,EXPENSE_AMOUNT
+									,EXPENSE_INPUT_USER_ID
+									,EXPENSE_DATE
+									,COMMENT
+									,DEDUCT_YN
+									,CREATED_BY
+									,CREATE_DATE
+									,UPDATED_BY
+									,UPDATE_DATE
+    	  							) VALUES (
+			    	  							 #projectId#
+												,#activityId#
+												,#projectExpenseType#
+												,#projectExpenseClass#
+												,#projectExpenseRefId#
+												,#expenseAmount#
+												,#expenseInputUserId#
+												,#expenseDate#
+												,#comment#
+												,#deductYn#
+												,#userId#
+												,NOW()
+												,#userId#
+												,NOW()
+    	  										)
+    </insert>
+
+    <!-- 지출  차감 update 처리 -->
+    <update id="project.insertProjectExpense" parameterClass="HashMap">
+    	INSERT /* project.updateProjectExpense */
+    	  INTO BS_PROJECT_EXPENSE (
+    	  							 PROJECT_ID
+									,ACTIVITY_ID
+									,PROJECT_EXPENSE_TYPE
+									,PROJECT_EXPENSE_CLASS
+									,PROJECT_EXPENSE_REF_ID
+									,EXPENSE_AMOUNT
+									,EXPENSE_INPUT_USER_ID
+									,EXPENSE_DATE
+									,COMMENT
+									,DEDUCT_YN
+									,CREATED_BY
+									,CREATE_DATE
+									,UPDATED_BY
+									,UPDATE_DATE
+    	  						)
+    	  						(
+	    	  						SELECT 	 x.PROJECT_ID
+											,x.ACTIVITY_ID
+											,x.PROJECT_EXPENSE_TYPE
+											,x.PROJECT_EXPENSE_CLASS
+											,x.PROJECT_EXPENSE_REF_ID
+											,x.EXPENSE_AMOUNT
+											,x.EXPENSE_INPUT_USER_ID
+											,x.EXPENSE_DATE
+											,#comment#
+											,#deductYn#
+											,#userId#
+											,NOW()
+											,#userId#
+											,NOW()
+									 FROM (
+									 		SELECT   A.PROJECT_ID
+													,A.ACTIVITY_ID
+													,A.PROJECT_EXPENSE_TYPE
+													,A.PROJECT_EXPENSE_CLASS
+													,A.PROJECT_EXPENSE_REF_ID
+													,A.EXPENSE_AMOUNT
+													,A.EXPENSE_INPUT_USER_ID
+													,A.EXPENSE_DATE
+											 FROM BS_PROJECT_EXPENSE A
+											WHERE A.PROJECT_EXPENSE_ID = #projectExpenseId#
+									 ) X
+    	  						)
+
+    </update>
+
+    <!-- 지출 관련 상세 팝업 열람 권한 체크(전자결재) -->
+	<select id="project.getValidProjectExpenseViewForApprove" parameterClass="HashMap" resultClass="Integer">
+		SELECT /* project.getValidProjectExpenseViewForApprove */
+				COUNT(*)
+		 FROM BS_APPV_DOC B
+
+		WHERE B.APPV_DOC_ID = #projectExpenseRefId#
+
+		  AND (
+		  		/* 내가 작성했거나 대상자일때 */
+		  		(#myAuthIds# LIKE CONCAT('%',B.WRITER_ID,'%') OR #myAuthIds# LIKE CONCAT('%',B.USER_ID,'%'))
+		  		/* 받은결재로 볼수있는 권한이 있는가 */
+		  		OR (SELECT COUNT(*)
+		  		   FROM BS_APPROVAL_LINE_FLOW_V A
+		  		  WHERE A.APPV_DOC_ID = B.APPV_DOC_ID
+		  		    AND (#myAuthIds# LIKE CONCAT('%',A.NOW_APPV_ASSIGN_ID,'%') OR #myAuthIds# LIKE CONCAT('%',A.APPV_ASSIGN_ID,'%'))
+		  		    AND CASE 	WHEN A.APPV_EMP_ID IS NOT NULL AND A.APPV_EMP_ID != A.APPV_ASSIGN_ID THEN 1=1
+		                   		WHEN A.APPV_STATUS  = 'REQ'
+						                     	  OR (
+						                     	  		  (SELECT X.DOC_STATUS FROM BS_APPV_DOC X WHERE A.APPV_DOC_ID = X.APPV_DOC_ID) = 'CNL_SUBMIT'
+						                     	  	  AND NOT EXISTS ((SELECT Y.APPV_PROCESS_ID
+						                     	  	  				 FROM BS_APPROVAL_LINE_FLOW_V Y
+						                     	  	  				WHERE Y.APPV_DOC_ID = A.APPV_DOC_ID
+						                     	  	  				  AND Y.APPV_CLASS = A.APPV_CLASS
+						                     	  	  				  AND Y.APPV_SEQ > A.APPV_SEQ
+						                     	  	  				  AND IF(Y.APPV_CLASS = 'APPROVAL' , Y.CANCEL_COMMENT IS NOT NULL
+						                     	  	  				  		,(SELECT COUNT(*)
+						                     	  	  				  		    FROM BS_APPROVAL_LINE_FLOW_V Z
+						                     	  	  				  		   WHERE Z.APPV_CLASS = 'APPROVAL'
+						                     	  	  				  		     AND Z.APPV_SEQ = (SELECT MAX(K.APPV_SEQ)
+						                     	  	  				  		       					 FROM BS_APPROVAL_LINE_FLOW_V K
+						                     	  	  				  		       					WHERE K.APPV_DOC_ID = A.APPV_DOC_ID
+						                     	  	  				  		       					  AND K.APPV_CLASS = 'APPROVAL'
+						                     	  	  				  		     					)
+						                     	  	  				  		     AND Z.CANCEL_COMMENT IS NULL
+						                     	  	  				  		   )>0
+						                     	  	  				  		)
+						                     	  	  				))
+						                     	  	  )
+					                     	   THEN 1=1
+					                 	 WHEN  #myAuthIds# LIKE CONCAT('%',A.APPV_EMP_ID,'%') /* 승인이나 반려한것만 */ THEN 1=1
+					                 	 WHEN EXISTS ((SELECT X.APPV_ASSIGN_ID
+		                    	 				FROM BS_APPROVAL_LINE_FLOW_V X
+		                    	 				WHERE X.APPV_DOC_ID = A.APPV_DOC_ID
+		                    	 				  AND A.APPV_SEQ <![CDATA[<]]> X.APPV_SEQ
+		                    	 				  AND X.APPV_STATUS IN ('APPROVE','REJECT')
+		                    	 				  AND (#myAuthIds# NOT LIKE CONCAT('%',X.NOW_APPV_ASSIGN_ID,'%') OR #myAuthIds# NOT LIKE CONCAT('%',X.APPV_ASSIGN_ID,'%'))
+		                    	 				  AND A.APPV_EMP_ID IS NULL
+		                    	 				)) THEN 1=1
+		                    	 		 WHEN B.APPV_BEFORE_APPROVE_READ_YN = 'Y'
+						                    	 AND B.APPV_BEFORE_APPROVE_READ_YN = 'Y'
+						                    	 AND A.APPV_STATUS NOT IN ('REQ','APPROVE','REJECT') /*요청건제외*/
+						                    	 AND B.DOC_STATUS NOT IN('COMMIT','CNL_SUBMIT','CNL_REJECT','CNL_COMMIT')
+						                    	 AND (SELECT X.APPV_STATUS
+						                    	 		FROM BS_APPROVAL_LINE_FLOW_V X
+						                    	 	   WHERE X.APPV_DOC_ID = A.APPV_DOC_ID
+						                    	 	     AND A.APPV_SEQ <![CDATA[>]]> X.APPV_SEQ
+						                    	 	    ORDER BY APPV_SEQ DESC LIMIT 1
+						                    	 	 ) NOT IN ('APPROVE','REJECT')
+						                    	 AND NOT EXISTS (SELECT X.APPV_STATUS
+								                    	 		FROM BS_APPROVAL_LINE_FLOW_V X
+								                    	 	   WHERE X.APPV_DOC_ID = A.APPV_DOC_ID
+								                    	 	     AND A.APPV_SEQ <![CDATA[<]]> X.APPV_SEQ
+								                    	 	     AND X.APPV_STATUS IN ('APPROVE','REJECT')
+								                    	 	 	)
+						                    	 AND IF(A.APPV_CLASS = 'AGREE',(SELECT X.APPV_EMP_ID FROM BS_APPROVAL_LINE_FLOW_V X
+						                    	 								  WHERE X.APPV_DOC_ID = A.APPV_DOC_ID
+						                    	 								   AND X.APPV_CLASS = 'APPROVAL'
+						                    	 								   ORDER BY X.APPV_SEQ DESC LIMIT 1) IS NOT NULL
+						                    	 								   ,1=1
+						                    	 								)
+					                    	 THEN 1=1
+					                   	 ELSE 1=2
+					                    END
+
+		  		)>0
+
+		  		OR /* 참조자 */
+		  		(
+		  			SELECT COUNT(*)
+		  			  FROM BS_APPV_CC X
+		  			 WHERE X.APPV_DOC_ID = B.APPV_DOC_ID
+		  			   AND #myAuthIds# LIKE CONCAT('%',X.USER_ID,'%')
+		  			   AND IF(B.APPV_BEFORE_CC_READ_YN = 'Y',B.DOC_STATUS NOT IN('WORKING'),B.DOC_STATUS IN('COMMIT','CNL_SUBMIT','CNL_REJECT','CNL_COMMIT'))
+		  		)>0
+
+		  		OR /* 수신자 */
+		  		(
+		  			SELECT COUNT(*)
+		  			  FROM BS_APPV_RECEIVER X
+		  			 WHERE X.APPV_DOC_ID = B.APPV_DOC_ID
+		  			   AND #myAuthIds# LIKE CONCAT('%',X.USER_ID,'%')
+		  			   AND IF(B.APPV_BEFORE_RECEIVE_READ_YN = 'Y',B.DOC_STATUS NOT IN('WORKING'),B.DOC_STATUS IN('COMMIT','CNL_SUBMIT','CNL_REJECT','CNL_COMMIT'))
+		  		)>0
+		  		OR /* 재무담당자 */
+		  		(
+		  			   B.APPV_DOC_CLASS = 'EXPENSE'
+		           AND B.DOC_STATUS IN('COMMIT','CNL_SUBMIT','CNL_REJECT')
+		           AND EXISTS ( SELECT X.USER_ID FROM BS_APPV_EXPENSE_MANAGER_SETUP X WHERE X.ORG_ID = #orgId# AND #myAuthIds# LIKE CONCAT('%',X.USER_ID,'%') )
+		  		)
+		  	 )
+
+	</select>
+
+	<!-- 지출 관련 상세 팝업 열람 권한 체크(지출) -->
+	<select id="project.getValidProjectExpenseViewForCard" parameterClass="HashMap" resultClass="Integer">
+		SELECT /* project.getValidProjectExpenseViewForCard*/
+				COUNT(*)
+		  FROM IB_CARD_USED A
+		 WHERE A.S_NB = #projectExpenseRefId#
+		   AND (
+		   		/* 본인작성 */
+		   		A.RG_ID = #userId#
+		   		/* 팀장일경우 */
+		   		OR EXISTS (
+		   					SELECT X.USER_ID
+		   					  FROM BS_USER_MASTER X
+		   					INNER JOIN BS_USER_DEPARTMENT Y ON Y.USER_ID = X.USER_ID AND Y.MAIN_YN = 'Y'
+		   					INNER JOIN BS_DEPT_MANAGER Z ON Y.DEPT_ID = Z.DEPT_ID AND Z.USER_ID = #userId#
+		   					 WHERE X.USER_ID = A.RG_ID
+
+		   					)
+		   		)
+	</select>
+
+	<!-- 프로젝트현황 > wbs summarymap -->
+    <select id = "project.searchWbsSummaryMapList" parameterClass = "HashMap" resultClass = "egovMap">
+    SELECT * FROM (
+        SELECT   IFNULL(SUM(IF(A.WORK_TYPE = 'TEAM', 1, 0)), 0) 												 AS	TEAM_TOT
+				,IFNULL(SUM(IF(A.WORK_TYPE = 'PRIVATE', 1, 0)), 0) 												 AS PRIVATE_TOT
+		        ,'총업무수'																						 AS HEADER
+		        ,''																								 AS DISCRIPTION
+		        ,'N'																							 AS DELETE_YN
+		        ,-1 																							 AS SORT
+		        ,'TOT'																							 AS TYPE
+	    FROM BS_WORK_LIST A
+	   WHERE A.PROJECT_ID =  #projectId#
+
+	   UNION ALL
+
+	   SELECT    IFNULL(SUM(IF(A.WORK_TYPE = 'TEAM', 1, 0)), 0) 											 AS	TEAM_TOT
+				,IFNULL(SUM(IF(A.WORK_TYPE = 'PRIVATE', 1, 0)), 0) 											 AS PRIVATE_TOT
+		        ,'완료건'																						 AS HEADER
+		        ,''																							 AS DISCRIPTION
+		        ,'N'																						 AS DELETE_YN
+		        ,99999999999																				 AS SORT
+		        ,'COMPLTE'																					 AS TYPE
+	    FROM BS_WORK_LIST A
+	   WHERE A.PROJECT_ID =   #projectId#
+		 AND A.COMPLETE = 'Y'
+	   UNION ALL
+
+	   SELECT IFNULL(XX.TEAM_TOT,0) 												 AS	TEAM_TOT
+			,IFNULL(XX.PRIVATE_TOT, 0) 												 AS PRIVATE_TOT
+			,Y.VALUE_MEAN_KOR																						 AS HEADER
+			,Y.VALUE_DESC																					 AS DISCRIPTION
+				,Y.DELETE_FLAG																					 AS DELETE_YN
+				,Y.SORT 																						 AS SORT
+				,Y.CODE_VALUE																					 AS CODE_VALUE
+       FROM
+
+       (SELECT CV.VALUE_MEAN_KOR,CV.VALUE_DESC,CV.DELETE_FLAG,CV.SORT,CV.CODE_VALUE
+					FROM BS_CODE_GV CV
+				   WHERE CV.CODE_NAME = 'WORKDAILY_PROGRESS'
+					 AND CV.ORG_ID = #applyOrgId#) Y
+	  LEFT OUTER JOIN (
+		   SELECT IFNULL(SUM(IF(T.WORK_TYPE = 'TEAM', 1, 0)), 0) 												 AS	TEAM_TOT
+				,IFNULL(SUM(IF(T.WORK_TYPE = 'PRIVATE', 1, 0)), 0) 												 AS PRIVATE_TOT
+				,T.HEADER																						 AS HEADER
+				,T.DISCRIPTION																					 AS DISCRIPTION
+				,T.DELETE_YN																					 AS DELETE_YN
+				,T.SORT																							 AS SORT
+				,T.CODE_VALUE																					 AS TYPE
+
+		   FROM (
+		   SELECT A.WORK_TYPE
+				,A.PROGRESS
+				,X.VALUE_MEAN_KOR																				 AS HEADER
+				,X.VALUE_DESC																					 AS DISCRIPTION
+				,X.DELETE_FLAG																					 AS DELETE_YN
+				,X.SORT 																						 AS SORT
+				,X.CODE_VALUE																					 AS CODE_VALUE
+			 FROM bs_work_list A
+			 INNER JOIN (
+				  SELECT CV.VALUE_MEAN_KOR,CV.VALUE_DESC,CV.DELETE_FLAG,CV.SORT,CV.CODE_VALUE
+					FROM BS_CODE_GV CV
+				   WHERE CV.CODE_NAME = 'WORKDAILY_PROGRESS'
+					 AND CV.ORG_ID =#applyOrgId#
+			 ) X ON A.PROGRESS = X.CODE_VALUE
+			  WHERE A.PROJECT_ID =   #projectId#
+			  	AND A.COMPLETE = 'N'
+			  ) T
+			  GROUP BY T.PROGRESS
+          ) XX ON Y.CODE_VALUE = XX.TYPE
+       ) A
+       ORDER BY A.SORT
+        /* project.searchWbsSummaryMapList */
+    </select>
+
+    <!-- 프로젝트현황 > wbs summarymap -->
+    <select id = "project.getWbsWorkSearchList" parameterClass = "HashMap" resultClass = "egovMap">
+		SELECT * , COUNT(*) AS CNT
+			FROM (
+					SELECT 	 A.ACTIVITY_ID
+							,YEAR(A.WORK_DATE) AS YEAR
+							,MONTH(A.WORK_DATE) AS MONTH
+							,DAYOFMONTH(A.WORK_DATE) AS DATE
+			                ,WEEK(A.WORK_DATE) - WEEK(DATE_SUB(A.WORK_DATE, INTERVAL DAYOFMONTH(A.WORK_DATE)-1 DAY)) + 1 AS WEEKNUM
+							,A.WORK_DATE
+							,A.WORK_TYPE
+							,A.PROGRESS
+							,A.COMPLETE
+							,A.EMP_ID
+							,B.NAME
+							,(SELECT G.VALUE_MEAN_KOR
+				                 FROM   BS_CODE_GV G
+				                 WHERE  G.ORG_ID =  B.ORG_ID
+				                 AND    G.CODE_NAME = 'RANK'
+				                 AND    G.CODE_VALUE = (SELECT X.RANK FROM BS_USER_MASTER X WHERE X.USER_ID = B.USER_ID)) AS USER_RANK_NM
+					FROM BS_WORK_LIST A
+					INNER JOIN BS_USER_MASTER B ON A.EMP_ID = B.USER_ID
+			        LEFT OUTER JOIN BS_ACTIVITY_USER C ON A.ACTIVITY_ID = C.ACTIVITY_ID AND C.USER_ID = A.EMP_ID
+					WHERE A.ACTIVITY_ID =#activityId#
+					 <isNotEmpty property="year">
+					  AND YEAR(A.WORK_DATE) = #year#
+					 </isNotEmpty>
+					 <isNotEmpty property="searchStartDt">
+					  AND DATE(A.WORK_DATE) BETWEEN #searchStartDt# AND #searchEndDt#
+					 </isNotEmpty>
+					ORDER BY A.EMP_ID
+			  ) X GROUP BY X.EMP_ID ,X.MONTH <isNotEmpty property="year">, X.WEEKNUM</isNotEmpty> <isNotEmpty property="searchStartDt">,X.WORK_DATE</isNotEmpty> ,X.COMPLETE, X.PROGRESS
+    	/* project.getWbsWorkSearchList */
+    </select>
+
+    <!-- 프로젝트진척율 조회 -->
+    <select id = "project.getWbsWorkActivityTotMap" parameterClass = "HashMap" resultClass = "egovMap">
+		SELECT   A.ACTIVITY_PROGRESS_ID
+				,A.ACTIVITY_ID
+				,A.PROGRESS_YEAR
+				,A.PROGRESS_RATE
+				,A.CREATE_DATE
+				,A.CREATED_BY
+				,A.UPDATE_DATE
+				,A.UPDATED_BY
+				,'N' AS BASE_PROGRESS_YN
+		  FROM BS_ACTIVITY_PROGRESS A
+		 WHERE A.ACTIVITY_ID = #activityId#
+
+    	/* project.getWbsWorkActivityTotMap */
+    </select>
+
+    <!-- 프로젝트진척율 조회 -->
+    <select id = "project.getActivityListForWbs" parameterClass = "HashMap" resultClass = "HashMap">
+    	SELECT A.ACTIVITY_ID		AS activityId
+			  ,A.PROJECT_ID			AS projectId
+
+			  ,DATE_FORMAT(A.START_DATE, "%Y-%m-%d")	AS startDate
+			  ,DATE_FORMAT(A.END_DATE, "%Y-%m-%d")		AS endDate
+
+		  FROM BS_ACTIVITY			A
+		 WHERE A.PROJECT_ID = #projectId#
+
+    </select>
+    <!-- 엑티비티 상세 수정 -->
+	<update id="project.updateActivityForWbs" parameterClass="HashMap">
+		UPDATE BS_ACTIVITY			A
+		   SET A.START_DATE = IF((#startDate# IS NOT NULL AND #startDate# != ''), STR_TO_DATE(#startDate#, '%Y-%m-%d'), NULL)
+			 , A.END_DATE = IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+			 , A.UPDATED_BY = #userId#
+			 , A.UPDATE_DATE = NOW()
+		WHERE A.ACTIVITY_ID = #activityId#
+		/* project.updateActivityForWbs */
+	</update>
+
+	<!-- 엑티비티 진척율 삭제 -->
+	<delete id="project.deleteActivityProgress" parameterClass="Map">
+		DELETE FROM BS_ACTIVITY_PROGRESS
+		WHERE ACTIVITY_ID = #activityId#
+		/* project.deleteActivityProgress */
+	</delete>
+
+	<!-- a엑티비티진척율 등록 -->
+	<insert id="project.insertActivityProgress" parameterClass="Map">
+		INSERT INTO BS_ACTIVITY_PROGRESS (
+											 ACTIVITY_ID
+											,PROGRESS_YEAR
+											,PROGRESS_RATE
+											,CREATE_DATE
+											,CREATED_BY
+											,UPDATE_DATE
+											,UPDATED_BY
+										) VALUES (
+											 #activityId#
+											,#year#
+											,#progressRate#
+											,NOW()
+											,#userId#
+											,NOW()
+											,#userId#
+										)
+		/* project.insertActivityForWbs */
+
+	</insert>
+
+	<!-- 엑티비티수정 내역 등록 -->
+	<insert id="project.insertActivityHist" parameterClass="Map">
+		INSERT INTO BS_ACTIVITY_HISTORY (
+											 ACTIVITY_ID
+											,PROJECT_HISTORY_ID
+											,START_DATE
+											,END_DATE
+											,BASE_PROGRESS_YN
+											,PROGRESS_RATE
+											,UPDATE_REASON
+											,CREATE_DATE
+											,CREATED_BY
+											,UPDATE_DATE
+											,UPDATED_BY
+										) VALUES (
+											 #activityId#
+											,#projectHistoryId#
+											,#startDate#
+											,#endDate#
+											,#baseProgressYn#
+											,#progressRate#
+											,#updateReason#
+											,NOW()
+											,#userId#
+											,NOW()
+											,#userId#
+										)
+		/* project.insertActivityHist */
+
+		<selectKey resultClass="int" type="post" keyProperty="activityHistoryId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+	</insert>
+	<!--수정내역조회 총개수 -->
+	<select id = "project.viewActivityUpdateHistTotalCnt" parameterClass="HashMap" resultClass="Integer">
+		SELECT   COUNT(*)
+		  FROM BS_ACTIVITY_HISTORY A
+		 WHERE ACTIVITY_ID = #activityId#
+	</select>
+
+	<!--수정내역조회 List -->
+	<select id = "project.viewActivityUpdateHist" parameterClass="HashMap" resultClass="egovMap">
+		SELECT   A.ACTIVITY_HISTORY_ID
+				,A.ACTIVITY_ID
+				,(SELECT X.NAME FROM BS_ACTIVITY AS X WHERE X.ACTIVITY_ID = A.ACTIVITY_ID) AS ACTIVITY_TITLE
+				,A.START_DATE
+				,A.END_DATE
+				,A.BASE_PROGRESS_YN
+				,A.PROGRESS_RATE
+				,A.UPDATE_REASON
+				,A.CREATE_DATE
+				,A.CREATED_BY
+				,A.UPDATE_DATE
+				,A.UPDATED_BY
+				,(SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY) AS CREATED_NM
+				,(SELECT GROUP_CONCAT(CONCAT(IF(Y.LEADER_YN = 'Y','##leaderF##','##noLeaderF##'),X.NAME,'(',Z.VALUE_MEAN_KOR,')','##strEnd##') ORDER BY IF(Y.LEADER_YN= 'Y',1,2) ASC SEPARATOR ',' )
+				        	  FROM BS_USER_MASTER X,BS_ACTIVITY_HISTORY_USER Y ,BS_CODE_GV Z
+				        	 WHERE 	A.ACTIVITY_HISTORY_ID = Y.ACTIVITY_HISTORY_ID
+				        	   AND  Y.USER_ID = X.USER_ID
+				        	   AND  Z.ORG_ID = X.ORG_ID
+				        	   AND  Z.CODE_NAME = 'RANK'
+				        	   AND  Z.CODE_VALUE =X.RANK
+
+			      ) AS CONCAT_STR
+		  FROM BS_ACTIVITY_HISTORY A
+		 WHERE 1 = 1
+
+		 <isNotEmpty property="activityId">
+		 	AND ACTIVITY_ID = #activityId#
+		 </isNotEmpty>
+
+		 <isNotEmpty property="projectHistoryId">
+		 	AND PROJECT_HISTORY_ID = #projectHistoryId#
+		 </isNotEmpty>
+
+		 <isEmpty property="projectHistoryId">
+		 	ORDER BY A.CREATE_DATE DESC
+		 </isEmpty>
+
+		 <isNotEmpty property="projectHistoryId">
+		 	ORDER BY A.ACTIVITY_ID ASC
+		 </isNotEmpty>
+
+		<isNotEqual property="recordCountPerPage" compareValue="0">
+			LIMIT #firstIndex#, #recordCountPerPage#
+		</isNotEqual>
+	</select>
+
+	<!-- 엑티비티 일정 상세 팝업(WBS) -->
+	<select id = "project.getWbsActivityViewMonthList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT A.WORK_TYPE
+			  ,IF(A.WORK_TYPE = 'PRIVATE' , '개인업무' , '팀업무') AS WORK_TYPE_NM
+			  ,A.WORK_DATE
+			  ,A.COMPLETE
+			  ,A.COMPLETE_DATE
+			  ,(SELECT X.MEMO
+			      FROM BS_WORK_MEMO X
+			     WHERE A.LIST_ID = X.LIST_ID
+			       AND X.CREATED_BY = A.EMP_ID
+			     ORDER BY X.CREATE_DATE DESC
+			     LIMIT 1
+			     )  MEMO
+			  ,A.WORK_TYPE
+			  ,A.PROGRESS
+			  , (SELECT CV.VALUE_MEAN_KOR
+					FROM BS_CODE_GV CV
+				   WHERE CV.CODE_NAME = 'WORKDAILY_PROGRESS'
+					 AND CV.ORG_ID =#applyOrgId#
+					 AND A.PROGRESS = CV.CODE_VALUE
+			 	) AS PROGRESS_NM
+			 , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY) AS USER_NM
+		  FROM BS_WORK_LIST A
+		 WHERE A.ACTIVITY_ID = #activityId#
+		   AND A.EMP_ID = #searchUserId#
+		   AND DATE(A.WORK_DATE) BETWEEN DATE(#searchStartDt#) AND DATE(#searchEndDt#)
+		 ORDER BY A.WORK_DATE DESC
+	</select>
+	<!-- 엑티비티 진척율 리셋 -->
+	<delete id="project.deleteActivityProgressRate" parameterClass="Map">
+		DELETE FROM BS_ACTIVITY_PROGRESS
+		WHERE ACTIVITY_ID = #activityId#
+		 AND PROGRESS_YEAR = #year#
+		/* project.deleteActivityProgressRate */
+	</delete>
+
+	<!-- 엑티비티유저 수정 hist등록 -->
+	<insert id="project.insertActivityUserHist" parameterClass="Map">
+		INSERT INTO BS_ACTIVITY_HISTORY_USER (
+											 ACTIVITY_HISTORY_ID
+											,USER_ID
+											,DEFAULT_YN
+											,ENABLE
+											,LEADER_YN
+											,CREATE_DATE
+											,CREATED_BY
+											,UPDATE_DATE
+											,UPDATED_BY
+										)VALUES(
+												 #activityHistoryId#
+												,#userId#
+												<isNotEmpty prepend="" property="defaultYn">
+		                                            , #defaultYn#
+		                                        </isNotEmpty>
+		                                        <isEmpty prepend="" property="defaultYn">
+		                                            ,'N'
+		                                        </isEmpty>
+												,'Y'
+												,#leaderYn#
+												,now()
+												,#userSeq#
+												,now()
+												,#userSeq#
+										)
+		/* project.insertActivityUserHist */
+	</insert>
+	<!-- 프로젝트 or 액티비티 등록 업무,일정,전자결재 날짜조회 -->
+	<select id="project.getEditMinMaxDate" parameterClass="Map" resultClass="egovMap"  remapResults="true">
+
+	   /* project.getEditMinMaxDate */
+
+	   SELECT
+	   				A.type						   AS type
+			   	   ,A.typeStr					   AS typeStr
+
+	   			<isNotEmpty property="onlyMax">				 <!-- 가장 큰값 작은값만 조회 -->
+	   			   ,MAX(IFNULL(A.maxDate,'1988-09-12'))  AS maxDate
+			   	   ,MIN(IFNULL(A.minDate,'9999-12-31'))  AS minDate
+			   	   ,MAX(IFNULL(A.maxDate,''))  			 AS orgMaxDate
+			   	   ,MIN(IFNULL(A.minDate,''))  			 AS orgMinDate
+			   	</isNotEmpty>
+
+	   			<isEmpty property="onlyMax">				 <!-- 모든 등록 업무 조회 -->
+	   			   ,IFNULL(A.maxDate,'1988-09-12') AS maxDate
+			   	   ,IFNULL(A.minDate,'9999-12-31') AS minDate
+
+	   			</isEmpty>
+
+
+	   FROM(
+
+	   		SELECT 										<!-- 스케쥴  -->
+	   				  MAX(SCHE_E_DATE) 	AS maxDate
+	   				, MIN(SCHE_S_DATE) 	AS minDate
+	   				, 'sche' 	AS type
+	   				, '일정' 		AS typeStr
+
+			FROM  ERP_SCHEDULE AS X
+
+			WHERE X.PROJECT_ID = #projectId#
+
+				AND X.DEL_FLAG = 'N'
+
+				<isNotEmpty property="activityId">
+					AND X.ACTIVITY_ID = #activityId#
+				</isNotEmpty>
+
+		    UNION ALL
+
+		    SELECT 										<!-- 전자결재  -->
+		    		  DATE_FORMAT(MAX(IFNULL(Y.DATE_TO,Y.CREATE_DATE)), '%Y-%m-%d') 	AS maxDate
+		    		, DATE_FORMAT(MIN(IFNULL(Y.DATE_TO,Y.CREATE_DATE)), '%Y-%m-%d') 	AS minDate
+		    		, 'appr' 	AS type
+		    		, '전자결재' 	AS typeStr
+
+			FROM BS_APPV_DOC AS Y
+
+			WHERE Y.PROJECT_ID = #projectId#
+
+				<isNotEmpty property="activityId">
+					AND Y.ACTIVITY_ID = #activityId#
+				</isNotEmpty>
+
+  			UNION ALL
+
+  			SELECT 										<!-- 업무일지 -->
+  					  DATE_FORMAT(MAX(Z.WORK_DATE), '%Y-%m-%d') 	AS maxDate
+  					, DATE_FORMAT(MIN(Z.WORK_DATE), '%Y-%m-%d') 	AS minDate
+  					, 'work' 	AS type
+  					, '업무일지' 	AS typeStr
+
+  			FROM BS_WORK_LIST AS Z
+  			WHERE Z.PROJECT_ID = #projectId#
+
+  				<isNotEmpty property="activityId">
+					AND Z.ACTIVITY_ID = #activityId#
+				</isNotEmpty>
+
+
+	   )AS A
+
+	</select>
+
+	<!-- 프로젝트 우선순위 변경 -->
+	<update id="project.saveSort" parameterClass="Map">
+		/* project.saveSort */
+
+		UPDATE BS_PROJECT
+		SET
+			SORT = #sort#
+
+        WHERE PROJECT_ID = #projectId#
+
+
+	</update>
+
+	<!-- 지켜보는 직원 등록 -->
+	<insert id="project.insertViewEntryUser" parameterClass="Map">
+
+		/* project.insertViewEntryUser */
+
+		INSERT INTO BS_PROJECT_VIEWER (
+											 USER_ID
+											,PROJECT_ID
+											,CREATE_DATE
+											,CREATED_BY
+											,UPDATE_DATE
+											,UPDATED_BY
+								)
+				<iterate prepend="VALUES" conjunction=","  property="viewEntryList">
+								(
+											 #viewEntryList[]#
+											,#projectId#
+											,now()
+											,#userSeq#
+											,now()
+											,#userSeq#
+								)
+				</iterate>
+
+
+	</insert>
+
+	<!-- 지켜보는 직원 삭제 -->
+	<delete id="project.deleteViewEntryUser" parameterClass="Map">
+
+		/* project.deleteViewEntryUser */
+
+		DELETE FROM BS_PROJECT_VIEWER
+
+		WHERE PROJECT_ID = #projectId#
+
+
+	</delete>
+
+	<!-- 지켜보는 직원 리스트 -->
+	<select id = "project.getViewEntryList" parameterClass="HashMap" resultClass="egovMap">
+
+		/* project.getViewEntryList */
+
+		SELECT
+
+				 A.USER_ID
+			   	,A.PROJECT_ID
+				,A.CREATE_DATE
+				,A.CREATED_BY
+				,A.UPDATE_DATE
+				,A.UPDATED_BY
+
+				,B.NAME				AS userNm
+
+		FROM BS_PROJECT_VIEWER 		AS A
+		LEFT JOIN BS_USER_MASTER 	AS B	ON A.USER_ID = B.USER_ID
+
+		WHERE A.PROJECT_ID = #projectId#
+
+
+	</select>
+
+	<!-- 프로젝트 히스토리 등록  -->
+	<insert id="project.insertProjectHistroy" parameterClass="Map">
+
+		/* project.insertProjectHistroy */
+
+		INSERT INTO BS_PROJECT_HISTORY (
+
+											 PROJECT_ID
+											,UPDATE_REASON
+											,ORG_ID
+											,PROJECT_CODE
+											,NAME
+										 	,DESCRIPTION
+											,PROJECT_TYPE
+											,PROJECT_CLASS
+											,PERIOD
+											,START_DATE
+											,END_DATE
+
+											,ORIGIN_END_DATE			<!-- 최초종료일 -->
+											,CLOSE_DATE					<!-- 마감일 -->
+											,ORIGIN_CLOSE_DATE
+											,BUDGET
+											,BUDGET_AMT
+											,EMPLOYEE
+											,EXPENSE
+											,OT_EXPENSE
+											,OVER_EXPENSE
+											,TIMESHEET
+											,OT_TIMESHEET
+											,ENABLE
+
+											,CONFIRM					<!-- 확정여부 -->
+											,OPEN_FLAG
+
+											<isEqual property="pendingFlag" compareValue="Y">
+											,PENDING_FLAG
+											</isEqual>
+											<isEqual property="stopFlag" compareValue="Y">
+											,STOP_FLAG
+											</isEqual>
+
+											,CREATE_DATE
+											,CREATED_BY
+											,UPDATE_DATE
+											,UPDATED_BY
+
+										)VALUES(
+											 #projectId#
+											,#updateReason#
+											,#orgId#
+										    ,#projectCode#
+											,#projectName#
+											,#projectDesc#
+											,#projectType#
+											,(SELECT PROJECT_CLASS FROM BS_PROJECT WHERE PROJECT_ID = #projectId#)
+											,#period#
+											,IF((#startDate# IS NOT NULL AND #startDate# != ''), STR_TO_DATE(#startDate#, '%Y-%m-%d'), NULL)
+											,IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+											,IF((#endDate# IS NOT NULL AND #endDate# != ''), STR_TO_DATE(#endDate#, '%Y-%m-%d'), NULL)
+											,IF((#closeDate# IS NOT NULL AND #closeDate# != ''), STR_TO_DATE(#closeDate#, '%Y-%m-%d'), NULL)
+											,IF((#closeDate# IS NOT NULL AND #closeDate# != ''), STR_TO_DATE(#closeDate#, '%Y-%m-%d'), NULL)
+											,#budget#
+											,#budgetAmt#
+											,#employee#
+											,#expense#
+											,#overEx#
+											,#overExpense#
+											,#timesheet#
+											,#overTs#
+											,#enable#
+
+											,#confirm#
+											,#openFlag#
+
+											<isEqual property="pendingFlag" compareValue="Y">
+											,'Y'
+											</isEqual>
+											<isEqual property="stopFlag" compareValue="Y">
+											,'Y'
+											</isEqual>
+
+											,now()
+											,#userSeq#
+											,now()
+											,#userSeq#
+								)
+
+		<selectKey resultClass="int" type="post" keyProperty="proejctHistoryId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+	</insert>
+
+	<!-- 프로젝트 유저 수정 hist등록 -->
+	<insert id="project.insertProjectUserHist" parameterClass="Map">
+		/* project.insertProjectUserHist */
+
+		INSERT INTO BS_PROJECT_HISTORY_USER (
+											 PROJECT_HISTORY_ID
+											,USER_ID
+											,DEFAULT_YN
+											,ENABLE
+
+											,CREATE_DATE
+											,CREATED_BY
+											,UPDATE_DATE
+											,UPDATED_BY
+										)VALUES(
+												 #projectHistoryId#
+												,#userId#
+												<isNotEmpty prepend="" property="defaultYn">
+		                                            , #defaultYn#
+		                                        </isNotEmpty>
+		                                        <isEmpty prepend="" property="defaultYn">
+		                                            ,'N'
+		                                        </isEmpty>
+												,'Y'
+
+												,now()
+												,#userSeq#
+												,now()
+												,#userSeq#
+										)
+
+	</insert>
+
+	<!--프로젝트 수정 히스토리 조회  -->
+	<select id = "project.getProjectHistoryList" parameterClass="HashMap" resultClass="egovMap">
+
+		/* project.getProjectHistoryList */
+
+		SELECT   A.PROJECT_HISTORY_ID
+				,A.PROJECT_ID
+				,A.START_DATE
+				,A.END_DATE
+				,A.OPEN_FLAG
+				,A.PENDING_FLAG
+				,A.STOP_FLAG
+				,A.UPDATE_REASON
+				,A.CREATE_DATE
+				,A.CREATED_BY
+				,A.UPDATE_DATE
+				,A.UPDATED_BY
+
+
+				,B.CREATED_BY  	AS PROJECT_CREATED_BY
+				,B.NAME  		AS PROJECT_NAME
+
+				,C.NAME		 	AS CREATED_NM
+
+				,(
+						IF(
+							(SELECT COUNT(1) FROM BS_PROJECT_HISTORY_USER AS X WHERE A.PROJECT_HISTORY_ID = X.PROJECT_HISTORY_ID) > 0
+
+							,(SELECT GROUP_CONCAT(CONCAT(Y.NAME,'(',(SELECT VALUE_MEAN_KOR
+														 FROM BS_CODE_GV
+														 WHERE CODE_NAME = 'RANK' AND CODE_VALUE = Y.RANK AND ORG_ID = Y.ORG_ID),')') ORDER BY Y.NAME ASC)
+
+
+				        	  FROM BS_PROJECT_HISTORY_USER 	AS X
+				        	  LEFT JOIN BS_USER_MASTER 		AS Y ON X.USER_ID = Y.USER_ID
+
+				        	 WHERE 	A.PROJECT_HISTORY_ID = X.PROJECT_HISTORY_ID AND ENABLE = 'Y'
+
+
+				        	 )
+				        	 ,'전직원'
+				        )
+			      ) AS CONCAT_STR
+
+		 FROM BS_PROJECT_HISTORY 	AS A
+		 LEFT JOIN BS_PROJECT 		AS B 	ON	A.PROJECT_ID = B.PROJECT_ID
+		 LEFT JOIN BS_USER_MASTER	AS C	ON	B.CREATED_BY = C.USER_ID
+
+		 WHERE A.PROJECT_ID = #projectId#
+
+		 ORDER BY A.CREATE_DATE DESC
+
+		<isNotEqual property="recordCountPerPage" compareValue="0">
+			LIMIT #firstIndex#, #recordCountPerPage#
+		</isNotEqual>
+
+	</select>
+
+	<!--프로젝트 수정 히스토리 조회 갯수  -->
+	<select id = "project.getProjectHistoryListCnt" parameterClass="HashMap" resultClass="Integer">
+
+		/* project.getProjectHistoryListCnt */
+
+		SELECT  COUNT(*)
+
+		 FROM BS_PROJECT_HISTORY A
+		 WHERE PROJECT_ID = #projectId#
+
+	</select>
+
+	<!-- 프로젝트 유저 수정 hist 변경없이 전부 -->
+	<insert id="project.insertProjectUserHistAll" parameterClass="Map">
+		/* project.insertProjectUserHistAll */
+
+		INSERT INTO BS_PROJECT_HISTORY_USER (
+											 PROJECT_HISTORY_ID
+											,USER_ID
+											,DEFAULT_YN
+											,ENABLE
+
+											,CREATE_DATE
+											,CREATED_BY
+											,UPDATE_DATE
+											,UPDATED_BY
+										)SELECT
+												 #projectHistoryId#
+												,USER_ID
+												,DEFAULT_YN
+												,ENABLE
+												,NOW()
+												,#userSeq#
+												,NOW()
+												,#userSeq#
+
+										FROM BS_PROJECT_USER WHERE PROJECT_ID = #projectId#	AND ENABLE = 'Y'
+
+
+	</insert>
+
+	<!-- 20171013추가  -->
+	<!-- wbs조회화면 프로젝트의 정보를 조회한다. -->
+	<select id = "project.getProjectWbsList" parameterClass="HashMap" resultClass="egovMap">
+		/* project.getProjectWbsList */
+		SELECT DISTINCT
+			   A.PROJECT_ID
+			  ,A.ORG_ID
+			  ,A.NAME
+			  ,DATE_FORMAT(A.START_DATE, "%Y-%m-%d")	AS START_DATE
+			  ,DATE_FORMAT(IF(A.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, A.END_DATE, A.CLOSE_DATE),'%Y-%m-%d') AS END_DATE
+		  FROM BS_PROJECT A
+		INNER JOIN BS_ACTIVITY B ON A.PROJECT_ID = B.PROJECT_ID
+		 WHERE A.PROJECT_CLASS != 'VACATION'
+		   AND A.PERIOD = #searchPeriodYn#
+		   AND A.ORG_ID = #applyOrgId#
+		   AND B.APPV_DOC_CLASS IS NULL
+		<isEqual prepend="AND" property="searchNoUseYn" compareValue="N">
+		    B.ENABLE        = 'Y'
+		</isEqual>
+		<isEqual prepend="AND" property="searchProjectViewer" compareValue="N">
+		    #userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+		</isEqual>
+		<isEqual prepend="AND" property="searchProjectViewer" compareValue="Y">
+		  (
+		   #userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+		   OR EXISTS (
+		   				SELECT X.USER_ID
+		   				  FROM BS_PROJECT_VIEWER X
+		   				 WHERE X.PROJECT_ID = A.PROJECT_ID
+		   				   AND X.USER_ID = #userId#
+		   				)
+		   )
+		</isEqual>
+
+		<isNotEmpty prepend="AND" property="employee">
+		   A.EMPLOYEE = #employee#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="projectType">   <!-- 유형 :  신제품 개발, 기존제품, 개선, 고객관리, 기타-->
+            A.PROJECT_TYPE = #projectType#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="openFlag">   <!-- 공개 :  공개, 비공개 -->
+            A.OPEN_FLAG = #openFlag#
+        </isNotEmpty>
+        <isEqual prepend="AND" property="nearClose" compareValue="Y">   <!-- 마감임박 : Y, N -->
+            A.CONFIRM = 'Y' AND A.CLOSE_DATE BETWEEN CURDATE() AND CURDATE() + INTERVAL 7 DAY
+        </isEqual>
+        <isNotEmpty prepend="AND" property="searchTxt">
+				(A.NAME LIKE concat('%', #searchTxt#, '%')		OR
+				A.DESCRIPTION LIKE concat('%', #searchTxt#, '%'))
+		</isNotEmpty>
+
+
+		<isNotEmpty prepend="AND" property="projectStatus">		<!-- 상태 :  EXPECT 예정, PROGRESS 진행 ,CLOSE_READY 마감대기, CLOSED 마감, PENDING 보류, STOP 중단, TEMP_SAVE 임시저장-->
+			<isEqual property="projectStatus" compareValue="PROGRESS">
+				(A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.START_DATE AND IF(A.END_DATE <![CDATA[>]]>A.CLOSE_DATE , A.CLOSE_DATE,A.END_DATE) )
+			</isEqual>
+
+			<isEqual property="projectStatus" compareValue="CLOSED">
+				(
+                	(A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.CLOSE_DATE <![CDATA[ < ]]> CURDATE())
+                OR	( A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'Y')
+                OR	( A.CONFIRM = 'Y' AND A.STOP_FLAG = 'Y')
+                )
+            </isEqual>
+		</isNotEmpty>
+		ORDER BY IF(A.SORT IS NULL ,A.SORT, A.SORT*-1) DESC
+
+			, IF(A.PROJECT_CLASS='BASE',1,9) ASC, A.CREATE_DATE DESC
+	   <isNotEqual property="recordCountPerPage" compareValue="0">
+			LIMIT #firstIndex#, #recordCountPerPage#
+	   </isNotEqual>
+	</select>
+
+	<!-- wbs조회화면 프로젝트의 정보조회 총개수 -->
+	<select id = "project.getProjectWbsListTotalCnt" parameterClass="HashMap" resultClass="Integer">
+		/* project.getProjectWbsListTotalCnt */
+		SELECT COUNT(DISTINCT A.PROJECT_ID)
+		  FROM BS_PROJECT A
+		INNER JOIN BS_ACTIVITY B ON A.PROJECT_ID = B.PROJECT_ID
+		 WHERE A.PROJECT_CLASS != 'VACATION'
+		   AND A.PERIOD = #searchPeriodYn#
+		   AND A.ORG_ID = #applyOrgId#
+		   AND B.APPV_DOC_CLASS IS NULL
+		<isEqual prepend="AND" property="searchNoUseYn" compareValue="N">
+		   B.ENABLE        = 'Y'
+		</isEqual>
+		<isEqual prepend="AND" property="searchProjectViewer" compareValue="N">
+		    #userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+		</isEqual>
+		<isEqual prepend="AND" property="searchProjectViewer" compareValue="Y">
+		  (
+		   #userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+		   OR EXISTS (
+		   				SELECT X.USER_ID
+		   				  FROM BS_PROJECT_VIEWER X
+		   				 WHERE X.PROJECT_ID = A.PROJECT_ID
+		   				   AND X.USER_ID = #userId#
+		   				)
+		   )
+		</isEqual>
+		<isNotEmpty prepend="AND" property="employee">
+		   A.EMPLOYEE = #employee#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="projectType">   <!-- 유형 :  신제품 개발, 기존제품, 개선, 고객관리, 기타-->
+            A.PROJECT_TYPE = #projectType#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="openFlag">   <!-- 공개 :  공개, 비공개 -->
+            A.OPEN_FLAG = #openFlag#
+        </isNotEmpty>
+        <isEqual prepend="AND" property="nearClose" compareValue="Y">   <!-- 마감임박 : Y, N -->
+            A.CONFIRM = 'Y' AND A.CLOSE_DATE BETWEEN CURDATE() AND CURDATE() + INTERVAL 7 DAY
+        </isEqual>
+        <isNotEmpty prepend="AND" property="searchTxt">
+				(A.NAME LIKE concat('%', #searchTxt#, '%')		OR
+				A.DESCRIPTION LIKE concat('%', #searchTxt#, '%'))
+		</isNotEmpty>
+
+
+		<isNotEmpty prepend="AND" property="projectStatus">		<!-- 상태 :  EXPECT 예정, PROGRESS 진행 ,CLOSE_READY 마감대기, CLOSED 마감, PENDING 보류, STOP 중단, TEMP_SAVE 임시저장-->
+			<isEqual property="projectStatus" compareValue="PROGRESS">
+				(A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND CURDATE()  BETWEEN  A.START_DATE AND IF(A.END_DATE <![CDATA[>]]>A.CLOSE_DATE , A.CLOSE_DATE,A.END_DATE) )
+			</isEqual>
+
+			<isEqual property="projectStatus" compareValue="CLOSED">
+				(
+                	(A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'N' AND A.STOP_FLAG = 'N' AND A.CLOSE_DATE <![CDATA[ < ]]> CURDATE())
+                OR	( A.CONFIRM = 'Y' AND  A.PENDING_FLAG = 'Y')
+                OR	( A.CONFIRM = 'Y' AND A.STOP_FLAG = 'Y')
+                )
+            </isEqual>
+		</isNotEmpty>
+	</select>
+
+	<!-- wbs조회화면 엑티비티의 정보를 조회한다. -->
+	<select id = "project.getActivityWbsList" parameterClass="HashMap" resultClass="egovMap">
+		/* project.getActivityWbsList */
+		SELECT
+			   A.PROJECT_ID
+			  ,B.ACTIVITY_ID
+			  ,A.ORG_ID
+			  ,B.NAME
+			  ,DATE_FORMAT(B.START_DATE, "%Y-%m-%d")	AS START_DATE
+			  ,DATE_FORMAT(IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE),'%Y-%m-%d') AS END_DATE
+			  ,IFNULL(C.LEADER_YN,'N')					AS LEADER_YN
+			  ,IFNULL(
+			  			(SELECT COUNT(*)
+			  			   FROM BS_WORK_LIST AS work
+			  			   WHERE work.ACTIVITY_ID = B.ACTIVITY_ID
+			  				 AND work.EMP_ID= #userId#
+			  				 AND work.WORK_TYPE = 'PRIVATE'
+				  			)
+				  	  ,0) 																	AS memoPrivateCnt  <!--등록된 개인 업무-->
+			  ,IFNULL(
+			  			(SELECT COUNT(*)
+						   FROM BS_TEAM_LIST team , BS_WORK_LIST list
+						  WHERE  team.LIST_ID = list.LIST_ID
+						    AND list.ACTIVITY_ID = B.ACTIVITY_ID
+						    AND (team.EMP_ID= C.USER_ID or team.CREATED_BY=#userId#)
+			  				AND list.WORK_TYPE = 'TEAM'
+				  			)
+				  	 ,0) 																	AS memoTeamChk		<!--등록된 팀 업무-->
+
+			  ,IFNULL(
+				  		(SELECT COUNT(*)
+				  		   FROM  ERP_SCHEDULE AS sche
+				  		   WHERE sche.ACTIVITY_ID = B.ACTIVITY_ID
+					  		 AND sche.DEL_FLAG = 'N'
+					  		 AND sche.PER_SABUN = (SELECT X.EMP_NO FROM BS_USER_MASTER X WHERE X.USER_ID =#userId# )
+					  	)
+			  		 ,0) 																	AS scheCnt			<!-- 등록된 스케쥴 -->
+			  ,IFNULL(
+			  			(SELECT COUNT(*)
+			  			   FROM BS_APPV_DOC AS appr
+			  			  WHERE appr.ACTIVITY_ID = B.ACTIVITY_ID
+			  				AND appr.USER_ID= #userId#
+				  			 )
+				  	  ,0) 																	AS apprCnt		<!-- 등록된 기본양식 전자결재 -->
+		  FROM BS_PROJECT A
+		INNER JOIN BS_ACTIVITY B ON A.PROJECT_ID = B.PROJECT_ID
+		LEFT OUTER JOIN BS_ACTIVITY_USER C ON B.ACTIVITY_ID = C.ACTIVITY_ID AND C.USER_ID = #userId#
+		 WHERE A.PROJECT_ID = #projectId#
+		   AND B.APPV_DOC_CLASS IS NULL
+		<isEqual prepend="AND" property="searchNoUseYn" compareValue="N">
+		    B.ENABLE        = 'Y'
+		</isEqual>
+		<isEqual prepend="AND" property="searchProjectViewer" compareValue="N">
+		    #userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+		</isEqual>
+		<isEqual prepend="AND" property="searchProjectViewer" compareValue="Y">
+		  (
+		   #userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+		   OR EXISTS (
+		   				SELECT X.USER_ID
+		   				  FROM BS_PROJECT_VIEWER X
+		   				 WHERE X.PROJECT_ID = A.PROJECT_ID
+		   				   AND X.USER_ID = #userId#
+		   				)
+		   )
+		</isEqual>
+		ORDER BY B.SORT DESC
+	</select>
+
+	<!-- MY단위업무 프로젝트 검색. -->
+	<select id = "project.getMyWorkProjectList" parameterClass="HashMap" resultClass="egovMap">
+		/* project.getMyWorkProjectList */
+		SELECT DISTINCT
+			   A.PROJECT_ID
+			  ,A.ORG_ID
+			  ,A.NAME
+			  ,DATE_FORMAT(A.START_DATE, "%Y-%m-%d")	AS START_DATE
+			  ,DATE_FORMAT(A.END_DATE, "%Y-%m-%d")		AS END_DATE
+			  ,A.PERIOD
+			  ,C.SORT
+			  ,A.SORT									AS PROJECT_SORT
+		  FROM BS_PROJECT A
+		INNER JOIN BS_ACTIVITY B ON A.PROJECT_ID = B.PROJECT_ID
+		LEFT OUTER JOIN BS_PROJECT_USER_RANK C ON A.PROJECT_ID = C.PROJECT_ID AND C.USER_ID = #userId#
+		 WHERE A.PROJECT_CLASS != 'VACATION'
+		   AND A.PERIOD = #searchPeriodYn#
+		   AND A.ORG_ID = #applyOrgId#
+		   AND DATE(#searchDate#) BETWEEN B.START_DATE AND IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE)
+		   AND B.APPV_DOC_CLASS IS NULL
+		   AND B.ENABLE        = 'Y'
+		   AND #userId# = IF(B.EMPLOYEE = 'A', #userId#, (SELECT X.USER_ID FROM BS_ACTIVITY_USER X WHERE B.ACTIVITY_ID = X.ACTIVITY_ID AND X.ENABLE = 'Y' AND X.USER_ID = #userId#))
+		   AND A.CONFIRM = 'Y'
+		   AND A.PENDING_FLAG = 'N'
+		   AND A.STOP_FLAG = 'N'
+		   AND DATE(#searchDate#)  BETWEEN  A.START_DATE AND IF(A.END_DATE <![CDATA[>]]>A.CLOSE_DATE , A.CLOSE_DATE,A.END_DATE)
+		ORDER BY IFNULL(C.SORT, 99999) ASC , A.CREATE_DATE DESC
+	</select>
+
+	<!-- My단위업무 Activity조회. -->
+	<select id = "project.getProjectMyWorkActivity" parameterClass="HashMap" resultClass="egovMap">
+		/* project.getProjectMyWorkActivity */
+		SELECT
+			   B.PROJECT_ID
+			  ,A.NAME AS PROJECT_NAME
+			  ,B.ACTIVITY_ID
+			  ,B.NAME
+			  ,B.EXPENSE
+			  ,DATE_FORMAT(B.START_DATE, "%Y-%m-%d")	AS START_DATE
+			  ,DATE_FORMAT(IF(B.END_DATE <![CDATA[<=]]> A.CLOSE_DATE, B.END_DATE, A.CLOSE_DATE),'%Y-%m-%d') AS END_DATE
+			  ,IFNULL(C.LEADER_YN,'N')					AS LEADER_YN
+			  ,IFNULL(
+			  			(SELECT COUNT(*)
+			  			   FROM BS_WORK_LIST AS work
+			  			   WHERE work.ACTIVITY_ID = B.ACTIVITY_ID
+			  				 AND work.EMP_ID= #userId#
+			  				 AND work.WORK_TYPE = 'PRIVATE'
+				  			)
+				  	  ,0) 																	AS memoPrivateCnt  <!--등록된 개인 업무-->
+			  ,IFNULL(
+			  			(SELECT COUNT(*)
+						   FROM BS_TEAM_LIST team , BS_WORK_LIST list
+						  WHERE  team.LIST_ID = list.LIST_ID
+						    AND list.ACTIVITY_ID = B.ACTIVITY_ID
+						    AND (team.EMP_ID= C.USER_ID or team.CREATED_BY=#userId#)
+			  				AND list.WORK_TYPE = 'TEAM'
+				  			)
+				  	 ,0) 																	AS memoTeamChk		<!--등록된 팀 업무-->
+
+			  ,IFNULL(
+				  		(SELECT COUNT(*)
+				  		   FROM  ERP_SCHEDULE AS sche
+				  		   WHERE sche.ACTIVITY_ID = B.ACTIVITY_ID
+					  		 AND sche.DEL_FLAG = 'N'
+					  		 AND sche.PER_SABUN = (SELECT X.EMP_NO FROM BS_USER_MASTER X WHERE X.USER_ID =#userId# )
+					  	)
+			  		 ,0) 																	AS scheCnt			<!-- 등록된 스케쥴 -->
+			  ,IFNULL(
+			  			(SELECT COUNT(*)
+			  			   FROM BS_APPV_DOC AS appr
+			  			  WHERE appr.ACTIVITY_ID = B.ACTIVITY_ID
+			  				AND appr.USER_ID= #userId#
+			  				AND appr.APPV_DOC_CLASS NOT IN ('COMPANY')
+				  			 )
+				  	  ,0) 																	AS apprBasicCnt		<!-- 등록된 기본양식 전자결재 -->
+		 	  ,IFNULL(
+			  			(SELECT COUNT(*)
+			  			   FROM BS_APPV_DOC AS appr
+			  			  WHERE appr.ACTIVITY_ID =B.ACTIVITY_ID
+			  				AND appr.USER_ID= #userId#
+			  				AND appr.APPV_DOC_CLASS IN ('COMPANY')
+				  			 )
+				  	  ,0) 																	AS apprCompanyCnt	<!-- 등록된 사내서식 전자결재 -->
+		  FROM BS_PROJECT A
+		INNER JOIN BS_ACTIVITY B ON A.PROJECT_ID = B.PROJECT_ID
+		LEFT OUTER JOIN BS_ACTIVITY_USER C ON B.ACTIVITY_ID = C.ACTIVITY_ID AND C.USER_ID = #userId#
+		 WHERE A.PROJECT_CLASS != 'VACATION'
+		   AND B.APPV_DOC_CLASS IS NULL
+		   AND B.ENABLE        = 'Y'
+		   AND IF(B.EMPLOYEE ='Y',C.USER_ID IS NOT NULL,1=1)
+		   AND B.PROJECT_ID IN (
+		   						<iterate property="projectIdArr" conjunction=",">
+										#projectIdArr[]#
+						        </iterate>
+		   						)
+		 ORDER BY A.PROJECT_ID ASC , B.SORT ASC
+
+	</select>
+
+	<!-- My 단위업무 > 프로젝트 우선순위삭제 -->
+	<delete id="project.deleteProjectUserRank" parameterClass="Map">
+		/* project.deleteProjectUserRank */
+		DELETE FROM BS_PROJECT_USER_RANK
+		WHERE USER_ID = #userId#
+		  AND PERIOD = #searchPeriodYn#
+	</delete>
+	<!-- My 단위업무 > 프로젝트 우선순위저장 -->
+	<insert id="project.insertProjectUserRank" parameterClass="HashMap">
+		/* project.insertProjectUserRank */
+		INSERT INTO BS_PROJECT_USER_RANK (
+											 PERIOD
+											,PROJECT_ID
+											,USER_ID
+											,SORT
+											,CREATE_DATE
+											,CREATED_BY
+											,UPDATE_DATE
+											,UPDATED_BY
+										) VALUES
+												(
+													#searchPeriodYn#
+												   ,#projectId#
+												   ,#userId#
+												   ,#sort#
+												   ,NOW()
+												   ,#userId#
+												   ,NOW()
+												   ,#userId#
+												)
+
+	</insert>
+
+	<!--중복 우선 순위 체크 -->
+	<select id="project.sortChk" parameterClass="HashMap" resultClass="Integer">
+		/* project.sortChk */
+
+		SELECT COUNT(1)
+		FROM BS_PROJECT AS X
+
+		WHERE X.SORT IS NOT NULL AND X.ORG_ID = #orgId#
+
+		<iterate prepend="AND X.SORT IN " property="dataList" open="(" conjunction="," close=")">
+			#dataList[]#
+		</iterate>
+
+	 </select>
+</sqlMap>

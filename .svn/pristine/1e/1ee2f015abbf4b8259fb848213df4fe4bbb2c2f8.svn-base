@@ -1,0 +1,125 @@
+package ib.recommend.service;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+/**
+ * <pre>
+ * package	: ib.recommend.service
+ * filename	: RecommendService.java
+ * </pre>
+ *
+ *
+ *
+ * @author	: oys
+ * @date	: 2016. 5. 24.
+ * @version :
+ *
+ */
+public interface RecommendService {
+
+	//추천종목 >> 딜제안중 등록
+	int regPropDeal(Map<String, Object> map) throws Exception;
+
+
+
+//	//회사별 부서 리스트
+//	List<Map> getCpnDeptList(Map map) throws Exception;
+//
+//	//고객리스트
+//	List<Map> getCustList(Map<String, String> map) throws Exception;
+//	//Map<String, Object> getCustList(Map<String, Object> map) throws Exception;
+//
+//	//신규할당 고객
+//	List<Map> getCustListNewInCharge(Map<String, String> map) throws Exception;
+//
+//	//할당고객 수락
+//	int doAcceptCstManager(Map<String, Object> map) throws Exception;
+//
+//	//고객등록(기본 + 네트워크)
+//	int insertCustomer(PersonVO personVO) throws Exception;
+//
+//	//고객등록(기본 + 네트워크) ... by Map
+//	//int regCustomer(Map<String, Object> map) throws Exception;
+//	Map regCustomer(Map<String, Object> map) throws Exception;
+//
+//	//고객찾기(이름으로)
+//	Map getCustomerByName(Map<String, Object> map) throws Exception;
+//
+//	//고객구분 변경
+//	int doSaveCstType(Map<String, Object> map) throws Exception;
+//
+//	//고객 삭제
+//	int doDelCst(Map<String, Object> map) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectIBlist
+	 * @param VO
+	 * @return
+	 * @throws Exception
+	 */
+	public List<RecommendVO> selectIBlist(RecommendVO  VO) throws Exception;
+	/**
+	 *
+	 * @MethodName : selectOpinionList
+	 * @param VO
+	 * @return
+	 * @throws Exception
+	 */
+	public List<RecommendVO> selectOpinionList(RecommendVO  VO) throws Exception;
+	/**
+	 *
+	 * @MethodName : selectRecommendInfo
+	 * @param rcmdVO
+	 * @return
+	 */
+	public List<RecommendVO> selectRecommendInfo(RecommendVO VO) throws Exception;
+	/**
+	 * 추천종목 딜 정보 가져오기
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 5. 24.
+	 */
+	public List<RecommendVO> selectRcmdDealInfo(RecommendVO rcmdVO) throws Exception;
+	/**
+	 *
+	 * @MethodName : insertRecommendOpinion
+	 * @param VO
+	 * @throws Exception
+	 */
+	public void insertRecommendOpinion(RecommendVO VO) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : insertRecommendOpinionByIbSystem
+	 * @param rcmdVO
+	 * @return
+	 */
+	public String insertRecommendOpinionByIbSystem(RecommendVO rcmdVO
+				,MultipartHttpServletRequest multipartRequest,String rtnPath,HttpServletRequest request) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : deleteRecommendOpinion
+	 * @param rcmdVO
+	 * @return
+	 */
+	public int deleteRecommendOpinion(RecommendVO VO) throws Exception;
+	/**
+	 *
+	 * @MethodName : updatecomment
+	 * @param VO
+	 * @return
+	 * @throws Exception
+	 */
+	public int updatecomment(RecommendVO VO) throws Exception;
+
+}

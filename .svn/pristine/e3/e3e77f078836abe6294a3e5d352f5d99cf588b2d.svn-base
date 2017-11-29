@@ -1,0 +1,83 @@
+package ib.reply.service.impl;
+
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Service;
+
+import egovframework.rte.fdl.cmmn.AbstractServiceImpl;
+import ib.reply.service.ReplyService;
+import ib.reply.service.ReplyVO;
+import ib.work.service.WorkService;
+
+@Service("replyService")
+public class ReplyServiceImpl extends AbstractServiceImpl implements ReplyService {
+
+	protected Log log = LogFactory.getLog(this.getClass());
+
+	@Resource(name = "workService")
+	private WorkService workService;
+
+	public void saveDisposalByIbSystem(ReplyVO vo, Map baseUserLoginInfo) throws Exception {
+		String[] arr = null;
+		if(vo.getArrStaffSnb()!=null){
+			arr = new String[vo.getArrStaffSnb().length];
+			for(int i=0
+					,leng=vo.getArrStaffSnb().length; i<leng; i++){
+
+				ReplyVO vo1 = new ReplyVO();
+				vo1.setRgId(baseUserLoginInfo.get("loginId").toString());
+				vo1.setOrgId(baseUserLoginInfo.get("orgId").toString());
+				vo1.setStaffSnb(vo.getArrStaffSnb()[i]);
+				vo1.setPrice(vo.getArrPrice()[i]);
+				vo1.setMargin(vo.getArrMargin()[i]);
+				vo1.setInvestSnb(vo.getArrSnb2nd()[i]);
+
+				int updLeng = 0;
+				if(vo.getArrSnb()!=null){
+					updLeng=vo.getArrSnb().length;
+				}
+				if(i<updLeng){//update
+					vo1.setsNb(vo.getArrSnb()[i]);
+					workService.updateDisposal(vo1);
+
+				}else{//insert
+					vo1.setOfferSnb(vo.getOfferSnb());
+					arr[i]=workService.insertDisposal(vo1);
+				}
+			}
+		}
+		//supporter insert
+		if(vo.getArrOfferSnb()!=null){
+			for(int j=0
+					,supLeng=vo.getArrOfferSnb().length; j<supLeng; j++){
+
+				ReplyVO vo2 = new ReplyVO();
+
+				String offerSnb = vo.getArrOfferSnb()[j];
+
+				if(offerSnb.indexOf("_")>-1){
+					offerSnb = arr[Integer.parseInt(offerSnb.replace("_",""))];
+				}
+
+
+				vo2.setRgId(baseUserLoginInfo.get("loginId").toString());
+				vo2.setOrgId(baseUserLoginInfo.get("orgId").toString());
+				vo2.setOfferSnb(offerSnb);
+				vo2.setStaffSnb(vo.getArrSupSnb()[j]);
+				vo2.setRatio(vo.getArrRatio()[j]);
+
+				if(offerSnb.equals(vo.getOfferSnb())) vo2.setCate("1");
+				else vo2.setCate("2");
+
+				workService.insertSupporter(vo2);
+
+			}
+		}
+
+	}
+
+}

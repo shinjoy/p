@@ -1,0 +1,1424 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="business">
+
+	<!-- 공통 코드리스트 조회  -->
+	<select id="business.selectCodeList" parameterClass="HashMap" resultClass="HashMap">
+	    /* business.selectCodeList */
+		SELECT A.CODE_LIST_ID				AS codeListId
+			  ,A.CODE_SET_ID				AS codeSetId
+			  ,(SELECT CODE_SET_NAME FROM BS_CODE_SET WHERE CODE_SET_ID = A.CODE_SET_ID)	AS codeSetName
+			  ,A.VALUE						AS value
+			  ,A.MEANING_KOR				AS meaningKor
+			  ,A.MEANING_ENG				AS meaningEng
+			  ,A.SORT						AS sort
+			  ,A.DESCRIPTION				AS description
+
+			  ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")							AS createDate
+			  ,A.CREATED_BY														AS createdBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")							AS updateDate
+			  ,A.UPDATED_BY														AS updatedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+			  ,DATE_FORMAT(A.DELETE_DATE, "%Y-%m-%d")							AS deleteDate
+			  ,A.DELETED_BY														AS deletedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.DELETED_BY)	AS deleteNm
+
+			  ,A.DELETE_FLAG				AS deleteFlag
+			  ,IFNULL(B.CODE_SET_ID,0)		AS sonSetId
+			  ,B.CODE_SET_NAME				AS sonSetName
+			  ,B.MEANING_KOR				AS sonMeaningKor
+		      ,B.MEANING_ENG				AS sonMeaningEng
+
+		 FROM BS_CODE_LIST	A
+		 LEFT JOIN BS_CODE_SET	B ON A.SON_SET_ID = B.CODE_SET_ID AND B.ORG_ID = #orgId#
+		 WHERE 1=1
+		   AND A.CODE_SET_ID = #codeSetId#
+		<isNotEmpty property="delFlag" prepend="AND">
+			A.DELETE_FLAG = #delFlag#
+		</isNotEmpty>
+		<isNotEmpty property="value" prepend="AND">
+			A.VALUE = #value#
+		</isNotEmpty>
+ 		ORDER BY A.SORT ASC
+	</select>
+
+
+	<!-- 코드LIST 등록(신규) -->
+	<insert id="business.insertCodeList" parameterClass="HashMap">
+	    /* business.insertCodeList */
+		INSERT INTO BS_CODE_LIST( CODE_LIST_ID
+									 ,CODE_SET_ID
+									 ,VALUE
+									 ,MEANING_KOR
+									 ,MEANING_ENG
+									 ,SORT
+									 ,DELETE_FLAG
+									 ,DELETED_BY
+									 ,DESCRIPTION
+									 ,SON_SET_ID
+									 ,CREATE_DATE
+									 ,CREATED_BY
+									 ,UPDATE_DATE
+									 ,UPDATED_BY
+
+									 )
+							   VALUES(
+							   		  #codeListId#
+									 ,#codeSetId#
+									 ,#value#
+									 ,#meaningKor#
+									 ,#meaningEng#
+									 ,#sort#
+									 ,'N'
+									 ,0
+									 ,#description#
+									 ,#sonSetId#
+									 ,now()
+									 ,#userSeq#
+									 ,now()
+									 ,#userSeq#
+
+									 )
+					ON DUPLICATE KEY
+					UPDATE
+							MEANING_KOR = #meaningKor#
+							<isEqual property="delFlag" compareValue="N">
+							,DELETE_FLAG  = 'Y'
+							,DELETED_BY = #userSeq#
+							,DELETE_DATE = now()
+							</isEqual>
+							<isEqual property="delFlag" compareValue="Y">
+							,DELETE_FLAG  =  'N'
+							,DELETED_BY = 0
+							,DELETE_DATE = NULL
+							</isEqual>
+							,SORT = #sort#
+							,UPDATE_DATE = NOW()
+							,UPDATED_BY = #userSeq#
+	</insert>
+
+	<!-- 코드 셋 검색 -->
+	<select id="business.businessSelectCodeSet" parameterClass="HashMap" resultClass="HashMap">
+	    /* business.businessSelectCodeSet */
+		SELECT CODE_SET_ID AS codeSetId
+				, ORG_ID AS orgId
+				, CODE_SET_NAME AS codeSetName
+				, MEANING_KOR AS meaningKor
+				, MEANING_ENG AS meaningEng
+				, PARENT_SET_ID AS parentSetId
+		FROM BS_CODE_SET
+		WHERE DELETE_FLAG = 'N'
+		<isNotEmpty prepend="AND" property="orgId">
+			ORG_ID = #orgId#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="codeSetName">
+			CODE_SET_NAME = #codeSetName#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="codeSetId">
+			CODE_SET_ID = #codeSetId#
+		</isNotEmpty>
+	</select>
+
+	<!-- 코드 리스트 검색 -->
+	<select id="business.businessSelectCodeList" parameterClass="HashMap" resultClass="HashMap">
+	    /* business.businessSelectCodeList */
+		SELECT CODE_SET_ID AS codeSetId
+				, CODE_LIST_ID AS codeListId
+				, VALUE AS value
+				, SORT AS sort
+				, MEANING_KOR AS meaningKor
+				, MEANING_ENG AS meaningEng
+				, IFNULL(SON_SET_ID,0) AS sonSetId
+		FROM BS_CODE_LIST
+		WHERE DELETE_FLAG = 'N'
+		<isNotEmpty prepend="AND" property="codeSetId">
+			CODE_SET_ID = #codeSetId#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="codeListId">
+			CODE_LIST_ID = #codeListId#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="value">
+			VALUE = #value#
+		</isNotEmpty>
+	</select>
+
+	<!-- 관계사 등록시 코드SET 등록(유형에 대한 코드셋 리스트) -->
+	<insert id="business.insertCodeSet" parameterClass="HashMap">
+	    /* business.insertCodeSet */
+		INSERT INTO BS_CODE_SET(ORG_ID ,CODE_SET_NAME
+									, MEANING_KOR
+									, MEANING_ENG
+									, CODE_TYPE
+									, CODE_GROUP
+									, DESCRIPTION
+									, CREATE_DATE
+									, CREATED_BY
+									, UPDATE_DATE
+									, UPDATED_BY
+									, PARENT_SET_ID
+									, DELETE_FLAG
+									)
+							VALUES(#orgId#
+									, #codeSetName#
+									, #meaningKor#
+									, #meaningEng#
+									, 'LOOKUP'
+									, 'MASTER'
+									, #description#
+									, now()
+									, #userSeq#
+									, now()
+									, #userSeq#
+									<isNotEmpty property="parentSetId">
+									, #parentSetId#
+									</isNotEmpty>
+									<isEmpty property="parentSetId">
+									, 0
+									</isEmpty>
+									,'N'
+									)
+
+		<selectKey resultClass="int" type="post" keyProperty="codeSetId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+
+	<!--  코드 리스트 삭제  -->
+	<delete id="business.deleteCodeList" parameterClass="HashMap">
+	    /* business.deleteCodeList */
+		DELETE FROM BS_CODE_LIST
+		WHERE CODE_SET_ID = #codeSetId#
+	</delete>
+
+		<!-- 정보공유 셋팅 -->
+	<insert id="business.insertBsInfoSetup" parameterClass="HashMap">
+	    /* business.insertBsInfoSetup */
+		INSERT INTO BS_INFO_SETUP(
+						   ORG_ID,
+						   PATH_LABEL,
+						   PATH_CODE_SET,
+						   PATH_USE,
+						   TYPE_LABEL,
+						   TYPE_CODE_SET,
+						   TYPE_USE,
+						   CLASS_LABEL,
+						   CLASS_CODE_SET,
+						   CLASS_USE,
+						   CUST_LABEL_1,
+						   CUST_USE_1,
+						   CUST_LABEL_2,
+						   CUST_USE_2,
+						   CPN_LABEL_1,
+						   CPN_USE_1,
+						   CPN_LABEL_2,
+						   CPN_USE_2,
+						   DATE_LABEL_1,
+						   DATE_USE_1,
+						   DATE_LABEL_2,
+						   DATE_USE_2,
+						   DATE_LABEL_3,
+						   DATE_USE_3,
+						   PRICE_LABEL_1,
+						   PRICE_UNIT_1,
+						   MULTIPLE_1,
+						   PRICE_USE_1,
+						   PRICE_LABEL_2,
+						   PRICE_UNIT_2,
+						   MULTIPLE_2,
+						   PRICE_USE_2,
+						   PRICE_LABEL_3,
+						   PRICE_UNIT_3,
+						   MULTIPLE_3,
+						   PRICE_USE_3,
+						   STAFF_LABEL_1,
+						   STAFF_USE_1,
+						   STAFF_LABEL_2,
+						   STAFF_USE_2,
+						   PROGRESS_LABEL,
+						   PROGRESS_CODE_SET,
+						   PROGRESS_USE,
+						   CREATED_BY,
+						   CREATE_DATE,
+						   UPDATED_BY,
+						   UPDATE_DATE
+			   ) VALUES (
+			   				#orgId#,
+			   				#pathLabel#,
+			   				#pathCodeSet#,
+			   				'Y',
+			   				#typeLabel#,
+			   				#typeCodeSet#,
+			   				'Y',
+			   				#classLabel#,
+			   				#classCodeSet#,
+			   				'Y',
+			   				#custLabel1#,
+			   				'Y',
+			   				#custLabel2#,
+			   				<isNotEmpty property="custUse2">
+			   				#custUse2#,
+			   				</isNotEmpty>
+			   				<isEmpty property="custUse2">
+			   				'N',
+			   				</isEmpty>
+			   				#cpnLabel1#,
+			   				'Y',
+			   				#cpnLabel2#,
+			   				<isNotEmpty property="cpnUse2">
+			   				#cpnUse2#,
+			   				</isNotEmpty>
+			   				<isEmpty property="cpnUse2">
+			   				'N',
+			   				</isEmpty>
+			   				#dateLabel1#,
+			   				'Y',
+			   				#dateLabel2#,
+			   				<isNotEmpty property="dateUse2">
+			   				#dateUse2#,
+			   				</isNotEmpty>
+			   				<isEmpty property="dateUse2">
+			   				'N',
+			   				</isEmpty>
+			   				#dateLabel3#,
+			   				<isNotEmpty property="dateUse3">
+			   				#dateUse3#,
+			   				</isNotEmpty>
+			   				<isEmpty property="dateUse3">
+			   				'N',
+			   				</isEmpty>
+			   				#priceLabel1#,
+			   				#priceUnit1#,
+			   				#multiple1#,
+			   				'Y',
+			   				#priceLabel2#,
+			   				#priceUnit2#,
+			   				#multiple2#,
+			   				<isNotEmpty property="priceUse2">
+			   				#priceUse2#,
+			   				</isNotEmpty>
+			   				<isEmpty property="priceUse2">
+			   				'N',
+			   				</isEmpty>
+			  				#priceLabel3#,
+			   				#priceUnit3#,
+			   				#multiple3#,
+			   				<isNotEmpty property="priceUse3">
+			   				#priceUse3#,
+			   				</isNotEmpty>
+			   				<isEmpty property="priceUse3">
+			   				'N',
+			   				</isEmpty>
+			  				#staffLabel1#,
+			  				'Y',
+			  				#staffLabel2#,
+			  				<isNotEmpty property="staffUse2">
+			   				#staffUse2#,
+			   				</isNotEmpty>
+			   				<isEmpty property="staffUse2">
+			   				'N',
+			   				</isEmpty>
+			   				#progressLabel#,
+			   				#progressCodeSet#,
+			   				'Y',
+			  				#userSeq#,
+			  				now(),
+			  				#userSeq#,
+			  				now()
+			  			)
+			ON DUPLICATE KEY
+					UPDATE
+							PROGRESS_LABEL = #progressLabel#
+							,PATH_LABEL = #pathLabel#
+							,TYPE_LABEL = #typeLabel#
+							,CLASS_LABEL = #classLabel#
+							,CUST_LABEL_1 = #custLabel1#
+							,CUST_LABEL_2 = #custLabel2#
+						 	<isNotEmpty property="custUse2">
+			   				,CUST_USE_2  = #custUse2#
+			   				</isNotEmpty>
+			   				<isEmpty property="custUse2">
+			   				,CUST_USE_2  = 'N'
+			   				</isEmpty>
+						 	,CPN_LABEL_1  = #cpnLabel1#
+						 	,CPN_LABEL_2 = #cpnLabel2#
+						 	<isNotEmpty property="cpnUse2">
+			   				,CPN_USE_2 = #cpnUse2#
+			   				</isNotEmpty>
+			   				<isEmpty property="cpnUse2">
+			   				,CPN_USE_2 = 'N'
+			   				</isEmpty>
+							, DATE_LABEL_1 = #dateLabel1#
+							, DATE_LABEL_2 = #dateLabel2#
+							<isNotEmpty property="dateUse2">
+			   				,DATE_USE_2 = #dateUse2#
+			   				</isNotEmpty>
+			   				<isEmpty property="dateUse2">
+			   				,DATE_USE_2 = 'N'
+			   				</isEmpty>
+							, DATE_LABEL_3 = #dateLabel3#
+							<isNotEmpty property="dateUse3">
+			   				, DATE_USE_3 = #dateUse3#
+			   				</isNotEmpty>
+			   				<isEmpty property="dateUse3">
+			   				, DATE_USE_3 = 'N'
+			   				</isEmpty>
+							, PRICE_LABEL_1 = #priceLabel1#
+							, PRICE_UNIT_1 = #priceUnit1#
+							, MULTIPLE_1 = #multiple1#
+							,  PRICE_LABEL_2 = #priceLabel2#
+						    ,  PRICE_UNIT_2 = #priceUnit2#
+						    , MULTIPLE_2 = #multiple2#
+						    <isNotEmpty property="priceUse2">
+			   				, PRICE_USE_2 = #priceUse2#
+			   				</isNotEmpty>
+			   				<isEmpty property="priceUse2">
+			   				, PRICE_USE_2 = 'N'
+			   				</isEmpty>
+							, PRICE_LABEL_3 = #priceLabel3#
+							, PRICE_UNIT_3 = #priceUnit3#
+							, MULTIPLE_3 = #multiple3#
+							<isNotEmpty property="priceUse3">
+			   				, PRICE_USE_3 = #priceUse3#
+			   				</isNotEmpty>
+			   				<isEmpty property="priceUse3">
+			   				, PRICE_USE_3 = 'N'
+			   				</isEmpty>
+						    , STAFF_LABEL_1 = #staffLabel1#
+						    , STAFF_LABEL_2 = #staffLabel2#
+						    <isNotEmpty property="staffUse2">
+			   				, STAFF_USE_2  = #staffUse2#
+			   				</isNotEmpty>
+			   				<isEmpty property="staffUse2">
+			   				, STAFF_USE_2  = 'N'
+			   				</isEmpty>
+							, UPDATE_DATE = NOW()
+							, UPDATED_BY = #userSeq#
+	</insert>
+
+	<!--  정보 공유 세팅 업데이트 -->
+	<update id="business.updateBsInfoSetup" parameterClass="HashMap">
+	    /* business.updateBsInfoSetup */
+		UPDATE BS_INFO_SETUP
+			SET
+						  PATH_LABEL= #pathLabel#,
+						   PATH_USE= #pathUse#,
+						   TYPE_LABEL= #typeLabel#,
+						   TYPE_USE= #typeUse#,
+						   CLASS_LABEL= #classLabel# ,
+						   CLASS_USE=  #classUse#,
+						   CUST_LABEL_1= #custLabel1# ,
+						   CUST_USE_1=  #custUse1#,
+						   CUST_LABEL_2= #custLabel2#,
+						   CUST_USE_2= #custUse2#,
+						   CPN_LABEL_1= #cpnLabel1#,
+						   CPN_USE_1=  #cpnUse1#,
+						   CPN_LABEL_2= #cpnLabel2#,
+						   CPN_USE_2= #cpnUse2#,
+						   DATE_LABEL_1= #dateLabel1#,
+						   DATE_USE_1=  #dateUse1#,
+						   DATE_LABEL_2= #dateLabel2#,
+						   DATE_USE_2= #dateUse2#,
+						   DATE_LABEL_3= #dateLabel3#,
+						   DATE_USE_3= #dateUse3#,
+						   PRICE_LABEL_1= #priceLabel1#,
+						   PRICE_UNIT_1= #priceUnit1#,
+						   MULTIPLE_1= #multiple1#,
+						   PRICE_USE_1= #priceUse1#,
+						   PRICE_LABEL_2= #priceLabel2#,
+						   PRICE_UNIT_2= #priceUnit2#,
+						   MULTIPLE_2= #multiple2#,
+						   PRICE_USE_2= #priceUse2#,
+						   PRICE_LABEL_3= #priceLabel3#,
+						   PRICE_UNIT_3= #priceUnit3#,
+						   MULTIPLE_3= #multiple3#,
+						   PRICE_USE_3= #priceUse3#,
+						   STAFF_LABEL_1= #staffLabel1#,
+						   STAFF_USE_1= #staffUse1#,
+						   STAFF_LABEL_2= #staffLabel2#,
+						   STAFF_USE_2= #staffUse2#,
+						   UPDATED_BY = #userSeq#,
+						   UPDATE_DATE = now()
+		WHERE INFO_SET_ID = #infoSetId#
+	</update>
+
+	<!--  정보 공유 세팅 정보 반환 -->
+	<select id="business.selectBsInfoSetupInfo" parameterClass="HashMap" resultClass="HashMap">
+	    /* business.selectBsInfoSetupInfo */
+		SELECT
+			ORG_ID AS orgId,
+			INFO_SET_ID AS infoSetId,
+			PATH_LABEL AS pathLabel,
+			PATH_CODE_SET AS pathCodeSet,
+			PATH_USE AS pathUse,
+			TYPE_LABEL AS typeLabel,
+			TYPE_CODE_SET AS typeCodeSet,
+			TYPE_USE AS typeUse,
+			CLASS_LABEL AS classLabel ,
+			CLASS_CODE_SET AS classCodeSet,
+			CLASS_USE AS classUse,
+			CUST_LABEL_1 AS custLabel1 ,
+			CUST_USE_1 AS custUse1,
+			CUST_LABEL_2 AS custLabel2,
+			CUST_USE_2 AS custUse2,
+			CPN_LABEL_1 AS cpnLabel1,
+			CPN_USE_1 AS cpnUse1,
+			CPN_LABEL_2 AS cpnLabel2,
+			CPN_USE_2 AS cpnUse2,
+			DATE_LABEL_1 AS dateLabel1,
+			DATE_USE_1 AS dateUse1,
+			DATE_LABEL_2 AS dateLabel2,
+			DATE_USE_2 AS dateUse2,
+			DATE_LABEL_3 AS dateLabel3,
+			DATE_USE_3 AS dateUse3,
+			PRICE_LABEL_1 AS priceLabel1,
+			PRICE_UNIT_1 AS priceUnit1,
+			MULTIPLE_1 AS multiple1,
+			PRICE_USE_1 AS priceUse1,
+			PRICE_LABEL_2 AS priceLabel2,
+			PRICE_UNIT_2 AS priceUnit2,
+			MULTIPLE_2 AS multiple2,
+			PRICE_USE_2 AS priceUse2,
+			PRICE_LABEL_3 AS priceLabel3,
+			PRICE_UNIT_3 AS priceUnit3,
+			MULTIPLE_3 AS multiple3,
+			PRICE_USE_3 AS priceUse3,
+			STAFF_LABEL_1 AS staffLabel1,
+			STAFF_USE_1 AS staffUse1,
+			STAFF_LABEL_2 AS staffLabel2,
+			STAFF_USE_2 AS staffUse2,
+			PROGRESS_LABEL AS progressLabel,
+			PROGRESS_CODE_SET AS progressCodeSet,
+			PROGRESS_USE  AS progressUse
+		FROM BS_INFO_SETUP
+		WHERE ORG_ID = #orgId#
+	</select>
+
+	<!-- 업무일지 - 정보공유 -->
+	<select id="business.selectBsInfoListForWork" parameterClass="HashMap" resultClass="HashMap">
+	    /* business.selectBsInfoListForWork */
+	    SELECT X.*
+	    FROM(
+	     SELECT Y.*
+	          ,IFNULL(
+	                (SELECT A.MEANING_KOR
+	                FROM BS_CODE_LIST  A
+			         LEFT JOIN BS_CODE_SET  B ON A.SON_SET_ID = B.CODE_SET_ID AND B.ORG_ID = #orgId#
+			        WHERE 1=1
+			        AND A.CODE_SET_ID = Y.sonSetId
+			        AND A.VALUE = Y.infoClass
+			        ),'') as typeSubMeaningKOR
+          FROM(
+			SELECT
+				A.INFO_ID as infoId,
+				A.ORG_ID as orgId,
+				A.INFO_PATH as infoPath,
+				A.INFO_CLASS as infoClass,
+				IFNULL((SELECT MEANING_KOR FROM BS_CODE_LIST
+					WHERE CODE_SET_ID = (
+					SELECT CODE_SET_ID from bs_code_set where code_set_name = 'INFO_PATH' and org_id = A.ORG_ID)
+					AND VALUE = A.INFO_PATH),'') as pathMeaningKOR,
+				IFNULL((SELECT MEANING_KOR FROM BS_CODE_LIST
+					WHERE CODE_SET_ID = (
+					SELECT CODE_SET_ID from bs_code_set where code_set_name = 'INFO_TYPE' and org_id = A.ORG_ID)
+					AND VALUE = A.INFO_TYPE),'') as typeMeaningKOR,
+				IFNULL((SELECT SON_SET_ID FROM BS_CODE_LIST
+					WHERE CODE_SET_ID = (
+					SELECT CODE_SET_ID from bs_code_set where code_set_name = 'INFO_TYPE' and org_id = A.ORG_ID)
+					AND VALUE = A.INFO_TYPE),'') as sonSetId,
+				( SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = A.CUST_ID_1 ) AS custName1,
+				A.CUST_ID_1 as custId1,
+				A.CPN_ID_1 as cpnId1,
+				 ( SELECT CPN_NM FROM IB_COMPANY WHERE CPN_ID = CPN_ID_1 ) AS cpnName1,
+				DATE_FORMAT(A.VIEW_DATE,'%Y-%m-%d') as viewDate,
+
+				DATE_FORMAT(A.VIEW_DATE,'%Y.%m') AS viewMonth,
+	            DATE_FORMAT(A.VIEW_DATE,'%d') AS viewDay,
+	            (CASE DAYOFWEEK(A.VIEW_DATE)
+	               WHEN '1' THEN '일'
+	               WHEN '2' THEN '월'
+	               WHEN '3' THEN '화'
+	               WHEN '4' THEN '수'
+	               WHEN '5' THEN '목'
+	               WHEN '6' THEN '금'
+	               WHEN '7' THEN '토'
+	            END) AS viewDateWeek,
+
+				IFNULL(( SELECT COUNT(COMMENT_ID) FROM BS_INFO_COMMENT C WHERE INFO_ID = A.INFO_ID AND DELETE_FLAG = 'N' GROUP BY INFO_ID),0) AS cnt,
+				A.PROGRESS as progress,
+				(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY) AS userName,
+				CASE WHEN DATE_FORMAT(A.CREATE_DATE, '%Y-%m-%d') = DATE_FORMAT(now(), '%Y-%m-%d') THEN 'NEW' ELSE 'AGO' END AS newYn,
+				A.INFO_LEVEL,
+				A.TITLE AS title,
+				A.MEMO AS memo,
+				A.CREATED_BY AS createdBy
+				<isEmpty property = "userList">
+				  ,0							  AS staffUserStr    /*참여자 userId*/
+				  </isEmpty>
+				  <isNotEmpty property = "userList">
+				  ,(SELECT GROUP_CONCAT(X.STAFF_ID SEPARATOR ',')
+				      FROM BS_INFO_STAFF X
+				     WHERE X.INFO_ID = A.INFO_ID AND X.STAFF_ID IN (
+										         					SELECT X.USER_ID FROM BS_USER_MASTER X WHERE X.EMP_NO IN (
+										         				<iterate property="userList" conjunction=",">
+																		#userList[]#
+														        </iterate>
+										         					)
+								)
+					)							AS staffUserStr    /*참여자 userId*/
+				  </isNotEmpty>
+			FROM BS_INFO_LIST A
+			WHERE 1=1
+			<isEqual property="weekWorkYn" compareValue="Y">		/*주간보고 화면일경우*/
+				 AND  (
+	                 A.CREATED_BY IN (
+		         					SELECT X.USER_ID FROM BS_USER_MASTER X WHERE X.EMP_NO IN (
+		         				<iterate property="userList" conjunction=",">
+										#userList[]#
+						        </iterate>
+		         					))
+
+	                OR EXISTS (SELECT X.STAFF_ID FROM BS_INFO_STAFF X WHERE X.INFO_ID = A.INFO_ID AND X.STAFF_ID IN (
+										         					SELECT X.USER_ID FROM BS_USER_MASTER X WHERE X.EMP_NO IN (
+										         				<iterate property="userList" conjunction=",">
+																		#userList[]#
+														        </iterate>
+										         					)
+								))
+                )
+                AND A.ORG_ID = #treeOrg#
+                AND (#businessInfoLevel#>=A.INFO_LEVEL OR #vipAuthYn# = 'Y')
+			</isEqual>
+			<isNotEqual property="weekWorkYn" compareValue="Y">
+				<isEqual property="secretYn" compareValue="Y">        /* 조회자 본인 */
+	                AND  (
+		                A.CREATED_BY = #userId#
+		                OR EXISTS (SELECT X.STAFF_ID FROM BS_INFO_STAFF X WHERE X.INFO_ID = A.INFO_ID AND X.STAFF_ID = #userId#)
+		                OR (A.ORG_ID = #treeOrg# AND #businessInfoLevel#>=A.INFO_LEVEL)
+		                OR (A.ORG_ID = #treeOrg# AND #vipAuthYn# = 'Y')
+	                )
+	             </isEqual>
+	             <isEqual property="secretYn" compareValue="N">        /* 조회자 본인아님 */
+	                AND  (
+		                A.CREATED_BY = #userId#
+		                OR EXISTS (SELECT X.STAFF_ID FROM BS_INFO_STAFF X WHERE X.INFO_ID = A.INFO_ID AND X.STAFF_ID = #userId#)
+	                )
+	                AND A.ORG_ID = #treeOrg#
+	                AND (#businessInfoLevel#>=A.INFO_LEVEL OR #vipAuthYn# = 'Y')
+	             </isEqual>
+			</isNotEqual>
+		  <isNotEmpty prepend="AND" property="startStr">
+         	DATE_FORMAT(A.VIEW_DATE,'%Y-%m-%d') BETWEEN #startStr# AND #endStr#
+          </isNotEmpty>
+          <isEqual property="searchActionType" compareValue="KEYWORD"><!-- 검색실행타입 -->
+             <isNotEmpty prepend="AND" property="searchStartDate">    <!-- 검색기간 -->
+	                DATE_FORMAT(A.VIEW_DATE,'%Y-%m-%d') BETWEEN #searchStartDate# AND #searchEndDate#
+	         </isNotEmpty>
+         </isEqual>
+         <isEqual property="searchActionType" compareValue="MONTH">
+             AND DATE_FORMAT(A.VIEW_DATE,'%Y-%m') = #selectMonth#
+         </isEqual>
+         ) Y
+         ) X
+         WHERE 1=1
+         <isEqual property="searchActionType" compareValue="KEYWORD"><!-- 검색실행타입 -->
+              <isNotEmpty prepend="AND" property="searchKeyword">                   <!-- 검색어 -->
+                    (X.title LIKE CONCAT('%', #searchKeyword# , '%')
+                        OR X.memo LIKE CONCAT('%', #searchKeyword# , '%')
+                        OR X.cpnName1 LIKE CONCAT('%', #searchKeyword# , '%')
+                        OR X.pathMeaningKOR LIKE CONCAT('%', #searchKeyword# , '%')
+                        OR X.typeMeaningKOR LIKE CONCAT('%', #searchKeyword# , '%')
+                        OR X.typeSubMeaningKOR LIKE CONCAT('%', #searchKeyword# , '%')
+                     )
+             </isNotEmpty>
+         </isEqual>
+	</select>
+
+	<!-- 정보공유  정보 반환 -->
+	<select id="business.selectBsInfoList" parameterClass="HashMap" resultClass="HashMap">
+	    /* business.selectBsInfoList */
+		SELECT
+			INFO_ID AS infoId,
+			INFO_PATH AS infoPath,
+		    INFO_TYPE AS infoType,
+		    INFO_CLASS AS infoClass,
+		    CUST_ID_1 AS custId1,
+			( SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = CUST_ID_1 ) AS custName1,
+		    CUST_ID_2 AS custId2,
+            ( SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = CUST_ID_2 ) AS custName2,
+		    CPN_ID_1 AS cpnId1,
+            ( SELECT CPN_NM FROM IB_COMPANY WHERE CPN_ID = CPN_ID_1 ) AS cpnName1,
+		    CPN_ID_2  AS cpnId2,
+			( SELECT CPN_NM FROM IB_COMPANY WHERE CPN_ID = CPN_ID_2 ) AS cpnName2,
+		    DATE_FORMAT(INFO_DATE_1, '%Y-%m-%d') AS infoDate1,
+            DATE_FORMAT(INFO_DATE_2, '%Y-%m-%d') AS infoDate2,
+            DATE_FORMAT(INFO_DATE_3, '%Y-%m-%d') AS infoDate3,
+            DATE_FORMAT(VIEW_DATE, '%Y-%m-%d') AS viewDate,
+            FORMAT(INFO_PRICE_1,2) infoPrice1,
+            FORMAT(INFO_PRICE_2,2) infoPrice2,
+            FORMAT(INFO_PRICE_3,2) infoPrice3,
+		    TITLE AS title,
+		    MEMO AS memo,
+		    PROGRESS AS progress,
+		    STAFF_ID_1 AS staffId1,
+            ( SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = STAFF_ID_1 ) AS staffName1,
+		    STAFF_ID_2 AS staffId2,
+            ( SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = STAFF_ID_2 ) AS staffName2,
+            INFO_LEVEL AS infoLevel
+		FROM BS_INFO_LIST
+		WHERE INFO_ID = #infoId#
+	</select>
+
+	<!-- 정보공유 리스트 정보 입력 -->
+	<insert id="business.insertBsInfoList" parameterClass="HashMap">
+	    /* business.insertBsInfoList*/
+	 	INSERT INTO BS_INFO_LIST
+			(
+				ORG_ID,
+				INFO_PATH,
+				INFO_TYPE,
+				INFO_CLASS,
+				CUST_ID_1,
+				CUST_ID_2,
+				CPN_ID_1,
+				CPN_ID_2,
+				INFO_DATE_1,
+				INFO_DATE_2,
+				INFO_DATE_3,
+				INFO_PRICE_1,
+				INFO_PRICE_2,
+				INFO_PRICE_3,
+				TITLE,
+				MEMO,
+				PROGRESS,
+				INFO_LEVEL,
+				CREATED_BY,
+				CREATE_DATE,
+				UPDATED_BY,
+				UPDATE_DATE,
+				VIEW_DATE )
+			VALUES
+			(
+				#orgId#,
+				#infoPath#,
+				#infoType#,
+				#infoClass#,
+				#custId1#,
+				#custId2#,
+				<isNotEmpty property="cpnId1">
+					#cpnId1#,
+				</isNotEmpty>
+				<isEmpty property="cpnId1">
+					null,
+				</isEmpty>
+				<isNotEmpty property="cpnId2">
+					#cpnId2#,
+				</isNotEmpty>
+				<isEmpty property="cpnId2">
+					null,
+				</isEmpty>
+				<isEqual property="infoDate1" compareValue="0">
+				null,
+				</isEqual>
+				<isNotEqual property="infoDate1" compareValue="0">
+				#infoDate1#,
+				</isNotEqual>
+				<isEqual property="infoDate2" compareValue="0">
+				null,
+				</isEqual>
+				<isNotEqual property="infoDate2" compareValue="0">
+				#infoDate2#,
+				</isNotEqual>
+				<isEqual property="infoDate3" compareValue="0">
+				null,
+				</isEqual>
+				<isNotEqual property="infoDate3" compareValue="0">
+				#infoDate3#,
+				</isNotEqual>
+				#infoPrice1#,
+				#infoPrice2#,
+				#infoPrice3#,
+				#title#,
+				#memo#,
+				#progress#,
+				#infoLevel#,
+				#userSeq#,
+				now(),
+				#userSeq#,
+				now(),
+				<isNotEmpty property="viewDate">
+				#viewDate#
+				</isNotEmpty>
+				<isEmpty property="viewDate">
+				now()
+				</isEmpty>
+			)
+
+			<selectKey resultClass="int" type="post" keyProperty="infoId">
+			SELECT LAST_INSERT_ID()
+			</selectKey>
+	</insert>
+	<!-- 인물정보를 인서트한다 -->
+	<insert id="business.insertInfoStaff" parameterClass="HashMap">
+	    /* business.insertInfoStaff*/
+		INSERT INTO BS_INFO_STAFF
+		(
+				 INFO_ID
+				,INFO_STAFF_TYPE
+				,STAFF_ID
+				,CREATED_DATE
+				,CREATED_BY
+				,UPDATED_DATE
+				,UPDATED_BY
+		) VALUES (
+				 #infoId#
+				,#infoStaffType#
+				,#staffId#
+				,NOW()
+				,#userId#
+				,NOW()
+				,#userId#
+		)
+	</insert>
+	<!-- 정보공유 리스트 업데이트 -->
+	<update id="business.updateBsInfoList" parameterClass="HashMap">
+	    /* business.updateBsInfoList */
+		UPDATE BS_INFO_LIST
+		SET
+			UPDATED_BY = #userSeq#,
+			UPDATE_DATE = now(),
+			TITLE = #title#,
+			MEMO = #memo#,
+			PROGRESS = #progress#,
+			INFO_PATH = #infoPath#,
+			INFO_TYPE = #infoType#,
+			INFO_CLASS = #infoClass#,
+			CUST_ID_1 = #custId1#,
+			CUST_ID_2 = #custId2#,
+			<isNotEmpty property="cpnId1">
+				CPN_ID_1 = #cpnId1#,
+			</isNotEmpty>
+			<isEmpty property="cpnId1">
+				CPN_ID_1  = null,
+			</isEmpty>
+			<isNotEmpty property="cpnId2">
+				CPN_ID_2 = #cpnId2#,
+			</isNotEmpty>
+			<isEmpty property="cpnId2">
+				CPN_ID_2 = null,
+			</isEmpty>
+			<isEqual property="infoDate1" compareValue="0">
+				INFO_DATE_1 = null,
+			</isEqual>
+			<isNotEqual property="infoDate1" compareValue="0">
+				INFO_DATE_1 = #infoDate1#,
+			</isNotEqual>
+			<isEqual property="infoDate2" compareValue="0">
+				INFO_DATE_2 = null,
+			</isEqual>
+			<isNotEqual property="infoDate2" compareValue="0">
+				INFO_DATE_2 = #infoDate2#,
+			</isNotEqual>
+			<isEqual property="infoDate3" compareValue="0">
+				INFO_DATE_3 = null,
+			</isEqual>
+			<isNotEqual property="infoDate3" compareValue="0">
+				INFO_DATE_3 = #infoDate3#,
+			</isNotEqual>
+			INFO_PRICE_1 = #infoPrice1#,
+			INFO_PRICE_2 = #infoPrice2#,
+			INFO_PRICE_3 = #infoPrice3#,
+			STAFF_ID_1 = #staffId1#,
+			STAFF_ID_2 = #staffId2#,
+			INFO_LEVEL = #infoLevel#
+		WHERE INFO_ID = #infoId#
+	</update>
+
+	<!-- 정보 공유 진행상태 리스트 반환 -->
+	<select id="business.selectBsInfoHistory">
+	    /* business.selectBsInfoHistory */
+		SELECT
+			INFO_ID AS infoId,
+			PROGRESS AS progress,
+			CHANGE_DATE AS  changeDate
+		FROM BS_INFO_HISTORY
+		WHERE 1=1
+		<isNotEmpty property="historyId" prepend="AND">
+			HISTORY_ID = #historyId#
+		</isNotEmpty>
+		<isNotEmpty property="infoId"  prepend="AND">
+			INFO_ID = #infoId#
+		</isNotEmpty>
+	</select>
+
+	<!--  정보공유 진행상태 히스토리 입력 -->
+	<insert id="business.insertBsInfoHistory">
+	    /* business.insertBsInfoHistory */
+		INSERT INTO BS_INFO_HISTORY
+		(
+			INFO_ID,
+			PROGRESS,
+			CHANGE_DATE
+		)
+		VALUES
+		(
+			#infoId#,
+			#progress#,
+			now()
+		)
+	</insert>
+
+
+		<!-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!park : S !!!!!!!!!!!!!!!!!!!!!!!!!!!!-->
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+
+	<!-- 정보관리리스트 -->
+	<select id = "business.getBusinessInfoList" parameterClass="HashMap" resultClass = "egovMap">
+	    /* business.getBusinessInfoList */
+		SELECT   A.INFO_ID          /*정보공유목록ID    */
+		        ,A.ORG_ID           /*관계사ID          */
+		        ,(SELECT X.CPN_NM FROM IB_COMPANY X WHERE X.S_NB = A.CPN_ID_1) AS ORG_NM
+		        ,A.INFO_PATH        /*경로코드          */
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = A.ORG_ID AND X.CODE_NAME = 'INFO_PATH' AND X.CODE_VALUE = A.INFO_PATH) AS INFO_PATH_NM
+		        ,B.PATH_LABEL       /*경로레이블        */
+		        ,B.PATH_CODE_SET    /*경로코드셋        */
+		        ,B.PATH_USE         /*경로사용여부      */
+		        ,A.INFO_TYPE        /*구분코드          */
+		        ,A.INFO_LEVEL
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = A.ORG_ID AND X.CODE_NAME = 'INFO_TYPE' AND X.CODE_VALUE = A.INFO_TYPE) AS INFO_TYPE_NM
+		        ,B.TYPE_LABEL       /*구분레이블        */
+		        ,B.TYPE_CODE_SET    /*구분코드셋        */
+		        ,B.TYPE_USE         /*구분사용여부      */
+		        ,A.INFO_CLASS       /*유형코드          */
+		        ,(SELECT Y.VALUE_MEAN_KOR
+			        FROM BS_CODE_GV X ,BS_CODE_GV Y
+			       WHERE X.ORG_ID = A.ORG_ID AND Y.ORG_ID = A.ORG_ID
+			         AND X.CODE_NAME = 'INFO_TYPE'
+			         AND X.CODE_VALUE = A.INFO_TYPE
+			         AND Y.CODE_NAME = X.SON_CODE_NAME
+			         AND Y.CODE_VALUE = A.INFO_CLASS
+			        ) AS INFO_CLASS_NM
+		        ,B.CLASS_LABEL      /*유형레이블        */
+		        ,B.CLASS_CODE_SET   /*유형코드셋        */
+		        ,B.CLASS_USE        /*유형사용여부      */
+		        ,A.CPN_ID_1         /*회사1ID           */
+		        ,(SELECT X.CPN_NM FROM IB_COMPANY X WHERE X.CPN_ID=A.CPN_ID_1) AS CPN_NM_1						/*회사1 이름           */
+		        ,(SELECT X.CATEGORY_BUSINESS FROM IB_COMPANY X WHERE X.CPN_ID = A.CPN_ID_1) AS CPN_ID_1_CATEGORY_BUSINESS
+		        ,B.CPN_LABEL_1      /*회사1레이블       */
+		        ,B.CPN_USE_1        /*회사1사용여부     */
+		        ,A.TITLE            /*제목              */
+		        ,A.PROGRESS         /*진행상태코드      */
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = A.ORG_ID AND X.CODE_NAME = 'INFO_PROGRESS' AND X.CODE_VALUE = A.PROGRESS) AS PROGRESS_NM
+		        ,B.PROGRESS_LABEL   /*진행상태레이블    */
+		        ,B.PROGRESS_CODE_SET/*진행상태코드셋    */
+		        ,B.PROGRESS_USE     /*진행상태사용여부  */
+		        ,A.VIEW_DATE		/*정보기준일*/
+		        ,A.CREATE_DATE      /*등록일            */
+		        ,A.CREATED_BY       /*등록자            */
+		        ,A.UPDATE_DATE
+		       ,(SELECT X.NAME      FROM BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY) CREATED_BY_NM
+		       ,(SELECT COUNT(*) FROM BS_INFO_COMMENT X WHERE A.INFO_ID = X.INFO_ID AND X.DELETE_FLAG !='Y') AS COMMENT_CNT
+		       ,IF(DATEDIFF(NOW(),A.CREATE_DATE)<![CDATA[<=]]>3,'Y','N') AS NEW_YN
+		FROM    BS_INFO_LIST A
+		       ,BS_INFO_SETUP B
+		WHERE   1 = 1
+		AND     A.ORG_ID = B.ORG_ID
+		AND     (
+				   A.CREATED_BY = #userId#
+				OR EXISTS (SELECT X.STAFF_ID FROM BS_INFO_STAFF X WHERE X.INFO_ID = A.INFO_ID AND X.STAFF_ID = #userId#)
+				OR (A.ORG_ID = #applyOrgId# AND #businessInfoLevel#>=A.INFO_LEVEL)
+				OR (A.ORG_ID = #applyOrgId# AND #vipAuthYn# = 'Y')
+				)
+		<isNotEmpty property="searchInfoPath">
+		AND     INFO_PATH = #searchInfoPath#
+		</isNotEmpty>
+		<isNotEmpty property="searchInfoType">
+		AND     INFO_TYPE = #searchInfoType#
+		</isNotEmpty>
+		<isNotEmpty property="searchInfoClass">
+		AND     INFO_CLASS = #searchInfoClass#
+		</isNotEmpty>
+		<isNotEmpty property="searchMyList">
+		AND     A.CREATED_BY = #userId#
+		</isNotEmpty>
+		<isNotEmpty property="searchProgress">
+		AND     A.PROGRESS = #searchProgress#
+		</isNotEmpty>
+		<isNotEmpty property="searchKeyword">
+		AND (
+			    A.MEMO LIKE concat('%', #searchKeyword#, '%')
+			 OR (SELECT X.CPN_NM FROM IB_COMPANY X WHERE X.CPN_ID=A.CPN_ID_1) LIKE concat('%', #searchKeyword#, '%')
+			 OR (SELECT X.CPN_NM FROM IB_COMPANY X WHERE X.CPN_ID=A.CPN_ID_2) LIKE concat('%', #searchKeyword#, '%')
+			 OR (SELECT X.CST_NM FROM IB_CUSTOMER X WHERE X.S_NB=A.CUST_ID_1) LIKE concat('%', #searchKeyword#, '%')
+			 OR (SELECT X.CST_NM FROM IB_CUSTOMER X WHERE X.S_NB=A.CUST_ID_2) LIKE concat('%', #searchKeyword#, '%')
+			 OR EXISTS (
+			 	SELECT X.STAFF_ID
+			 	  FROM BS_INFO_STAFF X , BS_USER_MASTER Y
+			 	 WHERE A.INFO_ID = X.INFO_ID
+			 	   AND X.STAFF_ID = Y.USER_ID
+			 	   AND Y.NAME LIKE concat('%', #searchKeyword#, '%')
+
+			 )
+			 OR A.TITLE LIKE concat('%', #searchKeyword#, '%')
+			 )
+		</isNotEmpty>
+
+		<isEmpty prepend="" property="sortCol">
+            ORDER BY A.CREATE_DATE DESC
+        </isEmpty>
+        <isNotEmpty prepend="" property="sortCol">
+            ORDER BY A.$sortCol$ $sortAD$
+        </isNotEmpty>
+
+		<isNotEqual property="recordCountPerPage" compareValue="0">
+			LIMIT #firstIndex#, #recordCountPerPage#
+		</isNotEqual>
+	</select>
+	<!-- 정보관리리스트총개스 -->
+	<select id = "business.getBusinessInfoListTotalCnt" parameterClass="HashMap" resultClass = "Integer">
+	    /* business.getBusinessInfoListTotalCnt */
+		SELECT   COUNT(*)
+		FROM    BS_INFO_LIST A
+		       ,BS_INFO_SETUP B
+		WHERE   1 = 1
+		AND     A.ORG_ID = B.ORG_ID
+		AND     (
+				   A.CREATED_BY = #userId#
+				OR EXISTS (SELECT X.STAFF_ID FROM BS_INFO_STAFF X WHERE X.INFO_ID = A.INFO_ID AND X.STAFF_ID = #userId#)
+				OR (A.ORG_ID = #applyOrgId# AND #businessInfoLevel#>=A.INFO_LEVEL)
+				OR (A.ORG_ID = #applyOrgId# AND #vipAuthYn# = 'Y')
+				)
+		<isNotEmpty property="searchInfoPath">
+		AND     INFO_PATH = #searchInfoPath#
+		</isNotEmpty>
+		<isNotEmpty property="searchInfoType">
+		AND     INFO_TYPE = #searchInfoType#
+		</isNotEmpty>
+		<isNotEmpty property="searchInfoClass">
+		AND     INFO_CLASS = #searchInfoClass#
+		</isNotEmpty>
+		<isNotEmpty property="searchMyList">
+		AND     A.CREATED_BY = #userId#
+		</isNotEmpty>
+		<isNotEmpty property="searchProgress">
+		AND     A.PROGRESS = #searchProgress#
+		</isNotEmpty>
+		<isNotEmpty property="searchKeyword">
+		AND (
+			    A.MEMO LIKE concat('%', #searchKeyword#, '%')
+			 OR (SELECT X.CPN_NM FROM IB_COMPANY X WHERE X.CPN_ID=A.CPN_ID_1) LIKE concat('%', #searchKeyword#, '%')
+			 OR (SELECT X.CPN_NM FROM IB_COMPANY X WHERE X.CPN_ID=A.CPN_ID_2) LIKE concat('%', #searchKeyword#, '%')
+			 OR (SELECT X.CST_NM FROM IB_CUSTOMER X WHERE X.S_NB=A.CUST_ID_1) LIKE concat('%', #searchKeyword#, '%')
+			 OR (SELECT X.CST_NM FROM IB_CUSTOMER X WHERE X.S_NB=A.CUST_ID_2) LIKE concat('%', #searchKeyword#, '%')
+			 OR EXISTS (
+			 	SELECT X.STAFF_ID
+			 	  FROM BS_INFO_STAFF X , BS_USER_MASTER Y
+			 	 WHERE A.INFO_ID = X.INFO_ID
+			 	   AND X.STAFF_ID = Y.USER_ID
+			 	   AND Y.NAME LIKE concat('%', #searchKeyword#, '%')
+
+			 )
+			 OR A.TITLE LIKE concat('%', #searchKeyword#, '%')
+			 )
+		</isNotEmpty>
+	</select>
+	<!-- 코멘트리스트 -->
+	<select id = "business.getBusinessCommentList" parameterClass="HashMap" resultClass = "egovMap">
+	    /* business.getBusinessCommentList */
+		SELECT   A.INFO_ID          /*정보공유목록ID    */
+		        ,A.ORG_ID           /*관계사ID          */
+		        ,(SELECT X.CPN_NM FROM IB_COMPANY X WHERE X.S_NB = A.CPN_ID_1) AS ORG_NM
+		        ,A.INFO_PATH        /*경로코드          */
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = A.ORG_ID AND X.CODE_NAME = 'INFO_PATH' AND X.CODE_VALUE = A.INFO_PATH) AS INFO_PATH_NM
+		        ,B.PATH_LABEL       /*경로레이블        */
+		        ,B.PATH_CODE_SET    /*경로코드셋        */
+		        ,B.PATH_USE         /*경로사용여부      */
+		        ,A.INFO_TYPE        /*구분코드          */
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = A.ORG_ID AND X.CODE_NAME = 'INFO_TYPE' AND X.CODE_VALUE = A.INFO_TYPE) AS INFO_TYPE_NM
+		        ,B.TYPE_LABEL       /*구분레이블        */
+		        ,B.TYPE_CODE_SET    /*구분코드셋        */
+		        ,B.TYPE_USE         /*구분사용여부      */
+		        ,A.INFO_CLASS       /*유형코드          */
+		        ,(SELECT Y.VALUE_MEAN_KOR
+			        FROM BS_CODE_GV X ,BS_CODE_GV Y
+			       WHERE X.ORG_ID = A.ORG_ID AND Y.ORG_ID = A.ORG_ID
+			         AND X.CODE_NAME = 'INFO_TYPE'
+			         AND X.CODE_VALUE = A.INFO_TYPE
+			         AND Y.CODE_NAME = X.SON_CODE_NAME
+			         AND Y.CODE_VALUE = A.INFO_CLASS
+			        ) AS INFO_CLASS_NM
+		        ,B.CLASS_LABEL      /*유형레이블        */
+		        ,B.CLASS_CODE_SET   /*유형코드셋        */
+		        ,B.CLASS_USE        /*유형사용여부      */
+		        ,A.CPN_ID_1         /*회사1ID           */
+		        ,(SELECT X.CPN_NM FROM IB_COMPANY X WHERE X.CPN_ID=A.CPN_ID_1) AS CPN_NM_1						/*회사1 이름           */
+		        ,(SELECT X.CATEGORY_BUSINESS FROM IB_COMPANY X WHERE X.CPN_ID = A.CPN_ID_1) AS CPN_ID_1_CATEGORY_BUSINESS
+		        ,B.CPN_LABEL_1      /*회사1레이블       */
+		        ,B.CPN_USE_1        /*회사1사용여부     */
+		        ,A.TITLE            /*제목              */
+		        ,A.PROGRESS         /*진행상태코드      */
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = A.ORG_ID AND X.CODE_NAME = 'INFO_PROGRESS' AND X.CODE_VALUE = A.PROGRESS) AS PROGRESS_NM
+		        ,B.PROGRESS_LABEL   /*진행상태레이블    */
+		        ,B.PROGRESS_CODE_SET/*진행상태코드셋    */
+		        ,B.PROGRESS_USE     /*진행상태사용여부  */
+		        ,C.CREATED_DATE      /*등록일            */
+		        ,DATE_FORMAT(C.CREATED_DATE,'%y/%m/%d') AS CREATED_DATE_STR
+		        ,A.VIEW_DATE		/*적용날짜*/
+		        ,C.CREATED_BY       /*등록자            */
+		       ,(SELECT X.NAME      FROM BS_USER_MASTER X WHERE X.USER_ID = C.CREATED_BY) CREATED_BY_NM
+		       ,C.CONTENT
+		       ,IF(DATEDIFF(NOW(),C.CREATED_DATE)<![CDATA[<=]]>3,'Y','N') AS NEW_YN
+		       ,(SELECT COUNT(*) FROM BS_INFO_COMMENT X WHERE C.COMMENT_ID = X.RECOMMENT_ID AND X.DELETE_FLAG = 'N') AS RECOMMENT_CNT
+		FROM    BS_INFO_LIST A
+		       ,BS_INFO_SETUP B
+		       ,BS_INFO_COMMENT C
+		WHERE   1 = 1
+		AND     A.ORG_ID = #applyOrgId#
+		AND     A.ORG_ID = B.ORG_ID
+		AND     A.INFO_ID = C.INFO_ID
+		AND     C.DELETE_FLAG = 'N'
+		AND     (
+                   A.CREATED_BY = #userId#
+                OR EXISTS (SELECT X.STAFF_ID FROM BS_INFO_STAFF X WHERE X.INFO_ID = A.INFO_ID AND X.STAFF_ID = #userId#)
+                OR (A.ORG_ID = #applyOrgId# AND #businessInfoLevel#>=A.INFO_LEVEL)
+                OR (A.ORG_ID = #applyOrgId# AND #vipAuthYn# = 'Y')
+                )
+		<isNotEmpty property="searchInfoPath">
+		AND     INFO_PATH = #searchInfoPath#
+		</isNotEmpty>
+		<isNotEmpty property="searchInfoType">
+		AND     INFO_TYPE = #searchInfoType#
+		</isNotEmpty>
+		<isNotEmpty property="searchInfoClass">
+		AND     INFO_CLASS = #searchInfoClass#
+		</isNotEmpty>
+		<isNotEmpty property="searchMyList">
+		AND     C.CREATED_BY = #userId#
+		</isNotEmpty>
+		<isNotEmpty property="searchProgress">
+		AND     A.PROGRESS = #searchProgress#
+		</isNotEmpty>
+		ORDER BY C.COMMENT_ID DESC
+		<isNotEqual property="recordCountPerPage" compareValue="0">
+			LIMIT #firstIndex#, #recordCountPerPage#
+		</isNotEqual>
+	</select>
+	<!-- 코멘트리스트 총개수 -->
+	<select id = "business.getBusinessCommentListTotalCnt" parameterClass="HashMap" resultClass = "Integer">
+	    /* business.getBusinessCommentListTotalCnt */
+		SELECT  COUNT(*)
+		FROM    BS_INFO_LIST A
+		       ,BS_INFO_SETUP B
+		       ,BS_INFO_COMMENT C
+		WHERE   1 = 1
+		AND     A.ORG_ID = #applyOrgId#
+		AND     A.ORG_ID = B.ORG_ID
+		AND     A.INFO_ID = C.INFO_ID
+		AND     C.DELETE_FLAG = 'N'
+		AND     (
+                   A.CREATED_BY = #userId#
+                OR EXISTS (SELECT X.STAFF_ID FROM BS_INFO_STAFF X WHERE X.INFO_ID = A.INFO_ID AND X.STAFF_ID = #userId#)
+                OR (A.ORG_ID = #applyOrgId# AND #businessInfoLevel#>=A.INFO_LEVEL)
+                OR (A.ORG_ID = #applyOrgId# AND #vipAuthYn# = 'Y')
+                )
+		<isNotEmpty property="searchInfoPath">
+		AND     INFO_PATH = #searchInfoPath#
+		</isNotEmpty>
+		<isNotEmpty property="searchInfoType">
+		AND     INFO_TYPE = #searchInfoType#
+		</isNotEmpty>
+		<isNotEmpty property="searchInfoClass">
+		AND     INFO_CLASS = #searchInfoClass#
+		</isNotEmpty>
+		<isNotEmpty property="searchMyList">
+		AND     C.CREATED_BY = #userId#
+		</isNotEmpty>
+		<isNotEmpty property="searchProgress">
+		AND     A.PROGRESS = #searchProgress#
+		</isNotEmpty>
+	</select>
+	<!-- 정보 정리 상세팝업 -->
+	<select id = "business.getBusinessInfo"  parameterClass="HashMap" resultClass = "egovMap">
+		<![CDATA[
+	    /* business.getBusinessInfo */
+		SELECT   A.INFO_ID          /*정보공유목록ID    */
+		       , A.INFO_LEVEL
+		        ,A.ORG_ID           /*관계사ID          */
+		        ,(SELECT X.CPN_NM FROM IB_COMPANY X WHERE X.S_NB = A.CPN_ID_1) AS ORG_NM
+		        ,A.INFO_PATH        /*경로코드          */
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = A.ORG_ID AND X.CODE_NAME = 'INFO_PATH' AND X.CODE_VALUE = A.INFO_PATH) AS INFO_PATH_NM
+		        ,B.PATH_LABEL       /*경로레이블        */
+		        ,B.PATH_CODE_SET    /*경로코드셋        */
+		        ,B.PATH_USE         /*경로사용여부      */
+		        ,A.INFO_TYPE        /*구분코드          */
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = A.ORG_ID AND X.CODE_NAME = 'INFO_TYPE' AND X.CODE_VALUE = A.INFO_TYPE) AS INFO_TYPE_NM
+		        ,B.TYPE_LABEL       /*구분레이블        */
+		        ,B.TYPE_CODE_SET    /*구분코드셋        */
+		        ,B.TYPE_USE         /*구분사용여부      */
+		        ,A.INFO_CLASS       /*유형코드          */
+		        ,(SELECT Y.VALUE_MEAN_KOR
+			        FROM BS_CODE_GV X ,BS_CODE_GV Y
+			       WHERE X.ORG_ID = A.ORG_ID AND Y.ORG_ID = A.ORG_ID
+			         AND X.CODE_NAME = 'INFO_TYPE'
+			         AND X.CODE_VALUE = A.INFO_TYPE
+			         AND Y.CODE_NAME = X.SON_CODE_NAME
+			         AND Y.CODE_VALUE = A.INFO_CLASS
+			        ) AS INFO_CLASS_NM
+		        ,B.CLASS_LABEL      /*유형레이블        */
+		        ,B.CLASS_CODE_SET   /*유형코드셋        */
+		        ,B.CLASS_USE        /*유형사용여부      */
+		        ,A.CUST_ID_1        /*고객1ID           */
+		        ,(SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = A.CUST_ID_1) AS CUST_ID_1_NM 				/*고객1이름           */
+		        ,(SELECT POSITION FROM IB_CUSTOMER WHERE S_NB = A.CUST_ID_1) AS CUST_ID_1_POSITION 		/*고객1POSITION           */
+		        ,B.CUST_LABEL_1     /*고객1레이블       */
+		        ,B.CUST_USE_1       /*고객1사용여부     */
+		        ,A.CUST_ID_2        /*고개2ID           */
+		        ,(SELECT X.CST_NM FROM IB_CUSTOMER X WHERE X.S_NB = A.CUST_ID_2) AS CUST_ID_2_NM 				/*고객2이름           */
+		        ,(SELECT X.POSITION FROM IB_CUSTOMER X WHERE X.S_NB = A.CUST_ID_2) AS CUST_ID_2_POSITION 		/*고객2POSITION           */
+		        ,B.CUST_LABEL_2     /*고객2레이블       */
+		        ,B.CUST_USE_2       /*고객2사용여부     */
+		        ,A.CPN_ID_1         /*회사1ID           */
+		        ,(SELECT X.CPN_NM FROM IB_COMPANY X WHERE X.CPN_ID=A.CPN_ID_1) AS CPN_NM_1						/*회사1 이름           */
+		        ,(SELECT X.CATEGORY_BUSINESS FROM IB_COMPANY X WHERE X.CPN_ID = A.CPN_ID_1) AS CPN_ID_1_CATEGORY_BUSINESS
+		        ,B.CPN_LABEL_1      /*회사1레이블       */
+		        ,B.CPN_USE_1        /*회사1사용여부     */
+		        ,A.CPN_ID_2         /*회사2ID           */
+		        ,(SELECT X.CPN_NM FROM IB_COMPANY X WHERE X.CPN_ID=A.CPN_ID_2) AS CPN_NM_2						/*회사2 이름           */
+		        ,B.CPN_LABEL_2      /*회사2레이블       */
+		        ,B.CPN_USE_2        /*회사2사용여부     */
+		        ,A.INFO_DATE_1      /*일자1             */
+		        ,B.DATE_LABEL_1     /*일자1레이블       */
+		        ,B.DATE_USE_1       /*일자1사용여부     */
+		        ,A.INFO_DATE_2      /*일자2             */
+		        ,B.DATE_LABEL_2     /*일자2레이블       */
+		        ,B.DATE_USE_2       /*일자2사용여부     */
+		        ,A.INFO_DATE_3      /*일자3             */
+		        ,B.DATE_LABEL_3     /*일자3레이블       */
+		        ,B.DATE_USE_3       /*일자3사용여부     */
+		        ,FORMAT(A.INFO_PRICE_1,2) AS  INFO_PRICE_1    /*금액1             */
+		        ,B.PRICE_LABEL_1     /*금액1레이블       */
+		        ,B.PRICE_UNIT_1     /*금액1단위         */
+		        ,B.MULTIPLE_1       /*금액1단위값       */
+		        ,B.PRICE_USE_1      /*금액1사용여부     */
+		        ,FORMAT(A.INFO_PRICE_2,2) AS INFO_PRICE_2     /*금액2             */
+		        ,B.PRICE_LABEL_2     /*금액2레이블       */
+		        ,B.PRICE_UNIT_2     /*금액2단위         */
+		        ,B.MULTIPLE_2       /*금액2단위값       */
+		        ,B.PRICE_USE_2      /*금액2사용여부     */
+		        ,FORMAT(A.INFO_PRICE_3,2) AS INFO_PRICE_3     /*금액3             */
+		        ,B.PRICE_LABEL_3     /*금액3레이블       */
+		        ,B.PRICE_UNIT_3     /*금액3단위         */
+		        ,B.MULTIPLE_3       /*금액3단위값       */
+		        ,B.PRICE_USE_3      /*금액3사용여부     */
+		        ,A.TITLE            /*제목              */
+		        ,A.MEMO             /*내용              */
+		        ,A.PROGRESS         /*진행상태코드      */
+		        ,(SELECT X.VALUE_MEAN_KOR FROM BS_CODE_GV X WHERE X.ORG_ID = A.ORG_ID AND X.CODE_NAME = 'INFO_PROGRESS' AND X.CODE_VALUE = A.PROGRESS) AS PROGRESS_NM
+		        ,B.PROGRESS_LABEL   /*진행상태레이블    */
+		        ,B.PROGRESS_CODE_SET/*진행상태코드셋    */
+		        ,B.PROGRESS_USE     /*진행상태사용여부  */
+		        ,(
+		           SELECT GROUP_CONCAT(
+		              					CONCAT(
+		              						    Y.NAME
+		              						   ,'|'
+		              						   ,Y.USER_ID
+		              						   ,'|'
+		              						   ,'('
+		              						   , IFNULL( (SELECT CONCAT(COM.CPN_NM,'/')
+														   FROM IB_COMPANY COM
+														  WHERE COM.S_NB = Y.COMPANY
+														    AND Y.ORG_ID != #applyOrgId#)
+														  ,''
+		              						   	)
+		              						   , (SELECT Z.KOR_NAME  FROM BS_DEPARTMENT  Z WHERE Z.DEPT_ID = (SELECT K.DEPT_ID
+																	                                           FROM   BS_USER_DEPARTMENT K
+																	                                           WHERE  K.USER_ID = X.STAFF_ID
+																	                                           AND    K.MAIN_YN = 'Y'
+																	                                           AND    K.ENABLE = 'Y'
+																	                                           AND    K.DELETE_FLAG = 'N')
+		                                         )
+		                                        ,')'
+		                                      )
+		                                 SEPARATOR ','
+		           						)
+		             FROM BS_INFO_STAFF X ,BS_USER_MASTER Y
+		            WHERE X.INFO_ID = A.INFO_ID
+		              AND X.STAFF_ID = Y.USER_ID
+		              AND X.INFO_STAFF_TYPE = 'STAFF_1'
+		         ) AS STAFF_1_STR
+		        ,B.STAFF_LABEL_1    /*직원1레이블       */
+		        ,B.STAFF_USE_1      /*직원1사용여부     */
+		        ,(
+		           SELECT GROUP_CONCAT(
+		              					CONCAT( Y.NAME
+		              						   ,'|'
+		              						   ,Y.USER_ID
+		              						   ,'|'
+		              						   ,'('
+		              						   , IFNULL( (SELECT CONCAT(COM.CPN_NM,'/')
+														   FROM IB_COMPANY COM
+														  WHERE COM.S_NB = Y.COMPANY
+														    AND Y.ORG_ID != #applyOrgId#)
+														  ,''
+		              						   	)
+		              						   , (SELECT Z.KOR_NAME  FROM BS_DEPARTMENT  Z WHERE Z.DEPT_ID = (SELECT K.DEPT_ID
+																	                                           FROM   BS_USER_DEPARTMENT K
+																	                                           WHERE  K.USER_ID = X.STAFF_ID
+																	                                           AND    K.MAIN_YN = 'Y'
+																	                                           AND    K.ENABLE = 'Y'
+																	                                           AND    K.DELETE_FLAG = 'N')
+		                                         )
+		                                        ,')'
+		                                      )
+		                                 SEPARATOR ','
+		           						)
+		             FROM BS_INFO_STAFF X ,BS_USER_MASTER Y
+		            WHERE X.INFO_ID = A.INFO_ID
+		              AND X.STAFF_ID = Y.USER_ID
+		              AND X.INFO_STAFF_TYPE = 'STAFF_2'
+		         ) AS STAFF_2_STR
+		        ,B.STAFF_LABEL_2    /*직원2레이블       */
+		        ,B.STAFF_USE_2      /*직원2사용여부     */
+		        ,A.CREATE_DATE      /*등록일            */
+		        ,A.CREATED_BY       /*등록자            */
+		       ,(SELECT X.NAME      FROM BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY) CREATED_BY_NM
+		       ,(SELECT X.CPN_NM FROM IB_COMPANY X , BS_ORG Y WHERE X.S_NB = Y.COMPANY_SNB AND Y.ORG_ID = A.ORG_ID) AS CREATED_CPN_NM
+		FROM    BS_INFO_LIST A
+		       ,BS_INFO_SETUP B
+		WHERE   1 = 1
+		AND     A.ORG_ID = B.ORG_ID
+		AND     A.INFO_ID = #infoId#
+		]]>
+	</select>
+
+	<!-- 게시글 댓글 리스트 -->
+	<select id="business.getCommentList" parameterClass="HashMap" resultClass="HashMap">
+	    /* business.getCommentList */
+		 SELECT
+			 comment.comment_id			AS	commentId
+			,comment.info_id			AS	infoId
+			,comment.recomment_id		AS	recommentId
+			,comment.comment_idx		AS	commentIdx
+			,comment.content			AS	content
+			,comment.created_by			AS  createdBy
+			,comment.delete_flag		AS  deleteFlag
+			,DATE_FORMAT(comment.created_date, "%Y.%m.%d") AS createdDate
+			,(SELECT name FROM BS_USER_MASTER WHERE user_id = comment.created_by)	AS createNm
+			,(SELECT count(1) FROM BS_INFO_COMMENT WHERE recomment_id = comment.comment_id AND delete_flag='N')	AS recommentCount
+			,IFNULL((SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = B.CREATED_BY), '')	AS pUserNm
+
+			,usr.ORG_ID 				AS	createOrgId
+			,(SELECT X.CPN_NM FROM IB_COMPANY X , BS_ORG Y WHERE X.S_NB = Y.COMPANY_SNB AND Y.ORG_ID = usr.ORG_ID) AS createdCpnNm
+		 FROM BS_INFO_COMMENT comment
+		 INNER JOIN BS_USER_MASTER usr on usr.USER_ID  = comment.created_by
+		 LEFT JOIN BS_INFO_COMMENT B on comment.RECOMMENT_ID = B.COMMENT_ID
+		 WHERE 1=1
+		 <isNotEmpty prepend="" property="infoId">
+		   AND comment.INFO_ID=#infoId#
+		 </isNotEmpty>
+		 ORDER BY comment.COMMENT_ID asc , comment.RECOMMENT_ID asc,comment.comment_idx ASC
+		 /*ORDER BY  IF(RECOMMENT_ID = 0,COMMENT_ID,RECOMMENT_ID) ASC ,comment_idx ASC*/
+	</select>
+	<!-- 댓글쓰기 -->
+	<insert id="business.insertComment">
+	    /* business.insertComment */
+		INSERT INTO BS_INFO_COMMENT(
+							 info_id
+							,recomment_id
+							,comment_idx
+							,content
+							,created_date
+							,created_by
+							,updated_date
+							,updated_by
+							,delete_flag
+
+						)VALUES(
+							 #infoId#
+							,#recommentId#
+							,#commentIdx#
+							,#content#
+							,now()
+							,#usrSeq#
+							,now()
+							,#usrSeq#
+							,'N'
+						)
+
+		<selectKey resultClass="int" type="post" keyProperty="contentId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+	<!-- 댓글수정 -->
+	<update id="business.updateComment">
+	    /* business.updateComment */
+		UPDATE BS_INFO_COMMENT SET
+							 content			=	#content#
+							,updated_date		=	now()
+							,updated_by			=	#usrSeq#
+
+		WHERE comment_id = #commentId#
+	</update>
+	<!-- 댓글삭제 처리 delflag  -->
+	<update id="business.updateCommentDelFlag">
+	    /* business.updateCommentDelFlag */
+		UPDATE BS_INFO_COMMENT SET
+							 delete_flag		=	'Y'
+							,deleted_date		=	now()
+							,deleted_by			=	#usrSeq#
+
+		WHERE comment_id = #commentId#
+	</update>
+	<!-- 내가쓴 댓글의 댓글 개수  -->
+	<select id = "business.getBusinessMyCommentListCnt"  parameterClass="HashMap" resultClass="Integer">
+	    /* business.getBusinessMyCommentListCnt */
+		SELECT COUNT(*)
+		  FROM BS_INFO_COMMENT A , BS_INFO_COMMENT B
+		 WHERE A.CREATED_BY = #userId#
+		   AND B.RECOMMENT_ID = A.COMMENT_ID
+		   AND DATEDIFF(NOW(),B.CREATED_DATE)<![CDATA[<=]]>3
+	</select>
+	<!-- 내가쓴 글의 댓글 개수  -->
+	<select id = "business.getMyBusinessComenntCnt"  parameterClass="HashMap" resultClass="Integer">
+	    /* business.getMyBusinessComenntCnt */
+		SELECT COUNT(*)
+		  FROM BS_INFO_LIST A , BS_INFO_COMMENT B
+		 WHERE A.CREATED_BY = #userId#
+		   AND B.INFO_ID = A.INFO_ID
+		   AND DATEDIFF(NOW(),B.CREATED_DATE)<![CDATA[<=]]>3
+	</select>
+
+	<!-- Staff 정보를 조회 -->
+	<select id="business.getBusinessStaffInfoList" parameterClass="HashMap" resultClass="HashMap">
+	    /* business.getBusinessStaffInfoList */
+		SELECT   A.INFO_STAFF_ID           AS infoStaffId
+				,A.INFO_ID                 AS infoId
+				,A.INFO_STAFF_TYPE         AS infoStaffType
+				,A.STAFF_ID                AS staffId
+				,A.CREATED_DATE            AS createdDate
+				,A.CREATED_BY              AS createdBy
+				,A.UPDATED_DATE            AS updatedDate
+				,A.UPDATED_BY              AS updatedBy
+				,B.NAME 				   AS staffName
+				,(SELECT G.VALUE_MEAN_KOR
+	                 FROM   BS_CODE_GV G
+	                 WHERE  G.ORG_ID = B.ORG_ID
+	                 AND    G.CODE_NAME = 'RANK'
+	                 AND    G.CODE_VALUE = (SELECT X.RANK FROM BS_USER_MASTER X WHERE X.USER_ID = B.USER_ID)) AS staffRankNm
+	            ,B.USER_ID				  AS userId
+		 FROM BS_INFO_STAFF A , BS_USER_MASTER B
+		WHERE A.INFO_ID = #infoId#
+		  AND A.INFO_STAFF_TYPE = #infoStaffType#
+		  AND A.STAFF_ID = B.USER_ID
+	</select>
+	<!--  Staff 정보를 삭제 -->
+	<delete id = "business.deleteStaffInfo" parameterClass = "HashMap">
+	    /* business.deleteStaffInfo */
+		DELETE FROM BS_INFO_STAFF
+        WHERE  INFO_ID = #infoId#
+	</delete>
+	<!-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!park : E !!!!!!!!!!!!!!!!!!!!!!!!!!!!-->
+
+</sqlMap>

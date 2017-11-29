@@ -1,0 +1,676 @@
+package ib.notice.web;
+
+import ib.cmm.IBsMessageSource;
+
+import ib.cmm.service.CmmUseService;
+import ib.cmm.service.CommonService;
+import ib.cmm.util.sim.service.AjaxResponse;
+import ib.notice.service.NoticeService;
+import ib.notice.service.NoticeShVO;
+import ib.notice.service.NoticeVO;
+import ib.work.service.WorkService;
+
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+
+/**
+ * <pre>
+ * package  : ib.notice.web
+ * filename : NoticeController.java
+ * </pre>
+ *
+ * @author  : ChanWoo Lee
+ * @since   : 2014. 4. 23.
+ * @version : 1.0.0
+ */
+@Controller
+public class NoticeController {
+
+	@Resource(name="CmmUseService")
+	private CmmUseService cmm;
+
+	@Resource(name="commonService")
+	private CommonService commonService;
+
+	/** MessageSource */
+    @Resource(name="IBsMessageSource")
+    IBsMessageSource MessageSource;
+
+    @Resource(name = "noticeService")
+    private NoticeService noticeService;
+
+    @Resource(name = "workService")
+    private WorkService workService;
+
+	/** log */
+    protected static final Log LOG = LogFactory.getLog(NoticeController.class);
+
+
+	/**
+	 * 업무일지 공시 메자닌
+	 * @MethodName : publicNoticeMezzaine
+	 * @param workVO
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/selectPublicNoticeMezzaine.do")
+	public String publicNoticeMezzaine(HttpServletRequest request,
+			NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		if("event".equals(vo.getTotal())) return "forward:/work/selectEventPublicNotice.do";
+
+		String sortText = vo.getSorting();
+		model.addAttribute("sorting", sortText);
+		model.addAttribute("ttT", vo.getTotal());
+
+		try{
+
+			int sortBtn = 1;
+			if(vo.getSorting()==null||"".equals(vo.getSorting())){		//디폴트 정렬값
+				vo.setSorting("1");
+			}else{
+				sortBtn = Integer.parseInt(vo.getSorting());
+			}
+
+
+			List<NoticeVO> result = noticeService.selectNoticeMezzaineList(vo);
+			List<NoticeVO> cate = noticeService.selectNoticeMezzaineCategoryList(vo);
+
+			model.addAttribute("NoticeList", result);
+			model.addAttribute("CategoryList", cate);
+
+
+			model.addAttribute("sortBtn", -1 * sortBtn);		//화면으로 버튼 세팅을 위해 값전달.
+
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/NoticeMezzanine";
+	}
+
+	/**
+	 * 행사공시
+	 * @MethodName : eventPublicNoticeMezzaine
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 * @author : user
+	 * @since : 2015. 6. 10.
+	 */
+	@RequestMapping(value="/work/selectEventPublicNotice.do")
+	public String eventPublicNoticeMezzaine(HttpServletRequest request,
+			NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		if(!"event".equals(vo.getTotal())) return "forward:/work/selectPublicNoticeMezzaine.do";
+
+		String sortText = vo.getSorting();
+		model.addAttribute("sorting", sortText);
+		model.addAttribute("ttT", "event");
+
+        //model.addAttribute("cmmCdCategoryList", cmm.commonCdList("00022"));
+        Map cmmCdCategoryListCodeMap = new HashMap();
+        cmmCdCategoryListCodeMap.put("codeSetNm", "EVENT_NOTICE_TYPE");
+        model.addAttribute("cmmCdCategoryList", commonService.getBaseCommonCode(cmmCdCategoryListCodeMap));
+
+		try{
+
+			int sortBtn = 1;
+			if(vo.getSorting()==null||"".equals(vo.getSorting())){		//디폴트 정렬값
+				vo.setSorting("1");
+			}else{
+				sortBtn = Integer.parseInt(vo.getSorting());
+			}
+
+
+
+			List<NoticeVO> result = noticeService.selectEventNoticeList(vo);
+			List<NoticeVO> cate = noticeService.selectNoticeMezzaineCategoryList(vo);
+
+			model.addAttribute("NoticeList", result);
+			model.addAttribute("CategoryList", cate);
+
+
+			model.addAttribute("sortBtn", -1 * sortBtn);		//화면으로 버튼 세팅을 위해 값전달.
+
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/EventNotice";
+	}
+
+	public String replaceOrderbyParam(String text){
+
+		text=text.replace("1","way DESC");
+		text=text.replace("2","categoryCd ASC");
+		text=text.replace("3","cpnNm aSC");
+		text=text.replace("4","wrtDueDt ASC");
+		text=text.replace("5","curPrice DESC");
+		return text;
+	}
+	/**
+	 * 업무일지 공시 메자닌 엑셀다운
+	 * @MethodName : excelPublicNoticeMezzaine
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/excelPublicNoticeMezzaine.do")
+	public String excelPublicNoticeMezzaine(HttpServletRequest request,
+			NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+
+			vo.setSorting("1");
+
+
+			vo.setTmpNum1("excel");
+			List<NoticeVO> result = noticeService.selectNoticeMezzaineList(vo);
+			model.addAttribute("NoticeList", result);
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/ExcelDownloadNoticeMezzanine";
+	}
+	/**
+	 * 업무일지 공시 증자
+	 * @MethodName : publicNoticeIncCap
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/selectPublicNoticeIncCap.do")
+	public String publicNoticeIncCap(NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+
+			int sortBtn = 1;
+			if(vo.getSorting()==null||"".equals(vo.getSorting())){		//디폴트 정렬값
+				vo.setSorting("1");
+			}else{
+				sortBtn = Integer.parseInt(vo.getSorting());
+			}
+
+			List<NoticeVO> result = noticeService.selectNoticeIncCapList(vo);
+			model.addAttribute("NoticeList", result);
+
+			model.addAttribute("sortBtn", -1 * sortBtn);		//화면으로 버튼 세팅을 위해 값전달.
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/NoticeIncCap";
+	}
+
+	/**
+	 * 업무일지 공시 주주변경
+	 * @MethodName : publicNoticeStockHolder
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/selectPublicNoticeSh.do")
+	public String publicNoticeShareHolder(NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+
+			int sortBtn = 1;
+			if(vo.getSorting()==null||"".equals(vo.getSorting())){		//디폴트 정렬값
+				vo.setSorting("1");
+			}else{
+				sortBtn = Integer.parseInt(vo.getSorting());
+			}
+
+			List<NoticeShVO> result = noticeService.selectNoticeShList(vo);
+			model.addAttribute("NoticeShList", result);
+
+			//model.addAttribute("sortBtn", -1 * sortBtn);		//화면으로 버튼 세팅을 위해 값전달.
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/NoticeSh";
+	}
+
+	/**
+	 * 업무일지 공시 증자 엑셀다운
+	 * @MethodName : publicNoticeIncCapExcel
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/excelPublicNoticeIncCap.do")
+	public String publicNoticeIncCapExcel(NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+
+			vo.setSorting("1");
+
+
+			vo.setTmpNum1("excel");
+			List<NoticeVO> result = noticeService.selectNoticeIncCapList(vo);
+			model.addAttribute("NoticeList", result);
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/ExcelDownloadNoticeIncCap";
+	}
+
+	/**
+	 * 업무일지 공시 증자 엑셀다운
+	 * @MethodName : publicNoticeIncCapExcel
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/excelPublicNoticeIncCap.do")
+	public String publicNoticeSh(NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+
+			vo.setSorting("1");
+
+			vo.setTmpNum1("excel");
+			List<NoticeVO> result = noticeService.selectNoticeIncCapList(vo);
+			model.addAttribute("NoticeList", result);
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/ExcelDownloadNoticeSh";
+	}
+
+	/**
+	 * 공시 증자 수정
+	 * @MethodName : modifyPublicNoticeIncCap
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/modifyPublicNoticeIncCap.do")
+	public String modifyPublicNoticeIncCap(NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+			int cnt = noticeService.modifyPublicNoticeIncCap(vo);
+			model.addAttribute("save", cnt);
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/NoticeIncCap";
+	}
+	/**
+	 * 공시(증자,메자닌) 입력
+	 * @MethodName : insertPublicNotice
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/insertPublicNotice.do")
+	public String insertPublicNotice(NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+			int cnt = noticeService.insertNotice(vo);
+			model.addAttribute("save", cnt);
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/NoticeIncCap";
+	}
+
+
+	/**
+	 * 공시(최대주주변경) 입력
+	 * @MethodName : insertPublicNoticeSh
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/insertPublicNoticeSh.do")
+	public void insertPublicNoticeSh(NoticeVO vo,
+			HttpServletRequest request,
+			HttpServletResponse response,
+			HttpSession session,
+			ModelMap model,
+			@RequestParam Map<String,String> map) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return;
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+			int cnt = noticeService.insertNoticeSh(map);
+			if( cnt > 0 )
+			model.addAttribute("save", cnt);
+
+			AjaxResponse.responseAjaxObject(response, "OK");			//결과전송
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+
+
+	}
+
+	/**
+	 * 공시(최대주주변경) 입력
+	 * @MethodName : insertPublicNoticeSh
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/noticeShPopup.do")
+	public String noticeShPopup(NoticeVO vo,
+			HttpSession session,
+			ModelMap model,
+			@RequestParam Map<String,String> map) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		String mode = map.get("mode").toString();
+		String sNb = map.get("sNb").toString();
+		System.out.println("sNb : " + sNb);
+		if( mode.equals("edit") ){
+			NoticeShVO result = noticeService.selectNoticeSh(map);
+			model.addAttribute("NOTICE", result);
+		}
+
+		model.addAttribute("mode", mode);
+
+		return "work/deal/noticeShPopup";
+	}
+
+
+	/**
+	 * 공시 메자닌 수정
+	 * @MethodName : modifyPublicNoticeSh
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/modifyPublicNoticeSh.do")
+	public void modifyPublicNoticeSh(NoticeVO vo,
+			HttpServletRequest request,
+			HttpServletResponse response,
+			HttpSession session,
+			ModelMap model,
+			@RequestParam Map<String,String> map) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return;
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+			int cnt = noticeService.modifyNoticeSh(map);
+			model.addAttribute("save", cnt);
+
+			AjaxResponse.responseAjaxObject(response, "OK");			//결과전송
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+	}
+
+
+	/**
+	 * 공시 메자닌 수정
+	 * @MethodName : modifyPublicNoticeMezzaine
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/work/modifyPublicNoticeMezzanine.do")
+	public String modifyPublicNoticeMezzaine(NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+			int cnt = noticeService.modifyPublicNoticeMezzanine(vo);
+			model.addAttribute("save", cnt);
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/NoticeMezzanine";
+	}
+	/**
+	 * 공시 메자닌 삭제
+	 * @MethodName : deletePublicNoticeMezzanine
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 * @author : user
+	 * @since : 2015. 2. 27.
+	 */
+	@RequestMapping(value="/work/deletePublicNotice.do")
+	public String deletePublicNotice(NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+			int cnt = noticeService.deletePublicNotice(vo);
+			model.addAttribute("save", cnt);
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/NoticeMezzanine";
+	}
+
+	/**
+	 * 행사공시 입력
+	 * @MethodName : insertEventPublicNotice
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 * @author : user
+	 * @since : 2015. 6. 11.
+	 */
+	@RequestMapping(value="/work/insertEventPublicNotice.do")
+	public String insertEventPublicNotice(NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+			int cnt = noticeService.insertEventPublicNotice(vo);
+			model.addAttribute("save", cnt);
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/EventNotice";
+	}
+
+	/**
+	 * 행사공시 수정
+	 * @MethodName : modifyEventPublicNotice
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 * @author : user
+	 * @since : 2015. 6. 11.
+	 */
+	@RequestMapping(value="/work/modifyEventPublicNotice.do")
+	public String modifyEventPublicNotice(NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+			int cnt = noticeService.modifyEventPublicNotice(vo);
+			model.addAttribute("save", cnt);
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/EventNotice";
+	}
+
+	/**
+	 * 행사공시 삭제
+	 * @MethodName : deleteEventPublicNotice
+	 * @param vo
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 * @author : user
+	 * @since : 2015. 6. 11.
+	 */
+	@RequestMapping(value="/work/deleteEventPublicNotice.do")
+	public String deleteEventPublicNotice(NoticeVO vo,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		try{
+			int cnt = noticeService.deleteEventPublicNotice(vo);
+			model.addAttribute("save", cnt);
+
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return "work/deal/EventNotice";
+	}
+}

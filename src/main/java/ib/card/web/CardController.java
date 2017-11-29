@@ -1,0 +1,1241 @@
+package ib.card.web;
+
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.baroservice.ws.BaroService_CARDSoap;
+import com.baroservice.ws.BaroService_CARDSoapProxy;
+import com.baroservice.ws.BaroService_TISoap;
+import com.baroservice.ws.BaroService_TISoapProxy;
+import com.baroservice.ws.Card;
+
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+import ib.card.service.CardService;
+import ib.card.service.CardVO;
+import ib.cmm.service.CommonService;
+import ib.cmm.util.fcc.service.StringUtil;
+import ib.cmm.util.sim.service.AjaxResponse;
+import ib.personnel.service.ManagementService;
+import ib.system.service.CertificationRqmtService;
+import ib.system.service.OrgCompanyRegService;
+
+
+/**
+ * <pre>
+ * package  : ib.card.web
+ * filename : CardController.java (지출 입력 및 통계)
+ * </pre>
+ *
+ * @author  : sjy
+ * @since   : 2016. 09. 14.
+ * @version : 1.0.0
+ */
+@Controller
+public class CardController {
+
+	@Resource(name = "commonService")
+	private CommonService commonService;
+
+	@Resource(name = "cardService")
+    private CardService cardService;
+
+	@Resource(name = "managementService")
+	private ManagementService managementService;
+
+	@Resource(name = "orgCompanyRegService")
+	private OrgCompanyRegService orgCompanyRegService;
+
+	@Resource(name = "certificationRqmtService")
+	private CertificationRqmtService certificationRqmtService;
+
+	/** log */
+    protected static final Log LOG = LogFactory.getLog(CardController.class);
+
+    // 카운트 prefix
+ 	String prefix = "<span class=\"menuRipple\">(";
+ 	// 카운트 suffix
+ 	String suffix = ")</span>";
+
+    @ModelAttribute
+	public void common(Model model, HttpServletRequest request, HttpSession session) {
+		Map<String, Object> menuMap = new HashMap<String, Object>();
+
+		///////////////// ajax조회면 실행하지 않는다 : S
+		String ajaxHeader = request.getHeader("X-Requested-With");
+		String winId = request.getParameter("winID");	//AxisModal
+
+		if ((ajaxHeader != null && ajaxHeader.equals("XMLHttpRequest"))||winId!=null)
+			return;
+		///////////////// ajax조회면 실행하지 않는다 : E
+		try{
+			Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+			Map<String,Object> paramMap = new HashMap<String, Object>();
+			paramMap.put("targetOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+			Calendar car = Calendar.getInstance();
+
+			String month = (car.get(Calendar.MONTH)+1)+"";
+			month = String.format("%02d", Integer.parseInt(month));
+			paramMap.put("month", month);
+			paramMap.put("year", car.get(Calendar.YEAR));
+
+			Integer certDocRqmtListCnt = certificationRqmtService.getCertDocRqmtListCnt(paramMap);
+			menuMap.put("MENU_CERT_DOC_RQMT_MNG",prefix + certDocRqmtListCnt + suffix);
+
+			model.addAttribute("menuSummaryMap", menuMap);
+		}catch(Exception e){
+			LOG.info(
+					"=========================================업무지원 좌측메뉴 새글알림 조회도중 오류발생=============================== ");
+			e.printStackTrace();
+		}
+    }
+    /**
+	 * Main 화면으로 들어간다
+	 * @MethodName : index
+	 * @author		: sjy
+	 * @throws Exception
+	 * @date		: 2016. 09. 08.
+	 */
+	@RequestMapping(value="/card/cardIndex.do")
+	public String cardList( CardVO cardVO,
+			HttpSession session,
+			ModelMap model,@RequestParam Map<String,Object> paramMap) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		Map map = new HashMap();
+		String minYear = cardService.selectMinYear(map);	//최초 데이터 입력 년도
+		model.addAttribute("minYear", minYear);
+
+		paramMap.put("userId", baseUserLoginInfo.get("userId"));
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId"));
+		model.addAttribute("orgCompList", orgCompanyRegService.getOrgRelationAuthListOnlyUserId(paramMap));
+
+		// 법인카드사용여부판단
+		EgovMap baseInfo = cardService.baseInfo(paramMap);
+
+		// 기본 세팅정보가 없다면 디폴트값으로
+		if(baseInfo == null){
+			baseInfo = new EgovMap();
+
+			String applyOrgId = baseUserLoginInfo.get("applyOrgId").toString();
+			paramMap.put("orgId", applyOrgId);
+			baseInfo.put("orgCardLinkYn", "N");
+
+			baseInfo.put("cardLinkYnCnt",0);
+			baseInfo.put("cardUseCnt",0);
+
+
+			// 지출입력설정조회
+			EgovMap baseSetupInfo = cardService.getCardExpenseSetupDetail(paramMap);
+
+			if(baseSetupInfo != null){
+				baseInfo.put("staffUserId",baseSetupInfo.get("staffUserId"));
+				baseInfo.put("staffDeptId",baseSetupInfo.get("staffDeptId"));
+			}else{
+				baseInfo.put("staffUserId",0);
+				baseInfo.put("staffDeptId",0);
+			}
+
+		}
+
+		model.addAttribute("baseInfo", baseInfo);
+
+		return "/card/cardList";
+    }
+
+	/**
+	 * 카드사용 정보 (지출리스트)
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: sjy
+	 * @date		: 2016. 09. 08.
+	 */
+	@RequestMapping(value = "/card/getCardList.do")
+	public void getCardList(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model,
+			HttpSession session, @RequestParam Map<String,Object> map) throws Exception {
+
+		Map<String,Object> result = new HashMap();	//결과 전송 맵
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		Map<String, Object> paramMap = new HashMap<String, Object>();
+		int count =0;
+		//검색 유저 아이디
+		// map.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		map.put("applyOrgId", map.get("searchOrgId").toString());
+		map.put("deptMngrYn",  baseUserLoginInfo.get("deptMngrYn"));
+		map.put("vipAuthYn",  baseUserLoginInfo.get("vipAuthYn"));
+		map.put("userId",  baseUserLoginInfo.get("userId"));
+		map.put("deptId",  baseUserLoginInfo.get("deptId"));
+		if(!map.get("usrId").toString().equals("") || Integer.parseInt(map.get("checkCount").toString()) == 0){
+			count =1;
+		}
+		String [] usrArr =  map.get("usrId").toString().split(",");
+
+		/*if(usrArr[0].equals("")&&usrArr.length == 1){
+			count = 0;
+		}*/
+		map.put("usrIdArrCount", count);
+		map.put("usrIdArr", usrArr);
+
+		List<Map> cardList = new ArrayList();
+		List<Map> deptList = new ArrayList();
+
+		if(!map.get("usrId").toString().equals("")){
+
+			Map<String, String> param = new HashMap();
+			param.put("userIdArrStr", map.get("usrId").toString());
+			param.put("applyOrgId", map.get("searchOrgId").toString());
+			param.put("treeSearch", "Y");
+
+			deptList = commonService.getDeptList(param);
+
+			cardList = cardService.selectCardList(map);
+
+		}
+
+		result.put("cardList", cardList);
+		result.put("deptList", deptList);
+
+		paramMap.put("userId", baseUserLoginInfo.get("userId"));
+		paramMap.put("applyOrgId", map.get("searchOrgId").toString());
+		// 법인카드사용여부판단
+		EgovMap baseInfo = cardService.baseInfo(paramMap);
+
+		// 기본 세팅정보가 없다면 디폴트값으로
+		if(baseInfo == null){
+			baseInfo = new EgovMap();
+
+			baseInfo.put("orgCardLinkYn", "N");
+
+			baseInfo.put("cardLinkYnCnt",0);
+			baseInfo.put("cardUseCnt",0);
+
+			paramMap.put("orgId", map.get("searchOrgId").toString());
+
+			// 지출입력설정조회
+			EgovMap baseSetupInfo = cardService.getCardExpenseSetupDetail(paramMap);
+
+			if(baseSetupInfo != null){
+				baseInfo.put("staffUserId",baseSetupInfo.get("staffUserId"));
+				baseInfo.put("staffDeptId",baseSetupInfo.get("staffDeptId"));
+			}else{
+				baseInfo.put("staffUserId",0);
+				baseInfo.put("staffDeptId",0);
+			}
+
+		}
+
+		result.put("baseInfo", baseInfo);
+
+		AjaxResponse.responseAjaxMap(response, result);	//결과전송
+	}
+
+    /**
+	 * 피드백 입력
+	 * @MethodName : updateFeedback
+	 * @param cardVO
+	 * @param session
+	 * @param model
+	 * @return
+	 */
+	@RequestMapping(value="/card/insertCardFeedback.do")
+	public void updateFeedback( CardVO cardVO,
+			HttpSession session,HttpServletResponse response,
+			ModelMap model)throws Exception{
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		cardVO.setRgId(baseUserLoginInfo.get("loginId").toString());
+		cardVO.setOrgId(baseUserLoginInfo.get("orgId").toString());
+		int cnt = 0;
+
+		try{
+			cnt = cardService.updateCardFeedback(cardVO);
+		}catch (Exception e) {
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		AjaxResponse.responseAjaxSave(response, cnt);
+	}
+
+	/**
+	 * 등록/수정 팝업
+	 * @MethodName :
+	 * @param
+	 * @param
+	 * @param
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/card/regCardView/pop.do")
+	public String regCardView(HttpServletRequest request,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> map,
+			ModelMap model) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		model.addAttribute("cardSnb",map.get("cardSnb"));
+		// 승인여부체크
+		model.addAttribute("approveYn",map.get("approveYn"));
+		// 최초 계정과목안내
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+		EgovMap setupNote = cardService.getCardSetupNote(map);
+		model.addAttribute("setupNote", setupNote);
+
+		// 사원이 등록되어있는지 체크
+		model.addAttribute("selectUserCnt", cardService.getSelectUserCnt(map));
+
+		map.put("sNb", map.get("cardSnb"));
+		List<Map>list = cardService.selectCardList(map);
+		List<Map>cusUserList =cardService.selectCardCusUserList(map);
+		//지출에 등록된 참가자.
+		map.put("cardSnb", map.get("sNb"));
+		List<Map>userList =cardService.selectCardUserList(map);
+		//소모품일때 소모품 리스트.
+		List<Map>mroList =cardService.selectCardMro(map);
+		model.addAttribute("card",list.get(0));		//지출 내역
+		model.addAttribute("userList",userList);	//참가자 리스트
+		model.addAttribute("mroList",mroList);		//소모품 리스트
+		model.addAttribute("cusUserList",cusUserList);		//고객
+
+		return "/card/regCardView/pop";
+	}
+
+	/**
+	 * 상세팝업
+	 * @MethodName :
+	 * @param
+	 * @param
+	 * @param
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/card/regCard/pop.do")
+	public String regCard(HttpServletRequest request,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> map,
+			ModelMap model) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		model.addAttribute("cardSnb",map.get("cardSnb"));
+		// 승인여부체크
+		model.addAttribute("approveYn",map.get("approveYn"));
+		// 최초 계정과목안내
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		EgovMap setupNote = cardService.getCardSetupNote(map);
+		model.addAttribute("setupNote", setupNote);
+
+		// 사원이 등록되어있는지 체크
+		model.addAttribute("selectUserCnt", cardService.getSelectUserCnt(map));
+
+		return "/card/regCard/pop";
+	}
+
+	/**
+	 * 지출 내역 등록 ajax
+	 * @MethodName : regCardUse
+	 * @param
+	 * @param session
+	 * @param model
+	 * @return
+	 */
+	@RequestMapping(value="/card/regCardUse.do")
+	public void regCardUse(HttpSession session,HttpServletResponse response,
+		@RequestParam Map<String,Object> map,ModelMap model)throws Exception{
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId"));
+		map.put("rgId",baseUserLoginInfo.get("userId").toString());
+		map.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		//지출 등록
+		int sNb = cardService.regCardUse(map);
+		AjaxResponse.responseAjaxSave(response, sNb);
+	}
+
+	/**
+	 * 카드사용 정보 (카드 수정 팝업)
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: sjy
+	 * @date		: 2016. 09. 08.
+	 */
+	@RequestMapping(value = "/card/getCardDetail.do")
+	public void getCardDetail(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model,
+			HttpSession session, @RequestParam Map<String,Object> map) throws Exception {
+
+		Map<String,Object> result = new HashMap();
+		//지출 사용내역.
+		//map.put("usrIdArrCount", "0");
+		List<Map>list = cardService.selectCardList(map);
+		//지출에 등록된 참가자.
+		map.put("cardSnb", map.get("sNb"));
+		List<Map>userList =cardService.selectCardUserList(map);
+		List<Map>cusUserList =cardService.selectCardCusUserList(map);
+		//소모품일때 소모품 리스트.
+		List<Map>mroList =cardService.selectCardMro(map);
+		result.put("card",list.get(0));		//지출 내역
+		result.put("userList",userList);	//참가자 리스트
+		result.put("mroList",mroList);		//소모품 리스트
+		result.put("cusUserList",cusUserList);		//고객
+		AjaxResponse.responseAjaxMap(response, result);	//결과전송
+	}
+
+	/**
+	 * 카드내역 삭제
+	 * @MethodName : deleteCardUse
+	 * @param
+	 * @param session
+	 * @param model
+	 * @return
+	 */
+	@RequestMapping(value="/card/deleteCardUse.do")
+	public void deleteCardUse(HttpSession session,HttpServletResponse response,
+		@RequestParam Map<String,Object> map,
+		ModelMap model)throws Exception{
+		int chk =0 ;
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+		map.put("rgId",baseUserLoginInfo.get("userId").toString());
+		//지출 삭제
+		cardService.deleteCardUse(map);				//지출 내역삭제
+		cardService.deleteCardUsedStaffList(map);	//지출 참가자 삭제
+		cardService.delectCardMro(map);				//지출 소모품 삭제
+		chk =1 ;
+		AjaxResponse.responseAjaxSave(response, chk);
+	}
+
+	/**
+	 * 소모품 팝업
+	 * @MethodName :
+	 * @param
+	 * @param
+	 * @param
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/card/popSupplies/pop.do")
+	public String popSupplies(HttpServletRequest request,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> map,
+			ModelMap model) throws Exception{
+
+		model.addAttribute("cardSnb",map.get("cardSnb"));
+		return "card/popSupplies/pop";
+	}
+
+	/*통계 화면*/
+	@RequestMapping(value="/card/statistics.do")
+	public String cardStatistics(
+			HttpSession session,
+			ModelMap model) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		Map map = new HashMap();
+		String minYear = cardService.selectMinYear(map);	//최초 데이터 입력 년도
+		model.addAttribute("minYear", minYear);
+		return "/card/cardStatistics";
+    }
+
+
+
+
+	//부서 카드 사용 내역
+	private Map<String, Object> getOneDeptStatistics(Map<String,Object> dept,Map<String,Object> param,List<Map>allDeptList) throws Exception{
+		Map<String, Object> cardUse = new HashMap<String, Object>();
+
+		//Map<String, String> map = new HashMap<String, String>();
+
+		param.put("search", dept.get("deptId").toString());
+
+		List<Map>dvCardList = cardService.selectDvCardStatistics(param);
+		cardUse.put("dvCardList", dvCardList);
+		List<Map>dv2CardList = cardService.selectDv2CardStatistics(param);
+		cardUse.put("dv2CardList", dv2CardList);
+
+
+		List <Map<String,Object>> childList = new ArrayList<Map<String,Object>>();
+
+		this.getChildDept(dept, childList,allDeptList);
+
+		childList.add(dept);
+		param.put("deptList",childList);
+
+		List<Map>monthList = cardService.selectMonthCardStatistics(param);
+		cardUse.put("monthList", monthList);
+
+
+
+		cardUse.put("deptNm", dept.get("deptNm").toString());				//부서명
+		cardUse.put("deptId", dept.get("deptId").toString());				//부서아이디
+		cardUse.put("depth", dept.get("depth").toString());					//부서depth
+		cardUse.put("parentDeptId", dept.get("parentDeptId").toString());	//부모아이디
+		cardUse.put("topDeptId", dept.get("topDeptId").toString());			//최상위 부서아이디
+
+		return cardUse;
+	}
+
+	//자식으로 포함된 모든 리스트
+	private void getChildDept(Map<String,Object> dept,List<Map<String,Object>> list,List<Map>allDeptList) throws Exception{
+
+		List<Map<String,Object>> childDeptList = this.getChildDeptList(dept,allDeptList);
+
+		if(childDeptList.size()>0){
+			list.addAll(childDeptList);
+		}
+
+		for(int i=0;i<childDeptList.size();i++){
+			this.getChildDept(childDeptList.get(i), list,allDeptList);
+		}
+
+	}
+
+
+	//부서리스트로 카드사용내역
+	private void getDeptStatics(List<Map<String,Object>> deptList, List<Map<String,Object>> resultList,List<Map>allDeptList,Map<String,Object> param) throws Exception{
+		for(int i=0; i<deptList.size(); i++){
+			//////////////부서 카드 사용 내역  가져온다 //////////////
+
+			resultList.add(getOneDeptStatistics(deptList.get(i),param,allDeptList));
+			//자식 부서리스트를 가져온다.
+			List<Map<String,Object>> childDeptList = this.getChildDeptList(deptList.get(i),allDeptList);
+			if(childDeptList.size()>0){
+				//자식 부서리스트로 카드사용내역 가져온다.
+				this.getDeptStatics(childDeptList, resultList,allDeptList,param);
+
+			}
+
+		}
+	}
+
+	//자식 부서 리스트
+	private List<Map<String,Object>> getChildDeptList(Map<String,Object> dept, List<Map>allDeptList) throws Exception{
+
+		List<Map<String,Object>>list =  new ArrayList();
+		for(int i=0; i<allDeptList.size(); i++){
+
+			//deptId 가 부모인 애들  추가
+			if(dept.get("deptId").toString().equals(allDeptList.get(i).get("parentDeptId").toString())){
+				allDeptList.get(i).put("depth",Integer.parseInt(dept.get("depth").toString())+1);			//depth
+				allDeptList.get(i).put("topDeptId",dept.get("topDeptId"));									//최상위 부서아이디.
+				list.add(allDeptList.get(i));
+			}
+		}
+
+		return list;
+	}
+
+
+	//통계리스트
+	@RequestMapping(value = "/card/getCardStatistics.do")
+	public void getCardStatistics(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model,
+			HttpSession session, @RequestParam Map<String,Object> map) throws Exception {
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		Map<String, Object> resultMap = new HashMap();
+
+		//map.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		map.put("applyOrgId", map.get("searchOrgId").toString());
+
+		Map<String, String> param = new HashMap();
+		param.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		param.put("applyOrgId", map.get("searchOrgId").toString());
+		param.put("deleteFlag", "N");
+		param.put("mainYn", "Y");
+		param.put("deptOrder", "N");
+
+		//부서리스트
+		List<Map>allDeptList = commonService.getDeptList(param);
+
+		List<Map<String, Object>> deptList = new ArrayList<Map<String,Object>>();
+		if(!StringUtil.isEmpty(map.get("deptList").toString())){
+			String[] deptArr = map.get("deptList").toString().split(",");
+			for(int i=0;i<deptArr.length;i++){
+				for(int k=0;k<allDeptList.size();k++){
+					if(allDeptList.get(k).get("deptId").toString().equals(deptArr[i])){
+						allDeptList.get(k).put("depth","1");									//처음 파라미터로 넘어온 부서id 의 depth 는 1
+						allDeptList.get(k).put("topDeptId",allDeptList.get(k).get("deptId"));	//처음 파라미터로 넘어온 부서id 로 그룹핑 하기위한 값.
+						deptList.add(allDeptList.get(k));
+					}
+				}
+			}
+		}
+
+		List<Map<String,Object>> resultList = new ArrayList<Map<String,Object>>();
+		//////// 부서리스트로 카드사용내역 가져온다 ////////
+		this.getDeptStatics(deptList, resultList,allDeptList,map);
+
+		resultMap.put("resultList", resultList);
+		AjaxResponse.responseAjaxMap(response, resultMap);
+	}
+
+
+
+	//통계리스트(직원별,전체)
+	@RequestMapping(value = "/card/getCardStatisticsByPerson.do")
+	public void getCardStatisticsByPerson(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model,
+			HttpSession session, @RequestParam Map<String,Object> map) throws Exception {
+
+		List<Map>resultList = new ArrayList();
+		Map<String, Object> resultMap = new HashMap();
+
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		// map.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		map.put("applyOrgId", map.get("searchOrgId").toString());
+
+		Map<String, String> param = new HashMap();
+		//param.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		param.put("applyOrgId", map.get("searchOrgId").toString());
+
+		param.put("deleteFlag", "N");
+		param.put("mainYn", "Y");
+		param.put("deptOrder", "N");
+
+		//부서리스트
+		List<Map>deptList = commonService.getDeptList(param);
+		//유저리스트
+		List<Map>userList = commonService.getStaffListNameSort(param);
+
+
+		//if(!StringUtil.isEmpty(map.get("checkList").toString())){
+			String[] userArr = map.get("checkList").toString().split(",");
+			for(int i=0;i<userArr.length;i++){
+
+				Map<String,Object> resultIdx = new HashMap();			//검색 하나
+				String search = userArr[i];
+				map.put("search", search);
+				List<Map>dvCardList = cardService.selectDvCardStatistics(map);
+				resultIdx.put("dvCardList", dvCardList);
+				List<Map>dv2CardList = cardService.selectDv2CardStatistics(map);
+				resultIdx.put("dv2CardList", dv2CardList);
+				List<Map>monthList = cardService.selectMonthCardStatistics(map);
+				resultIdx.put("monthList", monthList);
+
+				if(map.get("searchType").toString().equals("person")){
+					String name="";
+					for(int k=0;k<userList.size();k++){
+						if(userList.get(k).get("userId").toString().equals(search)){
+							name=userList.get(k).get("userName").toString();
+						}
+					}
+					resultIdx.put("name", name);
+				}else{
+					resultIdx.put("name", "");
+				}
+
+				resultList.add(i,resultIdx);
+
+			}
+			resultMap.put("resultList", resultList);
+
+		//}
+		AjaxResponse.responseAjaxMap(response, resultMap);
+	}
+
+	/**
+	 *
+	 * 지출입력설정 화면
+	 *
+	 * @param     : HttpSession
+	 * @return    :
+	 * @exception : throws
+	 * @author    :
+     * @date      : 2017. 08. 03.
+	 */
+	@RequestMapping("/card/cardExpenseSetup.do")
+	public String cardExpenseSetting(@RequestParam Map<String,Object> map
+			,Model model, HttpSession session) throws Exception{
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		map.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		// 지출입력설정
+		EgovMap cardReceiverSetup = cardService.getCardExpenseSetupDetail(map);
+
+		// 지출담당자설정 리스트
+		List<EgovMap> cardManagerSetupList = cardService.getCardManagerSetupList(map);
+
+		model.addAttribute("cardReceiverSetup", cardReceiverSetup);
+		model.addAttribute("cardManagerSetupList", cardManagerSetupList);
+		model.addAttribute("actionType", "expense"); // 초기값:지출 입력 설정
+		return "card/cardExpenseSetting";
+	}
+	/**
+	 *
+	 * 지출입력설정 화면(AJAX)
+	 *
+	 * @param     :
+	 * @return    :
+	 * @exception :
+	 * @author    :
+     * @date      :
+	 */
+	@RequestMapping("/card/cardExpenseSetupAjax.do")
+	public String cardExpenseSetupAjax(@RequestParam Map<String,Object> map
+			,Model model, HttpSession session) throws Exception{
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		map.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		// 지출입력설정
+		EgovMap cardReceiverSetup = cardService.getCardExpenseSetupDetail(map);
+
+		// 지출담당자설정 리스트
+		List<EgovMap> cardManagerSetupList = cardService.getCardManagerSetupList(map);
+
+		model.addAttribute("cardReceiverSetup", cardReceiverSetup);
+		model.addAttribute("cardManagerSetupList", cardManagerSetupList);
+		model.addAttribute("actionType", "expense"); // 초기값:지출 입력 설정
+
+		return "card/include/cardExpenseSetting_INC/inc";
+	}
+
+	/**
+	 *
+	 *법인카드설정 화면(AJAX)
+	 *
+	 * @param     :
+	 * @return    :
+	 * @exception :
+	 * @author    :
+     * @date      :
+	 */
+	@RequestMapping("/card/getCorporationCardSetupMainAjax.do")
+	public String getCorporationCardSetupMainAjax(@RequestParam Map<String,Object> map
+			,Model model, HttpSession session) throws Exception{
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		map.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		// 지출입력설정
+		EgovMap cardReceiverSetup = cardService.getCardExpenseSetupDetail(map);
+
+		// 지출담당자설정 리스트
+		List<EgovMap> cardManagerSetupList = cardService.getCardManagerSetupList(map);
+
+		model.addAttribute("cardReceiverSetup", cardReceiverSetup);
+		model.addAttribute("cardManagerSetupList", cardManagerSetupList);
+		model.addAttribute("actionType", "expense"); // 초기값:지출 입력 설정
+		return "card/include/cardExpenseSetting_main_INC/inc";
+	}
+
+	/**
+	 *
+	 * 지출입력설정 저장
+	 *
+	 * @param     :
+	 * @return    :
+	 * @exception :
+	 * @author 	  :
+     * @date      :
+	 */
+	@RequestMapping(value="/card/processCardExpenseSetup.do")
+	public void processCardExpenseSetup(HttpSession session
+			, @RequestParam Map<String,Object> paramMap
+			, @RequestParam(value="arrUserId", required=false) String[] arrUserId
+			, HttpServletResponse response
+			) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("sessionUserId", baseUserLoginInfo.get("userId").toString());
+
+		if(arrUserId != null) paramMap.put("arrUserId", arrUserId);
+
+		cardService.processCardExpenseSetup(paramMap);
+
+		// return obj
+		Map<String,Object> obj = new HashMap<String,Object>();
+
+		obj.put("result", "SUCCESS");
+
+		AjaxResponse.responseAjaxObject(response, obj); // "SUCCESS" 전달
+	}
+
+	/**
+	 *
+	 * 지출입력설정 조회
+	 *
+	 * @param     :
+	 * @return    :
+	 * @exception :
+	 * @author    :
+	 * @date      :
+	 */
+	@RequestMapping("/card/getCardExpenseSetupAjax.do")
+	public String getAppvExpenseSetupAjax(HttpSession session,Model model) throws Exception{
+
+		Map<String,Object> map = new HashMap<String, Object>();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		map.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		// 지출결의서설정
+		EgovMap cardReceiverSetup = cardService.getCardExpenseSetupDetail(map);
+
+		// 지출담당자설정 목록
+		List<EgovMap> cardManagerSetupList = cardService.getCardManagerSetupList(map);
+
+		model.addAttribute("cardReceiverSetup"   , cardReceiverSetup);
+		model.addAttribute("cardManagerSetupList", cardManagerSetupList);
+
+		return "card/include/cardExpenseSetting_INC/inc";
+	}
+
+	/**
+	 *
+	 * 법인카드설정 조회
+	 *
+	 * @param     :
+	 * @return    :
+	 * @exception :
+	 * @author    :
+	 * @date      :
+	 */
+	@RequestMapping("/card/getCorporationCardSetupAjax.do")
+	public String getCardCompanySetupAjax(
+			HttpSession session
+			, Model model) throws Exception{
+
+		Map<String,Object> map = new HashMap<String, Object>();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		map.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		List<EgovMap> cardCorpInfoSetupList = cardService.getCardCorpInfoSetupList(map);
+
+		model.addAttribute("cardCorpInfoSetupList", cardCorpInfoSetupList);
+
+		return "card/include/cardCorpInfoSetting_INC/inc";
+	}
+
+	/**
+	 *
+	 * 법인카드설정(연동X) 저장/수정
+	 *
+	 * @param     :
+	 * @return    :
+	 * @exception :
+	 * @author    :
+	 * @date      :
+	 */
+	@RequestMapping(value = "/card/processCardCorpor.do")
+	public void processCardCorpor(HttpSession session
+			, @RequestParam Map<String,Object> paramMap
+			, @RequestParam(value="arrUserId", required=false) String arrUserId
+			, HttpServletResponse response
+			) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+
+		if(arrUserId != null) paramMap.put("cardOwnerUserId", arrUserId);
+
+		Integer cnt = 0;
+
+		cnt = cardService.processCardCorpor(paramMap);
+
+		Map<String, Object> obj = new HashMap<String, Object>();
+		if( cnt==0 ){
+			obj.put("result", "SUCCESS");
+		}else if( cnt==-1 ){
+			obj.put("result", "USERFAIL");
+		}else if( cnt==9999 ){
+			obj.put("result", "NUMFAIL");
+		}
+
+		AjaxResponse.responseAjaxObject(response, obj);	//"SUCCESS":전달 "FAIL":카드중복
+	}
+
+	/**
+	 *
+	 * 법인카드설정(연동X) 삭제
+	 *
+	 * @param     :
+	 * @return    :
+	 * @exception :
+	 * @author    :
+	 * @date      :
+	 */
+	@RequestMapping(value = "/card/deleteCardCorpInfo.do")
+	public void deleteQuickLink(HttpSession session
+			, @RequestParam Map<String,Object> paramMap
+			, HttpServletResponse response
+			) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+
+		cardService.deleteCardCorpInfo(paramMap);
+
+		// return obj
+		Map<String,Object> obj = new HashMap<String,Object>();
+
+		obj.put("result", "SUCCESS");
+
+		AjaxResponse.responseAjaxObject(response, obj);	// "SUCCESS" 전달
+	}
+
+	/**
+	 *
+	 * 법인카드연동 저장
+	 *
+	 * @param     :
+	 * @return    :
+	 * @exception :
+	 * @author    :
+	 * @date      :
+	 */
+	@RequestMapping(value = "/card/processCardLinkage.do")
+	public void processCardLinkage(HttpSession session
+			, @RequestParam Map<String,Object> paramMap
+			, HttpServletResponse response
+			) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		Map<String,Object> result = new HashMap();	//결과 전송 맵
+
+		/**********************************************************************
+		 * 바로빌 연동여부 체크
+		 **********************************************************************/
+		BaroService_TISoap BS_TI = new BaroService_TISoapProxy();
+
+		String CERTKEY =  (String)paramMap.get("linkAuthCode");;			//인증키
+		String corpNum = (String)paramMap.get("corpNum");
+		String CorpNum = corpNum.replaceAll("-", "");			//연계사업자 사업자번호 ('-' 제외, 10자리)
+		String ID =  (String)paramMap.get("linkAuthId");;					//연계사업자 아이디
+		String PWD =  (String)paramMap.get("linkAuthPw");;				//연계사업자 비밀번호
+
+		String certResult = BS_TI.getCertificateRegistURL(CERTKEY, CorpNum, ID, PWD);
+
+		if (isStringDouble(certResult)) { //실패
+			result.put("result", "FAIL");
+		} else { //성공
+			/**********************************************************************
+			 * 연동정보 DB저장
+			 **********************************************************************/
+			paramMap.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+			paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+
+			String cardCorpSetupId = (String)paramMap.get("cardCorpSetupId");
+			String orgCardLinkYn = (String)paramMap.get("orgCardLinkYn");
+
+			cardService.processCardLk(paramMap);
+			result.put("result", "SUCCESS");
+		}
+
+		AjaxResponse.responseAjaxObject(response, result); // "SUCCESS" 전달
+	}
+
+	public static boolean isStringDouble(String s) {
+	    try {
+	        Double.parseDouble(s);
+	        return true;
+	    } catch (NumberFormatException e) {
+	        return false;
+	    }
+	  }
+
+	/**
+	 *
+	 * 법인카드연동 수정(해지)
+	 *
+	 * @param     :
+	 * @return    :
+	 * @exception :
+	 * @author    :
+	 * @date      :
+	 */
+	@RequestMapping(value = "/card/updateCardLkCancel.do")
+	public void updateCardLkCancel(HttpSession session
+			, @RequestParam Map<String,Object> paramMap
+			, HttpServletResponse response
+			) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+
+		String cardCorpSetupId = (String)paramMap.get("cardCorpSetupId");
+		String orgCardLinkYn = (String)paramMap.get("orgCardLinkYn");
+
+		// 해지:법인카드연동정보ID:존재 && 관계사법인카드연동여부:"N"
+		cardService.updateCardLkCancel(paramMap);
+
+		Map<String, Object> obj = new HashMap<String, Object>();
+		obj.put("result", "SUCCESS");
+
+		AjaxResponse.responseAjaxObject(response, obj);
+	}
+
+	/**
+	 *
+	 * 법인카드 사용내역 연동 기능 여부 화면
+	 *
+	 * @param     :
+	 * @return    :
+	 * @exception :
+	 * @author    :
+	 * @date      :
+	 */
+	@RequestMapping("/card/cardCorpSetupAjax.do")
+	public String cardCorpSetupAjax(@RequestParam Map<String,Object> map
+			,Model model, HttpSession session) throws Exception{
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		map.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		// 법인카드연동정보
+		EgovMap getCardCorpSetup = cardService.getCardCorpSetup(map);
+
+		model.addAttribute("getCardCorpSetup", getCardCorpSetup);
+
+		return "card/include/cardCorpSetupSetting_INC/inc";
+	}
+
+	////////////////////////
+	// [임시]법인카드설정 조회 화면 //
+	/**
+	 *
+	 * [임시]법인카드설정 조회 화면
+	 *
+	 * @param     : HttpSession
+	 * @return    :
+	 * @exception : throws
+	 * @author    :
+	 * @date      :
+	 */
+	@RequestMapping("/card/cardCorpInfo.do")
+	public String cardCorpInfo(@RequestParam Map<String,Object> map
+			,Model model, HttpSession session) throws Exception{
+
+		//Map<String,Object> map = new HashMap<String, Object>();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		map.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		List<EgovMap> cardCorpInfoSetupList = cardService.getCardCorpInfoSetupList(map);
+
+		model.addAttribute("cardCorpInfoSetupList", cardCorpInfoSetupList);
+
+		return "card/include/cardCorpInfoSetting_INC/inc";
+	}
+
+	/**
+	 * 승인 저장
+	 * @MethodName
+	 * @param model
+	 * @return
+	 */
+	@RequestMapping(value="/card/insertApproval.do")
+	public void updateApproval( CardVO cardVO,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> paramMap,
+			ModelMap model)throws Exception{
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+
+		try{
+			cardService.updateApproval(paramMap);
+		}catch (Exception e) {
+			LOG.error(e);
+			e.printStackTrace();
+		}
+
+		Map<String, Object> obj = new HashMap<String, Object>();
+		obj.put("result", "SUCCESS");
+
+		AjaxResponse.responseAjaxObject(response, obj);
+	}
+
+	/**
+	 * 카드선택
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		:
+	 * @date		:
+	 */
+	@RequestMapping(value = "/card/getCardSelectList.do")
+	public void getCardSelectList(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model,
+			HttpSession session, @RequestParam Map<String,Object> map) throws Exception {
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		Map<String,Object> result = new HashMap();
+		map.put("applyOrgId", baseUserLoginInfo.get("applyOrgId"));
+		map.put("userId", baseUserLoginInfo.get("userId"));
+
+		List<EgovMap> cardSelectList = cardService.getCardSelectList(map);
+		if( cardSelectList.size() != 0 ){
+			result.put("cardSelectList", cardSelectList); //카드선택 리스트
+		}
+
+		AjaxResponse.responseAjaxMap(response, result);	//결과전송
+	}
+
+	/**
+	 * 계정과목안내-팝업
+	 * @MethodName
+	 * @param
+	 * @return
+	 * @throws
+	 */
+	@RequestMapping(value="/card/dvGuide/pop.do")
+	public String dvGuide(HttpServletRequest request,
+			HttpSession session,HttpServletResponse response,
+			@RequestParam Map<String,Object> map,
+			ModelMap model) throws Exception{
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+		EgovMap setupNote = cardService.getCardSetupNote(map);
+		model.addAttribute("setupNote", setupNote);
+
+		return "/card/dvGuide/pop";
+	}
+
+	/**
+	 *
+	 * 연동된 법인 카드정보 불러오기
+	 *
+	 * @param     : map : linkAuthCode(연동인증코드), corpNum(사업자등록번호), cardInputSetupId(법인카드연동정보ID)
+	 * @return    :
+	 * @exception : throws
+	 * @author    : inee
+	 * @date      : 2017.08.22
+	 */
+	@RequestMapping("/card/getCorporationCardLinkListAjax.do")
+	public void getCorporationCardLinkListAjax(@RequestParam Map<String,Object> map
+			,Model model, HttpSession session, HttpServletResponse response) throws Exception{
+
+		//Map<String,Object> map = new HashMap<String, Object>();
+		Map<String,Object> result = new HashMap();	//결과 전송 맵
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		BaroService_CARDSoap bsCard = new BaroService_CARDSoapProxy();
+
+		//String certKey = "A34D1994-FB10-43FF-A4DD-08DA06829220"; //운영 인증키
+		//String corpNum = "1178162851";			//연계사업자 사업자번호 ('-' 제외, 10자리) 2648132143
+
+		String certKey = map.get("linkAuthCode").toString();      //운영 인증키
+		String corpNum = map.get("corpNum").toString();			//연계사업자 사업자번호 ('-' 제외, 10자리) 2648132143
+		corpNum = corpNum.replaceAll("-", "");
+		String cardCorpSetupId = null;
+		if(map.get("cardCorpSetupId") != null){
+			cardCorpSetupId = map.get("cardCorpSetupId").toString();
+		}else{
+			cardCorpSetupId = null;
+		}
+
+		Card[] cardResult = bsCard.getCard(certKey, corpNum);
+
+		String cardNum ="";
+		String cardCompany ="";
+
+		Map<String,Object> paramMap = new HashMap<String,Object>();
+
+		paramMap.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("cardCorpSetupId", cardCorpSetupId);
+		paramMap.put("cardLinkYn","Y");
+		paramMap.put("useYn","Y");
+
+		String regEx = "(\\d{4})(\\d{4})(\\d{4})(\\d{4})";
+
+		System.out.println("[===========================]"+cardResult.length);
+
+		for(int i=0;i<cardResult.length;i++){
+			if (Long.parseLong(cardResult[0].getCardNum()) < 0) { //실패
+				System.out.println("[FAIL]"+cardNum);
+				result.put("resultMsg", "FAIL");
+				break;
+			} else { //성공
+				System.out.println("[SUCCESS]"+result);
+				result.put("resultMsg", "SUCCESS");
+				cardNum = cardResult[i].getCardNum();
+				cardCompany = cardResult[i].getCardCompanyName();
+				System.out.println("[cardNum]"+cardNum +"   [cardCompanyName]"+cardCompany);
+
+				paramMap.put("cardNum",cardNum.replaceAll(regEx, "$1-$2-$3-$4"));
+				paramMap.put("cardCompany",cardCompany);
+				cardService.insertCardCorpInfoForLink(paramMap);
+			}
+		}
+
+		//List<EgovMap> cardCorpInfoSetupList = cardService.getCardCorpInfoSetupList(paramMap);
+		//model.addAttribute("cardCorpInfoSetupList", cardCorpInfoSetupList);
+
+		AjaxResponse.responseAjaxMap(response, result);	//결과전송
+	}
+
+	/**
+	 *
+	 * 메인팝업
+	 *
+	 * @param     :
+	 * @return    :
+	 * @exception : throws
+	 * @author    : inee
+	 * @date      : 2017.08.22
+	 */
+	@RequestMapping("/card/cardCorpUsedMainPop.do")
+	public String cardCorpUsedMainPop(@RequestParam Map<String,Object> map
+			,Model model, HttpSession session) throws Exception{
+
+		//Map<String,Object> map = new HashMap<String, Object>();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		map.put("orgId", baseUserLoginInfo.get("orgId"));
+		map.put("userId", baseUserLoginInfo.get("userId"));
+
+		List<EgovMap> cardCorpUsedList = cardService.getCardCorpUsedListForMainPopList(map);
+
+		model.addAttribute("cardCorpUsedList",cardCorpUsedList);
+		return "card/cardCorpUsedMainPop/pop";
+	}
+
+}

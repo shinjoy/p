@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+				http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+
+	<!-- 웹로그 인터셉터 Start -->
+	<!-- <bean id="egovWebLogInterceptor" class="egovframework.com.sym.log.wlg.web.EgovWebLogInterceptor"
+		/> <bean id="webLogMapping" class="org.springframework.web.servlet.mvc.annotation.DefaultAnnotationHandlerMapping">
+		<property name="interceptors"> <list> <ref bean="egovWebLogInterceptor" />
+		</list> </property> </bean> -->
+	<!-- 웹로그 인터셉터 End -->
+
+
+
+	<!-- ReqeustMapping 과 Controller 클래스 매핑을 위한 annotation 설정 -->
+	<bean class="org.springframework.web.servlet.mvc.annotation.DefaultAnnotationHandlerMapping" />
+
+
+
+	<!-- ================================== mobile :S ====================================== -->
+
+	<bean id="mobileSimpleUrlAnnotationHandlerMapping"
+			class="egovframework.rte.ptl.mvc.handler.SimpleUrlAnnotationHandlerMapping"
+			p:order="1">
+		<property name="interceptors">
+			<list>
+				<!-- ①  1.세션 체크('인터셉터를 타는 URL pool' 모두 체크) 및 2.메뉴권한 체크 (authorityCheckURL에 있는 URL만 체크한다.) -->
+				<ref local="mobileSessionNAuthorityCheckInterceptor" />
+				<!-- ②  메뉴 및 즐겨찾기메뉴 정보 (사용자의 사용가능 메뉴 정보(m_menuFilterStr)에 한해서 메뉴정보를 찾아 전달) -->
+				<ref local="mobileMenuNavigationInterceptor" />
+			</list>
+		</property>
+		<property name="urls">	<!-- 인터셉터를 타는 URL pool -->
+			<set>
+				<value>/m/main/**</value>
+				<value>/m/car/**</value>
+				<value>/m/meetingRoom/**</value>
+				<value>/m/address/**</value>
+				<value>/m/schedule/**</value>
+			</set>
+		</property>
+	</bean>
+
+
+	<!-- ① 1. 세션 체크		('인터셉터를 타는 URL'(상단) 모두 체크) 및										... 세션체크하려면 상단 URL pool 에 추가
+		   2. 메뉴권한 체크	('인터셉터를 타는 URL' 중에서, "authorityCheckURL"에 있는 URL만(하단) 체크한다.)	... 메뉴권한체크 추가하려면 URL pool, authorityCheckURL 모두 추가
+	 -->
+	<bean id="mobileSessionNAuthorityCheckInterceptor" class="ib.basic.interceptor.MobileSessionNAuthorityCheckInterceptor">
+	 	<property name="authorityCheckURL">
+            <set>
+                <value>m/car/carRecord.do</value>
+				<value>m/meetingRoom/meetingRoomRsvMgmt.do</value>
+				<value>m/address/addressMain.do</value>
+				<value>m/schedule/scheduleList.do</value>
+			</set>
+		</property>
+	</bean>
+
+
+	<!-- ②메뉴 및 즐겨찾기메뉴 정보 (사용자의 사용가능 메뉴 정보(m_menuFilterStr)에 한해서 메뉴정보를 찾아 전달) -->
+	<bean id="mobileMenuNavigationInterceptor" class="ib.basic.interceptor.MenuNavigationInterceptor">
+		<property name="extraMenuInfoURL">					<!-- 예외 케이스(extraMenuInfoURL) 무조건 추가 -->
+            <set>
+                <value>m/emailView.do</value>					<!-- 메일 -->
+                <value>m/organizationList.do</value>			<!-- 조직도 -->
+			</set>
+	    </property>
+	</bean>
+
+	<!-- ================================== mobile :E ====================================== -->
+
+
+
+
+
+
+	<bean id="simpleUrlAnnotationHandlerMapping"
+			class="egovframework.rte.ptl.mvc.handler.SimpleUrlAnnotationHandlerMapping"
+			p:order="2">
+		<property name="interceptors">
+			<list>
+				<!-- ①  1.세션 체크('인터셉터를 타는 URL pool' 모두 체크) 및 2.메뉴권한 체크 (authorityCheckURL에 있는 URL만 체크한다.) -->
+				<ref local="sessionNAuthorityCheckInterceptor" />
+				<!-- ②  메뉴 및 즐겨찾기메뉴 정보 (사용자의 사용가능 메뉴 정보(menuFilterStr)에 한해서 메뉴정보를 찾아 전달) -->
+				<ref local="menuNavigationInterceptor" />
+			</list>
+		</property>
+		<property name="urls">	<!-- 인터셉터를 타는 URL pool -->
+			<set>
+				<value>/basic/**</value>
+				<value>/system/**</value>
+				<value>/eam/**</value>
+				<value>/member/**</value>
+				<value>/project/**</value>
+				<value>/user/**</value>
+				<value>/person/**</value>
+				<value>/cboard/**</value>
+				<value>/gboard/**</value>
+				<value>/card/**</value>
+				<value>/company/**</value>
+				<value>/board/**</value>
+				<value>/car2/**</value>
+				<value>/work/**</value>
+				<value>/approve/**</value>
+				<value>/personnel/**</value>
+				<value>/business/**</value>
+				<value>/workHistory/**</value>
+				<value>/worktime/**</value>
+				<value>/mypersonnel/**</value>
+				<value>/email/**</value>
+				<value>/work/selectPrivateWorkV.do</value>
+				<value>/ScheduleCal.do</value>
+				<value>/login/modifyUsrInfo.do</value>
+				<value>/ScheduleCalPass.do</value> 			<!-- IB to PASS-->
+				<value>/login/modifyUsrInfo.do</value>
+				<value>/scheduleProc.do</value>
+				<value>/meetingRoom/**</value>
+				<value>/management/**</value>
+			</set>
+		</property>
+	</bean>
+
+
+	<!-- ① 1. 세션 체크		('인터셉터를 타는 URL'(상단) 모두 체크) 및										... 세션체크하려면 상단 URL pool 에 추가
+		   2. 메뉴권한 체크	('인터셉터를 타는 URL' 중에서, "authorityCheckURL"에 있는 URL만(하단) 체크한다.)	... 메뉴권한체크 추가하려면 URL pool, authorityCheckURL 모두 추가
+	 -->
+	<bean id="sessionNAuthorityCheckInterceptor" class="ib.basic.interceptor.SessionNAuthorityCheckInterceptor">
+	 	<property name="authorityCheckURL">
+            <set>
+                <value>eam/assetMasterMgmt.do</value>			<!-- 자산관리-->
+				<value>system/rolePerUser.do</value>			<!-- 사용자별 권한-->
+				<value>system/menuMgmt.do</value>				<!-- 메뉴 등록-->
+				<value>system/menuPerRole.do</value>			<!-- 권한별 메뉴-->
+				<value>system/roleMgmt.do</value>				<!-- 권한 등록-->
+				<value>system/moduleMgmt.do</value>				<!-- 모듈 등록-->
+				<value>system/codeMgmt.do</value>				<!-- 공통 코드 관리-->
+				<value>system/modulePerRole.do</value>			<!-- 권한별 모듈-->
+				<value>system/tabPerRole.do</value>				<!-- 메뉴별 탭 등록-->
+				<value>work/getDailyWork.do</value>				<!-- 업무일지-->
+				<value>work/privateWorkWeek.do</value>			<!-- 일정등록-->
+				<value>work/timesheet.do</value>				<!-- 타임시트-->
+				<value>user/userMgmt.do</value>					<!-- 사용자 등록-->
+				<value>user/userProfile.do</value>				<!-- 사용자 설정-->
+				<value>board/board2List.do</value>				<!-- 게시판2-->
+				<value>board/normalBoard.do</value>				<!-- 게시판1-->
+				<value>system/deptMgmt.do</value>				<!-- 부서 등록-->
+				<value>dev/mail.do</value>						<!-- 메일발송테스트-->
+				<value>project/projectMgmt.do</value>			<!-- 프로젝트-->
+				<value>project/userActivityAllocMgmt.do</value> <!-- 프로젝트 참여-->
+				<value>project/templateMgmt.do</value> 			<!-- 템플릿 목록-->
+				<value>project/templateReg.do</value> 			<!-- 템플릿 등록-->
+				<value>system/menuMgmt.do</value>				<!-- 메뉴 관리-->
+				<value>project/projectMgmt.do</value>			<!-- 프로젝트 목록-->
+				<value>project/projectReg.do</value>			<!-- 프로젝트 등록-->
+				<value>system/calendarMgmt.do</value>			<!-- 달력 등록-->
+				<value>system/calendarWeek.do</value>			<!-- 달력 마감관리-->
+				<value>system/pageRolePerRole.do</value> 		<!-- 권한별 화면권한-->
+				<value>system/codePerRole.do</value>			<!-- 권한별 코드-->
+				<value>project/userActivityMgmt.do</value>		<!-- 개인별 조회-->
+				<value>eam/assetMasterMgmt.do</value>			<!-- 차량 등록-->
+				<value>eam/carMgmt.do</value>					<!-- 차량 세부 등록-->
+				<value>approve/approveLine.do</value>			<!-- 결재 라인-->
+				<value>company/index.do</value>					<!-- 회사-->
+				<value>person/personMgmt.do</value>				<!-- 고객-->
+				<value>cboard/cboardMgmt.do</value>				<!-- 게시판 관리-->
+				<value>user/userMgmt.do</value>					<!-- 경영지원-->
+				<value>work/getDailyWork.do</value>				<!-- 업무일지-->
+				<value>ScheduleCal.do</value>					<!-- 일정등록-->
+				<value>card/cardIndex.do</value>				<!-- 지출입력-->
+				<value>card/statistics.do</value>				<!-- 지출통계-->
+				<value>car2/index.do</value>					<!-- 차량일지-->
+				<value>car2/carMgmt.do</value>					<!-- 운행관리-->
+				<value>work/selectWorkMediateDealR.do</value> 		<!-- 딜-->
+				<value>work/selectPublicNoticeIncCap.do</value> 	<!-- 공시-->
+				<value>work/selectWorkEntrust.do</value> 			<!-- 자금-->
+				<value>work/matrix.do</value>						<!-- 정보-->
+				<value>board/boardAlarm.do</value>					<!-- 팝업공지-->
+				<value>system/certDocRqmt.do</value>				<!-- 증명서 신청내역-->
+				<value>system/employCert.do</value>					<!-- 재직증명서 신청-->
+				<value>system/careerCert.do</value>					<!-- 경력증명서 신청-->
+				<value>board/boardList/notice/noticeAll.do</value> 	<!-- 공지게시판-->
+				<value>board/boardMgmt.do</value>					<!-- 게시판 관리-->
+				<value>board/boardList/general/generalCompany.do</value> <!-- 사내게시판-->
+				<value>system/certDocRqmtForMng.do</value>			<!-- 증명서 발급처리-->
+				<value>system/orgCompanyRegisterList.do</value> 	<!-- 관계사 목록-->
+				<value>system/orgAuthCompanyList.do</value> 		<!-- 사용자별 관계사 권한-->
+				<value>board/boardList/general/generalWork.do</value> <!-- 업무게시판-->
+				<value>approve/draftDocList.do</value>				<!-- 기안문서-->
+				<value>approve/approveReqList.do</value> 			<!-- 결재문서-->
+				<value>approve/approveRefList.do</value> 			<!-- 참조문서-->
+				<value>approve/approveProduct.do</value> 			<!-- 결재품의-->
+				<value>approve/reqVacation.do</value> 				<!-- 휴가신청-->
+				<value>approve/reqPurchase.do</value> 				<!-- 구매신청-->
+				<value>approve/reqEdu.do</value>					<!-- 교육신청-->
+				<value>approve/reqTrip.do</value>					<!-- 출장신청-->
+				<value>approve/reqEvent.do</value>					<!-- 경조신청-->
+				<value>system/menuPerOrg.do</value>					<!-- 관계사별 메뉴권한-->
+				<value>personnel/management/index.do</value> 		<!-- 인사 정보-->
+				<value>board/boardList/qna/improvement.do</value> 	<!-- 개선사항응답소-->
+				<value>system/modulePerOrg.do</value> 				<!-- 관계사별 모듈권한-->
+				<value>system/systemCodeMgmt.do</value> 			<!-- 시스템 코드 관리-->
+				<value>business/businessAdminRegist.do</value> 		<!-- 정보등록관리-->
+				<value>business/businessInfoList.do</value> 		<!-- 정보정리-->
+				<value>business/businessCommentList.do</value> 		<!-- 정보 코멘트-->
+				<value>work/getDailyWorkPass.do</value> 			<!-- IB to PASS-->
+				<value>ScheduleCalPass.do</value> 					<!-- IB to PASS-->
+				<value>ScheduleView.do</value> 					<!-- IB to PASS-->
+				<value>meetingRoom/meetingRoomRsvMgmt.do</value> 	<!-- 회의실-->
+
+			</set>
+	    </property>
+	</bean>
+
+
+	<!-- ②메뉴 및 즐겨찾기메뉴 정보 (사용자의 사용가능 메뉴 정보(menuFilterStr)에 한해서 메뉴정보를 찾아 전달) -->
+	<bean id="menuNavigationInterceptor" class="ib.basic.interceptor.MenuNavigationInterceptor">
+		<property name="bookMarkInfoURL">					<!-- 예외 케이스(bookMarkInfoURL) 무조건 추가 -->
+            <set>
+                <value>basic/mainLogo.do</value>					<!-- 메인화면-->
+                <value>email/emailView.do</value>					<!-- 메일 -->
+                <value>basic/organizationList.do</value>			<!-- 조직도 -->
+			</set>
+	    </property>
+	</bean>
+
+
+
+</beans>

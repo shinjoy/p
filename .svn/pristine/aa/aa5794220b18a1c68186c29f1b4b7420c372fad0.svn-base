@@ -1,0 +1,693 @@
+package ib.system.web;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+import ib.cmm.util.sim.service.AjaxResponse;
+import ib.sms.service.SmsService;
+import ib.system.service.OrgCompanyRegService;
+import ib.work.service.WorkMemoService;
+
+@Controller("orgRegController")
+public class OrgCompanyRegController {
+
+
+	@Resource(name = "orgCompanyRegService")
+	private OrgCompanyRegService orgCompanyRegService;
+
+
+	@Resource(name = "smsService")
+	private SmsService smsService;
+
+	@Resource(name="workMemoService")
+	private WorkMemoService workMemoService;
+
+	protected static final Log logger = LogFactory.getLog(CertificationRqmtController.class);
+
+
+	// 관계사 목록 페이지
+	@RequestMapping(value = "/system/orgCompanyRegisterList.do")
+	public String orgCompanyRegisterList(HttpServletRequest request,
+			@RequestParam Map map, ModelMap model) throws Exception {
+		logger.debug("############   OrgCompanyRegController.orgCompanyRegisterList() ##################");
+
+		return "system/orgCompanyRegisterList";
+	}
+
+
+	// 관계사 정보 조회
+	@RequestMapping(value = "/system/getOrgCompanyList.do")
+	public void getorgCompanyList(HttpServletRequest request,
+									@RequestParam Map map, HttpServletResponse response) throws Exception {
+
+		Map resultMap = orgCompanyRegService.getOrgCompanyList(map);
+
+		AjaxResponse.responseAjaxSelectForPage(response, resultMap);
+	}
+
+	// 관계사 등록/수정 페이지
+	@RequestMapping(value = "/system/orgCompanyRegister.do")
+	public String orgCompanyRegister(HttpServletRequest request,
+			@RequestParam Map map, ModelMap model) throws Exception {
+
+		logger.debug("############   OrgCompanyRegController.orgCompanyRegister() ############### param :[ "+ map+ " ] ######");
+		model.addAttribute("mode", "new");
+
+		//관계사 아이디가 존재하는 경우 수정페이지.
+		String orgId = (String)map.get("orgId");
+		if(!StringUtils.isEmpty(orgId)){
+			model.addAttribute("mode", "update");
+
+			//관계사 정보 반환.
+			Map orgMap = orgCompanyRegService.selectBsOrgCompany(map);
+			model.addAttribute("orgMap", orgMap);
+
+			//관계사 소속회사 리스트 반환
+			map.put("sNb", orgMap.get("companySnb"));
+			model.addAttribute("orgIncludeCompList", orgCompanyRegService.selectBsIncludeOrgCompany(map));
+		}
+
+		return "system/orgCompanyRegister";
+	}
+
+	//비즈니스 그룹선택을 위한 그룹명 리스트 가져오기
+	@RequestMapping(value = "/system/selectBusinessGroupFor.do")
+	public void selectBusinessGroupFor(HttpServletRequest request, HttpServletResponse response,
+			@RequestParam Map map) throws Exception {
+		logger.debug("############   OrgCompanyRegController.selectBusinessGroupFor() ##################");
+		try{
+			List<Map> list = orgCompanyRegService.getBusinessGroupForSelect(map);
+			AjaxResponse.responseAjaxSelect(response, list);
+		}catch(Exception ex){
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response,
+					"비즈니스 그룹정보를 가져오는 오류가 발생하였습니다.");
+		}
+	}
+
+
+	// 관계사 정보 등록하기(+직급)
+	@RequestMapping(value = "/system/setOrgCompanyInfo.do")
+	public void setOrgCompanyInfo(MultipartHttpServletRequest request,
+									@RequestParam Map map, HttpServletResponse response) throws Exception {
+
+		logger.debug("############   OrgCompanyRegController.setorgCompanyInfo() ##################");
+
+		try {
+
+			int result = 1;
+			HttpSession session = (HttpSession) request.getSession();
+			Map loginUser = (Map) session.getAttribute("baseUserLoginInfo");
+			map.put("userRegId", loginUser.get("userId").toString());
+			map.put("loginId", loginUser.get("loginId").toString());
+
+			map.put("userSeq", loginUser.get("userId").toString());		//user_id(sequence)
+			map.put("rgId", loginUser.get("loginId").toString());
+			map.put("usrCusId", loginUser.get("cusId").toString());
+			map.put("regOrgId", loginUser.get("orgId").toString());
+
+			map.put("domain", loginUser.get("domain").toString());
+
+			// 파일
+			MultipartFile mfile = null;
+			Iterator<String> fileNames = request.getFileNames();
+			if (fileNames.hasNext()) {
+				String fileNm = fileNames.next();
+				mfile = request.getFile(fileNm);
+				byte[] image = mfile.getBytes();
+
+				if(image.length > 0) map.put("orgLogo", image);
+				else map.put("orgLogo", null);
+
+				//mysql blob size : 65,535bytes
+				if(image.length > 65535){
+					//throw new Exception("이미지 사이즈가 너무 큽니다.");
+					result = -1;
+				}
+
+				//--확장자 체크
+				String FileOrgNm= mfile.getOriginalFilename();
+				String ext = (FileOrgNm.substring(FileOrgNm.lastIndexOf('.')+1,FileOrgNm.length())).toLowerCase();
+
+				if( !ext.equals("") &&
+						!(ext.equals("jpg") ||ext.equals("png")||ext.equals("jpeg")||ext.equals("gif")||ext.equals("bmp"))){
+					result = -2;
+				}
+
+			}
+
+			//관계사 등록
+			if(result>0) orgCompanyRegService.setOrgCompanyInfo(map);
+
+			AjaxResponse.responseAjaxSave(response, result);
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			String str = ex.getMessage();
+			if(StringUtils.contains(str, "사이즈")){
+				AjaxResponse.responseAjaxFailWithMsg(response,	str);
+			}else
+				AjaxResponse.responseAjaxFailWithMsg(response, "관계사 정보를 저장하는 도중 오류가 발생하였습니다.");
+		}
+	}
+
+	//관계사 정보 수정하기
+	@RequestMapping(value = "/system/updateOrgCompanyInfo.do")
+	public void updateOrgCompanyInfo(MultipartHttpServletRequest request,
+			@RequestParam Map map, HttpServletResponse response)
+			throws Exception {
+
+		logger.debug("############   OrgCompanyRegController.updateOrgCompanyInfo() ################");
+
+		try {
+			int result = 1;
+
+			HttpSession session = (HttpSession) request.getSession();
+			Map loginUser = (Map) session.getAttribute("baseUserLoginInfo");
+			map.put("userRegId", loginUser.get("userId").toString());
+			map.put("loginId", loginUser.get("loginId").toString());
+
+			// 파일이 업로드 된 경우.
+			MultipartFile mfile = null;
+			Iterator<String> fileNames = request.getFileNames();
+			if (fileNames.hasNext()) {
+				String fileNm = fileNames.next();
+				mfile = request.getFile(fileNm);
+				byte[] image = mfile.getBytes();
+
+				if(image.length > 0) map.put("orgLogo", image);
+				else map.put("orgLogo", null);
+
+				//mysql blob size : 65,535bytes
+				if(image.length > 65535){
+					//throw new Exception("이미지 사이즈가 너무 큽니다.");
+					result = -1;
+				}
+				System.out.println( "ddd"+image.length);
+				//--확장자 체크
+				String FileOrgNm= mfile.getOriginalFilename();
+				String ext = (FileOrgNm.substring(FileOrgNm.lastIndexOf('.')+1,FileOrgNm.length())).toLowerCase();;
+
+				if( !ext.equals("") &&
+						!(ext.equals("jpg") ||ext.equals("png")||ext.equals("jpeg")||ext.equals("gif")||ext.equals("bmp"))){
+					result = -2;
+				}
+
+			}
+
+			// 관계사 수정하기
+			if(result>0) orgCompanyRegService.updateOrgCompanyInfo(map);
+
+			AjaxResponse.responseAjaxSave(response, result);
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response,
+					"관계사 정보를 삭제하는 도중 오류가 발생하였습니다.");
+		}
+	}
+
+	//관계사 정보 삭제하기
+	@RequestMapping(value = "/system/deleteOrgCompanyInfo.do")
+	public void deleteOrgCompanyInfo(HttpServletRequest request,
+			@RequestParam Map map, HttpServletResponse response)
+			throws Exception {
+
+		logger.debug("############   OrgCompanyRegController.deleteOrgCompanyInfo() ##################");
+		logger.debug("#####" + map.toString());
+		try {
+			HttpSession session = (HttpSession) request.getSession();
+			Map loginUser = (Map) session.getAttribute("baseUserLoginInfo");
+			map.put("userRegId", loginUser.get("userId").toString());
+
+			//관계사 삭제
+			orgCompanyRegService.deleteOrgCompanyInfo(map);
+			AjaxResponse.responseAjaxSave(response, 1);
+		}catch(Exception ex){
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response, "관계사 정보를 삭제하는 도중 오류가 발생하였습니다.");
+		}
+	}
+
+
+	// 관계사로 등록가능한 회사 리스트 팝업
+	@RequestMapping(value = "/system/orgCompanyListPop.do")
+	public String orgCompanyListPop(HttpServletRequest request,
+			@RequestParam Map map, ModelMap model) throws Exception {
+
+		logger.debug("############   OrgCompanyRegController.orgCompanyListPop() ##################");
+
+		return "system/orgCompanyPop/pop";
+	}
+
+	// 관계사로 등록가능한 회사 리스트반환.
+	@RequestMapping(value = "/system/getOrgIbCompanyList.do")
+	public void getOrgCompanyList(HttpServletRequest request,
+			HttpServletResponse response, @RequestParam Map map, ModelMap model)
+			throws Exception {
+		logger.debug("############   OrgCompanyRegController.getOrgCompanyList() ##################");
+
+		Map resultMap = orgCompanyRegService.getOrgIbCompanyList(map);
+		AjaxResponse.responseAjaxSelectForPage(response, resultMap);
+	}
+
+	// 관계사 코드로 등록 가능 여부 체크
+	@RequestMapping(value = "/system/checkOrgCompanyCode.do")
+	public void checkOrgCompanyCode(HttpServletRequest request,
+			HttpServletResponse response, @RequestParam Map map, ModelMap model)
+			throws Exception {
+		logger.debug("############   OrgCompanyRegController.checkOrgCompanyCode() ##################");
+
+		Map resultMap = orgCompanyRegService.checkOrgCompanyCode(map);
+		AjaxResponse.responseAjaxObject(response, resultMap);
+	}
+
+	//관계사 소속회사 추가 화면
+	@RequestMapping(value = "/system/addGroupingCompany.do")
+	public String addGroupingCompany(HttpServletRequest request,
+			HttpServletResponse response, @RequestParam Map map, ModelMap model)
+			throws Exception {
+		logger.debug("############   OrgCompanyRegController.addGroupingCompany() ##################");
+
+		//targetOrgId 가 수정인 경우 전달.
+		model.addAllAttributes(map);
+		return "system/addGroupingCompany/pop";
+	}
+
+	//관계사 소속회사 추가 목록
+	@RequestMapping(value = "/system/addGroupingCompanyList.do")
+	public void addGroupingCompanyList(HttpServletRequest request,
+			HttpServletResponse response, @RequestParam Map map, ModelMap model)
+			throws Exception {
+		logger.debug("############   OrgCompanyRegController.addGroupingCompanyList() ##################");
+
+		Map resultMap = orgCompanyRegService.addGroupingCompanyList(map);
+		AjaxResponse.responseAjaxSelectForPage(response, resultMap);
+	}
+
+	// 비즈니스 그룹 추가 팝업
+	@RequestMapping(value = "/system/addBusinessGroup.do")
+	public String addBusinessGroup(HttpServletRequest request,
+			@RequestParam Map map, ModelMap model) throws Exception {
+		logger.debug("############   OrgCompanyRegController.addBusinessGroup() ##################");
+
+		return "system/addBusinessGroup/pop";
+	}
+
+	// 비즈니스 그룹 리스트 반환
+	@RequestMapping(value = "/system/getBusinessGroupList.do")
+	public void getBusinessGroupList(HttpServletRequest request,
+			HttpServletResponse response, @RequestParam Map map, ModelMap model)
+			throws Exception {
+
+		logger.debug("############   OrgCompanyRegController.getBusinessGroupList() ##################");
+
+		Map resultMap = orgCompanyRegService.getBusinessGroupList(map);
+		AjaxResponse.responseAjaxSelectForPage(response, resultMap);
+	}
+
+
+	// 비즈니스 그룹 추가(등록/수정)
+	@RequestMapping(value = "/system/setBusinessGroup.do")
+	public void setBusinessGroup(HttpServletRequest request,
+			HttpServletResponse response, @RequestParam Map map) throws Exception {
+
+		logger.debug("############   OrgCompanyRegController.setBusinessGroup() ##################");
+
+		try{
+			HttpSession session = (HttpSession) request.getSession();
+			Map loginUser = (Map) session.getAttribute("baseUserLoginInfo");
+			map.put("userRegId", loginUser.get("userId").toString());
+
+			orgCompanyRegService.setBusinessGroup(map);
+			AjaxResponse.responseAjaxSave(response, 1);
+		}catch(Exception ex){
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response, "비즈니스 그룹 추가 도중 오류가 발생하였습니다.");
+		}
+	}
+
+
+	// 비즈니스 그룹 삭제
+	@RequestMapping(value = "/system/deleteBusinessGroup.do")
+	public void deleteBusinessGroup(HttpServletRequest request,
+			HttpServletResponse response, @RequestParam Map map) throws Exception {
+			logger.debug("############   OrgCompanyRegController.deleteBusinessGroup() ##################");
+		try{
+			HttpSession session = (HttpSession) request.getSession();
+			Map loginUser = (Map) session.getAttribute("baseUserLoginInfo");
+			map.put("userRegId", loginUser.get("userId").toString());
+
+			orgCompanyRegService.deleteBusinessGroup(map);
+			AjaxResponse.responseAjaxSave(response, 1);
+		}catch(Exception ex){
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response, "비즈니스 그룹 삭제 도중 오류가 발생하였습니다.");
+		}
+	}
+
+
+	/**
+	 * 사용자별 관계사 목록 창
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 */
+	@RequestMapping(value = "/system/orgAuthCompanyList.do")
+	public String orgAuthCompanyList(HttpServletRequest request,
+			HttpSession session, HttpServletResponse response, ModelMap model) throws Exception {
+
+		Map loginUser = (Map) session.getAttribute("baseUserLoginInfo");
+
+		return "system/orgAuthCompanyList";
+	}
+
+	//사용자별 관계사 권한 리스트 반환
+	@RequestMapping(value = "/system/getUserListForOrgId.do")
+	public void getUserListForOrgId(HttpServletRequest request,
+			HttpServletResponse response, @RequestParam Map map) throws Exception {
+			logger.debug("############   OrgCompanyRegController.getUserListForOrgId() ##################");
+		try{
+			HttpSession session = (HttpSession) request.getSession();
+			Map loginUser = (Map) session.getAttribute("baseUserLoginInfo");
+			map.put("userRegId", loginUser.get("userId").toString());
+			map.put("hideSynergyUserYn", loginUser.get("hideSynergyUserYn").toString());  //관계사 시너지 유저 목록 활성화여부
+
+			Map resultMap = orgCompanyRegService.getUserListForOrgId(map);
+
+			AjaxResponse.responseAjaxSelectForPage(response, resultMap);
+
+		}catch(Exception ex){
+			ex.printStackTrace();
+			AjaxResponse.responseAjaxFailWithMsg(response, "관계사별 사용자 정보 조회도중 오류가 발생하였습니다.");
+		}
+	}
+
+
+	/**
+	 * 사용자별 관계사 등록/수정 화면
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 */
+	@RequestMapping(value = "/system/orgAuthCompanyRegister.do")
+	public String orgAuthCompanyRegister(HttpServletRequest request,
+			HttpSession session, @RequestParam Map param, ModelMap model) throws Exception {
+
+		//선택된 사용자의 소속 관계사 (필수값이므로 리스트에서 제외해야함)
+		model.addAttribute("selectOrgId", param.get("selectOrgId"));
+		//선택된 사용자 아이디
+		model.addAttribute("selectUserId", param.get("selectUserId"));
+		model.addAttribute("selectUserName", param.get("selectUserName"));
+		model.addAttribute("selectOrgName", param.get("selectOrgName"));
+		model.addAttribute("selectUserRankNm", param.get("selectUserRankNm"));
+
+		//사용자별 관계사 접근권한리스트
+		model.addAttribute("relationAuthList", orgCompanyRegService.getOrgRelationAuthList(param));
+
+		return "system/orgAuthCompanyRegister/pop";
+	}
+
+	/**
+	 * 관계사 정보 반환
+	 * @param request
+	 * @param response
+	 * @param model
+	 * @param session
+	 * @param param
+	 * @throws Exception
+	 */
+	@RequestMapping(value = "/system/getOrgAuthCompanyList.do")
+	public void getOrgAuthCompanyList(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model,
+			HttpSession session,@RequestParam Map param) throws Exception {
+
+		param.put("userId", param.get("selectUserId").toString());
+		param.put("orgId", param.get("selectOrgId").toString());
+
+		List<Map> resultMap =  (List<Map>) orgCompanyRegService.getOrgCompanyAuthList(param);
+
+		AjaxResponse.responseAjaxSelect(response, resultMap);	//결과전송
+
+	}
+
+	//사용자별 관계사 접근권한 설정
+	@RequestMapping(value = "/system/setOrgAuthCompany.do")
+	public void setOrgAuthCompany(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model,
+			HttpSession session,@RequestParam Map param) throws Exception {
+
+		Map loginUser = (Map) session.getAttribute("baseUserLoginInfo");
+		param.put("userRegId", loginUser.get("userId").toString());
+
+		//선택된 사용자, 관계사 값.
+		param.put("userId", param.get("selectUserId").toString());
+		param.put("orgId", param.get("selectOrgId").toString());
+
+		orgCompanyRegService.setOrgAuthCompany(param);
+
+		try{
+
+			String sendMsgYn = param.get("sendMsgYn").toString();
+
+			//특별권한이 변경됬다면 메세지발송
+			if(sendMsgYn.equals("Y")){
+				String content = "";
+				String comment = param.get("comment").toString();
+				String userId= loginUser.get("userId").toString();
+				String selectUserId= param.get("selectUserId").toString();
+
+				//SMS 전송용 현재시간
+		  		Date from = new Date();
+		  		SimpleDateFormat transFormatNow = new SimpleDateFormat("yyyyMMddHHmmss");
+		  		String strNowDate = transFormatNow.format(from);
+
+				String[] commentBuf = comment.split(",");
+
+				String orgStr = "";
+
+				for(String str : commentBuf){
+					if(!orgStr.equals("")) orgStr+=",";
+
+					orgStr+= str.split("[|]")[0];
+				}
+
+				//특별권한이 변경됬고 본인이 수정한게 아니라면 SMS 발송
+				if(!userId.equals(selectUserId)){
+
+				   content = "[PASS알림]"+loginUser.get("userName").toString();
+				   content+= " "+loginUser.get("rankNm").toString();
+				   content+= "님이 ["+orgStr+"]"+"특별권한설정 변경하였습니다.";
+
+			        param.put("smsTitle", "");
+					param.put("sendUserId", loginUser.get("userId").toString());
+					param.put("recieveUserId",param.get("selectUserId"));
+					param.put("recieveCustomerId", null);
+					param.put("content", content);
+					param.put("reserveDate", strNowDate);
+					param.put("userId", loginUser.get("userId").toString());
+					param.put("userIdList", param.get("selectUserId").toString());
+					param.put("customerList", "");
+					param.put("type", "");
+
+					smsService.insertSmsLog(param);
+				}
+
+			    //시너지 특별권한자 조회
+			    param.put("superManagerYn", "Y");
+			    List<EgovMap> relationCompanyAccessAuthList= orgCompanyRegService.getRelationCompanyAccessAuthListForOrg(param);
+
+			    if(relationCompanyAccessAuthList!=null && relationCompanyAccessAuthList.size()>0){
+
+			    	//시너지 슈퍼메니저에게 메모 발송
+					String memoStr = "[특별권한 설정변경 안내]\n";
+						   memoStr+= loginUser.get("userName").toString()+" "+loginUser.get("rankNm").toString()+"님이 특별권한 설정을 변경했습니다.\n";
+
+					String detailStr = "";
+				    for(String str : commentBuf){
+
+						if(!detailStr.equals("")) detailStr+="\n";
+						 detailStr+= "  -["+param.get("selectOrgName").toString()+" : "+param.get("selectUserName").toString()+" "+param.get("selectUserRankNm").toString()+"] : ";
+						 detailStr+= str.split("[|]")[0]+"의 ";
+
+						 String authStr = "";
+
+						 String authCode = str.split("[|]")[1];
+
+						 if(authCode.equals("SUPER")) authStr = "슈퍼매니저";
+						 else authStr = authCode;
+
+						 detailStr+=authStr+" 권한부여";
+					}
+
+				    memoStr+=detailStr;
+
+			    	//참가자 메모발송
+					Map<String,Object> memoMap = new HashMap<String, Object>();
+
+			    	List entryUserList = new ArrayList();
+
+				    for(EgovMap relationCompanyAccessAuth : relationCompanyAccessAuthList){
+						Map<String,Object> entryUserMap = new HashMap<String, Object>();
+						String targetUserId = relationCompanyAccessAuth.get("userId").toString();
+						entryUserMap.put("userId", relationCompanyAccessAuth.get("userId"));
+						entryUserList.add(entryUserMap);
+
+						if(!userId.equals(targetUserId)){
+							param.put("smsTitle", "");
+							param.put("sendUserId", loginUser.get("userId").toString());
+							param.put("recieveUserId",targetUserId);
+							param.put("recieveCustomerId", null);
+							param.put("content", content);
+							param.put("reserveDate", strNowDate);
+							param.put("userId", loginUser.get("userId").toString());
+							param.put("userIdList", targetUserId);
+							param.put("customerList", "");
+							param.put("type", "");
+
+							smsService.insertSmsLog(param);
+						}
+
+					}
+					memoMap.put("entryUserList", entryUserList);
+					memoMap.put("comment",memoStr);
+					memoMap.put("userId", loginUser.get("userId").toString());
+
+					workMemoService.autoMemoSend(memoMap);		//메모발송
+			    }
+
+			}
+		}catch(Exception ex){
+			ex.printStackTrace();
+		}
+
+		AjaxResponse.responseAjaxSave(response, 1);
+
+	}
+
+	//사용자별 접근가능 관계사 리스트 반환
+	@RequestMapping(value = "/system/getOrgRelationAuthList.do")
+	public void getOrgRelationAuthList(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model,
+			HttpSession session,@RequestParam Map param) throws Exception {
+
+		Map loginUser = (Map) session.getAttribute("baseUserLoginInfo");
+		Map paramMap = new HashMap<String,Object>();
+		paramMap.put("userId", loginUser.get("userId"));
+		List<Map> resultList =  orgCompanyRegService.getOrgRelationAuthListOnlyUserId(paramMap);
+		AjaxResponse.responseAjaxSelect(response, resultList);	//결과전송
+	}
+
+	/**
+	 *  권한변경 인증번호 sms발송
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: psj
+	 * @date		: 2017. 11. 01.
+	 */
+	@RequestMapping(value = "/system/sendAuthSms.do")
+	public void sendAuthSms(HttpSession session, HttpServletResponse response,
+			@RequestParam Map<String, Object> paramMap) throws Exception {
+
+		Map baseUserLoginInfo = (Map) session.getAttribute("baseUserLoginInfo");
+
+		// return obj
+		Map<String, Object> obj = new HashMap<String, Object>();
+
+		paramMap.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+
+		//인증번호생성
+        String confirmNo = "";
+        for(int i = 0 ; i < 6 ; i++){
+            confirmNo += (int)(Math.random()*10);
+        }
+
+        String content = "[PASS] 본인인증번호는 "+confirmNo+" 입니다. 정확히 입력해주세요.";
+
+        //SMS 전송용 현재시간
+  		Date from = new Date();
+  		SimpleDateFormat transFormatNow = new SimpleDateFormat("yyyyMMddHHmmss");
+  		String strNowDate = transFormatNow.format(from);
+
+        paramMap.put("smsTitle", "");
+		paramMap.put("sendUserId", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("recieveUserId", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("recieveCustomerId", null);
+		paramMap.put("content", content);
+		paramMap.put("reserveDate", strNowDate);
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("userIdList", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("customerList", "");
+		paramMap.put("type", "");
+
+		smsService.insertSmsLog(paramMap);
+
+		session.setAttribute("authConfirmNo", confirmNo);
+
+		System.out.println("authConfirmNo : "+ confirmNo);
+
+		obj.put("result", "SUCCESS");
+
+		AjaxResponse.responseAjaxObject(response, obj); // "SUCCESS" 전달
+	}
+
+	/**
+	 *  권한변경 인증번호 확인
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: psj
+	 * @date		: 2017. 11. 01.
+	 */
+	@RequestMapping(value = "/system/chkAuthSms.do")
+	public void chkAuthSms(HttpSession session, HttpServletResponse response,
+			@RequestParam Map<String, Object> paramMap) throws Exception {
+
+		// return obj
+		Map<String, Object> obj = new HashMap<String, Object>();
+
+		if(session.getAttribute("authConfirmNo")!=null){
+			String authConfirmNo = (String)session.getAttribute("authConfirmNo");
+			String authConfirmNoInput = paramMap.get("authConfirmNo").toString();
+			if(authConfirmNo.equals(authConfirmNoInput)){
+				obj.put("result", "SUCCESS");
+			}else{
+				obj.put("result", "INCONSISTENCY");
+				obj.put("msg", "본인 확인 실패 되었습니다. 전송된 문자열을 다시 입력해 주십시요.");
+			}
+
+		}else{
+			obj.put("result", "FAIL");
+			obj.put("msg", "인증번호 요청 버튼을 눌러주시기 바랍니다.");
+		}
+
+		AjaxResponse.responseAjaxObject(response, obj); // "SUCCESS" 전달
+	}
+}

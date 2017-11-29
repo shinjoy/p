@@ -1,0 +1,331 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ include file="./js/NoticeMezzanine_JS.jsp"%>
+
+<div id="wrap" class="content_box">
+
+	<jsp:scriptlet>
+		pageContext.setAttribute("cr", "\r");
+		pageContext.setAttribute("lf", "\n");
+		pageContext.setAttribute("crlf", "\r\n");
+	</jsp:scriptlet>
+
+<input type="hidden" id="rgstId" value="<c:out value='${baseUserLoginInfo.loginId}'/>">
+
+		<article>
+
+		<c:set var="now" value="<%= new java.util.Date() %>"/>
+		<fmt:formatDate var="cur_day" value='${now}' pattern='yyyy-MM-dd'/>
+
+		<form name="modifyRec" action="<c:url value='/work/selectPublicNoticeMezzaine.do' />" method="post">
+			<input type="hidden" name="sorting" id="sorting" value="${sorting}">
+			<input type="hidden" id="ttT" name="total" value="${ttT}">
+			<input type="hidden" id="s_cpnNm" name="cpnNm">
+		</form>
+
+		<input type="hidden" id="SendReceive" value="MR">
+
+		<div id="fixedTop" class="fixed-top" style="z-index:10;">
+
+			<header>
+				<form name="dayForm" id="dayForm" method="post" action="<c:url value='/work/selectPublicNoticeMezzaine.do' />" onsubmit="return false;">
+				<input type="hidden" name="total" id="total">
+				<div class="year_wrap" style="top:0px"><h2 class="headerTitle">
+
+					<c:set var="now" value="<%= new java.util.Date() %>"/>
+					<fmt:formatDate var="cur_year" value='${now}' pattern='yyyy'/>
+
+					공시 <small>(메자닌)</small>
+					&nbsp;&nbsp;<span class="btn s green"><a onclick="javascript:view('tbl00',this,event);">메자닌입력</a></span>&nbsp;&nbsp;<span class="btn s"><a onclick="javascript:excelDownload(this,event);">엑셀 다운로드</a></span>
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					<span style="font-size:12px;">회사명검색 <input type="text" id="inputCpnNm" onKeydown="javascript:if(event.keyCode == 13) doSearch();" style="font-size:11px;border:1px solid #999999;width:150px;height:13px;padding-left:2px!important;"></span><span class="btn s green"><a onclick="javascript:doSearch();">검색</a></span>
+
+					<select id="selCategory" name="selCategory" onchange="sortTable(this.value,'total');">
+				        <option value=""  ${empty ttT ? 'selected' : ''}>전체</option>
+				        <c:forEach var="ct" items="${CategoryList}" varStatus="cateS">
+				            <option value="${ct.categoryCd}" ${ttT eq ct.categoryCd ? 'selected' : ''}>${ct.categoryCd}</option>
+				        </c:forEach>
+				        <option value="event" ${ttT eq 'event' ? 'selected' : ''}>행사공시</option>
+				    </select>
+					</h2>
+				</div>
+				</form>
+				<h2 class="headerTitle">&nbsp;</h2>
+			</header>
+
+<br/>
+<div>
+    <div class="clear" style="float:left;width:10px;height:15px;">&nbsp;</div>
+    <div style="height:16px;line-height:15px;"class="1st subTab" onclick="openTab('selectPublicNoticeIncCap.do');">증자</div>
+    <div style="height:16px;line-height:15px;"class="1st subTabon" onclick="openTab('selectPublicNoticeMezzaine.do');">메자닌</div>
+    <div style="height:16px;line-height:15px;"class="1st subTab" onclick="openTab('selectPublicNoticeSh.do');">주주변경</div>
+</div>
+
+
+			<table class="t_skinR00" style="table-layout: fixed;">
+				<colgroup>
+					<col width="70">
+					<col width="40">
+					<col width="30">
+					<col width="100">
+
+					<col width="30">
+					<col width="50">
+					<col width="40">
+					<col width="40">
+					<col width="40">
+					<col width="60">
+					<col width="60">
+					<col width="60">
+					<col width="60">
+					<col width="60">
+					<col width="60">
+
+					<col width="60">
+					<col width="60">
+					<col width="50">
+					<col width="40">
+					<col width="100">
+					<col width="100">
+					<col width="40">
+					<col width="50">
+					<col width="100">
+					<col width="">
+				</colgroup>
+				<thead>
+					<tr>
+						<th onclick="sortTable(${(sortBtn==1||sortBtn==-1)?sortBtn:1});" class="hand">접수일자<br/><div id="sortBtn1"></div></th>
+						<th onclick="sortTable(${(sortBtn==2||sortBtn==-2)?sortBtn:2});" class="hand pd0">방법<br/><div id="sortBtn2"></div></th>
+						<th onclick="sortTable(${(sortBtn==3||sortBtn==-3)?sortBtn:3});" class="hand pd0">구분<br/><div id="sortBtn3"></div></th>
+						<th onclick="sortTable(${(sortBtn==4||sortBtn==-4)?sortBtn:4});" class="hand pd0">회사명<br/><div id="sortBtn4"></div></th>
+						<th class="pd0">회차</th>
+						<th class="pd0">금액<small>(억)</small></th>
+						<th class="pd0">쿠폰</th>
+						<th class="pd0">YTM</th>
+						<th class="pd0">YTP</th>
+						<th class="pd0">납입일</th>
+						<th class="pd0">발행<br/>경과일</th>
+						<th class="pd0">사채만기</th>
+						<th class="pd0">PUT</th>
+						<th class="pd0">행사가</th>
+						<th class="pd0 hand" onclick="sortTable(${(sortBtn==7||sortBtn==-7)?sortBtn:7});">현재가<div id="sortBtn7"></div></th>
+						<th class="pd0 hand" onclick="sortTable(${(sortBtn==6||sortBtn==-6)?sortBtn:6});">상승률<div id="sortBtn6"></div></th>
+						<th class="pd0 hand" onclick="sortTable(${(sortBtn==5||sortBtn==-5)?sortBtn:5});">워런트<br/>만기<div id="sortBtn5"></div></th>
+						<th class="pd0">워런트<br/>잔여일</th>
+						<th class="pd0">리픽싱</th>
+						<th class="pd0">주관회사<br/><small>(담당자)</small></th>
+						<th class="pd0">인수자</th>
+						<th class="pd0">Buy<br/>Back</th>
+						<th class="pd0">프리미엄</th>
+						<th class="pd0">대상</th>
+						<th class="pd0">관계</th>
+					</tr>
+				</thead>
+				</table></div>
+			<div style="padding-top:95px;">
+			<table class="t_skinR00" style="table-layout: fixed;">
+				<colgroup>
+					<col width="70">
+					<col width="40">
+					<col width="30">
+					<col width="100">
+					<col width="30">
+					<col width="50">
+					<col width="40">
+					<col width="40">
+					<col width="40">
+					<col width="60">
+					<col width="60">
+					<col width="60">
+					<col width="60">
+					<col width="60">
+					<col width="60">
+					<col width="60">
+					<col width="60">
+					<col width="50">
+					<col width="40">
+					<col width="100">
+					<col width="100">
+					<col width="40">
+					<col width="50">
+					<col width="100">
+					<col width="">
+				</colgroup>
+				<tbody>
+					<c:forEach var="nt" items="${NoticeList}" varStatus="ntS">
+						<tr>
+							<td class="cent" style="padding: 5px 0px;">${nt.tmDt}</td>
+							<td class="cent pd0"><nobr>${nt.way}</nobr></td>
+							<td class="cent pd0"><nobr>${nt.categoryCd}</nobr></td>
+							<td class="cent pd0"><a onclick="popUp('','rcmdCpn','','${nt.cpnSnb}')" style="cursor:pointer;">${nt.cpnNm}</a></td>
+
+							<td class="cent pd0">${nt.rank}</td>
+							<td class="won"><fmt:formatNumber value="${nt.price}" groupingUsed="true"/></td>
+							<td class="cent pd0">${nt.coupon}%</td>
+							<td class="cent pd0">${nt.ytm}%</td>
+							<td class="cent pd0"><c:if test="${nt.ytp != '0.0'}">${nt.ytp}%</c:if><c:if test="${nt.ytp == '0.0'}">${nt.ytm}%</c:if></td>
+							<td class="cent pd0">${nt.payupDt}</td>
+							<td class="cent pd0">${nt.btPayUpTmDt}</td>
+							<td class="cent pd0">${nt.dueDt}</td>
+							<td class="cent pd0">${nt.put}</td>
+							<td class="won"><fmt:formatNumber value="${nt.eventPrice}" groupingUsed="true"/></td>
+							<td class="won"><fmt:formatNumber value="${nt.curPrice}" groupingUsed="true"/></td>
+							<td class="cent pd0"><b>${nt.ratio}%</b></td>
+							<td class="cent pd0">${nt.wrtDueDt}</td>
+							<td class="cent pd0">${nt.btWrtTmDt}</td>
+							<td class="cent pd0">${nt.refixSale}</td>
+							<td class="pd0 overFlowHidden" title="${nt.superCpn}"><nobr>${nt.superCpn}</nobr></td>
+							<td class="pd0 overFlowHidden" title="${nt.underWriter}"><nobr>${nt.underWriter}</nobr></td>
+							<td class="cent pd0">${nt.buyback}</td>
+							<td class="cent pd0 overFlowHidden" title="${nt.premium}">${nt.premium}</td>
+							<td class="pd0 overFlowHidden" title="${nt.target}"><nobr>${nt.target}</nobr></td>
+							<td class="pd0 overflowHide" title="${nt.relation}"><nobr>${nt.relation}</nobr>
+								<span class="btn s orange" style="float:left;margin-left:5px;"><a onclick="javascript:view('tbl${ntS.count}',this,event)">내용수정</a></span>
+								<c:if test="${cur_day eq nt.rgDt}"></c:if>
+								<span class="btn s red" style="float:left;margin-left:5px;"><a onclick="javascript:deleteNotice('${nt.sNb}')">삭제</a></span>
+							</td>
+						</tr>
+					</c:forEach>
+				</tbody>
+			</table>
+			</div>
+		</article>
+	<div class="popUpMenu" style="width:700px;display:none" id="tbl00">
+		<p class="closePopUpMenu" name="textR" title="닫기">ⅹ닫기</p>
+		<table class="t_skinR00">
+			<thead>
+				<tr>
+					<th class="" style="width:60px;border-radius:0px;">접수일자</th>
+					<th class="pd0">방법</th>
+					<th class="pd0">구분</th>
+					<th class="pd0">회사명</th>
+					<th class="pd0">회차</th>
+					<th class="pd0">금액<small>(억)</small></th>
+					<th class="pd0">쿠폰</th>
+					<th class="pd0">YTM</th>
+					<th class="pd0">YTP</th>
+					<th class="pd0">납입일</th>
+					<th class="pd0" style="border-radius:0px;">사채만기</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td class="cent bgWht pd0" style="width:70px;border-radius:0px;"><input type="text" class="w96" id="tm"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="way"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="cate"/></td>
+					<td class="cent bgWht pd0"><input type="hidden" class="w96" id="AP_cpnId_00"><span class="btn s orange" style="vertical-align:top;"><a onclick="popUp('00','c')" id="AP_cpnNm_00" class="c_title">회사선택</a></span></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="rank"/></td>
+					<td class="cent bgWht won" style="width:47px;"><input type="text" class="w96" id="pri"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="ratio1"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="ratio2"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="ratio3"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id=""/></td>
+					<td class="cent bgWht pd0" style="border-radius:0px;"><input type="text" class="w96" id=""/></td>
+				</tr>
+			</tbody>
+		</table>
+		<table class="t_skinR00">
+			<thead>
+				<tr>
+					<th class="pd0" style="border-radius:0px;">PUT</th>
+					<th class="pd0">행사가</th>
+					<th class="pd0">워런트<br/>만기</th>
+					<th class="pd0">리픽싱</th>
+					<th class="pd0 w80p">주관회사<br/><small>(담당자)</small></th>
+					<th class="pd0 w80p">인수자</th>
+					<th class="pd0">BuyBack</th>
+					<th class="pd0">프리미엄</th>
+					<th class="pd0 w80p">대상</th>
+					<th class="pd0" style="border-radius:0px;">관계</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td class="cent bgWht pd0" style="border-radius:0px;"><input type="text" class="w96" id=""/></td>
+					<td class="cent bgWht won" style="width:57px;"><input type="text" class="w96" id=""/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="wrtDueDt"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="refix"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id=""/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id=""/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id=""/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id=""/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id=""/></td>
+					<td class="cent bgWht pd0" style="border-radius:0px;"><input type="text" class="w96" id=""/></td>
+				</tr>
+			</tbody>
+		</table>
+		<p class="cent" style="margin:3px 0px;"><span class="btn s green" onclick="javascript:insertNotice(this);"><a>저장</a></span></p>
+	</div>
+	<c:forEach var="nt" items="${NoticeList}" varStatus="ntS">
+	<div class="popUpMenu" style="width:700px;display:none" id="tbl${ntS.count}">
+		<p class="closePopUpMenu" name="textR" title="닫기">ⅹ닫기</p>
+		<table class="t_skinR00">
+			<thead>
+				<tr>
+					<th class="" style="width:60px;border-radius:0px;">접수일자</th>
+					<th class="pd0">방법</th>
+					<th class="pd0">구분</th>
+					<th class="pd0">회사명</th>
+					<th class="pd0">회차</th>
+					<th class="pd0">금액<small>(억)</small></th>
+					<th class="pd0">쿠폰</th>
+					<th class="pd0">YTM</th>
+					<th class="pd0">YTP</th>
+					<th class="pd0">납입일</th>
+					<th class="pd0" style="border-radius:0px;">사채만기</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td class="cent bgWht pd0" style="width:70px;border-radius:0px;"><input type="text" class="w96" id="tm" value="${nt.tmDt}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="way" value="${nt.way}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="cate" value="${nt.categoryCd}"/></td>
+					<td class="cent bgWht pd0"><input type="hidden" class="w96" id="AP_cpnId_${ntS.count}" value="${nt.cpnId}"><span class="btn s orange" style="vertical-align:top;"><a onclick="popUp('${ntS.count}','c')" id="AP_cpnNm_${ntS.count}" class="c_title">${nt.cpnNm}</a></span></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="rank" value="${nt.rank}"/></td>
+					<td class="cent bgWht won" style="width:47px;"><input type="text" class="w96" id="pri" value="${nt.price}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="ratio1" value="${nt.coupon/100}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="ratio2" value="${nt.ytm/100}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="ratio3" value="${nt.ytp/100}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="" value="${nt.payupDt}"/></td>
+					<td class="cent bgWht pd0" style="border-radius:0px;"><input type="text" class="w96" id="" value="${nt.dueDt}"/></td>
+				</tr>
+			</tbody>
+		</table>
+		<table class="t_skinR00">
+			<thead>
+				<tr>
+					<th class="pd0" style="border-radius:0px;">PUT</th>
+					<th class="pd0">행사가</th>
+					<th class="pd0">워런트<br/>만기</th>
+					<th class="pd0">리픽싱</th>
+					<th class="pd0 w80p">주관회사<br/><small>(담당자)</small></th>
+					<th class="pd0 w80p">인수자</th>
+					<th class="pd0">BuyBack</th>
+					<th class="pd0">프리미엄</th>
+					<th class="pd0 w80p">대상</th>
+					<th class="pd0" style="border-radius:0px;">관계</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td class="cent bgWht pd0" style="border-radius:0px;"><input type="text" class="w96" id="" value="${nt.put}"/></td>
+					<td class="cent bgWht won" style="width:57px;"><input type="text" class="w96" id="" value="${nt.eventPrice}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="wrtDueDt" value="${nt.wrtDueDt}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="refix" value="${nt.refixSale}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="" value="${nt.superCpn}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="" value="${nt.underWriter}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="" value="${nt.buyback}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="" value="${nt.premium}"/></td>
+					<td class="cent bgWht pd0"><input type="text" class="w96" id="" value="${nt.target}"/></td>
+					<td class="cent bgWht pd0" style="border-radius:0px;"><input type="text" class="w96" id="" value="${nt.relation}"/></td>
+					<input type="hidden" value="${nt.sNb}"/>
+				</tr>
+			</tbody>
+		</table>
+		<p class="cent" style="margin:3px 0px;"><span class="btn s orange" onclick="javascript:modifyNotice(this);"><a>수정</a></span></p>
+	</div>
+	</c:forEach>
+</div>

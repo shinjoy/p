@@ -1,0 +1,464 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="organization">
+
+	<!-- 관계사 리스트 + 소속회사까지-->
+	<select id="organization.selectCompanyStructList" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				STRUCT.COMPANY_STRUCT_ID	AS companyStructId
+			  , STRUCT.COMPANY_ID			AS companyId
+			  , STRUCT.PARENT_COMPANY_ID	AS parentCompanyId
+			  , STRUCT.VIEW_COMPANY_NM		AS viewCompanyNm
+			  , STRUCT.COMPANY_ORG_ID		AS companyOrgId
+			  , ORG.ENABLE					AS enable
+
+
+
+		FROM BS_COMPANY_STRUCT AS STRUCT
+		LEFT OUTER JOIN BS_ORG AS ORG	ON STRUCT.COMPANY_ORG_ID = ORG.ORG_ID
+
+		ORDER BY PARENT_COMPANY_ID ASC
+
+		/* organization.selectCompanyStructList*/
+	</select>
+
+	<!-- 등록가능한 관계사 리스트 + 소속회사까지-->
+	<select id="organization.getCompanyList" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				company.S_NB		AS companyId
+			  , CPN_NM				AS companyViewName
+			  ,	org.ORG_ID
+
+		FROM BS_ORG AS org
+		LEFT OUTER JOIN IB_COMPANY AS company ON org.ORG_ID  = company.REF_ORG_ID
+		WHERE org.ENABLE ='Y'
+
+		<isNotEmpty prepend="AND" property="allYn">
+			 NOT EXISTS (SELECT 1 FROM BS_COMPANY_STRUCT WHERE COMPANY_ID = company.S_NB)
+		</isNotEmpty>
+
+
+
+		/* organization.getCompanyList*/
+	</select>
+
+	<!-- 조직도 신규등록 -->
+	<insert id="organization.insertCompanyStruct" parameterClass="HashMap">
+
+		INSERT INTO BS_COMPANY_STRUCT (
+
+							  COMPANY_ID
+							, PARENT_COMPANY_ID
+							, COMPANY_ORG_ID
+							, VIEW_COMPANY_NM
+						 	, CREATED_BY
+						 	, CREATE_DATE
+						 	, UPDATED_BY
+						 	, UPDATE_DATE
+
+
+						)VALUES(
+							  #companyId#
+							, #parentCompanyId#
+							, (SELECT REF_ORG_ID FROM IB_COMPANY WHERE S_NB = #companyId#)
+							, #companyViewName#
+							, #userId#
+							, now()
+							, #userId#
+							, now()
+
+						)
+
+		/* organization.insertCompanyStruct*/
+	</insert>
+
+	<!-- 조직도 회사 수정 -->
+	<update id="organization.updateCompanyStruct" parameterClass="HashMap">
+		UPDATE BS_COMPANY_STRUCT
+		   SET VIEW_COMPANY_NM = #companyViewName#
+		 WHERE COMPANY_ID = #companyStructId#
+
+		/* organization.updateCompanyStruct*/
+	</update>
+
+	<!-- 조직도 회사 삭제 -->
+	<delete id="organization.deleteCompanyStruct" parameterClass="HashMap">
+		DELETE FROM BS_COMPANY_STRUCT
+		WHERE COMPANY_ID = #companyId#
+
+
+		/* organization.deleteCompanyStruct */
+	</delete>
+
+
+	<!-- 선택한 회사 정보 -->
+	<select id="organization.selectCompInfo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				  company.S_NB 			AS companySnb
+				, company.CPN_ID 		AS cpnId
+				, company.CPN_NM 		AS cpnNm
+				, IFNULL(org.ORG_ID,'NULL') 			AS orgId
+
+		FROM IB_COMPANY company
+		LEFT JOIN BS_ORG org ON (CASE WHEN REF_ORG_ID IS NULL THEN  org.COMPANY_SNB = company.S_NB
+								 ELSE org.ORG_ID = company.REF_ORG_ID END)
+
+		WHERE 1=1
+
+		<isNotEmpty prepend="AND" property="companySnb">
+			company.S_NB = #companySnb#
+		</isNotEmpty>
+
+
+		/* organization.selectCompInfo*/
+	</select>
+
+	<!-- 부서 사용자 리스트 -->
+	<select id="organization.selectUserListOfDept" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				A.USER_ID								AS userId
+			   ,IFNULL(A.WORK , '-')     				AS work
+			   ,A.PASSWORD								AS password
+			   ,A.EMP_NO								AS empNo
+			   ,A.LOGIN_ID								AS loginId
+			   ,A.NAME									AS name
+			   ,A.EMP_TYPE								AS empType
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'EMP_TYPE'
+		  		   AND G.CODE_VALUE = A.EMP_TYPE
+		  		   AND G.ORG_ID = #orgId#)		AS empTypeNm
+		  	   ,(SELECT G.SORT
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'EMP_TYPE'
+		  		   AND G.CODE_VALUE = A.EMP_TYPE
+		  		   AND G.ORG_ID = #orgId#)		AS empTypeSort
+		  	   ,(SELECT G.VALUE_MEAN_KOR
+		  	     FROM BS_CODE_GV G
+		  	     WHERE G.CODE_NAME = 'RANK'
+ 				 AND G.CODE_VALUE = A.RANK
+ 				 AND G.ORG_ID = A.ORG_ID)  AS rankNm
+
+			   ,A.COMPANY								AS company
+			   ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY)	AS companyNm
+			   ,A.RANK									AS rank
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BASE.BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = #orgId#)			AS rankNm
+		  	   ,(SELECT G.SORT
+		 		  FROM BASE.BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = #orgId#)			AS rankSort
+
+		  	   ,(SELECT 'Y' FROM BS_DEPT_MANAGER WHERE USER_ID = A.USER_ID AND DEPT_ID = B.DEPT_ID) AS isManager
+			   ,(SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = B.DEPT_ID)	AS deptNm
+
+			   ,A.COMPANY_TEL		AS companyTel
+			   ,A.COMPANY_FAX		AS companyFax
+			   ,A.MOBILE_TEL		AS mobileTel
+			   ,A.EMAIL				AS email
+			   ,DATE_FORMAT(A.HIRED_DATE, '%Y-%m-%d')	AS hiredDate
+			   ,DATE_FORMAT(A.JOIN_DATE, '%Y-%m-%d')	AS joinDate
+
+			   ,A.USER_STATUS		AS userStatus
+			   ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'USER_STTS'
+		  		   AND G.CODE_VALUE = A.USER_STATUS
+		  		   AND G.ORG_ID = #orgId#) 	AS userStatusNm
+			   ,DATE_FORMAT(A.FIRED_DATE, '%Y-%m-%d')	AS firedDate
+
+			   ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			   ,A.CREATED_BY			AS createdBy
+			   ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			   ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			   ,A.UPDATED_BY			AS updatedBy
+			   ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+			   ,DATE_FORMAT(A.DELETE_DATE, "%Y-%m-%d")	AS deleteDate
+			   ,A.DELETED_BY			AS deletedBy
+			   ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.DELETED_BY)	AS deleteNm
+			   ,A.DELETE_FLAG
+
+		   FROM BS_USER_MASTER			A
+		   LEFT JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID
+		  WHERE 1=1
+		  <isEqual property="hideSynergyUserYn" compareValue="Y">     /* 관계사 시너지 유저 목록 활성화여부 */
+            AND A.CUS_ID != 1133368
+          </isEqual>
+		    AND B.DEPT_ID = #deptId#
+		    AND B.DELETE_FLAG = 'N'
+		    AND B.ENABLE = 'Y'
+		    AND B.MAIN_YN = 'Y'
+
+		<isNotEmpty prepend="AND" property="firedType">
+			<isEqual property="firedType" compareValue="1">		<!-- 유효사용자 -->
+				(A.FIRED_DATE is NULL or A.FIRED_DATE = '')
+			</isEqual>
+			<isEqual property="firedType" compareValue="0">		<!-- 퇴사자 -->
+				A.FIRED_DATE > DATE_FORMAT('1999-01-01', '%Y-%m-%d')
+			</isEqual>
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="search">
+			(A.EMP_NO LIKE concat('%', #search#, '%')		OR
+			 A.LOGIN_ID LIKE concat('%', #search#, '%')		OR
+			 A.NAME LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+
+		ORDER BY isManager DESC, empTypeSort ASC, rankSort ASC, A.NAME ASC
+
+		/* system.selectUserListOfDept */
+	</select>
+
+	<!--  경력사항 조회 -->
+	<select id="organization.getUserCareer" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT   A.S_NB
+				,A.USER_ID
+				,DATE_FORMAT(A.JOIN_CPN_DT,'%Y-%m') AS JOIN_CPN_DT
+				,DATE_FORMAT(A.RESIGN_CPN_DT,'%Y-%m') AS RESIGN_CPN_DT
+				,A.COMPANY_NM
+				,A.RANK
+                ,IC.CPN_NM
+                ,(SELECT G.VALUE_MEAN_KOR
+		  	     FROM BS_CODE_GV G
+		  	     WHERE G.CODE_NAME = 'RANK'
+ 				 AND G.CODE_VALUE = A.RANK
+ 				 AND G.ORG_ID = #orgId#)  AS RANK_NM
+                 ,IC.REF_ORG_ID
+				,A.JOB
+				,A.UP_DT
+				,A.UP_ID
+				,A.RG_DT
+				,A.RG_ID
+		  FROM BS_USER_CAREER A
+          LEFT JOIN IB_COMPANY IC ON IC.S_NB = A.S_NB
+          WHERE A.USER_ID = #userId#
+		 ORDER BY S_NB ASC
+		 /* organization.getUserCareer */
+	</select>
+
+	<!-- 사용자의 상세정보 조회 -->
+	<select id="organization.getPersonnelDetail" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT   A.USER_ID
+				,A.EMP_NO
+				,IFNULL(A.WORK , '-') AS WORK
+				,A.LOGIN_ID
+				,IFNULL((SELECT PROMOTION_DT FROM BS_USER_INSIDE_CAREER WHERE USER_ID = A.USER_ID AND A.RANK = RANK ORDER BY PROMOTION_DT DESC LIMIT 1),'-') AS PROMOTION_DT
+				,A.NAME
+				,A.ENG_NM
+				,A.EMP_TYPE
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.ORG_ID =  A.ORG_ID
+                   AND G.CODE_NAME = 'EMP_TYPE'
+		  		   AND G.CODE_VALUE = A.EMP_TYPE) 	AS EMP_TYPE_NM /* 재직형태 */
+				,A.CUS_ID
+				,A.COMPANY
+				,(SELECT CPN_NM FROM IB_COMPANY X WHERE X.S_NB = A.COMPANY) COMPANY_NM /*소속그룹명*/
+				,A.ORG_ID
+				,(SELECT Y.CPN_NM FROM BS_ORG X ,IB_COMPANY Y  WHERE X.ORG_ID = A.ORG_ID AND X.COMPANY_SNB = Y.S_NB) ORG_NM /*관계사명*/
+				,A.RANK
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE G.ORG_ID = A.ORG_ID
+                   AND  G.CODE_NAME = 'RANK'
+		  		   AND  G.CODE_VALUE = A.RANK) AS RANK_NM
+				,A.COMPANY_TEL
+				,A.COMPANY_FAX
+				,A.HOME_ZIP
+				,A.HOME_ADDR1
+				,A.HOME_ADDR2
+				,A.HOME_TEL
+				,A.MOBILE_TEL
+				,A.EMAIL
+				,A.HOMEPAGE
+				,A.HOBBY
+				,DATE_FORMAT(A.HIRED_DATE, '%Y-%m-%d') AS HIRED_DATE
+				,DATE_FORMAT(A.JOIN_DATE, '%Y-%m-%d') AS JOIN_DATE
+				,A.SOLAR
+				,A.SOS_TEL
+				,A.SOS_WHO
+				,A.BLOOD
+				,A.BLOOD_RH
+				,A.RELIGION
+				,A.PASSPORT
+				,A.MARRIED_DATE
+				,A.USER_STATUS
+				,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.ORG_ID =  A.ORG_ID
+                   AND G.CODE_NAME = 'USER_STTS'
+		  		   AND G.CODE_VALUE = A.USER_STATUS) 	AS USER_STATUS_NM /*재직상태한글*/
+				,A.FIRED_DATE
+				,A.DELETE_FLAG
+				,A.ATTR1
+				,A.ATTR2
+				,A.ATTR3
+				,A.ATTR4
+				,A.ATTR5
+				,A.ATTR6
+				,A.ATTR7
+				,A.ATTR8
+				,A.ATTR9
+				,A.ATTR10
+				,A.CREATE_DATE
+				,A.CREATED_BY
+				,A.UPDATE_DATE
+				,A.UPDATED_BY
+				,A.DELETE_DATE
+				,A.DELETED_BY
+				,A.BIRTH
+		 FROM BS_USER_MASTER A
+		 WHERE A.USER_ID = #userId#
+		 /* organization.getPersonnelDetail */
+	</select>
+
+	<!-- 인사정보 (사진 가져오기) -->
+	<select id="organization.getFileInfoImage"  parameterClass="HashMap" resultClass = "egovMap">
+		SELECT REAL_NAME, PATH , MAKE_NAME FROM IB_FILE_INFO WHERE FILE_CATEGORY = '00001' AND SUB_CD = #userId#
+		 ORDER BY UP_DT DESC LIMIT 1
+		 /* organization.getFileInfoImage */
+	</select>
+
+
+	 <!-- 사용자의 학력사항을 조회한다 -->
+	<select id="organization.getUserAcademic" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT  A.S_NB
+				,A.USER_ID
+				,A.ENTERED_DT
+				,A.GRADUATE_DT
+				 ,IFNULL((SELECT G.VALUE_MEAN_KOR
+		  	     FROM BS_CODE_GV G
+		  	     WHERE G.CODE_NAME = 'GRADUATE_TYPE'
+                 AND G.CODE_NAME = A.GRADUATE_TYPE
+ 				 AND G.ORG_ID = #orgId#),'-') AS GRADUATE_TYPE_NM
+				,IFNULL(A.ACADEMIC_NM,'-') AS ACADEMIC_NM
+				,IFNULL(A.SCHOOL_TYPE,'-') AS SCHOOL_TYPE
+				,IFNULL(A.MAJOR,'-') AS MAJOR
+				,IFNULL(A.GRADUATE_TYPE,'-') AS GRADUATE_TYPE
+				,A.UP_DT
+				,A.UP_ID
+				,A.RG_DT
+				,A.RG_ID
+		  FROM BS_USER_ACADEMIC A
+		 WHERE A.USER_ID = #userId#
+		 ORDER BY S_NB ASC
+		 		/* organization.getUserAcademic */
+	</select>
+
+	<!--사용자의 부서리스트를 조회한다 -->
+	<select id="organization.getUserDeptList" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT  A.DEPT_ID
+				,A.USER_ID
+				,A.MAIN_YN
+				,A.REGIST_DATE
+				,B.KOR_NAME AS DEPT_NM
+				,IFNULL((SELECT 'Y' FROM BS_DEPT_MANAGER WHERE USER_ID = A.USER_ID AND DEPT_ID = B.DEPT_ID),'N') AS isManager
+		  FROM BS_USER_DEPARTMENT A
+		  INNER JOIN BS_DEPARTMENT B ON A.DEPT_ID = B.DEPT_ID
+		 WHERE A.USER_ID = #userId#
+		   AND A.ENABLE = 'Y'
+		   AND A.DELETE_FLAG = 'N'
+		   AND B.ENABLE = 'Y'
+		   AND B.DELETE_FLAG = 'N'
+		   /* organization.getUserDeptList */
+	</select>
+
+	<!-- 직무 및 직원명 조회 -->
+	<select id="organization.searchUserList" parameterClass="HashMap"  resultClass = "egovMap">
+		SELECT
+		USER_ID
+		, EMP_NO
+		, NAME AS USER_NM
+		, EMP_TYPE
+		, IFNULL(WORK , '-') AS WORK
+		,IFNULL((SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.ORG_ID =  BUM.ORG_ID
+                   AND G.CODE_NAME = 'USER_STTS'
+		  		   AND G.CODE_VALUE = BUM.USER_STATUS),'-') 	AS USER_STATUS_NM /*재직상태한글*/
+		,IFNULL((SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.ORG_ID =  BUM.ORG_ID
+                   AND G.CODE_NAME = 'EMP_TYPE'
+		  		   AND G.CODE_VALUE = BUM.EMP_TYPE) ,'')	AS EMP_TYPE_NM
+		,IFNULL((SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				  WHERE G.ORG_ID = BUM.ORG_ID
+                   AND  G.CODE_NAME = 'RANK'
+		  		   AND  G.CODE_VALUE = BUM.RANK),'-') AS RANK_NM
+		, IFNULL((SELECT KOR_NAME FROM BS_DEPARTMENT BD , BS_USER_DEPARTMENT BUD WHERE BUD.MAIN_YN = 'Y' AND BD.DEPT_ID = BUD.DEPT_ID AND BUD.USER_ID = BUM.USER_ID),'-') AS DEPT_NM
+		, (SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = BUM.COMPANY) AS CPN_NM
+		, (SELECT CPN_NM FROM IB_COMPANY IB , BS_ORG BO WHERE IB.S_NB = BO.COMPANY_SNB AND BO.ORG_ID = BUM.ORG_ID) AS ORG_NM
+		FROM BS_USER_MASTER BUM
+		 WHERE 1=1
+		 <isNotEmpty prepend="AND" property="userName">
+		 	BUM.NAME LIKE CONCAT('%', #userName#, '%')
+		</isNotEmpty>
+		  <isNotEmpty prepend="AND" property="workStr">
+		 	BUM.WORK LIKE CONCAT('%', #workStr#, '%')
+		</isNotEmpty>
+		 /* organization.searchUserList */
+	</select>
+	<!-- User Group 관리 팝업에서 조회하는 조직도...psj -->
+	<select id="organization.getOrganizationListInfoList" parameterClass="HashMap"  resultClass = "HashMap">
+		SELECT X.TYPE  AS type
+			  ,X.ID	   AS id
+			  ,X.TEXT  as text
+			  ,X.PARENT as parent
+			  ,X.ORG_ID as orgId
+			  ,X.DEPT_ID as deptId
+			  ,X.PARENT_DEPT_ID as parentDeptId
+			  ,X.LEVEL_SEQ		 as levelSeq
+			  ,X.DEPT_SEQ		 as deptSeq
+		FROM (
+			SELECT 'ALL' AS TYPE
+			 	   ,'ALL' AS ID
+			 	   ,'전체' AS TEXT
+			 	   ,'##'	 AS PARENT
+			 	   ,0        AS ORG_ID
+			 	   ,0		 AS DEPT_ID
+			 	   ,0		 AS PARENT_DEPT_ID
+			 	   ,0		 AS LEVEL_SEQ
+			 	   ,0	     AS DEPT_SEQ
+			UNION ALL
+
+			SELECT 'ORG' AS TYPE
+			 	   ,A.ORG_ID AS ID
+			 	   ,B.CPN_NM AS TEXT
+			 	   ,'ALL'	 AS PARENT
+			 	   ,A.ORG_ID AS ORG_ID
+			 	   ,0		 AS DEPT_ID
+			 	   ,0		 AS PARENT_DEPT_ID
+			 	   ,0		 AS LEVEL_SEQ
+			 	   ,0	     AS DEPT_SEQ
+			  FROM BS_ORG A , IB_COMPANY B
+			 WHERE A.USE_YN = 'Y'
+			   AND A.ENABLE = 'Y'
+			   AND A.COMPANY_SNB = B.S_NB
+			 UNION ALL
+
+			 SELECT 'DEPT' AS TYPE
+			 		,CONCAT(A.ORG_ID,'_',A.DEPT_ID,'_',A.PARENT_DEPT_ID) AS ID
+			 		,A.KOR_NAME  AS TEXT
+			 		,IF(A.PARENT_DEPT_ID = 0 , A.ORG_ID , CONCAT(A.ORG_ID,'_',A.PARENT_DEPT_ID,'_',(SELECT D.PARENT_DEPT_ID FROM BS_DEPARTMENT D WHERE D.DEPT_ID = A.PARENT_DEPT_ID))) AS PARENT
+			 		,A.ORG_ID    AS ORG_ID
+			 		,A.DEPT_ID   AS DEPT_ID
+			 		,A.PARENT_DEPT_ID
+			 		,A.LEVEL_SEQ
+			 		,A.DEPT_SEQ
+			   FROM  BS_DEPARTMENT A , BS_ORG B
+			   WHERE A.ENABLE = 'Y'
+			   AND A.DELETE_FLAG != 'Y'
+			   AND A.ORG_ID = B.ORG_ID
+			   AND B.USE_YN = 'Y'
+			   AND B.ENABLE = 'Y'
+		 ) X
+		 ORDER BY X.ORG_ID ,X.LEVEL_SEQ, X.DEPT_SEQ
+	/* organization.getOrganizationListInfoList */
+	</select>
+</sqlMap>

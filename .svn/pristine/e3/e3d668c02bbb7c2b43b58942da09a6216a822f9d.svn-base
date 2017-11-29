@@ -1,0 +1,202 @@
+package ib.approve.service;
+
+import java.util.List;
+import java.util.Map;
+
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+
+/**
+ * <pre>
+ * package	: ibiss.approve.service
+ * filename	: ApproveService.java
+ * </pre>
+ *
+ * 전자결재 서비스
+ *
+ * @author	:  Park
+ * @date	: 2016. 10. 20.
+ * @version :
+ *
+ */
+public interface ApproveService {
+
+	//휴가 신청서 작성시 연차정보 조회
+	public EgovMap getUserHolidaySum(Map map) throws Exception;
+	//휴가 품의서 저장
+	public Integer insertVacApprove(Map<String,Object> paramMap) throws Exception;
+	 //기본양식,보고서 저장(저장 로직에 차이가없어 같이씀...)
+	public Integer insertBasicApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList, ApproveVoList appVoList) throws Exception;
+	//기본양식 수정
+	public Integer modifyBasicApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList,String[] delFileList ,ApproveVoList appVoList) throws Exception;
+	//출장 품의서 저장
+	public Integer insertTripApprove(Map<String,Object> paramMap) throws Exception;
+	//사내 품의서 저장
+	public Integer insertCompanyApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList,ApproveVoList appVoList) throws Exception;
+	//출장 품의서 수정
+	public Integer modifyTripApprove(Map<String,Object> paramMap) throws Exception;
+	//휴가 품의서 수정
+	public Integer updateVacApprove(Map<String,Object> paramMap) throws Exception;
+	//구매신청 품의서 저장
+	public Integer insertPurchaseApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList) throws Exception;
+	//지출결의서 저장
+	public Integer insertExpenseApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList,ApproveVoList appVoList) throws Exception;
+	//경조사 품의서 저장
+	public Integer insertEventApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList) throws Exception;
+	//경조사 품의서 수정
+	public Integer modifyEventApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList,String[] delFileList) throws Exception;
+	//사내 품의서 수정
+	public Integer updateCompanyApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList,ApproveVoList appVoList,String[] delFileList) throws Exception;
+	//교육신청 품의서 저장
+	public Integer insertEducationApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList) throws Exception;
+	//교육신청 품의서 수정
+	public Integer modifyEducationApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList,String[] delFileList) throws Exception;
+	//구매신청 품의서 수정
+	public Integer updatePurchaseApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList,String[] delFileList) throws Exception;
+	//지출결의서 저장
+	public Integer updateExpenseApprove(Map<String,Object> paramMap,List<Map<String , Object>> fileList,ApproveVoList appVoList,String[] delFileList) throws Exception;
+	//품의서 상세 조회
+	public EgovMap getApproveDetail(Map<String,Object> paramMap) throws Exception;
+	//품의서 상세 조회(기본정보만 조회)
+	public EgovMap getApproveDocDetail(Map<String,Object> paramMap) throws Exception;
+	//기안문서 summary
+	public EgovMap getDraftSummary(Map<String,Object> paramMap) throws Exception;
+	//결재문서 summary
+	public EgovMap getReqSummary(Map<String,Object> paramMap) throws Exception;
+	//기안문서 List
+	public List<EgovMap> getDraftDocList(Map<String,Object> paramMap) throws Exception;
+	//결재문서 List
+	public List<EgovMap> getReqDocList(Map<String,Object> paramMap) throws Exception;
+	//메인화면결재문서 List
+	public List<EgovMap> getReqDocListForMain(Map<String,Object> paramMap) throws Exception;
+	//취소승인 List
+	public List<EgovMap> getCancelDocList(Map<String,Object> paramMap) throws Exception;
+	//참조문서 List
+	public List<EgovMap> getRefDocList(Map<String,Object> paramMap) throws Exception;
+	//수신문서 List
+	public List<EgovMap> getRcDocList(Map<String,Object> paramMap) throws Exception;
+	//지출문서 List
+	public List<EgovMap> getAppvDocExpenseList(Map<String,Object> paramMap) throws Exception;
+	//결재라인을 검색 List
+	public List<EgovMap> getApproveLine(Map<String,Object> paramMap) throws Exception;
+	//직접지정 결재라인을 검색 List
+	public List<EgovMap> getApproveLineIndividual(Map<String,Object> paramMap) throws Exception;
+	//품의서 상신
+	public Integer processDocSubmit(Map<String,Object> paramMap) throws Exception;
+	//품의서 상태변경
+	public Integer processDocStatus(Map<String,Object> paramMap) throws Exception;
+	//품의서 취소 상태변경
+	public Integer processDocStatusCancel(Map<String,Object> paramMap) throws Exception;
+	//처리의견등록
+	public Integer processDocComment(Map<String,Object> paramMap) throws Exception;
+	//품의서 삭제
+	public Integer deleteApproveDoc(Map<String,Object> paramMap) throws Exception;
+
+	//미상신 결재라인 부서정보 임시 저장
+    public void doSaveApprovaeProcessNoSubmit(Map<String, Object> paramMap) throws Exception;
+	//미상신 결재라인 부서정보 삭제
+    public void deleteApprovaeProcessNoSubmit(Map<String, Object> paramMap) throws Exception;
+    //경조사 분류코드를 조회한다
+    public List<EgovMap> familyEventsIdList(Map<String, Object> paramMap) throws Exception;
+    //경조사 마지막일 조회
+    public EgovMap getEventLastDay(Map<String, Object> paramMap) throws Exception;
+    //결제 처리 코멘트 리스트
+  	public List<EgovMap> getApproveProcessComment(Map<String,Object> paramMap) throws Exception;
+  	//dateFrom~dateTo 동안 승인대행자 / 동행자가 휴직상태라면 조회한다.
+  	public Map<String,Object> getChkAppointedPerson(Map<String,Object> paramMap,Map<String,String> msgMap) throws Exception;
+  	//내가 작성한 문서 cnt....
+    public Integer getDraftDocListTotalCnt(Map<String,Object> paramMap) throws Exception;
+    //결재할 문서 cnt....
+    public Integer getReqDocListTotalCnt(Map<String,Object> paramMap) throws Exception;
+    //참조문서 cnt....
+    public Integer getRefDocListTotalCnt(Map<String,Object> paramMap) throws Exception;
+    //경조사 코드관리 페이지의 리스트를 조회한다
+    public List<Map> getEventCodeList(Map<String,Object> map) throws Exception;
+    //경조사 기준정보 insert : return 0 일경우 이미등록된 경조사분류
+    public Integer insertEventInfo(Map<String,Object> map) throws Exception;
+    //경조사 기준정보 update
+    public Integer updateEventInfo(Map<String,Object> map) throws Exception;
+    //경조사 기준정보 delete
+    public Integer deleteEventInfo(Map<String,Object> map) throws Exception;
+    //품의서 승인취소요청
+  	public Integer processApproveCancelReq(Map<String,Object> paramMap) throws Exception;
+  	//품의서 취소승인권한
+  	public Integer getCancelRoleCnt(Map<String,Object> paramMap) throws Exception;
+  	//품의서 문서번호 리스트
+  	public List<EgovMap> approveDocNumList(Map<String,Object> paramMap) throws Exception;
+  	//품의서 문서번호 저장
+    public Integer processAppvDocNumRule(Map<String,Object> map) throws Exception;
+    //품의서 수신확인
+    public Integer processAppvRc(Map<String,Object> map) throws Exception;
+    //품의 수신자 조회
+    public List<EgovMap> getApproveRcList(Map<String, Object> paramMap) throws Exception;
+    //결재라인명 리스트 조회
+  	public List<EgovMap> getAppvHeaderList(Map<String,Object> paramMap) throws Exception;
+  	//보고서 - 일정 선택 팝업
+  	public List<EgovMap> getAppvScheduleList(Map<String,Object> paramMap) throws Exception;
+	//결재순서 목록조회
+  	public List<Map> selectApproveLineListIndividual(Map<String, Object> map) throws Exception;
+  	//읽음 처리 (참조문서)
+  	public int updateReadUserIdList(Map<String, Object> map) throws Exception;
+  	//상신하려는 문서의 문서번호 사용여부를 조회한다
+  	public String appvDocNumUseChk(Map<String, Object> map) throws Exception;
+
+  	//////////////////////////////////////////////////////////////////////////////////////////////
+  	//전체문서 List
+  	public List<EgovMap> getAppvDocList(Map<String,Object> paramMap) throws Exception;
+  	//사내서식 저장
+  	public Integer insertApproveCompanyForm(Map<String,Object> paramMap) throws Exception;
+  	//사내서식 수정
+  	public Integer updateApproveCompanyForm(Map<String,Object> paramMap) throws Exception;
+  	//사내서식 삭제
+  	public Integer deleteApproveCompanyForm(Map<String,Object> paramMap) throws Exception;
+  	//사내서식 구분 유효성 체크
+  	public Integer getAppvDocNumRuleMidNameCnt(Map<String, Object> map) throws Exception;
+  	//사내서식 List
+  	public List<EgovMap> getCompanyFormList(Map<String,Object> paramMap) throws Exception;
+  	//사내서식 폼 상세
+  	public EgovMap getCompanyFormInfo(Map<String,Object> paramMap) throws Exception;
+  	//연결 결재문서 List
+  	public List<EgovMap> getApproveRefDocList(Map<String,Object> paramMap) throws Exception;
+
+  	//종결전 문서열람 정보를 조회
+  	public EgovMap getAppvReadDocSetup(Map<String,Object> paramMap) throws Exception;
+  	//서식 즐겨찾기 프로세스
+  	public Integer processAppvFavListAjax(Map<String,Object> paramMap) throws Exception;
+  	//즐겨찾기 서식 리스트
+  	public List<EgovMap> getAppvFavListAjax(Map<String,Object> paramMap) throws Exception;
+
+  	//사내서식 user열람 정보를 저장
+  	public Integer updateCompanyFormReadUserId(Map<String,Object> paramMap) throws Exception;
+  	//지출결의서 지급처리
+  	public Integer processExpenseYn(Map<String,Object> paramMap) throws Exception;
+  	//즐겨찾기 서식 리스트
+  	public List<EgovMap> getApproveBookmarkFormList(Map<String,Object> paramMap) throws Exception;
+  	//My업무구분에서 전자결재 SELECT박스 즐겨찾기 조회
+  	public List<EgovMap> getApproveBookmarkFormListForMyWorkList(Map<String,Object> paramMap) throws Exception;
+
+  	//결재품의서 내영 수정
+  	public Integer doSaveAppvInfoUpdate(Map<String,Object> paramMap,List<Map<String , Object>> fileList,String[] delFileList) throws Exception;
+  	//중복 문서타입 카운트
+  	public Integer getAppvDocTypeNameCnt(Map<String,Object> paramMap) throws Exception;
+  	//지출문서총개수
+  	public Integer getAppvDocExpenseListTotalCnt(Map<String,Object> paramMap) throws Exception;
+  	//다음 결재도 같은사람인지 체크
+  	public Integer getChkDupAppvReqUserCnt(Map<String,Object> paramMap) throws Exception;
+
+  	////////////////////////////////좌측메뉴 새글알림///////////////////////////////
+  	//사내서식 조회
+  	public Integer getMenuApproveCompanyCnt(Map<String,Object> paramMap) throws Exception;
+  	//임시저장 new 조회
+  	public Integer getMenuMenuApproveTemp(Map<String,Object> paramMap) throws Exception;
+  	//받은결재 new
+  	public Integer getMenuApproveReqList(Map<String,Object> paramMap) throws Exception;
+  	//참조문서 new
+  	public Integer getMenuApproveReference(Map<String,Object> paramMap) throws Exception;
+  	//수신문서 new
+  	public Integer getMenuApproveReceived(Map<String,Object> paramMap) throws Exception;
+  	//지출문서 NEW
+  	public Integer getMenuApproveExpense(Map<String,Object> paramMap) throws Exception;
+
+
+
+}

@@ -1,0 +1,319 @@
+@charset "utf-8";
+
+/* All Device 모든 해상도를 위한 공통 코드를 작성한다. 모든 해상도에서 이 코드가 실행됨*/
+/********************************************************* 레이아웃 *********************************************************/
+#wrap { background:#fff; }
+/********************************************************* footer *********************************************************/
+#footer { width:100%; border-top:1px solid #000000; background:#21252e; }
+#footer .CreateBy { padding:0.4em 0 0.5em; font-family:Verdana, Arial, Helvetica, sans-serif; text-align:center; font-size:10px; }
+#footer .CreateBy p { color:#999; text-align:center; }
+#footer .CreateBy p a, #footer .CreateBy p span  { color:#ccc; text-decoration:none; margin-left:2em; }
+
+/* 레프트 메뉴btn */
+.btn_leftmn_op { background:url(../images/common/btn_leftmn_open.gif) no-repeat center center; border-top:#c1c3c2 solid 1px; border-right:#c1c3c2 solid 1px; border-left:#d0d2d1 solid 1px; border-bottom:#c1c3c2 solid 1px; width:14px; height:29px; display:none; overflow:hidden; position:absolute; left:0; top:220px;  z-index:2; }
+.btn_leftmn_op em { text-indent:-999999999999999999px; visibility:hidden; }
+
+.btn_leftmn_cl { background:url(../images/common/btn_leftmn_close.gif) no-repeat center center; border-top:#c1c3c2 solid 1px; border-left:#c1c3c2 solid 1px; border-right:#d0d2d1 solid 1px; border-bottom:#c1c3c2 solid 1px; width:14px; height:29px; overflow:hidden; position:absolute; right:-1px; top:220px; z-index:2; }
+.btn_leftmn_cl em { text-indent:-999999999999999999px; visibility:hidden; }
+
+
+/* Mobile Device  768px 미만 해상도의 모바일 기기를 위한 코드를 작성한다. 모든 해상도에서 이 코드가 실행됨. */
+/****************************************************** 메뉴스타일 ******************************************************/
+/**** 푸쉬메뉴 ****/
+/* 모바일 슬라이드메뉴 */
+.cbp-spmenu { background:#122d58; position:fixed; width:250px; height:100%; overflow:visible; overflow-y:auto; top: 0; z-index:2;}  
+.cbp-spmenu-left { left:-250px; }
+.cbp-spmenu-right { right:-250px; }
+.cbp-spmenu-left.cbp-spmenu-open { left: 0px; }
+.cbp-spmenu-right.cbp-spmenu-open {	right: 0px;}
+.cbp-spmenu-push { position:relative; left:0; background:#21252e; }
+.cbp-spmenu-push-toright { left:250px; }
+.cbp-spmenu-push-toleft { left:-250px; }
+.cbp-spmenu, .cbp-spmenu-push {	-webkit-transition: all 0.3s ease;	-moz-transition: all 0.3s ease;	transition: all 0.3s ease; }
+
+/* 헤더로고 */
+#headerWrap { position:relative; text-align:left; vertical-align:middle; }
+#headerWrap .headerTop { float:none; *zoom:1; padding:13px 2em;  background:url(../images/common/bg_topnavi.gif) no-repeat center top #2d508a; box-sizing:border-box; }
+#headerWrap .headerTop:after { content:""; display:block; clear:both; height:0; }
+#headerWrap .headerTitle { float:none; text-align:center; }
+#headerWrap .headerTitle h1 { height:24px; line-height:24px; vertical-align:middle; }
+#headerWrap .headerTitle h1 img { margin-top:2px; }
+#headerWrap h2.menuTitle { color:#5999f7; font-size:1.6em; font-weight:400; padding:1.25em 1.4em 0.85em; letter-spacing:0.3em; background:#0f264b; } /* SITEMAP */
+
+/* 검색부분 공통 */
+#headerWrap .searchBox { display:block; height:24px; line-height:24px; }
+#headerWrap .searchBox label, #headerWrap .searchBox input, #headerWrap .searchBox a { float:left; vertical-align:middle; }
+#headerWrap .searchBox input { width:100%; max-width:163px; *width:140px; height:22px; line-height:22px; border:#202a3e solid 1px; background:#f3f3f3; text-indent:4px; }
+#headerWrap .searchBox label { height:24px; }
+#headerWrap .searchBox a { width:32px; height:22px; background:url(../images/common/btn_search.gif) no-repeat center center #1d2536; border:#111826 solid 1px; display:inline-block; margin-left:6px; cursor:pointer; }
+#headerWrap .searchBox a em { width:0px; height:0px; overflow:hidden; font-size:0; }
+
+/* 검색부분 모바일 */
+#headerWrap .headerTitle .searchBox { display:none; }
+#headerWrap #cbp-spmenu-s1 .searchBox { border-bottom:#0e2852 dashed 1px; padding-bottom:1.25em; margin-bottom:1.25em; }
+
+
+/**** CSSMENU 전체스타일 ****/
+#cssmenu { background:#122d58; font-family:'Oxygen Mono', Tahoma, Arial, sans-serif; font-size:12px; }
+#cssmenu:after, #cssmenu ul:after { content:""; display:block; clear:both; height:0; }
+#cssmenu ul { position:relative; z-index:597; border-right:#13223f solid 1px; }
+#cssmenu ul ul { display:none; position:relative; border-right:none; }
+#cssmenu ul ul ul { text-indent:1.5em; border-top:#bec3c9 solid 1px; border-bottom:#bec3c9 solid 1px; }
+#cssmenu ul li { vertical-align:middle; }
+#cssmenu ul li:hover { position:relative; z-index:599; cursor:default; }
+#cssmenu ul li:hover > ul { display:block; }
+#cssmenu ul ul li { float:none; position:relative; }
+#cssmenu ul li.first_end { background:#183b73; width:100%; height:1px; display:none; }
+#cssmenu ul li.last_end { background:#13223f; width:100%; height:1px; display:block; }
+
+/* 01.Depth */
+#cssmenu a { display:block; color:#fff; line-height:1.6; font-size:12px; }
+#cssmenu ul li a { border-top:#13223f solid 1px; border-bottom:#183b73 solid 1px; padding:10px 25px 11px; } 
+#cssmenu ul li a:hover { border-top::#13223f solid 1px; border-bottom:#1775cd solid 1px; background:#1775cd; }
+#cssmenu ul li.active a { border-top:#13223f solid 1px; border-bottom:#1775cd solid 1px; background:#1775cd; }
+#cssmenu ul li.active ul li a { border-top:none; border-bottom:none; background:#1775cd; }
+
+/* 02.Depth */
+#cssmenu ul ul li a { border-top:none; border-bottom:none; background:#fff; color:#5b5c5e; padding:3px 25px; font-size:12px; letter-spacing:-0.08em; }
+#cssmenu ul ul li a:hover { border-top:none; border-bottom:none; background:#fff; color:#5b5c5e; padding:3px 25px; font-size:12px; letter-spacing:-0.08em; }
+
+
+/**** CSSMENU 자식스타일 ****/
+#cssmenu ul li.has-sub > a:after { content:'+'; margin-left:5px; font-size:10px; opacity:0.35; }
+#cssmenu ul ul li.has-sub > a:after { content:'+'; position:absolute; top:50%; right:15px; margin-top:-8px; opacity:0.5; }
+#cssmenu ul ul li.has-sub:first-child > a:after { content:'+'; position:absolute; top:50%; right:15px; margin-top:-5px; color:#999; }
+
+/* 01.Depth */
+#cssmenu > ul { *display: inline-block; }
+#cssmenu ul li:hover > a { background:#1775cd; color:#ffffff; }
+
+/* 02.Depth */
+#cssmenu ul ul li.last > a { padding-bottom:10px; }
+#cssmenu ul ul li:first-child > a { padding-top:8px; background-position:2.8em 1.5em; }
+#cssmenu ul ul li:hover > a { background:#eef0f0; color:#242424; }
+#cssmenu ul ul > li:hover li:first-child > a { padding-top:8px; background-position:2.8em 1.5em; }
+#cssmenu ul li.active ul li a { color: #5b5c5e;  border-right:none; background:#fff; }
+#cssmenu ul li.active ul li:hover > a { color: #242424; background:#eef0f0; }
+
+/* 03.Depth */
+#cssmenu ul ul ul > li > a { background:url(../images/common/bu_dash.gif) no-repeat 2.8em 1.1em #e0e5ea; }
+#cssmenu ul ul ul > li:hover > a { background:url(../images/common/bu_dash.gif) no-repeat 2.8em 1.1em #d7dce1; }
+#cssmenu ul li.active ul li:hover li:first-child > a { padding-top:8px; background-position:2.8em 1.5em;  }
+#cssmenu ul li.active ul ul li > a { background:url(../images/common/bu_dash.gif) no-repeat 2.8em 1.1em #e0e5ea; }
+#cssmenu ul li.active ul ul li:hover > a { background:url(../images/common/bu_dash.gif) no-repeat 2.8em 1.1em #d7dce1; }
+
+/* 추가 */
+#cssmenu .mn_num { padding-right:4px; font-size:11px; }
+
+
+/**** FAVORIT MENU 메뉴 ****/
+#headerWrap #cbp-spmenu-s2 { background:#e7e9e8; }
+#headerWrap #cbp-spmenu-s2 h2.menuTitle { font-family:'Oxygen Mono', Tahoma, Arial, sans-serif; color:#333; font-size:1.6em; font-weight:400; padding:1.25em 1.4em 0.85em; letter-spacing:0.1em; background:url(../images/common/bg_favor_top.gif) repeat-x left bottom; border-bottom:#c0c2c1 solid 1px; } /* MY FAVORITE */
+
+.favormenu { float:none; *zoom:1; background:url(../images/common/bg_favor_mn.gif) repeat-x 0 bottom #e7e9e8; }
+.favormenu:after { content:""; display:block; clear:both; height:0;}
+.favormn_list { float:none; *zoom:1; }
+.favormn_list:after { content:""; display:block; clear:both; height:0 ;}
+.favormn_list li { line-height:1.6; }
+.favormn_list li.last_end { width:100%; height:1px; background:#f3f4f3; *display:none; }
+.favormn_list li a { border-top:#f3f4f3 solid 1px; border-bottom:#cfd0cf solid 1px; padding:0.75em 3.25em; display:block; background:url(../images/common/bu_fa_arrow.gif) no-repeat 2.35em center #e7e9e8; }
+.favormn_list li:hover a { border-top:#eaecea solid 1px; background:url(../images/common/bu_fa_arrow.gif) no-repeat 2.35em center #e1e1e1; color:#242424; }
+
+/**** 퀵메뉴 ***/
+#headerWrap .headerTop .gnb_wrap { display:none; }
+#headerWrap #cbp-spmenu-s1 .gnb_wrap { display:block; background:#2d508a; padding:2em 2em 1.25em; border-top:#223f73 solid 5px; }
+#headerWrap .gnb_wrap .gnb li { display:inline-block; *display:inline;  }
+#headerWrap .gnb_wrap .gnb li a { display:inline-block;  border:#192e4f solid 1px; background:#223f73; color:#93a6cc; padding:3px 5px; line-height:1.4; margin-bottom:8px; }
+
+/* 메뉴오픈버튼 */
+#headerWrap .headerTitle #showLeftPush { position:absolute; top:13px; left:2em; width:24px; height:24px; background:url(../images/common/btn_menu_open.gif) no-repeat center center; display:inline-block; }
+#headerWrap .headerTitle #showRightPush { position:absolute; top:13px; right:2em; width:24px; height:24px; background:url(../images/common/btn_menu_open.gif) no-repeat center center; display:inline-block; }
+#headerWrap .headerTitle #showLeftPush em, #headerWrap .headerTitle #showRightPush em { font-size:0; width:0px; height:0px; overflow:hidden; }
+
+/* 메뉴오픈버튼 */
+#headerWrap .headerTitle #showLeftPush { display:block; }
+#headerWrap .headerTitle #showRightPush { display:block; }
+
+
+/* 레프트 메뉴btn */
+.btn_leftmn_op { display:none; }
+.btn_leftmn_cl { display:none; }
+
+
+/****************************************************** 레이아웃 스타일 ******************************************************/
+/**** 전체판넬 view ****/
+#wholePanel { float:none; width:100%; *zoom:1; height:100%; }
+#wholePanel:after { content:""; display:block; clear:both; height:0px; }
+#wholePanel #leftPanel { width:100%; }
+#wholePanel #rightPanel { width:100%; }
+
+
+/* Tree Navigation */
+.tNav { display:none; position:relative; margin:1em 0; zoom:1; margin-left:15px;}
+.tNav ul { list-style:none; margin:0; padding:0; }
+.tNav ul ul { margin:0 0 0 -3px; }
+.tNav li label input { margin-right:4px; /*margin-right:25px;*/ }
+.tNav li { position:relative; padding:0 0 0 22px; white-space:nowrap; line-height:20px; background:url(../images/common/lineTree.gif) no-repeat 9px 1px; *zoom:1; }
+.tNav li.last { background-position:9px -1763px; }
+.tNav li.active a { font-weight:bold; color:#333; }
+.tNav li.active li a { font-weight:normal; color:#767676}
+.tNav a { text-decoration:none; color:#767676; /*background:url(../images/common/bg_tree_icon.gif) no-repeat 20px center;*/  }
+.tNav a:hover, .tNav a:active, .tNav a:focus{text-decoration:underline; }
+.tNav .tNavToggle { position:absolute; top:0; left:0; width:22px; height:22px; padding:0; overflow:hidden; border:0; font-size:0; color:#fff; vertical-align:middle; text-indent:19px; *text-indent:0; background:transparent url(../images/common/btnPlusMinus.gif) no-repeat; cursor:pointer}
+.tNav .tNavToggle.plus { background-position:5px -12px; }
+.tNav .tNavToggle.minus { background-position:5px 7px; }
+
+
+
+
+/* Tablet & Desktop Device 사용자 해상도가 768px 이상일 때 이 코드가 실행됨. 테블릿과 데스크톱의 공통 코드를 작성한다. */
+@media all and (min-width:768px) {
+/****************************************************** 레이아웃 스타일 ******************************************************/
+#wholePanel { float:none; width:100%; *zoom:1;  }
+#wholePanel:after { content:""; display:block; clear:both; height:0px; }
+#wholePanel #leftPanel { float:left; width:219px; position:relative; padding-bottom:2em; }
+#wholePanel #rightPanel { width:auto; position:relative; background:url(../images/common/bg_mysplitter.gif) repeat-y left 0; overflow:hidden; padding-bottom:1em; }
+
+/* Tree Navigation */
+.tNav { display:block; }
+
+/* 레프트 메뉴btn */
+.btn_leftmn_cl { display:block; }
+
+}
+
+
+/* Tablet Device 사용자 해상도가 768px 이상이고 1200px 이하일 때 이 코드가 실행됨. 아이패드 또는 비교적 작은 해상도의 랩탑이나 데스크톱에 대응하는 코드를 작성한다. */
+@media all and (min-width:768px) and (max-width:960px) {
+/****************************************************** 레이아웃 스타일 ******************************************************/
+
+
+}
+
+/* Tablet & Desktop Device 사용자 해상도가 960px 이상일 때 이 코드가 실행됨. 테블릿과 데스크톱의 공통 코드를 작성한다. */
+@media all and (min-width:960px) {
+/****************************************************** 메뉴스타일 ******************************************************/
+/**** 푸쉬메뉴 ****/
+/* General styles for all menus */
+.cbp-spmenu { background:none; position:relative; width:100%; overflow:visible; overflow-y:visible; top:0x; z-index:2; }
+
+/* Vertical menu that slides from the left or right */
+.cbp-spmenu-left { left:0; top:0px; z-index:50; }
+.cbp-spmenu-right { right:0; top:0px; z-index:40; }
+.cbp-spmenu-left.cbp-spmenu-open { left:0px;}
+.cbp-spmenu-right.cbp-spmenu-open { right:0px;}
+
+/* Push classes applied to the body */
+.cbp-spmenu-push { left:0;}
+.cbp-spmenu-push-toright { right:250px;}
+.cbp-spmenu-push-toleft { left:-250px;}
+
+/* Transitions */
+.cbp-spmenu, .cbp-spmenu-push {	-webkit-transition: all 0s ease;	-moz-transition: all 0s ease;	transition: all 0s ease; }
+.cbp-spmenu-horizontal {font-size: 75%;	height: 110px;  }
+
+/* 검색부분 PC */
+#headerWrap .headerTitle .searchBox { display:block; float:left; height:24px; line-height:24px; }
+#headerWrap .headerTitle .searchBox label, #headerWrap .headerTitle .searchBox input, #headerWrap .headerTitle .searchBox a { float:left; } 
+#headerWrap .headerTitle .searchBox input { max-width:175px; }
+#headerWrap #cbp-spmenu-s1 .searchBox { display:none; }
+
+/* 헤더로고 */
+#headerWrap .headerTitle { float:left; }
+#headerWrap .headerTitle h1 { float:left; height:24px; line-height:24px; vertical-align:middle; margin-right:6.5em; }
+#headerWrap .headerTitle h1 img { margin-top:2px; }
+#headerWrap h2.menuTitle { display:none; }
+#headerWrap .headerTitle .searchBox { display:inline-block; }
+#headerWrap .headerTitle .searchBox label, #headerWrap .headerTitle .searchBox input, #headerWrap .headerTitle .searchBox a { float:left; vertical-align:middle; } 
+#headerWrap .headerTitle .searchBox label { height:24px; }
+#headerWrap .headerTitle .searchBox input { width:175px; height:22px; line-height:22px; border:#202a3e solid 1px; background:#f3f3f3; text-indent:4px; }
+#headerWrap .headerTitle .searchBox a { width:32px; height:22px; background:url(../images/common/btn_search.gif) no-repeat center center #1d2536; border:#111826 solid 1px; display:inline-block; vertical-align:middle; margin-left:6px; cursor:pointer; }
+#headerWrap .headerTitle .searchBox a em { width:0px; height:0px; overflow:hidden; font-size:0; }
+
+/* 퀵메뉴 */
+#headerWrap .headerTop .gnb_wrap { display:block; float:right; }
+#headerWrap .headerTop .gnb_wrap .searchBox  { display:none; }
+#headerWrap #cbp-spmenu-s1 .gnb_wrap { display:none; }
+#headerWrap .gnb_wrap .gnb li a { margin-bottom:0px; }
+
+/* 메뉴오픈버튼 */
+#headerWrap .headerTitle #showLeftPush { display:none; }
+#headerWrap .headerTitle #showRightPush { display:none; }
+
+
+/**** CSSMENU 전체스타일 ****/
+#cssmenu ul { border-right:none; }
+#cssmenu ul ul { display:none; position:absolute; min-width:150%; top:100%; left:0; z-index:598; width:100%; border-top:none; border-left:#b1b8c0 solid 1px; border-right:#b1b8c0 solid 1px; border-bottom:#b1b8c0 solid 1px; box-shadow:2px 2px 2px rgba(10, 21, 30, 0.14); }
+#cssmenu ul ul ul { min-width:100%; margin-left:-8px; margin-top:3px; text-indent:0; top:0; left:100%; border-top:#b1b8c0 solid 1px; }
+#cssmenu ul li { float:left; vertical-align:middle; }
+#cssmenu ul ul li { float:none; position:relative; }
+#cssmenu ul li.first_end { background:#183b73; width:1px; height:39px; display:block; margin-left:2em; }
+#cssmenu ul li.last_end { background:#13223f; width:1px; height:39px; display:block; }
+
+/* 01.Depth */
+#cssmenu ul li a { border-top:none; border-bottom:none; border-left:#13223f solid 1px; border-right:#183b73 solid 1px; padding:10px 20px 10px; }
+#cssmenu ul li a:hover { border-top:none; border-bottom:none; border-right:#1775cd solid 1px; background:#1775cd; }
+#cssmenu ul li.active a { border-top:none; border-bottom:none; background:#1775cd; border-right:#1775cd solid 1px; }
+#cssmenu ul li.active ul li a { border-top:none; border-bottom:none; background:#1775cd; }
+
+/* 02.Depth */
+#cssmenu ul ul li a { border-top:none; border-bottom:none; border-left:none; border-right:none; background:#fff; color:#5b5c5e; padding:2px 15px; }
+#cssmenu ul ul li a:hover { border-top:none; border-bottom:none; border-left:none; border-right:none; background:#fff; color:#5b5c5e; padding:2px 15px; }
+
+/**** CSSMENU 자식스타일 ****/
+
+/* 01.Depth */
+#cssmenu > ul { *display: inline-block; }
+#cssmenu ul li:hover > a { background:#1775cd; color:#fff; }
+
+/* 02.Depth */
+#cssmenu ul ul li.last > a { padding-bottom:10px; }
+#cssmenu ul ul li:first-child > a { padding-top:8px; background-position:0 0; }
+#cssmenu ul ul li:hover > a { background:#eef0f0; color:#242424; }
+#cssmenu ul ul > li:hover li:first-child > a { padding-top:8px; background-position:0 0; }
+#cssmenu ul li.active ul li a { color: #5b5c5e;  border-right:none; background:#fff; }
+#cssmenu ul li.active ul li:hover > a { color: #242424; background:#eef0f0; }
+
+/* 03.Depth */
+#cssmenu ul ul ul > li > a { background:#fff; }
+#cssmenu ul ul ul > li:hover > a { background:#eef0f0; }
+#cssmenu ul li.active ul li:hover li:first-child > a { padding-top:8px; background-position:0 0;  }
+#cssmenu ul li.active ul ul li > a { background:#fff; }
+#cssmenu ul li.active ul ul li:hover > a { background:#eef0f0; }
+
+/* 추가 */
+#cssmenu .mn_num { padding-right:4px; font-size:11px; }
+
+/**** FAVORIT MENU 메뉴 ****/
+#headerWrap #cbp-spmenu-s2 { background:none; }
+#headerWrap #cbp-spmenu-s2 h2.menuTitle { display:none; } /* MY FAVORITE */
+
+.favormenu { background:url(../images/common/bg_favor_mn.gif) repeat-x 0 bottom #e7e9e8; height:33px; }
+.favormenu:after { content:""; display:block; clear:both; height:0;}
+
+.favormn_list { float:none; *zoom:1; }
+.favormn_list:after { content:""; display:block; clear:both; height:0 ;}
+
+.favormn_list li { line-height:1.4; float:left; margin-top:5px; }
+.favormn_list li.last_end { display:none; }
+
+.favormn_list li a { float:left; padding:2px 8px; border:#bababa solid 1px; display:inline-block; margin-left:6px; background:#e7e9e8; }
+.favormn_list li:first-child a { margin-left:2.1em; }
+.favormn_list li:hover a { border:#b7b7b7 solid 1px; background:#e1e1e1; color:#242424; }
+
+/****************************************************** 레이아웃 스타일 ******************************************************/
+
+
+
+/****************************************************** 팝업 공통스타일 ******************************************************/
+/* Modal popup */
+.modalWrap { position:relative; width:50%; margin:10% auto 0px; background:#fff; z-index:3; zoom:1; box-shadow:8px 8px 6px rgba(0, 0, 0, 0.5); border:#20304a solid 1px;}
+
+/****************************************************** 팝업 모음 ******************************************************/
+/**** 인물상세보기popup ****/
+#people_info .modalWrap { width:40%; }
+/**** 담당자변경popup ****/
+#changeManager .modalWrap { width:40%; }
+}
+
+

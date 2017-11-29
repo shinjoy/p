@@ -1,0 +1,108 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<script type="text/javascript">
+
+	$(document).ready(function(){
+		setProfileImagePosition();
+	});
+	//화면의 이미지 위치를 조정한다
+	function setProfileImagePosition(){
+		var divs = document.querySelectorAll('.projectStatusDt_aspect');
+		for (var i = 0; i < divs.length; ++i) {
+		  var div = divs[i];
+		  var divAspect = div.offsetHeight / div.offsetWidth;
+		  div.style.overflow = 'hidden';
+			  var img = div.querySelector('img');
+			  var imgAspect = img.height / img.width;
+
+			// 이미지가 div보다 납작한 경우 세로를 div에 맞추고 가로는 잘라낸다
+			  var imgWidthActual = div.offsetHeight / imgAspect;
+			  var imgWidthToBe = div.offsetHeight / divAspect;
+			  var marginLeft = -Math.round((imgWidthActual - imgWidthToBe) / 2);
+			  img.style.cssText = 'width: auto; height: 100%; margin-left: '
+			                  + marginLeft + 'px;'
+
+		}
+	}
+	//메모팝업 위치관련 변수 :S
+	var memoPopupCnt = 0;
+
+	var memoPopupWidth = (window.screenX || window.screenLeft || 0)+50;
+	var memoPopupHegit = (window.screenY || window.screenTop || 0)+50;
+	//메모보내기 오픈
+	//메모창 오픈
+	function personnelProfileOpenMemo(userId){
+
+		closeUserProfileBox();
+
+		var memoRoomId = 0;
+		var now = new Date();
+		var viewDate = now.yyyy_mm_dd();
+			var param = {
+				 memoRoomId : memoRoomId,
+				 workUserId	: userId,
+				 viewDate	: viewDate
+	   	};
+
+		    var url =contextRoot+"/work/memoBox2/pop.do"+ "?memoRoomId="+memoRoomId+"&workUserId="+userId+"&viewDate="+viewDate;;
+
+		    var popWidth  = '750'; // 파업사이즈 너비
+		 	   var popHeight = '880'; // 팝업사이즈 높이
+
+			   var option = 'resizable=yes,width='+popWidth+', height='+popHeight+', scrollbars=auto';
+
+			   memoPopupWidth = memoPopupWidth+50;
+
+			   if(memoPopupCnt%6 == 0) memoPopupWidth = (window.screenX || window.screenLeft || 0)+50;
+
+			   if(memoPopupCnt>0){
+				   if(memoPopupCnt%6 ==0) memoPopupHegit =memoPopupHegit +50;
+			   }
+
+			   if(memoPopupCnt ==18){
+				   memoPopupCnt = 0;
+				   memoPopupWidth = (window.screenX || window.screenLeft || 0)+50;
+				   memoPopupHegit = (window.screenY || window.screenTop || 0)+50;
+			   }
+			   memoPopupCnt++;
+
+		       var winPop = window.open(url, '_blank', option);
+
+		       winPop.moveTo(memoPopupWidth,memoPopupHegit);
+		    /* personnelProfileMemoModal.open({
+		   		url: url,
+		   		pars: param,
+		   		titleBarText: '메모',				//titleBarText 속성 추가하였음.(원 Axisj에는 없었던것)
+		   		method:"POST",
+		   		top: $(document).scrollTop()+80,
+		   		width: 750,
+		   		closeByEscKey: true				//esc 키로 닫기
+			});
+
+		   	$('.AXModalBox').draggable(); */
+	}
+</script>
+<span class="tooltip">
+	<div class="Profile_box" id = "h_Profile_sBox">
+		<div class="com_person_name">
+			<p class="comname">${userProfileMap.orgNm }</p>
+			<p class="per_name"><strong>${userProfileMap.name} ${userProfileMap.rankNm }</strong><span>(${userProfileMap.deptNm })</span></p>
+			<div class="m_b_propic"><c:if test="${not empty userProfileMap.photoNm}"><span class="photo_aspect projectStatusDt_aspect aspect_1_1_4"><img src="/imgUpLoadData/${userProfileMap.photoNm}" alt="프로필사진"></span></c:if></div>
+			<input type="hidden" name = "createUserInfo" value="${userProfileMap.userId }|${userProfileMap.name}">
+		</div>
+
+		<span class="intext">
+			<ul class="dot_list_st02">
+				<li><span class="fontB">회사번호 :</span> ${userProfileMap.companyTel }</li>
+				<li><span class="fontB">핸드폰 :</span> ${userProfileMap.mobileTel }</li>
+				<li><span class="fontB">이메일 :</span> <a href="mailto:${userProfileMap.email }">${userProfileMap.email }</a></li>
+			</ul>
+			<p><a href="javascript:personnelProfileOpenMemo('${userProfileMap.userId }')" class="btn_memo"><em>업무메모 보내기</em></a></p>
+		</span>
+		<em class="edge_topleft"></em>
+		<a href="javascript:closeUserProfileBox()" class="closebtn"><em>닫기</em></a>
+	</div>
+</span>
+

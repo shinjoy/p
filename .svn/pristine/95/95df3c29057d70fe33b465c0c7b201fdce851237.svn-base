@@ -1,0 +1,289 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+
+<style>
+
+.first_contact_from {
+    background: url(../images/work/icon_recive2.gif) no-repeat left center;
+    position: absolute;
+    left: 3px;
+    top: 3px\0/IE8+9;
+    padding-left: 15px;
+    font-size: 11px;
+    font-weight: bold;
+    font-family: "돋움";
+    color: #252525;
+    display: inline-block;
+    height: 12px;
+
+}
+
+.first_contact_to {
+    background: url(../images/work/icon_send2.gif) no-repeat left center;
+    position: absolute;
+    left: 3px;
+    top: 3px\0/IE8+9;
+    padding-left: 15px;
+    font-size: 11px;
+    font-weight: bold;
+    font-family: "돋움";
+    color: #252525;
+    display: inline-block;
+    height: 12px;
+
+}
+
+.memo_list li {
+    float: none;
+    padding: 3px 28px 3px 20px;
+    vertical-align: middle;
+    position: relative;
+    line-height: 14px;
+}
+
+</style>
+<script>
+
+var selectSecretYn = "Y";
+
+//메모팝업 위치관련 변수 :S
+var memoPopupCnt = 0;
+
+var memoPopupWidth = (window.screenX || window.screenLeft || 0)+50;
+var memoPopupHegit = (window.screenY || window.screenTop || 0)+50;
+//메모팝업 위치관련 변수 :E
+$(document).ready(function(){
+	memoObj.preloadCode();
+
+	if('${baseUserLoginInfo.applyOrgId}' != "${baseUserLoginInfo.orgId}") memoObj.getMemoList('A');
+	else memoObj.getMemoList('Y');
+
+	//메모말풍선
+	openMemoHelpArea(0,10,0);
+});
+
+var memoObj = {
+
+
+	preloadCode : function(){
+		/* $("#memoTitleArea").html('MEMO BOX'); */
+	},
+
+	pageStart : function(){
+
+
+	},
+
+	//메모 리스트 받아오기
+	getMemoList : function(secretYn){
+
+		if(secretYn == null) secretYn =selectSecretYn;
+		else selectSecretYn = secretYn;
+
+		if(secretYn == "A"){
+			$("#memoListAll").attr("class","on");
+			$("#memoListUser").attr("class","");
+		}else if(secretYn == "Y"){
+			$("#memoListAll").attr("class","");
+            $("#memoListUser").attr("class","on");
+		}else{
+            $("#memoListAll").attr("class","");
+            $("#memoListUser").attr("class","on");
+            secretYn = "Y";
+        }
+
+		var url = contextRoot + "/work/memoListByMain.do";
+
+		var param = {
+				main 		: 'Y',
+				memoDate 	: g_selectDate,
+				secretYn : secretYn
+	   	};
+
+		var callback = function(result){
+    		var obj = JSON.parse(result);
+    		var list = obj.resultList;
+
+			var newMemoStr = memoObj.memoListSet(list,'newMemo');
+
+    		$("#newMemoArea").html(newMemoStr);
+
+    		//유저프로필 이벤트 셋팅
+    		initUserProfileEvent();
+
+    		//메모말풍선
+    		openMemoHelpArea(0,10,0);
+
+    	};
+
+    	commonAjax("POST", url, param, callback, false);
+	},
+
+	//메모 리스트
+	memoListSet : function(list,type){
+		var str ='';
+		for(var i=0; i<list.length; i++){
+			var chk =  true;
+
+			if(chk){
+				str +='<li style="cursor:pointer;" onclick="javascript:memoObj.openMemo('+list[i].memoRoomId+');">';
+				str +='<span class="';
+
+				if(list[i].createdBy == '${baseUserLoginInfo.userId}' ){	//발신일때
+					str +='first_contact_to">';	//안읽었을떄 아이콘
+				}else{														//수신일때
+					str +='first_contact_from">';//안읽었을떄 아이콘
+				}
+
+				str+='</span>';
+				str +='<div class="fl_block" style="width:60%;">';
+				str +='<a>';
+
+				if(list[i].important>0){									//중요도
+					str +='<span class="icon_important_L'+list[i].important+'"><em>!!!</em></span> ';
+				}
+
+				if(list[i].roomType == 'S'){								//비밀글
+					str +='<span class="icon_secret"><em>비밀글</em></span> ';
+					str +='<span>********************************</span>';
+				}else{
+					str +='<span> '+devUtil.fn_escapeReplace(list[i].comment)+'</span>';
+				}
+
+				str +='</a>';
+
+				if(list[i].commentCount>0) str +=' <span class="icon_comment n_read">('+list[i].commentCount+')</span>'; // 댓글 수
+
+
+				if(list[i].fileCnt>0) str +=' <span class="icon_clip">('+list[i].fileCnt+')</span>'; //파일 카운트
+
+
+				if(list[i].newYn == 'Y') str +=' <span class="icon_new" style="margin-left: 0px;"><em>new</em></span>';		//신규 댓글이나 글이 오늘등록된건
+
+				str +='</div>';
+
+				str +='<div class="fr_block" style="width:40%;">';
+
+				if(list[i].realEntryCnt >0) str +='<span style="color:#949494;">'+list[i].viewDate.replace(/-/gi,'/')+'</span>';
+
+				if(list[i].createdBy == '${baseUserLoginInfo.userId}' && list[i].realEntryCnt >0 ){  	//발신
+					str +='<span class=" mgl10">';
+					str +=list[i].entryTopName+'</span></div>';
+
+					if(list[i].topOrgId !='${baseUserLoginInfo.orgId}'){					//다른 org일때
+						str +='('+list[i].topCompanyNm+')';
+					}
+					str +='</span></div>';
+
+					str +='<span class="icon_count_em">'+list[i].entryCnt+'</span>';
+				}else{
+					str +='<span class=" mgl10">';
+					if(list[i].createdBy == '${baseUserLoginInfo.userId}' && list[i].realEntryCnt ==0){ //내가 나한테썻을때
+						str +='나</span></div>';
+					}else{
+						str += "<span class='userProfileTargetArea' onmousedown = 'openUserProfileBox(\""+list[i].userId+"\",$(this),\"mouseover\",null,0,-300,300)'>";
+						str += list[i].userName+"</span>";
+						if(list[i].orgId !='${baseUserLoginInfo.orgId}'){					//다른 org일때
+							str +='('+list[i].companyNm+')';
+						}
+						str +='</span></div>';
+
+						if(list[i].realEntryCnt >0){
+							str +='<span class="icon_count_em">'+list[i].entryCnt+'</span>';
+						}
+					}
+				}
+				str +='</li>';
+			}
+
+		}
+
+		return str;
+
+	},
+	//메모창 오픈
+	openMemo : function(memoRoomId,viewDate){
+		closeUserProfileBox();
+
+   		var param = {
+   			 memoRoomId : memoRoomId,
+   			 workUserId	: '${baseUserLoginInfo.userId}',
+   			 viewDate	: viewDate
+	   	};
+
+ 	   var url =contextRoot+"/work/memoBox/pop.do" + "?memoRoomId="+memoRoomId+"&workUserId=${baseUserLoginInfo.userId}&viewDate="+viewDate;
+
+ 	   var popWidth  = '750'; // 파업사이즈 너비
+ 	   var popHeight = '780'; // 팝업사이즈 높이
+
+	   var option = 'resizable=yes,width='+popWidth+', height='+popHeight+', scrollbars=auto';
+
+	   memoPopupWidth = memoPopupWidth+50;
+
+	   if(memoPopupCnt%6 == 0) memoPopupWidth = (window.screenX || window.screenLeft || 0)+50;
+
+	   if(memoPopupCnt>0){
+		   if(memoPopupCnt%6 ==0) memoPopupHegit =memoPopupHegit +50;
+	   }
+
+	   if(memoPopupCnt ==18){
+		   memoPopupCnt = 0;
+		   memoPopupWidth = (window.screenX || window.screenLeft || 0)+50;
+		   memoPopupHegit = (window.screenY || window.screenTop || 0)+50;
+	   }
+	   memoPopupCnt++;
+
+       var winPop = window.open(url, '_blank', option);
+
+       winPop.moveTo(memoPopupWidth,memoPopupHegit);
+
+ 	   	/* myModal.open({
+ 	   		url: url,
+ 	   		pars: param,
+ 	   		titleBarText: '메모',			//titleBarText 속성 추가하였음.(원 Axisj에는 없었던것)
+ 	   		method:"POST",
+ 	   		top: $(document).scrollTop()+10,
+ 	   		width: 750,
+ 	   		closeByEscKey: true				//esc 키로 닫기
+   		});
+
+   		$('#myModalCT').draggable(); */
+    },
+
+    //더보기
+    moreWorkDaily : function(){
+    	location.href = contextRoot+"/work/getDailyWork.do?selectDate="+g_selectDate;
+    }
+
+
+};
+
+</script>
+
+
+<h2 class="module_title">
+    <strong onclick="sheduleObj.moreWorkDaily()">업무메모</strong>
+    <!-- <span id="memoTitleArea"></span> -->
+    <c:if test="${baseUserLoginInfo.deptBossLevelYn eq 'Y'}">
+        <ul class="module_tab">
+            <li id="memoListAll" onclick="memoObj.getMemoList('A');" style="cursor: pointer; ">전체</li>
+            <c:if test="${baseUserLoginInfo.applyOrgId eq baseUserLoginInfo.orgId}">
+                <li id="memoListUser" onclick="memoObj.getMemoList('Y');" style="cursor: pointer; " class="on">개인</li>
+            </c:if>
+        </ul>
+    </c:if>
+</h2>
+<div class="module_conBox" id="memoArea">
+	<div class="mgl10 mgt10" id="newMemoTitle" style="border-bottom: 1px dotted #d9ddde;display:none;"><strong>신규</strong></div>
+	<ul class="memo_list" id="newMemoArea"></ul>
+	<div class="mgl10 mgt10" id="noReadCommentMemoTitle" style="border-bottom: 1px dotted #d9ddde;display:none;"><strong>미확인 (댓글)</strong></div>
+	<ul class="memo_list" id="noReadCommentMemoArea" style="display:none;"></ul>
+	<div class="mgl10 mgt10" id="myMemoTitle" style="border-bottom: 1px dotted #d9ddde;display:none;"><strong>메모</strong><strong class="mgl5" id="memoDate"></strong></div>
+	<ul class="memo_list" id="myMemoArea"  style="display:none;"></ul>
+</div>
+<a href="javascript:sheduleObj.moreWorkDaily();" class="btn_more"><em>더보기</em></a>

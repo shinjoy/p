@@ -1,0 +1,83 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%
+response.setHeader("Cache-Control","no-cache");
+response.setHeader("Pragma","no-cache");
+response.setDateHeader("Expires",0);
+%>
+
+<%@ include file="./js/projectStatusDetail_JS.jsp" %>
+
+<form name="downForm2" id="downForm2" method="post">
+
+</form>
+
+<div class="verticalWrap">
+	<div class="addAreaZone printOut">
+		<div id="userListAreaTree">
+			<jsp:include page="../common/projectDeptTree.jsp"></jsp:include>
+		</div>
+	</div>
+
+
+
+<section id="detail_contents">
+	<form id = "frm" name = "frm">
+		<input type="hidden" id = "projectId" name = "projectId" value="${param.pId }">
+		<input type="hidden" id = "pId" name = "pId" value="${param.pId }">
+		<input type="hidden" id = "maxPageRow" name = "maxPageRow" value="${maxPageRow }">
+		<input type="hidden" id = "chkSearchMore" name = "chkSearchMore" value="N">
+		<input type="hidden" id = "type" name = "type" value="ALL">
+
+		<input type="hidden" id = "searchTreeYn" name = "searchTreeYn" value="N">
+
+		<!--프로젝트명-->
+		<h3 class="h3_title_basic">
+			<span id = "projectNmText">${baseUserLoginInfo.projectTitle}명</span><span class="icon_secret mgl10" id = "openNtextArea" style="display: none;"><em>비공개</em></span>
+			<a href="javascript:showProjectDetailPop()" class="btn_s_type3 mgl15"><em class="icon_info">${baseUserLoginInfo.projectTitle} 정보</em></a>
+			<select class="select_b mgl40" title="직원 정렬선택" id = "searchUserId" name = "searchUserId" onchange="doSearch()">
+				<option value="">직원 : 전체</option>
+			</select>
+			<select class="select_b mgl8" title="${baseUserLoginInfo.activityTitle} 정렬선택" id = "searchActivityId" name = "searchActivityId" onchange="doSearch()">
+				<option value="">${baseUserLoginInfo.activityTitle} : 전체</option>
+			</select>
+			<select class="select_b mgl8" title="시간 정렬선택" id = "searchOrder" name = "searchOrder" onchange="doSearch()">
+				<option value="timeDesc">시간역순보기</option>
+				<option value="timeAsc">시간순보기</option>
+			</select>
+		</h3>
+		<!--//프로젝트명//-->
+	</form>
+	<!--tab영역-->
+	<ul class="tabZone_st03" id = "tabArea">
+		<li id="tab_ALL" class="current"><a href="javascript:moveTab('ALL')">전체</a></li>
+		<li id="tab_WORK_DAILY_PRIVATE"><a href="javascript:moveTab('WORK_DAILY_PRIVATE')">개인업무</a></li>
+		<li id="tab_WORK_DAILY_TEAM"><a href="javascript:moveTab('WORK_DAILY_TEAM')">팀업무</a></li>
+		<li id="tab_SCHE"><a href="javascript:moveTab('SCHE')">일정</a></li>
+		<li id="tab_APPROVE"><a href="javascript:moveTab('APPROVE')">전자결재</a></li>
+		<li id="tab_FILE"><a href="javascript:moveTab('FILE')">첨부파일</a></li>
+		<li id="tab_WBS"><a href="javascript:moveTab('WBS')">WBS</a></li>
+	</ul>
+	<!--//tab영역//-->
+	<div id = "projectDetailListArea">
+		<jsp:include page="include/projectStatusDetail_list_INC.jsp"></jsp:include>
+	</div>
+
+	<!--//파일리스트 모달팝업//-->
+	<!--프로젝트정보팝업-->
+	<div style="display: none;">
+		<div id="compnay_dinfo2">
+			<div class="modalWrap2">
+				<h1>${baseUserLoginInfo.projectTitle}상세팝업</h1>
+				<div class="mo_container" id = "projectInfoPopArea">
+				</div>
+				<a href="javascript:myModal.close('my-modal-div');" class="btn_modal_close"><em>창 닫기</em></a>
+			</div>
+		</div>
+	</div>
+	<!--//프로젝트팝업//-->
+	<form id = "moveForm" name = "moveForm" method="post"></form>
+</section>

@@ -1,0 +1,560 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%
+response.setHeader("Cache-Control","no-cache");
+response.setHeader("Pragma","no-cache");
+response.setDateHeader("Expires",0);
+%>
+
+
+<%-- ======================= 세션 정보에 따른 변수 선언 (간단한 이름으로 재정의 사용) :S  ======================== --%>
+<c:set var="mezzL" value="${baseUserLoginInfo.mezzL}"/>		<%-- 메자닌 상장 권한 --%>
+<c:set var="mezzN" value="${baseUserLoginInfo.mezzN}"/>		<%-- 메자닌 비상장 권한 --%>
+
+<c:if test="${baseUserLoginInfo.permission > '00020'  or  baseUserLoginInfo.loginId eq 'gjh'}">	<%-- 개발자 or 대표님 은 무조건 'Y' --%>
+<c:set var="mezzL" value="Y"/>
+<c:set var="mezzN" value="Y"/>
+</c:if>
+<%-- ======================= 세션 정보에 따른 변수 선언 (간단한 이름으로 재정의 사용) :E  ======================== --%>
+
+
+
+<link href="<c:url value='/css/content.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/css/btn.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/css/management.css'/>" rel="stylesheet" type="text/css"/>
+
+<style>
+div.manageTabon, div.subTabon {
+    cursor: pointer;
+    background: url(../images/cssimg/malis5tabon.gif) no-repeat;
+    color: #535353;
+    font-weight: bold;
+    float: left;
+    width: 90px;
+    height: 26px;
+    line-height: 29px;
+    text-align: center;
+    display: block;
+    position: relative;
+    z-index: 1;
+}
+div.manageTab, div.subTab {
+    background: url(../images/cssimg/malis5tab.gif) no-repeat;
+    color: #888;
+    float: left;
+    width: 90px;
+    height: 26px;
+    line-height: 29px;
+    text-align: center;
+    display: block;
+    position: relative;
+    z-index: 1;
+}
+div.manageTab:hover,div.subTab:hover {
+	cursor: pointer;
+	color: orange !important;
+	background: url(../images/cssimg/malis5tabon.gif) no-repeat;
+}
+.title_icon_count {
+    padding: 0px 4px 0px 4px;
+    border: #c0c5c9 solid 1px;
+    border-radius: 2px;
+    font-size: 11px!important;
+    color: gray;
+    vertical-align: middle;
+    overflow: hidden;
+    display: inline-block;
+    margin-right: 0px;
+    line-height: 15px;
+    font-style:normal;
+}
+.investClick{
+	background-color: #75c5de!important;
+}
+
+.t_skinR00 thead tr th{
+	text-align:center;
+}
+
+
+</style>
+
+
+<script type="text/JavaScript" src="<c:url value='/js/process.js?ver=0.1'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/part/popUp.js?ver=0.1'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/changePage.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/calendar_beans_v2.0.js'/>" ></script>
+
+
+
+<!-- 사용자 division -->
+<c:set var="division" value="${baseUserLoginInfo.orgId}"/>
+
+
+<script>
+var division ="${baseUserLoginInfo.orgId}";
+
+ $(document).ready(function(){
+
+	 var divisionList= getCodeInfo(null,null,null,null,null,null,"/common/getDivisionList.do",null);
+ 	$("#divisionDiv").empty();
+ 	for(var i=0;i<divisionList.length;i++){
+ 		var str="";
+ 		str='<div id="userListDiv'+divisionList[i].divCode+'"></div>'
+ 		$("#divisionDiv").append(str);
+ 		getUserList(divisionList[i].divCode,divisionList[i].divName,divisionList.length);
+ 	}
+
+
+	 $(".t_skinR00 tbody tr.bgOdd:odd").css("background-color", "#F6F9FB");
+	 $('.tabUnderBar').css('width','calc(100% - '+ parseInt(10 + 90*($('.1st').length)) +'px)');
+	 var ttl = $('#total');
+	 if(ttl.val()=='sellBuy') ttl.val('');
+
+
+	 //상단 높이에 따라 내용시작 높이 위치를 지정
+	 //alert($('#div_header').height());
+	 //$('#div_content').css('padding-top', $('#div_header').height());
+
+
+
+
+ });
+function getUserList(divCode,divName,count){
+		var url = contextRoot + "/work/selectuserList.do";
+		var param = {division : divCode, hasDeptTopLevel    : 'Y' };
+
+
+		var callback = function(result){
+			var obj = JSON.parse(result);
+			var cnt = obj.resultVal;		//결과수
+			var list = obj.resultList;		//결과데이터JSON
+
+			if(list.length>0){
+				var str='';
+				str+='<p class="pd0 mg0">';
+				for(var i=0 ; i<list.length ;i++){
+					str+=' <label for="chbox'+i+'" class="checkR"> ';
+					str+=' <input type="checkbox" name="memoSndSnb" id="chbox'+i+'" value="'+list[i].staffSnb+' " >'+list[i].staffSnb+' </label>';
+					 if(i%2==1){
+						str+='</p><p class="pd0 mg0">';
+					}
+				}
+
+				str+='</p> ';
+				if(count>1){
+					str=' <p style="background-color:white;text-align:center;width:100%;"> <b>'+divName+'</b> </p>'+str;
+				}
+				$("#userListDiv"+divCode).html(str);
+			}
+		};
+		commonAjax("POST", url, param, callback, true, null, null);
+}
+
+function popUpStaffTable(divId, e, cnt){
+	$('#TofferSnb').val($('#offerSnb'+cnt).val());
+	$('#TstCnt').val(cnt);
+	$('#test').find('input[name=memoSndName]:checked').each(function(){
+		this.checked = false;
+	});
+	view(divId,e);
+}
+function pickStaff(){
+	var names = '';
+	$('#test').find('input[name=memoSndName]:checked').each(function(){
+		if(names.length>0) names+=',';
+		names+=this.value;
+	});
+	var data = {
+			offerSnb : $('#TofferSnb').val()
+			,memoSndName : names
+	}, fn = function(arg){
+		$('#staffsBtn'+$('#TstCnt').val()).children().html(arg);
+		$(".popUpMenu").hide();
+	}
+	ajaxModule(data,"../work/mnaMatchingStaffs.do",fn);
+}
+
+
+
+//투자심의 팝업
+var myModal = new AXModal();		// instance
+
+function investPopup(count, sNb, cpnNm, progressCd){			//딜 제안중 등록 팝업
+
+	//누른 딜 스타일주기
+	$('#investTr' + count).addClass('investClick');
+
+
+	var url = "<c:url value='/work/investPopup.do'/>";
+   	var params = {'sNb':sNb,
+   				  'cpnNm': cpnNm,
+   				  'progressCd': progressCd
+   					};
+
+   	myModal.setConfig({windowID:"myModalCT",
+   						contentDivClass: "popup_outline",
+   						onclose:function(){
+   						   	//누른 딜 스타일원복
+   							$('#investTr' + count).removeClass('investClick');}});		//close callback.
+
+   	myModal.open({
+   		url: url,
+   		pars: params,
+   		titleBarText: ' 투자심의&nbsp; [ ' + cpnNm + ' ]',		//titleBarText 속성 추가하였음.(원 Axisj에는 없었던것)
+   		method:"POST",
+   		top: 150 + $(document).scrollTop(),
+   		width: 700,
+   		closeByEscKey: true				//esc 키로 닫기
+   	});
+
+   	$('#myModalCT').draggable();
+
+}
+
+
+
+</script>
+
+<style>
+tbody tr:hover{background-color: moccasin !important;}
+.main_con {
+    height: 800px;
+    overflow-y: auto;
+    position:relative;
+}
+</style>
+
+<!-- <div id="wrap" class="content_box">
+ -->
+
+ <div style="padding:0px 5px 0px 5px;">
+
+ 	<jsp:scriptlet>
+		pageContext.setAttribute("cr", "\r");
+		pageContext.setAttribute("lf", "\n");
+		pageContext.setAttribute("crlf", "\r\n");
+	</jsp:scriptlet>
+
+<input type="hidden" id="rgstId" value="<c:out value='${baseUserLoginInfo.loginId}'/>">
+<c:set var="now" value="<%= new java.util.Date() %>"/>
+<fmt:formatDate var="curDate" value='${now}' pattern='yyyy-MM-dd'/>
+	<!--  <section style="margin:0px;">
+		<article> -->
+
+		<c:set var="now" value="<%= new java.util.Date() %>"/>
+		<fmt:formatDate var="cur_day" value='${now}' pattern='yyyy-MM-dd'/>
+
+		<input type="hidden" id="SendReceive" value="">
+
+		<div id="div_header" class="fixed-top1" style="z-index:10;">
+		<form id="modifyRec" name="modifyRec" action="<c:url value='/work/selectWorkAllDeal.do' />" method="post"><input type="hidden" name="sorting" id="sorting" value="${TAB}"><input type="hidden" name="total" id="total" value="${ttT}">
+
+			<header>
+				<form name="dayForm" id="dayForm" method="post" action="<c:url value='/work/selectWorkAllDeal.do' />">
+				<div class="year_wrap" style="top:6px;left:20px;"><h2 class="headerTitle">
+
+					<fmt:formatDate var="cur_year" value='${now}' pattern='yyyy'/>
+					<span class="year">
+						<select name='choiceYear' onchange="javascript:document.modifyRec.submit();">
+							<c:forEach var="year" begin="2011" end="${cur_year}">
+								<option value="${year}"
+								<c:choose>
+									<c:when test="${choiceYear == null}"><c:if test="${year == cur_year}">selected</c:if>></c:when>
+									<c:otherwise><c:if test="${year == choiceYear}">selected</c:if>></c:otherwise>
+								</c:choose>
+								${year-1}~${year}</option>
+							</c:forEach>
+						</select>
+					</span>
+					<span class="btn s red"><a onclick="sortTable('total'<c:if test='${not empty TAB}'>,'${TAB}'</c:if>);">전체</a></span>
+					딜
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					<input type="search" class="textSearch" id="nameSearch" name="search" placeholder="회사명" autofocus="autofocus">
+					<input type="submit" class="btnSearch" style="height:27px;" value="검색">
+					</h2>
+				</div>
+				</form>
+				<h2 class="headerTitle">&nbsp;</h2>
+			</header>
+		</form>
+			<c:set var='allDeal' value=""/>
+			<div class="clear" style="height:20px;"></div>
+			<div class="clear" style="width:10px;float:left;height:25px;border-bottom:1px solid #CCC;">&nbsp;</div>
+
+			<c:if test="${baseUserLoginInfo.orgId eq '1'}">
+				<div class="1st subTab<c:if test="${empty TAB}">on</c:if>" onclick="sortTable()">메자닌_상장</div>
+				<div class="1st subTab<c:if test="${TAB eq 'no_listed'}">on</c:if>" onclick="sortTable('no_listed')">메자닌_비상장</div>
+			</c:if>
+			<div class="1st subTab<c:if test="${TAB eq 'T1'}">on</c:if>" onclick="sortTable('T1')">블록딜(WRT)</div>
+			<div class="1st subTab<c:if test="${TAB eq '00004'}">on</c:if>" onclick="sortTable('00004')">딜제안중</div>
+
+			<c:forEach var="catePer" items="${cmmCdCategoryPerList}" varStatus="catePerS">
+			<c:if test="${catePer.cd>7 and catePer.cd != '00011' and catePer.cd != '00015'}"><div class="1st subTab<c:if test="${TAB eq catePer.cd}">on</c:if>" onclick="sortTable('${catePer.cd}')">${catePer.nm}</div></c:if>
+			</c:forEach>
+
+			<div class="tabUnderBar" style="float:left;height:25px;border-bottom:1px solid #CCC;">&nbsp;</div>
+			<table class="t_skinR00" style="margin-top:23px;table-layout:fixed;">
+			<!-- <table class="t_skinR00" style="table-layout:fixed;padding-top:5px;"> -->
+				<colgroup>
+					<col width="70"><col width="65">
+					<c:if test="${TAB ne '00012' and TAB ne '00008'}"><col width="80"></c:if>
+					<c:if test="${TAB eq '00012' or TAB eq '00008'}"><col width="100"><col width="80"></c:if>
+					<col width="100"><col width="300">
+					<c:if test="${TAB eq '00008'}"><col width="80"><col width="80"><col width="80"></c:if>
+					<col width="45">
+					<col width="122">
+					<c:if test="${TAB ne '00008'}">
+					<col width="80">
+					</c:if>
+					<c:if test="${TAB ne '00008' and TAB ne '00004'}">
+					<col width="50">
+					</c:if>
+					<col width="45">
+				</colgroup>
+				<thead>
+					<tr>
+						<th style="height:20px"<%-- onclick="sortTable(1);" --%> class="bgYlw">제안일자</th>
+						<th <%-- onclick="sortTable( );" --%> class="bgYlw">결정시한</th>
+						<th class="bgYlw pd0">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;구분&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<c:if test="${TAB eq '00012' or TAB eq '00008'}"><span class="hand" onclick="sortTable('sellBuy','${TAB}');">▼</span></c:if></th>
+						<c:if test="${TAB eq '00012' or TAB eq '00008'}">
+						<th class="bgYlw pd0">업종</th>
+						</c:if>
+						<th class="bgYlw pd0">규모(발행 <b>/</b> 투자)&nbsp;</th>
+						<%--<th class="bgYlw pd0">투자규모</th> --%>
+						<th class="bgYlw pd0">업무제목</th>
+						<c:if test="${TAB eq '00008'}">
+						<th class="bgYlw pd0">진행사항</th>
+						<th class="bgYlw pd0">매칭회사</th>
+						<th class="bgYlw pd0">진행자</th>
+						</c:if>
+						<%--<c:if test="${TAB eq '00004'}"></c:if> --%>
+						<th class="bgYlw pd0">추천인</th>
+
+						<th class="bgYlw pd0">투자의견</th>
+						<c:if test="${TAB ne '00008'}">
+						<th class="bgYlw pd0">투자심의</th>
+						</c:if>
+						<c:if test="${TAB ne '00008' and TAB ne '00004'}">
+						<th class="bgYlw pd0">진행단계</th>
+						</c:if>
+						<th class="bgYlw pd0">등록자<c:if test="${TAB eq '00004'}">(딜제안자)</c:if></th>
+					</tr>
+					<tr style="height:1px;"></tr>
+				</thead>
+				</table>
+			</div>
+
+			<div  id="div_content" class="main_con">
+
+
+			<!-- 의견 -->
+				<c:forEach var="offer" items="${offerList}" varStatus="status">
+					<div class="popUpMenu title_area" id="opinionPr${offer.sNb}" name="textR">								<!-- 아래 시너지가 아니면 모두 입력/수정 가능하도록 -->
+					<c:choose><c:when test="${baseUserLoginInfo.permission > '00019' or baseUserLoginInfo.permission == '00014' or baseUserLoginInfo.orgId ne '1'}">		<%-- 20150826   or  baseUserLoginInfo.userName==offer.rgNm}"> --%>
+							<input type="hidden" id="dealOpinionSNb${offer.sNb}" value="${offer.sNb }">
+							<p class="closePopUpMenu" name="textR">ⅹ닫기</p>
+							<ul><c:choose>
+								<c:when test="${empty offer.investOpinion}"><li class="c_note"><textarea id="opinionarea0" placeholder="투자의견을 입력하세요."></textarea></li></c:when>
+								<c:otherwise><li class="c_note"><textarea id="opinionarea${offer.sNb}">${offer.investOpinion}</textarea></li></c:otherwise></c:choose>
+								<p class="bsnsR_btn">
+									<span class="dealResult_btnOk btn s green"><a><spring:message code="button.save" /></a></span>&nbsp;&nbsp;&nbsp;
+									<!-- <span class="dealResult_btnDel">완전삭제</span> -->
+								</p>
+							</ul>
+						</c:when><c:otherwise>
+							<input type="hidden" id="opinionSNb${offer.sNb}" value="${offer.sNb }">
+							<p class="closePopUpMenu" name="textR">ⅹ닫기</p>
+							<ul>
+								<li class="c_note v-textarea">${fn:replace(offer.investOpinion, lf,"<br/>")}</li>
+							</ul></c:otherwise>
+					</c:choose>
+					</div>
+				</c:forEach>
+			<!-- 의견 -->
+
+
+			<table class="t_skinR00" style="table-layout:fixed;">
+				<colgroup>
+					<col width="70"><col width="65">
+						<c:if test="${TAB eq '00012' or TAB eq '00008'}"><col width="60"></c:if><c:if test="${TAB ne '00012' and TAB ne '00008'}"><col width="80"></c:if>
+						<c:if test="${TAB eq '00012' or TAB eq '00008'}"><col width="40"><col width="80"></c:if>
+						<col width="100"><%--<col width="80"> --%><col width="303">
+						<c:if test="${TAB eq '00008'}"><col width="80"><col width="80"><col width="80"></c:if>
+						<%--<c:if test="${TAB eq '00004'}"><col width="80"></c:if> --%>
+						<col width="45">
+						<col width="122">
+						<c:if test="${TAB ne '00008'}">
+						<col width="80">
+						</c:if>
+						<c:if test="${TAB ne '00008' and TAB ne '00004'}">
+						<col width="50">
+						</c:if>
+						<col width="45">
+				</colgroup>
+				<tbody>
+				<%-- 입력한 당일만 삭제 가능하게 작업 --%>
+
+					<c:forEach var="offer" items="${offerList}" varStatus="status">
+
+
+						<%-- ================== 권한에 따라 '*' 처리해야 하는 딜 건인지 변수(asterDeal) 에 저장 :S  ================== --%>
+						<c:choose>
+						<c:when test="${mezzL eq 'Y'}">
+							<c:set var="asterDeal" value="N"/>
+						</c:when>		<%-- 내가 등록한 딜이 아니면서 --%>		<%--             상장사 이고			 --%>		<%--						메자닌 (CB, EB, BW) 이고								 --%>			<%--	진행중 인 건		 --%>		<%--						제안중이 아니고					 --%>
+						<c:when test="${offer.rgId ne baseUserLoginInfo.loginId and ('A' eq offer.cpnStts or 'Q' eq offer.cpnStts) and (offer.categoryCd eq '00001' or offer.categoryCd eq '00002' or offer.categoryCd eq '00003')  and (offer.progressCd eq '00001' or offer.progressCd eq '00002')}">	<%-- and (offer.middleOfferCd ne '00004' and offer.middleOfferCd ne '00005') --%>
+							<c:set var="asterDeal" value="Y"/>	<%-- 별표시(숨김) --%>
+						</c:when>
+						<c:otherwise>
+							<c:set var="asterDeal" value="N"/>
+						</c:otherwise>
+						</c:choose>
+						<%-- ================== 권한에 따라 '*' 처리해야 하는 딜 건인지 변수(asterDeal) 에 저장 :E  ================== --%>
+
+
+						<c:choose>
+
+						<%-- <c:when test="${division eq 'FIDES' and (offer.division ne 'FIDES') and (fn:substring(offer.cpnId, 0, 1) eq 'A' or fn:substring(offer.aCpnId, 0, 1) eq 'A')}">	of.secretYn eq 'Y' and of.rgId ne baseUserLoginInfo.loginId
+						<!-- 사용자의 division 이 'SYNERGY' 가 아닐때, 딜 등록자가 'SYNERGY' 이면서 상장사('A**') 인경우는 안보인다 -->
+						</c:when> --%>
+
+						<c:when test="${offer.rgId ne baseUserLoginInfo.loginId and ((offer.categoryCd ne '00008' and offer.infoLevel lt baseUserLoginInfo.infoLevel)||(offer.categoryCd eq '00008' and offer.infoLevel lt baseUserLoginInfo.mnaLevel))}">	<%--of.secretYn eq 'Y' and of.rgId ne baseUserLoginInfo.loginId --%>
+						<!-- 보안등급이 나의 등급보다 높고 내가 등록한게 아니면 안보인다. -->
+						</c:when>
+
+						<c:otherwise>
+
+
+						<c:set var="mnaYN" value="N"/><c:if test="${offer.categoryCd eq '00008'}"><c:set var="mnaYN" value="Y"/></c:if>
+						<fmt:formatDate var="dueDate" value="${offer.dueDt}" pattern="yyyy-MM-dd" scope="page"/>
+						<tr id="investTr${status.count}"
+							class="<c:if test="${dueDate <= curDate}"> red</c:if>
+
+							<c:if test="${mnaYN eq 'Y'}">
+								<c:if test="${offer.progressCd eq '00001' or offer.progressCd eq '00002'}"> bgOdd</c:if>"
+								<c:choose>
+									<c:when test="${offer.progressCd == '10000'}"> style="height:40px;background-color:#B9B9B9" </c:when>
+									<c:otherwise>  <c:if test="${offer.progressCd ne '00004' and offer.progressCd ne '00006'}">style="height:40px;"</c:if><c:if test="${offer.progressCd eq '00004'}">style="height:40px;background-color:#DCEACE"</c:if><c:if test="${offer.progressCd == '00006'}">style="height:40px;background-color:#A9F5BC"</c:if><%-- <c:if test="${fn:length(offer.cpnId) == 7}"> style="background-color:#CEF6EC"</c:if> --%></c:otherwise>
+								</c:choose>
+							</c:if>
+							<c:if test="${mnaYN eq 'N'}">
+								<c:if test="${offer.progressCd eq '00001'}"> bgOdd</c:if>"
+								<c:choose>
+									<c:when test="${offer.progressCd == '10000'}"> style="height:40px;background-color:#B9B9B9" </c:when>
+									<c:otherwise>  <c:if test="${offer.progressCd ne '00002' and offer.progressCd ne '00003'}">style="height:40px;"</c:if><c:if test="${offer.progressCd == '00002'}">style="height:40px;background-color:#E7E7E7"</c:if><c:if test="${offer.progressCd == '00003'}">style="height:40px;background-color:#A9F5BC"</c:if><%-- <c:if test="${fn:length(offer.cpnId) == 7}"> style="background-color:#CEF6EC"</c:if> --%></c:otherwise>
+								</c:choose>
+							</c:if>
+						>
+							<td class="cent pd0" style="width:74px;color:black;">${offer.tmDt}1${asterDeal }</td>
+						<input type="hidden" id="offerSnb${status.count}" value="${offer.sNb}">
+							<td class="cent pd0" style="width:80px">${offer.dueDt}<br/><c:if test="${dueDate <= curDate and offer.progressCd != '10000'}"> <span class="btn s red"><a><font color="yellow">!</font> 지연 : -${offer.diffDt}</a></span></c:if></td>
+							<td class="cent pd0">${offer.middleOfferNm}<%-- ${offer.offerNm} --%></td>
+							<c:if test="${TAB eq '00012' or TAB eq '00008'}">
+								<td class="cent pd0"><c:if test="${offer.sellBuy eq '0'}"><span class="btn s red"><a>Sell</a></span></c:if><c:if test="${offer.sellBuy eq '1'}"><span class="btn s blue"><a>Buy</a></span></c:if><c:if test="${offer.sellBuy eq '2'}"><span class="btn s"><a>투자유치</a></span></c:if></td>
+								<td class="cent pd0">${offer.cpnTypeCdNm}</td>
+							</c:if>
+							<td class="cent pd0"><table width="100%"><tr><td width="48%" align="right">${offer.price}</td><td width="4%"><b><font color=silver>/</font></b></td><td width="48%" align="left">${offer.investPrice}</td></tr></table></td>
+							<%--<td class="cent pd0">${offer.investPrice}</td> --%><%-- popUp 함수 오류나면 changePage 함수로 --%>
+							<td class="pd0 hand hov" onclick="popUp('${offer.tmDt}','rcmdComment','','${offer.sNb}');">&nbsp;&nbsp;
+								<c:if test="${not empty offer.tmpNum1 or not empty offer.tmpNum2}"><img class="filePosi" id="fileNew${status.count}" src="../images/file/new0.gif" style="width:23px;height:11px"/></c:if>
+								<c:if test="${'A' ne offer.cpnStts and 'Q' ne offer.cpnStts}"><font color="gray">(비상장) </font></c:if><b><c:choose><c:when test="${asterDeal eq 'Y'}">***</c:when><c:otherwise>${offer.cpnNm}</c:otherwise></c:choose><c:if test="${not empty offer.cpnType}">(${offer.cpnType})</c:if></b>&nbsp;
+								<c:forEach var="cmmCd" items="${cmmCdCategoryList}"><c:if test="${offer.categoryCd == cmmCd.cd}">${cmmCd.nm}<span style="display:inline-block;width:20px;"></span></c:if></c:forEach>
+								<c:if test="${offer.fileCnt != 0}"><span style="color:#89A0DA">
+									<img class="filePosi" id="file${status.count}" src="../images/file/files.png" style="width:16px;height:16px"/><b>[${offer.fileCnt + offer.commentFileCnt}]</b></span></c:if>
+								<c:if test="${offer.analysis != 0}"><span style="color:mediumvioletred">
+									<img class="filePosi" id="fileAn${status.count}" src="../images/recommend/analy.png" style="width:16px;height:16px"/><b>[${offer.analysis}]</b></span></c:if>
+								<c:if test="${offer.opinion != 0}"><span style="color:darkgoldenrod">
+									<img class="filePosi" id="fileOp${status.count}" src="../images/recommend/comment1.png" style="width:16px;height:16px"/><b>[${offer.opinion}]</b></span></c:if>&nbsp;</nobr>
+							</td>
+							<c:if test="${TAB eq '00008'}"><!-- M&A 탭 '00008' -->
+							<td class="cent pd0" style="overflow:hidden;"><c:forEach var="cmmCd" items="${cmmCdMnaPgCdList}"><c:if test="${offer.progressCd == cmmCd.cd}">${cmmCd.nm}</c:if></c:forEach></td>
+							<td class="cent pd0" style="overflow:hidden;">${offer.matchCpnNm}</td>
+							<td class="cent pd0" style="word-break:break-all">${offer.usrNm}
+								<c:choose>
+									<c:when test="${baseUserLoginInfo.permission > '00019' or baseUserLoginInfo.permission == '00014'}">
+										<div class="btn s orange" id="staffsBtn${status.count}" onclick="javascript:popUpStaffTable('test',event, ${status.count});"><a>진행자</a></div>
+									</c:when><c:otherwise></c:otherwise>
+								</c:choose>
+							</td>
+							</c:if>
+							<%--<c:if test="${TAB eq '00004'}"><!-- 딜제안중 탭 '00004' --></c:if> --%>
+							<td class="cent pd0">${offer.recommendNm}</td>
+
+							<td class="cent pd0" style="text-align:left;overflow:hidden;padding-left:5px!important;">
+								<a class="opinion_m" id="opinion_${offer.sNb}"><font color="blue">
+								<c:choose><c:when test="${empty offer.investOpinion}"><small><font style="color:silver"><i class="axi axi-edit2" style="font-size:15px;"></i></font></small></c:when>
+									<c:otherwise>${offer.investOpinion}</c:otherwise></c:choose>
+								</font></a>
+							</td>
+
+							<c:if test="${TAB ne '00008'}"><!-- 투자심의 (M&A 외 건에 보이게)  -->
+							<td class="cent pd0">	<%--  style="text-align:left;padding-left:15px!important;" --%>
+
+								<c:choose>
+									<c:when test="${asterDeal eq 'Y'}"><a></c:when>
+									<c:otherwise>
+										<a href="javascript:investPopup(${status.count}, ${offer.sNb}, '${offer.cpnNm}', '${offer.progressCd}');" style="color:silver!important;">
+									</c:otherwise>
+								</c:choose>
+
+									<span style="font-size:15px;color:gray;">
+										<c:choose>
+											<c:when test="${fn:split(offer.analVal,'|')[0] gt 0}"><fmt:formatNumber value="${fn:split(offer.analVal,'|')[1] / fn:split(offer.analVal,'|')[0]}" pattern="0.0"></fmt:formatNumber></c:when>
+											<c:otherwise><font color="#FFF">0.0</font></c:otherwise>
+										</c:choose>
+									</span>
+									<font color="silver">/5</font>&nbsp;
+									<em class="title_icon_count"><i class="axi axi-person"></i>
+										<c:choose>
+											<c:when test="${fn:split(offer.analVal,'|')[0] gt 0}">${fn:split(offer.analVal,'|')[0]}</c:when>
+											<c:otherwise>0</c:otherwise>
+										</c:choose>
+									</em>
+								</a>
+							</td>
+							</c:if>
+
+							<c:if test="${TAB ne '00008' and TAB ne '00004'}">
+							<td class="cent pd0">
+								<font color="#<c:choose><c:when test="${offer.progressCd eq '00001'}">0D7AA6</c:when><c:when test="${offer.progressCd eq '00003'}">FF1111</c:when><c:otherwise>777777</c:otherwise></c:choose>">
+								${offer.progressNm}</font>
+							</td>
+							</c:if>
+
+							<td class="cent pd0">${offer.rgNm}</td>
+							<%-- <td class="cent pd0 personName"><nobr>${offer.rgNm}</nobr></td> --%>
+
+						</tr>
+
+
+						</c:otherwise>
+						</c:choose>
+
+					</c:forEach>
+				</tbody>
+			</table>
+			</div>
+	<!-- 	</article>
+	</section> -->
+
+<div>
+
+
+<c:if test="${TAB eq '00008'}">
+<%-- 직원 플로팅 div --%>
+	<div class="popUpMenu" id="test"  >
+		<p class="closePopUpMenu" title="닫기">ⅹ닫기</p>
+			<input type="hidden" id="TofferSnb"/>
+			<input type="hidden" id="TstCnt"/>
+			<div id="divisionDiv"></div>
+		<p class="bsnsR_btn"><span class="btn s green" onclick="javascript:pickStaff('insertMemo.do',this)"><a>&nbsp;&nbsp;&nbsp;선정&nbsp;&nbsp;&nbsp;</a></span></p>
+	</div>
+<%-- 직원 플로팅 div --%>
+</c:if>
+</div>
+
+</div>

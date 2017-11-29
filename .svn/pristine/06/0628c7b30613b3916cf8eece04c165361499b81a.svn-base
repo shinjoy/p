@@ -1,0 +1,115 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions"%>
+
+<%@ include file="./js/projectMyWorkList_JS.jsp" %>
+<section id="detail_contents">
+
+	<input type="hidden" id = "thisYear" value="${searchYear }">
+	<input type="hidden" id = "thisMonth" value="${searchMonth }">
+	<input type="hidden" id = "thisDate" value="${searchDate }">
+	<form id = "frm" name = "frm" method="post">
+		<input type="hidden" id = "searchPeriodYn" name = "searchPeriodYn" value="N">
+		<!-- 날짜selectBox option -->
+		<div id = "dayArea">
+			<jsp:include page="./include/projectMyWorkList_dayOptionList_INC.jsp"></jsp:include>
+		</div>
+
+		<!--noti + tab-->
+		<div class="sys_p_noti mgt20 mgb10"><span class="icon_noti"></span><span>오늘 진행해야 하는 <span class="pointS">단위업무 별로</span> <span class="pointB">업무일지</span>와 <span class="pointB">일정</span> 그리고 <span class="pointB">전자결재</span>를 바로 작성할 수 있는 페이지 입니다.</span></div>
+		<ul class="tabZone_st03" id = "tabArea">
+			<li id="tab_NOPERIOD" class="current"><a href="javascript:moveTab('NOPERIOD')">상시 업무구분</a></li>
+			<li id="tab_PERIOD"><a href="javascript:moveTab('PERIOD')">비상시 업무구분</a></li>
+		</ul>
+		<!--//noti + tab//-->
+
+		<div id = "listArea">
+			<jsp:include page="./include/projectMyWorkList_INC.jsp"></jsp:include>
+		</div>
+	</form>
+
+	<!--프로젝트정보팝업-->
+	<div style="display: none;">
+		<div id="compnay_dinfo2">
+			<div class="modalWrap2">
+				<h1>${baseUserLoginInfo.projectTitle}상세팝업</h1>
+				<div class="mo_container" id = "projectInfoPopArea">
+				</div>
+				<a href="javascript:myModal.close('my-modal-div');" class="btn_modal_close"><em>창 닫기</em></a>
+			</div>
+		</div>
+	</div>
+	<!--//프로젝트팝업//-->
+
+	<!-- 전자결재 즐겨찾는 서식 area -->
+	<div id = "approveBookMarkArea" style="display: none;">
+		<c:set var = "approveBasicCnt" value="0" />
+		<option value="">선택하세요.</option>
+		<optgroup label="=========="></optgroup>
+			<c:forEach items="${approveBookMarkList }" var="data">
+				<c:if test="${data.realAppvDocClass ne 'COMPANY' and data.bookmarkType ne 'COMPANY' }">
+					<option value="${data.appvBookmarkFormId }" bookmarktype = "${data.bookmarkType }" appvdocclass = "${data.appvDocClass }" appvcompanyid = "${data.appvCompanyId }" appvdocid = "${data.appvDocId }" realAppvDocClass = "${data.realAppvDocClass }" projecttype="${data.projectType }">
+						${data.title }
+					</option>
+
+					<c:set var = "approveBasicCnt" value="${approveBasicCnt+1 }" />
+				</c:if>
+			</c:forEach>
+		</optgroup>
+		<optgroup label="=========="></optgroup>
+			<option value="9999999" bookmarktype="BASIC" appvdocclass="BASIC" appvcompanyid="" appvdocid="" realAppvDocClass = "BASIC" projecttype="">
+					기본양식
+			</option>
+			<option value="9999999" bookmarktype="REPORT" appvdocclass="REPORT" appvcompanyid="" appvdocid="" realAppvDocClass = "REPORT" projecttype="">
+					보고서
+			</option>
+			<option value="9999999" bookmarktype="EXPENSE" appvdocclass="EXPENSE" appvcompanyid="" appvdocid="" realAppvDocClass = "EXPENSE" projecttype="">
+					지출결의서
+			</option>
+			<option value="9999999" bookmarktype="PURCHASE" appvdocclass="PURCHASE" appvcompanyid="" appvdocid="" realAppvDocClass = "PURCHASE" projecttype="">
+					구매신청
+			</option>
+			<option value="9999999" bookmarktype="TRIP" appvdocclass="TRIP" appvcompanyid="" appvdocid="" realAppvDocClass = "TRIP" projecttype="">
+					출장신청
+			</option>
+			<option value="9999999" bookmarktype="EDUCATION" appvdocclass="EDUCATION" appvcompanyid="" appvdocid="" realAppvDocClass = "EDUCATION" projecttype="">
+					교육신청
+			</option>
+	</div>
+
+	<script type="text/javascript">
+		if("${approveBasicCnt}" == "0"){
+			$("#approveBookMarkArea").find("optgroup").remove();
+		}
+	</script>
+
+	<!-- 전자결재 사내서식 area -->
+	<div id = "approveCompanyArea" style="display: none;">
+		<c:set var = "approveCompanyCnt" value="0" />
+		<option value="">선택하세요.</option>
+		<optgroup label="=========="></optgroup>
+			<c:forEach items="${approveBookMarkList }" var="data">
+				<c:if test="${data.realAppvDocClass eq 'COMPANY' or data.bookmarkType eq 'COMPANY' }">
+					<option value="${data.appvBookmarkFormId }" bookmarktype = "${data.bookmarkType }" appvdocclass = "${data.appvDocClass }" appvcompanyid = "${data.appvCompanyId }" appvdocid = "${data.appvDocId }"  realAppvDocClass = "${data.realAppvDocClass }"  projectType="${data.projectType }">
+						${data.title }
+					</option>
+					<c:set var = "approveCompanyCnt" value="${approveCompanyCnt+1 }" />
+				</c:if>
+			</c:forEach>
+		</optgroup>
+		<optgroup label="=========="></optgroup>
+			<c:forEach items="${companyFormList }" var="data">
+				<option value="9999999" bookmarktype="COMPANY" appvdocclass="" appvcompanyid="${data.appvCompanyFormId }" appvdocid="" realAppvDocClass = "COMPANY"  projectType="${data.projectType }">
+					${data.appvDocTypeName }
+				</option>
+			</c:forEach>
+	</div>
+
+	<script type="text/javascript">
+		if("${approveCompanyCnt}" == "0"){
+			$("#approveCompanyArea").find("optgroup").remove();
+		}
+	</script>
+</section>

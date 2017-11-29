@@ -1,0 +1,705 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+
+<%
+response.setHeader("Cache-Control","no-cache");
+response.setHeader("Pragma","no-cache");
+response.setDateHeader("Expires",0);
+
+%>
+
+
+<style type="text/css">
+.btn_div {
+    margin: 20px 5px 20px 5px;
+    text-align: center;
+}
+.division_style{
+	background: #394652;
+    color:white;
+    padding:3px 3px 3px 0px;
+}
+dl{
+	margin-bottom:7px;
+}
+dt:first-child{
+	padding-top:5px;
+}
+dt{
+	color:#929ca5;
+	background: url(../../images/support_w/th_subrow_line.gif) no-repeat 10px center ;
+}
+dt:last-of-type{
+	color:#929ca5;
+	background: url(../../images/support_w/th_subrowlast_line.gif) no-repeat 10px -43px ;
+}
+dd {
+	padding-left: 30px;
+	padding-bottom: 5px;
+	background: url(../../images/support_w/th_subrow_goline.gif) no-repeat 10px center ;
+}
+dd:last-child {
+	background:none;
+}
+
+input[type="checkbox"] {
+	margin: 0px 3px 0px 0px !important;vertical-align: middle !important;
+}
+
+.padding0{
+	padding:0px!important;
+}
+
+</style>
+
+<div class="popModal_wrap">
+	<h3 class="pop_title">알림 ${alarmId == 0 ? '등록' : '수정'}</h3>
+	<!-- <a href="javascript:window.close();" class="popup_close"><em>닫힘</em></a> -->
+	<div class="conBox">
+		<table id="SGridTarget" class="tb_basic_left" summary="알림내용 (알림날짜, 분류, 사원선택, 알림타입, 내용)">
+			<caption>알림등록</caption>
+	        <colgroup>
+	       		<col width="15%" />
+                <col width="*"/>
+               </colgroup>
+             	<tr>
+          	 		<th>알림날짜</th>
+        		 	<td>
+        		 		<input type="text" id="alarmStart" class="input_b input_date_type" readonly="readonly"/>
+					<a href="#" onclick="$('#alarmStart').datepicker('show');return false;" class="icon_calendar"></a>
+        		 		~
+        		 		<input type="text" id="alarmEnd" class="input_b input_date_type" readonly="readonly"/>
+					<a href="#" onclick="$('#alarmEnd').datepicker('show');return false;" class="icon_calendar"></a>
+        		 	</td>
+        		 </tr>
+
+        		 <tr id="orgScopeArea" style="display:none;">
+          	 		<th>팝업공지 범위</th>
+        		 	<td>
+        		 		<span class="radio_list2">
+        		 			<label><input type="radio" name="alarmOrgScope" value="ORG_MY" onchange="fnObj.selectOrgType('ORG_MY');" checked="checked"/>자사</label>
+        		 			<label><input type="radio" name="alarmOrgScope" value="ORG_ALL" onchange="fnObj.selectOrgType('ORG_ALL');"/>전사</label>
+        		 			<label><input type="radio" name="alarmOrgScope" value="ORG_CHOICE" onchange="fnObj.selectOrgType('ORG_CHOICE');"/>관계사 선택</label>
+        		 		</span>
+        		 	</td>
+        		 </tr>
+
+        		 <tr class="divORG_MY">
+          	 		<th>분류</th>
+        		 	<td>
+        		 		<span class="radio_list2" id="alarmTargetTypeDiv"></span>
+        		 	</td>
+        		 </tr>
+        		 <tr>
+          	 		<th>알림대상</th>
+        		 	<td id="targetTd">
+        		 		<div class="divORG_MY">
+        		 			<a href="javascript:fnObj.userPop('');" id="userBtn" class="btn_select_employee"><em>직원선택</em></a>
+        		 			<div id="userList_" class="employee_list mgt10"></div>
+        		 		</div>
+        		 		<div class="divORG_ALL" style="display:none;"><strong>전사</strong></div>
+        		 		<div class="divORG_CHOICE" style="display:none;">
+        		 			<table id="choiceOrgTable">
+        		 				<colgroup>
+        		 					<col width="15%" />
+                					<col width="*"/>
+                				</colgroup>
+                				<tbody></tbody>
+        		 			</table>
+        		 		</div>
+        		 	</td>
+        		 </tr>
+        		 <tr>
+          	 		<th>알림타입</th>
+        		 	<td>
+        		 		<select id="alarmType" class="select_b w_st14">
+						<option value="POPUP">팝업</option>
+					</select>
+        		 	</td>
+        		 </tr>
+        		 <tr>
+          	 		<th scope="row">내용</th>
+        		 	<td>
+        		 		<textarea class="txtarea_b2 w100pro" id="alarmText"></textarea>
+        		 	</td>
+        		 </tr>
+       	</table>
+       	<div class="btn_baordZone2">
+			<a href="javascript:fnObj.doSave();" id="regBtnSpan" class="p_blueblack_btn btn_auth" style="display:none;"><span id="regTxtSpan">등록</span></a>
+			<a href="javascript:fnObj.doDelete();" id="deleteBtnSpan" class="p_blueblack_btn btn_auth"  style="display:none;">삭제</a>
+			<a href="javascript:window.close();" id="closeBtnSpan" class="p_withelin_btn">닫기</a>
+  		</div>
+    </div>
+</div>
+
+<script type="text/javascript">
+
+//Global variables :S ---------------
+
+//공통코드
+
+var myGrid = new SGrid();		// instance		new sjs
+var myModal = new AXModal();	// instance
+
+var sNb='${baseUserLoginInfo.userId}'; 		  //로그인 유저의 userId
+var division='${baseUserLoginInfo.orgId}';
+var alarmId='${alarmId}';					  //알림 시퀀스
+var g_gridListStr;							  //그리드 데이터 string (객체화되기전 문자열 json... JSON.parse 로 객체로 만들어사용) (증권사 필터링을 위해..)
+
+//Global variables :E ---------------
+var orgAlarmTarget =''; //DB에 저장되있는 타겟
+var userList ;			//전체 유저리스트
+var entryList ;			//타겟 리스트
+var g_codeSet ='NOTICE_TARGET_TYPE';
+var orgCodeCombo = new Array();
+
+var g_rowIdx = 0;
+
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+var fnObj = {
+
+
+	//선로딩코드
+	preloadCode: function(){
+		//공통코드
+		//캘린더 세팅
+		fnObj.setDatepicker('alarmStart');
+		fnObj.setDatepicker('alarmEnd');
+		if(alarmId == 0){	//등록일떄 기본 날짜 오늘 ~오늘+4일 세팅.
+			var nowDate = new Date();
+			nowDate.setDate(nowDate.getDate()+4);
+			$("#alarmStart").val(new Date().yyyy_mm_dd());
+			$("#alarmEnd").val(nowDate.yyyy_mm_dd());
+		}
+
+		var alarmTargetType = getBaseCommonCode(g_codeSet, '', 'CD', 'NM', null, '', '', { orgId : "${baseUserLoginInfo.applyOrgId}"} );
+		if(alarmTargetType == null){
+			alarmTargetType = [{ 'CD': '', 'NM' :'선택'}];
+		}
+		var alarmTarget = createSelectTag('alarmTarget', alarmTargetType, 'CD', 'NM', null, 'fnObj.getUserList("");', {}, '', 'select_b w_st14');	//select tag creator 함수 호출 (common.js)
+		$("#alarmTargetTypeDiv").html(alarmTarget);
+
+		var params = {};
+		orgCodeCombo = getCodeInfo('', 'optionValue', 'optionText', null, null, null, '/common/getOrgCodeCombo.do', params);	//ORG코드(콤보용) 호출
+
+		if('${pageType}' == 'ALL') $("#orgScopeArea").show();
+	},
+
+	//화면세팅
+    pageStart: function(){
+    	if(alarmId != 0){	 //수정
+    		fnObj.getAlarm();							//수정일때 알림 데이터 가져오기
+    		$("#regTxtSpan").html("수정");				//글씨 바꾸기
+    	}else{				 //등록
+    		fnObj.getUserList('');
+    		$("#regBtnSpan").show();
+    	}
+
+    	//-------------------------- 모달창 :S -------------------------
+    	myModal.setConfig({
+    		windowID:"myModalCT",
+
+    		width:740,
+            mediaQuery: {
+                mx:{min:0, max:767}, dx:{min:767}
+            },
+    		displayLoading:true,
+            scrollLock: false,
+    		onclose: function(){
+
+    		}
+            ,contentDivClass: "popup_outline"
+
+    	});
+    	//-------------------------- 모달창 :E -------------------------
+    },//end pageStart.
+
+    //검색
+    doSearch: function(page){
+    },//end doSearch
+
+    //관계사 선택
+    selectOrgType : function(type){
+
+    	$("#choiceOrgTable tbody").empty();
+    	g_rowIdx = 0;
+
+    	fnObj.displaySet(type);
+
+    	if(type == "ORG_CHOICE") fnObj.addTrTargetSelect();
+    },
+
+    displaySet : function(type){
+
+    	$(".div"+type).show();
+    	$("#targetTd").removeClass("padding0");
+
+    	if(type == 'ORG_MY'){			//자사
+			$(".divORG_ALL").hide();
+			$(".divORG_CHOICE").hide();
+
+    	}else if(type == 'ORG_ALL'){	//전사
+
+			$(".divORG_MY").hide();
+			$(".divORG_CHOICE").hide();
+
+    	}else{							//선택
+    		$(".divORG_MY").hide();
+    		$(".divORG_ALL").hide();
+
+    	}
+    },
+
+    //관계사 선택일때
+    addTrTargetSelect : function(dataObj){
+		var str = '';
+
+		$("#targetTd").addClass("padding0");
+
+		str += '<tr name="row_'+g_rowIdx+'">';
+		str += '<td rowspan="2">';
+
+		str += '<SELECT class="select_b w_st14" id="alarmSelectOrg_'+g_rowIdx+'" ref-val="'+g_rowIdx+'" onchange="fnObj.initOrgTr(\''+g_rowIdx+'\');">';
+		for(var i=0; i<orgCodeCombo.length; i++){
+			str += '<option value="'+orgCodeCombo[i].optionValue+'">'+orgCodeCombo[i].optionText+'</option>';
+		}
+		str += '</SELECT>';
+		str += '<div class="mgt10" style="text-align: center;">';
+
+		str += '<i class="axi axi-square-plus" style="cursor:pointer;font-size: 15px;" title="추가" onclick="fnObj.addTrTargetSelect();"></i>';
+
+		if(g_rowIdx >0){
+			str += '<i class="axi axi-square-minus mgl5" style="cursor:pointer;font-size: 15px;" title="삭제" onclick="fnObj.deleteRow('+g_rowIdx+');"></i>';
+		}
+
+		str += '</div>';
+		str += '</td>';
+		str += '<td>';
+		str += '<span class="radio_list2"><label><input type="radio" name="alarmTargetOrg_'+g_rowIdx+'" value="NOTICE" onchange="fnObj.selectAlarmTargetOrg(\''+g_rowIdx+'\');" checked="checked"/>전체</label>';
+		str += '<label><input type="radio" name="alarmTargetOrg_'+g_rowIdx+'" value="DEPART" onchange="fnObj.selectAlarmTargetOrg(\''+g_rowIdx+'\');"/>부서선택</label>';
+		str += '<label><input type="radio" name="alarmTargetOrg_'+g_rowIdx+'" value="SEL_USER" onchange="fnObj.selectAlarmTargetOrg(\''+g_rowIdx+'\');"/>직접선택</label>';
+		str += '</span>';
+		str += '<a href="javascript:fnObj.userPop(\''+g_rowIdx+'\');" id="userBtn'+g_rowIdx+'" class="btn_select_employee mgl5" style="display:none;"><em>직원선택</em></a></td>';
+		str += '</tr>';
+		str += '<tr name="row_'+g_rowIdx+'">';
+		str += '<td style="border-left:#e2e5eb solid 1px;"><div id="userList_'+g_rowIdx+'" class="employee_list mgt10">[전체]</div></td>';
+		str += '</tr>';
+
+
+    	$("#choiceOrgTable tbody").append(str);
+
+    	if(typeof dataObj == 'object'){
+    		$('#alarmSelectOrg_'+g_rowIdx).val(dataObj.orgId);
+    		$('input[name="alarmTargetOrg_'+g_rowIdx+'"][value="'+dataObj.alarmTargetOrg+'"]').prop("checked",true);
+
+    		if(dataObj.alarmTargetOrg != 'NOTICE')$("#userBtn"+g_rowIdx).show();
+    		if(dataObj.targetList.length>0) fnObj.getResult(dataObj.targetList,g_rowIdx);	//사원세팅
+
+    		if(dataObj.alarmTargetOrg == 'DEPART') $("#userBtn"+g_rowIdx).attr('class','btn_select_team mgl5');
+	  	    else if(dataObj.alarmTargetOrg == 'SEL_USER') $("#userBtn"+g_rowIdx).attr('class','btn_select_employee mgl5');
+
+    	}
+
+    	g_rowIdx++;
+    },
+
+    deleteRow : function(idx){
+		$('tr[name="row_'+idx+'"]').remove();
+    },
+
+    //관계사 셀렉트 박스 변경 시 초기화
+    initOrgTr : function(idx){
+
+    	$('input[name="alarmTargetOrg_'+idx+'"][value="NOTICE"]').prop("checked",true);
+    	$('#userList_'+idx).html('[전체]');
+    },
+
+    //관계사 선택에 라디오 선택(전체 부서선택 직접선택)
+    selectAlarmTargetOrg : function(idx){
+		var chkValue = $('input[name="alarmTargetOrg_'+idx+'"]:checked').val();
+
+		if(chkValue != 'NOTICE'){
+
+			$('#userBtn'+idx).show();	//직원선택 버튼
+			$('#userList_'+idx).empty();
+
+			if(chkValue == 'DEPART') fnObj.getUserList(idx);
+
+			if(chkValue == 'DEPART') $("#userBtn"+idx).attr('class','btn_select_team mgl5');
+	  	    else if(chkValue == 'SEL_USER') $("#userBtn"+idx).attr('class','btn_select_employee mgl5');
+
+		}else{
+			$('#userBtn'+idx).hide();
+			$('#userList_'+idx).html('[전체]');
+		}
+
+
+    },
+
+    //원본 검색
+    getAlarm: function(){
+
+    	var url = contextRoot + "/alarm/getAlarmDetail.do";
+    	var param = {alarmId : alarmId , codeSet : g_codeSet};
+    	var callback = function(result){
+
+    		var obj = JSON.parse(result);
+    		var resultObject = obj.resultObject;
+    		var list = resultObject.list;					//알림 상세
+    		var targetInfoList = resultObject.targetInfoList;		//알림 관계사 목록 or 타겟 리스트
+
+    		for(var i=0;i<list.length;i++){
+    			//데이터 세팅
+    			orgAlarmTarget = list[i].alarmTarget; 	//DB에 기록된 Target
+    			$("#alarmStart").val(list[i].alarmStart);
+    			$("#alarmEnd").val(list[i].alarmEnd);
+    			$("#alarmTarget").val(list[i].alarmTarget);
+    			$("#alarmType").val(list[i].alarmType);
+    			$("#alarmText").val(list[i].alarmText);
+
+    			if(list[i].createdBy == sNb){		//등록자랑 로그인 유저가 다를때 삭제 수정 버튼 감추기
+    				$("#regBtnSpan").show();
+    				$("#deleteBtnSpan").show();
+    			}
+
+
+    			$('input[name="alarmOrgScope"][value='+list[i].alarmOrgScope+']').prop("checked",true);
+    			fnObj.displaySet(list[i].alarmOrgScope);
+
+    			//관계사 선택
+    			if(list[i].alarmOrgScope == "ORG_CHOICE"){
+
+    				for(var k=0; k<targetInfoList.length; k++){
+
+    					fnObj.addTrTargetSelect(targetInfoList[k]);
+
+    				}
+
+    			}else if(list[i].alarmOrgScope == "ORG_MY"){
+
+    				fnObj.getResult(targetInfoList,'');
+
+    			}else{
+    				if(list[i].alarmTarget == 'DEPART') $("#userBtn").attr('class','btn_select_team');
+			  	    else if(list[i].alarmTarget == 'SEL_USER') $("#userBtn").attr('class','btn_select_employee');
+    			}
+
+    		}
+
+    	};
+
+    	commonAjax("POST", url, param, callback, false, null, null);
+    },//end getAlarm
+
+
+  	//신규일때 target(유저)리스트
+  	getUserList : function(idx){
+  		var searchType='';
+	    var alarmTarget= '';
+	    var applyOrgId= '';
+
+	    if(idx != ''){
+
+	    	alarmTarget = $('input[name="alarmTargetOrg_'+idx+'"]:checked').val();
+	    	applyOrgId = $('#alarmSelectOrg_'+idx).val();
+
+
+	    }else{
+	    	alarmTarget = $("#alarmTarget").val();
+	    	applyOrgId = '${baseUserLoginInfo.applyOrgId}';
+
+	    	if(alarmTarget == 'DEPART') $("#userBtn").attr('class','btn_select_team');
+	  	    else $("#userBtn").attr('class','btn_select_employee');
+	    }
+
+
+
+	    var url = contextRoot+"/common/getStaffListNameSort.do";
+		var param = {
+				searchType	: alarmTarget,	//검색 타입 (B_CARD,MANAGER -법인카드,팀장)
+				applyOrgId  : applyOrgId,
+				mainYn      : 'Y' ,
+				deptOrder   : 'Y'
+		};
+		var callback = function(result){
+
+			var obj = JSON.parse(result);
+			var cnt = obj.resultVal;		//결과수
+			var list = obj.resultList;		//결과데이터JSON
+			userList = list;
+
+			fnObj.getResult(userList,idx);
+		}
+		commonAjax("POST", url, param, callback, false, null, null);
+  	},
+
+	//등록 및 수정
+	doSave : function(){
+
+		var alarmStart =$("#alarmStart").val();
+	    var alarmEnd   =$("#alarmEnd").val();
+	    var alarmTarget=$("#alarmTarget").val();
+	    var alarmType  =$("#alarmType").val();
+	    var alarmText  =$("#alarmText").val();
+	    var targetList = [];				//선택한 유저리스트
+
+	    var alarmOrgScope = $("input[name=alarmOrgScope]:checked").val();
+
+	    var orgList = [];
+	    var selectOrgInfoList = new Array();
+
+	    var chk = true;
+
+	    if(alarmOrgScope == 'ORG_CHOICE'){		//관계사 선택
+
+	    	$('select[id*="alarmSelectOrg_"]').each(function() {
+	    		var selectUserList = [];
+	    		var idx = $(this).attr('ref-val');
+				var targetOrg = $('input[name=alarmTargetOrg_'+idx+']:checked').val();
+
+	    		orgList.push(this.value);
+
+	    		if(targetOrg == 'SEL_USER' && $('input[name=selectUser'+idx+']').length == 0 ){
+
+	    			alert("직원을 선택해주세요.");
+	    			$(this).focus();
+	    			chk = false;
+
+	    		}else{
+
+		    		$('input[name=selectUser'+idx+']').each(function() {
+		    			selectUserList.push(this.value);
+
+		    	    });
+
+		    		var infoObj = {targetOrgId : this.value, alarmTargetOrg : targetOrg  ,targetList : selectUserList.join(',') };
+
+		    		selectOrgInfoList.push(infoObj);
+	    		}
+
+	    	});
+
+	    	if(!chk) return;
+
+	    	var sorted_arr = orgList.slice().sort();
+
+	    	for (var i = 0; i < orgList.length - 1; i++) {
+
+	    		if (sorted_arr[i + 1] == sorted_arr[i]) {
+	    	        alert("중복되는 관계사가 존재합니다.");
+	    	        return;
+	    	    }
+	    	}
+
+	    }else if(alarmOrgScope == 'ORG_MY'){	//자사
+
+	    	$('input[name=selectUser]').each(function() {
+		    	targetList.push(this.value);
+			});
+
+	    	if(targetList.length == 0){	//선택된 사원이 없을때.
+	 	    	alert("알림을 보낼 사원을 선택해주세요.");
+	 	    	return;
+	 	    }
+
+	    }
+
+	    if(alarmStart=='' || alarmEnd==''){
+	    	alert("알림일을 선택해주세요.");
+	    	$("#alarmStart").focus();
+	    	return;
+	    }
+	    if(alarmStart>alarmEnd){
+	    	alert("알림시작일이 종료일보다 큽니다.");
+	    	$("#alarmStart").focus();
+	    	return;
+	    }
+
+	    if(alarmText==''){
+	    	alert("내용을 입력해주세요.");
+	    	$("#alarmText").focus();
+	    	return;
+	    }
+	   	var url = contextRoot + "/alarm/saveAlarm.do";
+	   	var param = {
+	   					alarmId		: alarmId,
+			   			alarmStart  : alarmStart,
+			   			alarmEnd 	: alarmEnd,
+			   			alarmTarget : alarmTarget,
+			   			alarmType 	: alarmType,
+			   			alarmText 	: alarmText,
+			   			targetList  : targetList.join(','),	//선택 유저리스트 (보낼)
+			   			alarmOrgScope : alarmOrgScope,
+			   			selectOrgInfoList : JSON.stringify(selectOrgInfoList)
+			    	};
+	   	var callback = function(result){
+	   		var obj = JSON.parse(result);
+	   		var chk = obj.resultVal;
+	   		if(chk>0){
+	   			opener.toast.push("완료되었습니다.");
+		   		opener.fnObj.doSearch(1);
+		   		window.close();
+	   		}else{
+	   			alert("서버오류!!!.");
+	   		}
+		};
+
+		commonAjax("POST", url, param, callback, false, null, null);
+
+	},//end doSave
+
+  	doDelete: function(){
+		if(confirm("삭제하시겠습니까?")){
+		   	var url = contextRoot + "/alarm/deleteAlarm.do";
+		   	var param = {
+		   					alarmId		: alarmId,
+				   			alarmStart  : '1988-01-01',
+				   			alarmEnd 	: '1988-01-01',
+				   		};
+		   	var callback = function(result){
+		   		var obj = JSON.parse(result);
+		   		var chk = obj.resultVal;
+		   		if(chk>0){
+		   			opener.toast.push("삭제되었습니다.");
+			   		window.opener.location.reload();
+			   		window.close();
+		   		}else{
+		   			alert("서버오류!!!.");
+		   		}
+
+		   	};
+			commonAjax("POST", url, param, callback, false, null, null);
+		}
+	},//end doDelete
+
+	setDatepicker : function(obj){		//datepicker 설정
+		$('#'+obj).datepicker({
+			dateFormat: 'yy-mm-dd',
+			changeMonth: true,
+			changeYear: true,
+			showOn: "button",
+			yearRange: 'c-7:c+7',
+		 	monthNames: ['1 월','2 월','3 월','4 월','5 월','6 월','7 월','8 월','9 월','10 월','11 월','12 월'], // 개월 텍스트 설정
+		    monthNamesShort: ['1 월','2 월','3 월','4 월','5 월','6 월','7 월','8 월','9 월','10 월','11 월','12 월'], // 개월 텍스트 설정
+		    dayNames: ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'], // 요일 텍스트 설정
+		    dayNamesShort: ['일','월','화','수','목','금','토'], // 요일 텍스트 축약 설정
+		    dayNamesMin: ['일','월','화','수','목','금','토'], // 요일 최소 축약 텍스트 설정
+		    showButtonPanel: false,
+			isRTL: false,
+		    buttonText: ""
+		});
+	},
+
+	userPop : function(idx){
+
+		var paramList = [];
+
+
+	    var userList = [];
+
+	    $('input[name=selectUser'+idx+']').each(function() {
+		   	userList.push(this.value);
+
+	    });
+
+	    var paramObj ={ name : 'userList'   ,value : userList.join(',')};
+		paramList.push(paramObj);
+
+	    var alarmType = '';
+		var applyOrgId ='';
+
+	  	if(idx != ''){	//관계사 선택에서
+
+	  	   alarmType = $('input[name="alarmTargetOrg_'+idx+'"]:checked').val();
+
+		   paramObj ={ name : 'isOneOrg' ,value : 'Y' };
+	       paramList.push(paramObj);
+
+	       paramObj ={ name : 'oneOrgId' ,value : $('#alarmSelectOrg_'+idx).val() };
+	       paramList.push(paramObj);
+
+
+	    }else{			//자사
+
+	    	alarmType = $("#alarmTarget").val();
+
+	    }
+
+
+        paramObj ={ name : 'isUserSelectEabled' ,value : (alarmType == 'DEPART' ? 'N':'Y')};
+        paramList.push(paramObj);
+        paramObj ={ name : 'isAllOrgSelect' ,value : 'N'};
+        paramList.push(paramObj);
+        paramObj ={ name : 'isCheckDisable' ,value : (alarmType == 'DEPART' ? 'Y':'N')};
+        paramList.push(paramObj);
+        paramObj ={ name : 'parentKey' ,value : idx};
+        paramList.push(paramObj);
+
+
+        userSelectPopCall(paramList);		//공통 선택 팝업 호출
+
+	},
+
+	getResult : function(resultList, parentKey){
+		var str ='';
+		var beforeDeptSeq ='';
+
+		var alarmTarget = '';
+
+		if(parentKey!= '0' && parentKey == '') alarmTarget = $("#alarmTarget").val();
+		else alarmTarget = $('input[name="alarmTargetOrg_'+parentKey+'"]:checked').val();
+
+		sortByKey(resultList,'deptSeq','ASC');		//부서 정렬 조건
+
+		for(var i=0;i<resultList.length;i++){
+			if(alarmTarget == 'DEPART'){			//부서선택시
+
+				if(beforeDeptSeq != resultList[i].deptSeq){
+					str +='</span>';
+					str +='<span id="user_'+resultList[i].deptSeq+'"><span>'+resultList[i].deptNm+'</span>';
+					str +='<a href="javascript:fnObj.deleteUser('+resultList[i].deptSeq+',\''+parentKey+'\');" class="btn_delete_employee"><em>삭제</em></a>, ';
+				}
+				str +='<input type="hidden" name="selectUser'+parentKey+'" value="'+resultList[i].staffSnb+'">';
+				beforeDeptSeq = resultList[i].deptSeq;
+
+			}else{
+				str +='<span id="user_'+resultList[i].staffSnb+'"><span>'+resultList[i].usrNm+'</span><em>('+resultList[i].position+')</em>';
+				str +='<a href="javascript:fnObj.deleteUser('+resultList[i].staffSnb+',\''+parentKey+'\');" class="btn_delete_employee"><em>삭제</em></a>';
+				if(i<resultList.length-1){
+					str +=	',';
+				}
+				str +='<input type="hidden" name="selectUser'+parentKey+'" value="'+resultList[i].staffSnb+'">';
+				str +='</span>';
+			}
+		}
+
+		$("#userList_"+parentKey).html(str);
+	},
+
+	deleteUser : function(userId,idx){
+		$('#userList_'+idx).find("#user_"+userId).remove();
+	}
+
+
+
+};//end fnObj.
+
+
+/*
+ * 화면로딩완료후, 자바스크립트 화면세팅 과 그외동작들 호출.
+ */
+$(function(){
+	fnObj.preloadCode();	//선코딩
+	fnObj.pageStart();		//화면세팅
+});
+
+
+
+
+</script>

@@ -1,0 +1,1371 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Schedule">
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="scheVO" type="ib.schedule.service.impl.ScheduleVO"/>
+	<typeAlias alias="spCmmVO" type="ib.schedule.service.SpCmmVO"/>
+
+	<!-- 달력 생성을 위한 년도 불러오기 -->
+	<select id="scheduleDAO.GetCalNextYear" resultClass="String">
+	    /* scheduleDAO.GetCalNextYear */
+		SELECT MAX(Cal_Year) + 1 scheYear FROM BS_CALENDAR
+	</select>
+
+	<!-- 선택시간 차량 리스트 받아오기 -->
+	<select id="scheduleDAO.GetCarList" parameterClass="scheVO" resultClass="egovMap">
+	   /* scheduleDAO.GetCarList */
+		SELECT
+		     (CASE WHEN a.CAR_ID = b.CAR_ID THEN 'Y' ELSE 'N' END) AS CAR_USE_FLAG
+		    , a.CAR_NUMBER
+		    , a.CAR_IMAGE
+		    , a.CAR_ID
+		FROM
+		   (SELECT B.CAR_ID, B.CAR_NUMBER, B.CAR_IMAGE
+			FROM EA_ASSET_MASTER  A
+			INNER JOIN BS_CAR_LIST B ON A.ASSET_ID = B.ASSET_ID AND B.ORG_ID = #orgId# AND B.OWNED ='B' AND B.ENABLE = 'Y'
+			WHERE 1=1
+			AND A.ENABLE = 'Y'
+			AND A.ASSET_CLASS = 'CAR'
+			AND A.ORG_ID = #orgId#
+			) a  LEFT OUTER JOIN
+		    (SELECT SCHE_SEQ, PER_NM, CAR_ID, S_TIME, E_TIME
+		    FROM
+		        (SELECT SCHE_SEQ, (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = a.PER_SABUN) PER_NM, CAR_ID,
+		            a.SCHE_S_TIME AS S_TIME,
+		            a.SCHE_E_TIME AS E_TIME
+		    FROM ERP_SCHEDULE a
+		    WHERE ORG_ID = #orgId#
+		    AND SCHE_S_YEAR = SPLIT(#scheSDate#, '-', '1')
+			AND CASE LENGTH(SCHE_S_MONTH) WHEN '1' THEN CONCAT('0', SCHE_S_MONTH) ELSE SCHE_S_MONTH END = SPLIT(#scheSDate#, '-', '2')
+			AND CASE LENGTH(SCHE_S_DAY) WHEN '1' THEN CONCAT('0', SCHE_S_DAY) ELSE SCHE_S_DAY END = SPLIT(#scheSDate#, '-', '3')
+			AND CAR_USE_FLAG = 'Y' AND DEL_FLAG = 'N') car) b
+		ON a.CAR_ID = b.CAR_ID
+		AND (
+			(CONVERT(#searchScheSTime#, TIME) BETWEEN CONVERT(S_TIME, TIME) AND CONVERT(E_TIME, TIME) OR
+			CONVERT(#searchScheETime#, TIME) BETWEEN CONVERT(S_TIME, TIME) AND CONVERT(E_TIME, TIME)) OR
+			(CONVERT(S_TIME, TIME) BETWEEN CONVERT(#searchScheSTime#, TIME) AND CONVERT(#searchScheETime#, TIME) OR
+			CONVERT(E_TIME, TIME) BETWEEN CONVERT(#searchScheSTime#, TIME) AND CONVERT(#searchScheETime#, TIME))
+		)
+		ORDER BY CAR_ID, CAR_USE_FLAG, S_TIME
+	</select>
+
+	<!-- 선택일자 차량 사용 리스트 받아오기 -->
+	<select id="scheduleDAO.GetCarUseList" parameterClass="scheVO" resultClass="egovMap">
+	    /* scheduleDAO.GetCarUseList */
+		SELECT
+		   (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = a.PER_SABUN) AS PER_NM
+		   , (SELECT CAR_NUMBER FROM BS_CAR_LIST WHERE CAR_ID = a.CAR_ID) AS CAR_NUMBER
+		   , a.SCHE_S_TIME AS S_TIME
+		   , a.SCHE_E_TIME AS E_TIME
+		FROM ERP_SCHEDULE a
+		WHERE a.ORG_ID = #applyOrgId#
+		    AND SCHE_S_YEAR = SPLIT(#scheSDate#, '-', '1')
+			AND CASE LENGTH(SCHE_S_MONTH) WHEN '1' THEN CONCAT('0', SCHE_S_MONTH) ELSE SCHE_S_MONTH END = SPLIT(#scheSDate#, '-', '2')
+			AND CASE LENGTH(SCHE_S_DAY) WHEN '1' THEN CONCAT('0', SCHE_S_DAY) ELSE SCHE_S_DAY END = SPLIT(#scheSDate#, '-', '3')
+			AND CAR_USE_FLAG = 'Y' AND DEL_FLAG = 'N'
+		ORDER BY CAR_ID, S_TIME, E_TIME
+	</select>
+
+	<!-- 선택 일정 완료 처리 -->
+	<update id="scheduleDAO.ScheduleChkEnd">
+	    /* scheduleDAO.ScheduleChkEnd */
+		UPDATE ERP_SCHEDULE
+		SET
+		    SCHE_CHK_FLAG = 'Y',
+		    SCHE_CHK_DATE = NOW()
+		WHERE REG_PER_SABUN = #perSabun#
+		AND SCHE_SEQ = #scheSeq#
+	</update>
+
+	<!-- 일정 등록을 위한 일정시퀀스 받아오기 -->
+	<select id="scheduleDAO.GetScheSeq" resultClass="String">
+	    /* scheduleDAO.GetScheSeq */
+		SELECT IFNULL(MAX(SCHE_SEQ) + 1, '1') SCHE_SEQ FROM ERP_Schedule
+	</select>
+
+	<!-- 일정 일괄 등록 완료 -->
+	<insert id="scheduleDAO.ScheduleAllAddEnd" parameterClass="java.util.List">
+	    /* scheduleDAO.ScheduleAllAddEnd */
+		INSERT INTO ERP_SCHEDULE
+		   (SCHE_SEQ, SCHE_GRP_CD, PER_SABUN, SCHE_GUBUN, PROJECT_ID,
+		    ACTIVITY_ID, SCHE_S_YEAR, SCHE_S_MONTH, SCHE_S_DAY, SCHE_S_DATE,
+		    SCHE_S_TIME, SCHE_E_YEAR, SCHE_E_MONTH, SCHE_E_DAY,
+		    SCHE_E_DATE, SCHE_E_TIME, SCHE_ALL_TIME, SCHE_TITLE,
+		    SCHE_AREA, SCHE_CON, SCHE_REPET_FLAG, SCHE_ALARM_FLAG, SCHE_ALARM_HOW,
+		    SCHE_IMPORTANT, SCHE_CHK_FLAG, SCHE_PUBLIC_FLAG, SCHE_PERIOD_FLAG, CONTACT_LOC,
+		    CAR_USE_FLAG, CAR_ID, ORG_ID, REG_DATE, REG_PER_SABUN,
+		    DEL_FLAG, COMPANY_ID, CUSTOMER_ID, COMPANY, CUSTOMER,
+		    EDIT_DATE)
+		VALUES
+        <dynamic>
+		<iterate conjunction=",">
+			(#[].scheSeq#, #[].scheGrpCd#, #[].perSabun#, #[].scheGubun#, #[].projectId#,
+			#[].activityId#, #[].scheSYear#, CASE SUBSTR(#[].scheSMonth#, 1, 1) WHEN 0 THEN SUBSTR(#[].scheSMonth#, 2, 1) ELSE #[].scheSMonth# END, CASE SUBSTR(#[].scheSDay#, 1, 1) WHEN 0 THEN SUBSTR(#[].scheSDay#, 2, 1) ELSE #[].scheSDay# END, 	#[].scheSDate#,
+			#[].scheSTime#, #[].scheEYear#, 	CASE SUBSTR(#[].scheEMonth#, 1, 1) WHEN 0 THEN SUBSTR(#[].scheEMonth#, 2, 1) ELSE #[].scheEMonth# END, 	CASE SUBSTR(#[].scheEDay#, 1, 1) WHEN 0 THEN SUBSTR(#[].scheEDay#, 2, 1) ELSE #[].scheEDay# END,
+			#[].scheEDate#, #[].scheETime#, #[].scheAllTime#, #[].scheTitle#,
+			#[].scheArea#, #[].scheCon#, #[].scheRepetFlag#, #[].scheAlarmFlag#, #[].scheAlarmHow#,
+			#[].scheImportant#, 'N', #[].schePublicFlag#, #[].schePeriodFlag#, #[].contactLoc#,
+			#[].carUseFlag#, #[].carId#, #[].orgId# ,NOW(), #[].perSabun#,
+			'N', #[].tmpCpnId#, #[].tmpCstId#, #[].tmpCpnNm#, #[].tmpCstNm#,
+			NOW())
+		</iterate>
+		</dynamic>
+	</insert>
+
+	<!-- 일정 등록 완료 -->
+	<insert id="scheduleDAO.ScheduleAddEnd">
+	   /* scheduleDAO.ScheduleAddEnd */
+		INSERT INTO ERP_SCHEDULE
+		   (SCHE_SEQ, SCHE_GRP_CD, PER_SABUN, SCHE_GUBUN, PROJECT_ID,
+		    ACTIVITY_ID, SCHE_S_YEAR, SCHE_S_MONTH, SCHE_S_DAY, SCHE_S_DATE,
+		    SCHE_S_TIME, SCHE_E_YEAR, SCHE_E_MONTH, SCHE_E_DAY,
+		    SCHE_E_DATE, SCHE_E_TIME, SCHE_ALL_TIME, SCHE_TITLE,
+		    SCHE_AREA, SCHE_CON, SCHE_REPET_FLAG, SCHE_ALARM_FLAG, SCHE_ALARM_HOW,
+		    SCHE_IMPORTANT, SCHE_CHK_FLAG, SCHE_PUBLIC_FLAG, 	CONTACT_LOC, CAR_USE_FLAG,
+		    CAR_ID, ORG_ID, REG_DATE, REG_PER_SABUN, DEL_FLAG,
+		    MNA_TYPE, COMPANY_ID, CUSTOMER_ID, COMPANY, CUSTOMER,
+		    EDIT_DATE, SCHE_PERIOD_FLAG,ATTEND_YN)
+		VALUES
+		    (#scheSeq#, #scheGrpCd#, #perSabun#, #scheGubun#, #projectId#,
+		    #activityId#, #scheSYear#,
+			CASE SUBSTR(#scheSMonth#, 1, 1) WHEN 0 THEN SUBSTR(#scheSMonth#, 2, 1) ELSE #scheSMonth# END,
+			CASE SUBSTR(#scheSDay#, 1, 1) WHEN 0 THEN SUBSTR(#scheSDay#, 2, 1) ELSE #scheSDay# END,
+			#scheSDate#,
+			#scheSTime#,	#scheEYear#,
+			CASE SUBSTR(#scheEMonth#, 1, 1) WHEN 0 THEN SUBSTR(#scheEMonth#, 2, 1) ELSE #scheEMonth# END,
+			CASE SUBSTR(#scheEDay#, 1, 1) WHEN 0 THEN SUBSTR(#scheEDay#, 2, 1) ELSE #scheEDay# END,
+			#scheEDate#, #scheETime#, #scheAllTime#, #scheTitle#,
+			#scheArea#, #scheCon#, #scheRepetFlag#, #scheAlarmFlag#, #scheAlarmHow#,
+			#scheImportant#, 'N', #schePublicFlag#, #contactLoc#, #carUseFlag#,
+			#carId#, #orgId#, NOW(), #perSabun#, 'N',
+			#isMna#,	#tmpCpnId#, #tmpCstId#, #tmpCpnNm#, #tmpCstNm#,
+			NOW(),#schePeriodFlag#,#attendYn#)
+	</insert>
+
+	<!-- 일정 참가자 일괄 등록/수정 완료 -->
+	<insert id="scheduleDAO.ScheduleEntryProcEnd" parameterClass="java.util.List">
+	    /* scheduleDAO.ScheduleEntryProcEnd */
+		INSERT INTO ERP_SCHEDULE_ENTRY
+		(SCHE_SEQ, PER_SABUN, REG_PER_SABUN,ORG_ID, REG_DATE, EDIT_PER_SABUN, EDIT_DATE, DEL_FLAG) VALUES
+        <dynamic>
+		<iterate conjunction=",">
+			(#[].scheSeq#, #[].perSabun#, #[].regPerSabun#
+			,(SELECT ORG_ID FROM BS_USER_MASTER WHERE EMP_NO = #[].perSabun# )
+			, NOW(), #[].regPerSabun#, NOW(), #[].delFlag#)
+		</iterate>
+		</dynamic>
+		ON DUPLICATE KEY UPDATE EDIT_PER_SABUN = VALUES(REG_PER_SABUN), EDIT_DATE = NOW(), DEL_FLAG = VALUES(DEL_FLAG)
+	</insert>
+
+	<!-- 개인일정일시 작성자 참가 등록 완료 -->
+	<insert id="scheduleDAO.ScheduleEntryAddEnd">
+	    /* scheduleDAO.ScheduleEntryAddEnd */
+		INSERT INTO ERP_Schedule_Entry (SCHE_SEQ, PER_SABUN, REG_PER_SABUN,ORG_ID, REG_DATE, DEL_FLAG,EDIT_DATE,EDIT_PER_SABUN)
+		VALUES (#scheSeq#, #perSabun#, #perSabun#
+		,(SELECT ORG_ID FROM BS_USER_MASTER WHERE EMP_NO = #perSabun# )
+		, NOW(), 'N', NOW(),#perSabun#)
+		ON DUPLICATE KEY UPDATE EDIT_PER_SABUN = VALUES(REG_PER_SABUN), EDIT_DATE = NOW(), DEL_FLAG = VALUES(DEL_FLAG)
+	</insert>
+
+	<!-- 선택된 반복 일정 리스트 받아오기 -->
+	<select id="scheduleDAO.GetRepetScheduleList" parameterClass="scheVO" resultClass="egovMap">
+	    /* scheduleDAO.GetRepetScheduleList */
+		SELECT SCHE_SEQ, SCHE_GRP_CD, PER_SABUN, SCHE_GUBUN, PROJECT_ID,
+			SCHE_S_YEAR, SCHE_S_MONTH, SCHE_S_DAY, SCHE_S_DATE, SCHE_S_TIME,
+			SCHE_E_YEAR, SCHE_E_MONTH, SCHE_E_DAY, SCHE_E_DATE, SCHE_E_TIME, SCHE_ALL_TIME,
+			SCHE_TITLE, SCHE_AREA, SCHE_CON, SCHE_REPET_FLAG, SCHE_ALARM_FLAG, SCHE_ALARM_HOW, SCHE_IMPORTANT, SCHE_CHK_FLAG, SCHE_CHK_DATE, SCHE_PUBLIC_FLAG, SCHE_PERIOD_FLAG
+			,ATTEND_YN
+		FROM ERP_Schedule
+		WHERE REG_PER_SABUN = #perSabun#
+		AND DEL_FLAG = 'N'
+		<isNotEmpty property="scheGrpCd">
+            <isEqual property="procFlag" compareValue="alone">AND SCHE_GRP_CD = #scheGrpCd# AND SCHE_S_DATE = #scheSDate#</isEqual>
+            <isEqual property="procFlag" compareValue="after">AND SCHE_GRP_CD = #scheGrpCd# AND SCHE_S_DATE >= #scheSDate#</isEqual>
+            <isEqual property="procFlag" compareValue="all">AND SCHE_GRP_CD = #scheGrpCd#</isEqual>
+            <isEqual property="scheGrpCd" compareValue="Period">AND SCHE_SEQ = #scheSeq#</isEqual>
+        </isNotEmpty>
+        <isEmpty property="scheGrpCd">
+            AND SCHE_SEQ = #scheSeq#
+        </isEmpty>
+	</select>
+
+	<!-- 일정 수정 완료 -->
+	<update id="scheduleDAO.ScheduleEditEnd">
+	   /* scheduleDAO.ScheduleEditEnd */
+		UPDATE ERP_SCHEDULE
+		   SET SCHE_TITLE = #scheTitle#
+		   	 , SCHE_AREA = #scheArea#
+		   	 , SCHE_CON = #scheCon#
+		   	 , SCHE_GUBUN = #scheGubun#
+		   	 , PROJECT_ID = #projectId#
+		   	 , ACTIVITY_ID = #activityId#
+		   	 , SCHE_S_YEAR = #scheSYear#
+		   	 , SCHE_S_MONTH = CASE SUBSTR(#scheSMonth#, 1, 1) WHEN 0 THEN SUBSTR(#scheSMonth#, 2, 1) ELSE #scheSMonth# END
+		   	 , SCHE_S_DAY = CASE SUBSTR(#scheSDay#, 1, 1) WHEN 0 THEN SUBSTR(#scheSDay#, 2, 1) ELSE #scheSDay# END
+		   	 , SCHE_S_DATE = #scheSDate#
+		   	 , SCHE_S_TIME = #scheSTime#
+		   	 , SCHE_E_YEAR = #scheEYear#
+		   	 , SCHE_E_MONTH = CASE SUBSTR(#scheEMonth#, 1, 1) WHEN 0 THEN SUBSTR(#scheEMonth#, 2, 1) ELSE #scheEMonth# END
+		   	 , SCHE_E_DAY = CASE SUBSTR(#scheEDay#, 1, 1) WHEN 0 THEN SUBSTR(#scheEDay#, 2, 1) ELSE #scheEDay# END
+		   	 , SCHE_E_DATE = #scheEDate#
+		   	 , SCHE_E_TIME = #scheETime#
+		   	 , SCHE_ALL_TIME = #scheAllTime#
+		   	 , SCHE_REPET_FLAG = #scheRepetFlag#
+		   	 , SCHE_ALARM_FLAG = #scheAlarmFlag#
+		   	 , SCHE_ALARM_HOW = #scheAlarmHow#
+		   	 , SCHE_IMPORTANT = #scheImportant#
+		   	 , SCHE_PUBLIC_FLAG = #schePublicFlag#
+		   	 , EDIT_DATE = NOW()
+			 , CAR_USE_FLAG = #carUseFlag#
+			 , CAR_ID = #carId#
+			 , MNA_TYPE = #isMna#
+			 , COMPANY_ID = #tmpCpnId#
+			 , CUSTOMER_ID = #tmpCstId#
+			 , COMPANY = #tmpCpnNm#
+			 , CUSTOMER = #tmpCstNm#
+			 , SCHE_GRP_CD = #scheGrpCd#
+			 , SCHE_PERIOD_FLAG = #schePeriodFlag#
+			 , ATTEND_YN = #attendYn#
+		WHERE REG_PER_SABUN = #perSabun#
+		AND DEL_FLAG = 'N'
+		AND SCHE_SEQ = #scheSeq#
+	</update>
+
+	<!-- 일정 수정 완료(반복일정) -->
+    <update id="scheduleDAO.scheduleAllEditEnd">
+       /* scheduleDAO.scheduleAllEditEnd */
+        UPDATE ERP_SCHEDULE
+           SET SCHE_TITLE = #scheTitle#
+             , SCHE_AREA = #scheArea#
+             , SCHE_CON = #scheCon#
+             , SCHE_GUBUN = #scheGubun#
+             , PROJECT_ID = #projectId#
+             , ACTIVITY_ID = #activityId#
+             , SCHE_REPET_FLAG = #scheRepetFlag#
+             , SCHE_ALARM_FLAG = #scheAlarmFlag#
+             , SCHE_ALARM_HOW = #scheAlarmHow#
+             , SCHE_IMPORTANT = #scheImportant#
+             , SCHE_PUBLIC_FLAG = #schePublicFlag#
+             , EDIT_DATE = NOW()
+             , CAR_USE_FLAG = #carUseFlag#
+             , CAR_ID = #carId#
+             , MNA_TYPE = #isMna#
+             , COMPANY_ID = #tmpCpnId#
+             , CUSTOMER_ID = #tmpCstId#
+             , COMPANY = #tmpCpnNm#
+             , CUSTOMER = #tmpCstNm#
+             , SCHE_GRP_CD = #scheGrpCd#
+             , SCHE_PERIOD_FLAG = #schePeriodFlag#
+             , ATTEND_YN = #attendYn#
+        WHERE REG_PER_SABUN = #perSabun#
+        AND DEL_FLAG = 'N'
+        <isNotEmpty property="scheGrpCd">
+            <isEqual property="procFlag" compareValue="alone">AND SCHE_GRP_CD = #scheGrpCd# AND SCHE_S_DATE = #scheSDate#</isEqual>
+            <isEqual property="procFlag" compareValue="after">AND SCHE_GRP_CD = #scheGrpCd# AND SCHE_S_DATE >= #scheSDate#</isEqual>
+            <isEqual property="procFlag" compareValue="all">AND SCHE_GRP_CD = #scheGrpCd#</isEqual>
+            <isEqual property="scheGrpCd" compareValue="Period">AND SCHE_SEQ = #scheSeq#</isEqual>
+        </isNotEmpty>
+        <isEmpty property="scheGrpCd">
+            AND SCHE_SEQ = #scheSeq#
+        </isEmpty>
+    </update>
+
+	<!-- 일정 삭제 완료 -->
+	<update id="scheduleDAO.ScheduleDelEnd">
+	    /* scheduleDAO.ScheduleDelEnd */
+		UPDATE ERP_Schedule SET DEL_DATE = NOW(), DEL_FLAG = 'Y' WHERE REG_PER_SABUN = #perSabun# AND SCHE_SEQ = #scheSeq# AND DEL_FLAG = 'N'
+		<isNotEmpty property="scheGrpCd">
+			<isEqual property="procFlag" compareValue="alone">AND SCHE_GRP_CD = #scheGrpCd# AND SCHE_S_DATE = #scheSDate#</isEqual>
+			<isEqual property="procFlag" compareValue="after">AND SCHE_GRP_CD = #scheGrpCd# AND SCHE_S_DATE >= #scheSDate#</isEqual>
+			<isEqual property="procFlag" compareValue="all">AND SCHE_GRP_CD = #scheGrpCd#</isEqual>
+		</isNotEmpty>
+	</update>
+
+	<!-- 일정 참가자 삭제 완료 -->
+	<delete id="scheduleDAO.ScheduleEntryDelEnd" parameterClass="scheVO">
+	    /* scheduleDAO.ScheduleEntryDelEnd */
+		DELETE FROM ERP_SCHEDULE_ENTRY WHERE SCHE_SEQ = #scheSeq#
+	</delete>
+
+    <!-- 일정 삭제 완료(반복일정그룹코드) -->
+    <update id="scheduleDAO.ScheduleDelEndByGrpCd">
+        /* scheduleDAO.ScheduleDelEndByGrpCd */
+        UPDATE ERP_SCHEDULE
+        SET DEL_DATE = NOW()
+            , DEL_FLAG = 'Y'
+        WHERE 1=1
+        <isNotEmpty property="scheGrpCd">
+            <isEqual property="procFlag" compareValue="alone">AND SCHE_GRP_CD = #scheGrpCd# AND SCHE_S_DATE = #scheSDate#</isEqual>
+            <isEqual property="procFlag" compareValue="after">AND SCHE_GRP_CD = #scheGrpCd# AND SCHE_S_DATE >= #scheSDate#</isEqual>
+            <isEqual property="procFlag" compareValue="all">AND SCHE_GRP_CD = #scheGrpCd#</isEqual>
+        </isNotEmpty>
+        <isEmpty property="scheGrpCd">
+            AND SCHE_SEQ = #scheSeq#
+        </isEmpty>
+    </update>
+
+	<!-- 일정 참가자 삭제 완료(반복일정그룹코드)  -->
+    <delete id="scheduleDAO.ScheduleEntryDelEndByGrpCd" parameterClass="scheVO">
+        /* scheduleDAO.ScheduleEntryDelEndByGrpCd */
+        DELETE
+        FROM ERP_SCHEDULE_ENTRY
+        WHERE SCHE_SEQ IN
+            (SELECT SCHE_SEQ
+            FROM ERP_SCHEDULE
+            WHERE 1=1
+            <isNotEmpty property="scheGrpCd">
+	            <isEqual property="procFlag" compareValue="alone">AND SCHE_GRP_CD = #scheGrpCd# AND SCHE_S_DATE = #scheSDate#</isEqual>
+	            <isEqual property="procFlag" compareValue="after">AND SCHE_GRP_CD = #scheGrpCd# AND SCHE_S_DATE >= #scheSDate#</isEqual>
+	            <isEqual property="procFlag" compareValue="all">AND SCHE_GRP_CD = #scheGrpCd#</isEqual>
+	        </isNotEmpty>
+	        <isEmpty property="scheGrpCd">
+	            AND SCHE_SEQ = #scheSeq#
+	         </isEmpty>
+            )
+    </delete>
+
+	<!-- 업무일지 - 일정정보 -->
+	<select id="scheduleDAO.selectScheduleWork" parameterClass="HashMap" resultClass="HashMap">
+	    /* scheduleDAO.selectScheduleWork */
+	    SELECT X.*
+	    FROM (
+		SELECT
+			   SUBSTR(SYS_DATE, 1, 10)						AS viewDate
+			   ,DATE_FORMAT(SYS_DATE,'%Y.%m') AS viewMonth
+               ,DATE_FORMAT(SYS_DATE,'%d') AS viewDay
+               ,(CASE DAYOFWEEK(SYS_DATE)
+                  WHEN '1' THEN '일'
+                  WHEN '2' THEN '월'
+                  WHEN '3' THEN '화'
+                  WHEN '4' THEN '수'
+                  WHEN '5' THEN '목'
+                  WHEN '6' THEN '금'
+                  WHEN '7' THEN '토'
+               END) AS viewDateWeek
+		      ,SCHE_SEQ										AS scheSeq
+		      ,SCHE_GRP_CD									AS scheGrpCd
+		      ,PER_SABUN									AS perSabun
+		      ,SCHE_GUBUN									AS scheGubun
+		      ,PROJECT_ID									AS projectId
+		      ,ACTIVITY_ID								AS activityId
+              ,(SELECT NAME FROM BS_ACTIVITY P WHERE P.ACTIVITY_ID = schex.ACTIVITY_ID) AS activityNm
+		      ,MNA_TYPE										AS mnaType
+		      ,(CASE WHEN SCHE_ALL_TIME = 'N' THEN SCHE_S_TIME
+               ELSE 'A'
+               END) AS viewTime
+              ,SCHE_S_YEAR									AS scheSYear
+              ,SCHE_S_MONTH									AS scheSMonth
+              ,SCHE_S_DAY									AS scheSDay
+              ,SCHE_S_DATE									AS scheSDate
+              ,SCHE_S_TIME									AS scheSTime
+              ,SCHE_E_YEAR									AS scheEYear
+              ,SCHE_E_MONTH									AS scheEMonth
+              ,SCHE_E_DAY									AS scheEDay
+              ,SCHE_E_DATE									AS scheEDate
+              ,SCHE_E_TIME									AS scheETime
+              ,SCHE_ALL_TIME								AS scheAllTime
+              ,SCHE_TITLE									AS scheTitle
+              ,SCHE_AREA									AS scheArea
+              ,SCHE_CON										AS scheCon
+              ,EXTRA_DAY									AS extraDay
+              ,SCHE_REPET_FLAG								AS scheRepetFlag
+              ,SCHE_ALARM_FLAG								AS scheAlarmFlag
+              ,SCHE_ALARM_HOW								AS scheAlarmHow
+              ,SCHE_IMPORTANT								AS scheImportant
+              ,SCHE_CHK_FLAG								AS scheChkFlag
+              ,DATE_FORMAT(SCHE_CHK_DATE, '%Y-%m-%d')		AS ScheChkDate
+              ,SCHE_PUBLIC_FLAG								AS schePublicFlag
+              ,SCHE_PERIOD_FLAG								AS schePeriodFlag
+              ,CAR_USE_FLAG									AS carUseFlag
+		      ,CAR_ID										AS carId
+		      ,SCHE_IMPORTANT_NM							AS scheImportantNm
+		      ,REG_PER_SABUN								AS regPerSabun
+		      ,(SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = schex.REG_PER_SABUN)				AS regPerNm
+		      ,(SELECT USER_ID FROM BS_USER_MASTER WHERE EMP_NO = schex.REG_PER_SABUN)               AS regPerId
+		      ,(SELECT USER_ID FROM BS_USER_MASTER WHERE EMP_NO = ENTRY)              		    AS entryId
+		      ,CASE WHEN REG_PER_SABUN = #empNo# OR ENTRY LIKE '%$empNo$%' THEN 'My' END		AS mySche
+		      ,ENTRY_NM										AS entryNm
+		FROM
+			(SELECT SCHE_SEQ, SCHE_GRP_CD, PER_SABUN, SCHE_GUBUN, PROJECT_ID, ACTIVITY_ID, MNA_TYPE,
+		            SCHE_S_YEAR, SCHE_S_MONTH, SCHE_S_DAY, SCHE_S_DATE,  SCHE_S_TIME,
+		            SCHE_E_YEAR, SCHE_E_MONTH, SCHE_E_DAY, SCHE_E_DATE, SCHE_E_TIME, SCHE_ALL_TIME,
+		            SCHE_TITLE, SCHE_AREA, SCHE_CON, EXTRA_DAY, SCHE_REPET_FLAG, SCHE_ALARM_FLAG, SCHE_ALARM_HOW
+		            ,SCHE_IMPORTANT, SCHE_CHK_FLAG, SCHE_CHK_DATE, SCHE_PUBLIC_FLAG, SCHE_PERIOD_FLAG, CAR_USE_FLAG
+		            ,CAR_ID, SCHE_IMPORTANT_NM, REG_PER_SABUN, ENTRY, ENTRY_NM
+		            ,SYS_DATE
+		            ,ORG_ID
+		       FROM
+			        (SELECT sche.SCHE_SEQ, SCHE_GRP_CD, sche.PER_SABUN, SCHE_GUBUN, PROJECT_ID, ACTIVITY_ID, MNA_TYPE,
+				            SCHE_S_YEAR, SCHE_S_MONTH, SCHE_S_DAY, SCHE_S_DATE, SCHE_S_TIME,
+				            SCHE_E_YEAR, SCHE_E_MONTH, SCHE_E_DAY, SCHE_E_DATE, SCHE_E_TIME, SCHE_ALL_TIME,
+				            SCHE_TITLE, SCHE_AREA, SCHE_CON, EXTRA_DAY,
+							SCHE_REPET_FLAG, SCHE_ALARM_FLAG, SCHE_ALARM_HOW, SCHE_IMPORTANT, SCHE_CHK_FLAG, SCHE_CHK_DATE, SCHE_PUBLIC_FLAG, SCHE_PERIOD_FLAG, CAR_USE_FLAG
+							,CAR_ID
+							,SCHE_IMPORTANT_NM, REG_PER_SABUN
+							<!-- ,GROUP_CONCAT(entry.PER_SABUN) ENTRY -->
+							,entry.PER_SABUN	AS ENTRY
+				            <!-- ,GROUP_CONCAT(entry.PER_NM) ENTRY_NM -->
+				            ,entry.PER_NM		AS ENTRY_NM
+				            ,SYS_DATE
+				            ,ORG_ID
+				       FROM
+					        (SELECT SCHE_SEQ, SCHE_GRP_CD, PER_SABUN, SCHE_GUBUN, J.PROJECT_ID, ACTIVITY_ID, MNA_TYPE,
+						            SCHE_S_YEAR, SCHE_S_MONTH, SCHE_S_DAY, SCHE_S_DATE, SCHE_S_TIME,
+						            SCHE_E_YEAR, SCHE_E_MONTH, SCHE_E_DAY, SCHE_E_DATE, SCHE_E_TIME, SCHE_ALL_TIME,
+						            SCHE_TITLE, SCHE_AREA, SCHE_CON, DATEDIFF(SCHE_S_DATE, NOW()) EXTRA_DAY,
+						            SCHE_REPET_FLAG, SCHE_ALARM_FLAG, SCHE_ALARM_HOW, SCHE_IMPORTANT, SCHE_CHK_FLAG
+						            ,SCHE_CHK_DATE, SCHE_PUBLIC_FLAG, SCHE_PERIOD_FLAG, CAR_USE_FLAG
+						            ,CAR_ID
+						            ,CASE SCHE_IMPORTANT WHEN 'top' THEN '상' WHEN 'middle' THEN '중' WHEN 'bottom' THEN '하' END SCHE_IMPORTANT_NM
+						            ,REG_PER_SABUN
+						       		,K.SYS_DATE
+						       		,P.ORG_ID
+						       FROM ERP_SCHEDULE	J
+						           LEFT JOIN BS_PROJECT P ON J.PROJECT_ID = P.PROJECT_ID
+						       JOIN BS_CALENDAR 	K
+				                 ON K.ORG_ID  = #orgId#
+				                 AND K.SYS_DATE BETWEEN J.SCHE_S_DATE AND J.SCHE_E_DATE
+
+				                 <isEqual property="searchActionType" compareValue="KEYWORD"><!-- 검색실행타입 -->
+				                     <isNotEmpty prepend="AND" property="searchStartDate">                   <!-- 검색기간 -->
+	                                    DATE_FORMAT(K.SYS_DATE,'%Y-%m-%d') BETWEEN #searchStartDate# AND #searchEndDate#
+	                                </isNotEmpty>
+				                 </isEqual>
+				                 <isEqual property="searchActionType" compareValue="MONTH">
+				                     AND K.CAL_YEAR = #calYear#
+                                     AND LPAD(K.MM, 2, '0')  = #mm#
+				                 </isEqual>
+								 <isNotEmpty property="startStr">
+								 	 AND DATE_FORMAT(K.SYS_DATE,'%Y-%m-%d') BETWEEN #startStr# AND #endStr#
+								 </isNotEmpty>
+						      WHERE J.DEL_FLAG = 'N'
+
+						      AND (
+					                    CASE WHEN #vipAuthYn# = 'Y' THEN 1=1  <!-- 특별권한 조회가능 -->
+					                           WHEN P.OPEN_FLAG = 'Y' THEN 1=1       <!-- 공개여부 Y 일땐 조회가능 -->
+					                           ELSE (CASE WHEN P.EMPLOYEE = 'Y' THEN   <!-- 직원배정 Y 일땐 내것만, 아니면 조건없음 -->
+					                                                     EXISTS (
+					                                                                   SELECT 1
+					                                                                    FROM BS_PROJECT_USER N
+					                                                                    WHERE  P.PROJECT_ID = N.PROJECT_ID
+					                                                                    AND N.ENABLE = 'Y'
+					                                                                    AND N.USER_ID = #sessionUserId#
+					                                                                )
+					                                   ELSE 1=1 END)
+					                    END
+					                )
+
+
+								<!-- AND SCHE_S_YEAR = #calYear#
+						    	AND SCHE_S_MONTH = #mm# -->
+						    	<isNotEmpty	property="dd">
+						    		AND LPAD(K.DD, 2, '0') = #dd#
+						    	</isNotEmpty>
+						    	<!-- AND J.ORG_ID = #orgId# -->
+								AND (J.SCHE_PUBLIC_FLAG = 'Y' OR (J.SCHE_PUBLIC_FLAG = 'N' AND J.REG_PER_SABUN = (SELECT EMP_NO FROM BS_USER_MASTER WHERE USER_ID = #userId#)))
+							) sche
+
+						LEFT OUTER JOIN
+							(SELECT SCHE_SEQ
+								   ,PER_SABUN
+								   ,(SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = E.PER_SABUN) PER_NM
+							   FROM ERP_SCHEDULE_ENTRY E
+							  WHERE DEL_FLAG = 'N'
+							  	<isEmpty property = "userList">
+							    AND E.PER_SABUN = (SELECT EMP_NO FROM BS_USER_MASTER WHERE USER_ID = #userId#)
+							    </isEmpty>
+							    <isNotEmpty property = "userList">
+							    AND E.PER_SABUN IN (
+							    					<iterate property="userList" conjunction=",">
+																#userList[]#
+												    </iterate>
+
+							    					)
+							    </isNotEmpty>
+							    ) entry	ON sche.SCHE_SEQ = entry.SCHE_SEQ
+
+					  <!-- GROUP BY sche.SCHE_SEQ -->
+					  ) a
+
+		    WHERE 1=1
+
+		    <isNotEmpty property="secretYn">
+		    	<isNotEqual property="secretYn" compareValue="A">        /* 전체보기 아닌경우 */
+		    		<isEmpty property = "userList">
+	                AND (REG_PER_SABUN = (SELECT EMP_NO FROM BS_USER_MASTER WHERE USER_ID = #userId#)
+	                OR ENTRY LIKE CONCAT('%', (SELECT EMP_NO FROM BS_USER_MASTER WHERE USER_ID = #userId#), '%'))
+	                </isEmpty>
+	                <isNotEmpty property = "userList">
+	                	AND (REG_PER_SABUN IN (
+	                							<iterate property="userList" conjunction=",">
+															#userList[]#
+											        </iterate>
+	                							)
+	                	OR ENTRY IN (
+               							<iterate property="userList" conjunction=",">
+													#userList[]#
+									    </iterate>
+	                				))
+	                </isNotEmpty>
+	            </isNotEqual>
+	            <isEqual property="secretYn" compareValue="A">        /* 메인에서전체보기 */
+	                AND ORG_ID = #applyOrgId#
+	            </isEqual>
+           </isNotEmpty>
+           <isEmpty property="secretYn">
+		     		<isEmpty property = "userList">
+	                    AND (REG_PER_SABUN = (SELECT EMP_NO FROM BS_USER_MASTER WHERE USER_ID = #userId#)
+	                    OR ENTRY LIKE CONCAT('%', (SELECT EMP_NO FROM BS_USER_MASTER WHERE USER_ID = #userId#), '%'))
+                    </isEmpty>
+                    <isNotEmpty property = "userList">
+                    	 AND (REG_PER_SABUN IN (
+							         				<iterate property="userList" conjunction=",">
+															#userList[]#
+											        </iterate>
+
+                    	 						)
+	                    OR ENTRY IN (
+               							<iterate property="userList" conjunction=",">
+													#userList[]#
+									    </iterate>
+	                				))
+                    </isNotEmpty>
+            </isEmpty>
+
+			) schex
+			ORDER BY viewDate ASC, scheAllTime DESC, CAST(REPLACE(viewTime, ':', '') AS UNSIGNED), SCHE_IMPORTANT DESC
+        <!-- ORDER BY SCHE_PERIOD_FLAG DESC, scheAllTime ASC, CAST(REPLACE(viewTime, ':', '') AS UNSIGNED), SCHE_IMPORTANT DESC -->
+			) X
+			WHERE 1=1
+			<isEqual property="searchActionType" compareValue="KEYWORD"><!-- 검색실행타입 -->
+                <isNotEmpty prepend="AND" property="searchKeyword">                   <!-- 검색어 -->
+                       ( X.scheTitle LIKE CONCAT('%', #searchKeyword# , '%')
+                           OR X.scheCon LIKE CONCAT('%', #searchKeyword# , '%')
+                           OR X.activityNm LIKE CONCAT('%', #searchKeyword# , '%'))
+                 </isNotEmpty>
+             </isEqual>
+
+	</select>
+
+	<!-- 휴일 받아오기-->
+    <select id="scheduleDAO.getHolidayList" parameterClass="scheVO" resultClass="egovMap">
+        /* scheduleDAO.getHolidayList */
+        SELECT
+            K.DD AS SCHE_CAL_DAY,
+            K.CAL_YEAR,
+            K.MM AS CAL_MONTH,
+            K.DD AS CAL_DAY,
+            K.SYS_DATE AS CAL_DATE,
+            K.HOLIDAY AS HOLI_FLAG,
+            K.HOL_TYPE AS HOLI_NAME,
+            K.FORMAL_HOL,
+            K.NATIONAL_HOL,
+            (SELECT IC.CPN_NM FROM BS_ORG BO LEFT JOIN IB_COMPANY IC ON IC.S_NB = BO.COMPANY_SNB WHERE ORG_ID = K.ORG_ID) AS CPN_NM
+        FROM (
+            SELECT A.ORG_ID, DATE_FORMAT(SYS_DATE, '%Y-%m-%d') AS SYS_DATE, MM, DD, A.CAL_YEAR , A.HOLIDAY, A.FORMAL_HOL,'N' AS NATIONAL_HOL, B.HOL_TYPE
+            FROM BS_CALENDAR A
+            INNER JOIN BS_HOLIDAY B ON A.SYS_DATE = B.HOLIDAY AND A.FORMAL_HOL = 'Y'
+            AND A.ORG_ID  = #applyOrgId#
+		    AND A.ORG_ID = B.ORG_ID
+            AND A.CAL_YEAR = #scheSYear#
+            AND A.MM = #scheSMonth#
+            UNION
+            SELECT A.ORG_ID, DATE_FORMAT(SYS_DATE, '%Y-%m-%d') AS SYS_DATE, MM, DD, A.CAL_YEAR , A.HOLIDAY, 'N' AS FORMAL_HOL,A.NATIONAL_HOL, C.HOL_TYPE
+            FROM BS_CALENDAR A
+            INNER JOIN BS_NATIONAL_HOLIDAY C ON A.SYS_DATE = C.HOLIDAY AND A.NATIONAL_HOL = 'Y' AND A.ORG_ID = #applyOrgId#
+            AND A.CAL_YEAR = #scheSYear#
+            AND A.MM = #scheSMonth#
+        ) K
+        ORDER BY K.SYS_DATE, K.NATIONAL_HOL DESC, K.HOL_TYPE, K.ORG_ID DESC
+    </select>
+
+    <!-- 일정 리스트 받아오기 -->
+    <select id="scheduleDAO.getScheduleList" parameterClass="scheVO" resultClass="egovMap">
+        /* scheduleDAO.getScheduleList */
+        SELECT
+		     Z.ENTRY_NM
+	        ,Z.ENTRY_NM_DETAIL
+	        ,SCHE_CAL_DAY
+	        ,CAL_YEAR
+	        ,CAL_MONTH
+	        ,CAL_DAY
+	        ,CAL_DATE
+	        ,HOLI_FLAG
+	        ,FORMAL_HOL
+	        ,NATIONAL_HOL
+	        ,Y.SCHE_SEQ
+	        ,SCHE_GRP_CD
+	        ,PER_SABUN
+	        ,SCHE_GUBUN
+	        ,PROJECT_ID
+	        ,ACTIVITY_ID
+	        ,MNA_TYPE
+	        ,VIEW_TIME
+	        ,SCHE_S_YEAR
+	        ,SCHE_S_MONTH
+	        ,SCHE_S_DAY
+	        ,SCHE_S_DATE
+	        ,SCHE_S_TIME
+	        ,SCHE_E_YEAR
+	        ,SCHE_E_MONTH
+	        ,SCHE_E_DAY
+	        ,SCHE_E_DATE
+	        ,SCHE_E_TIME
+	        ,SCHE_ALL_TIME
+	        ,SCHE_TITLE
+	        ,SCHE_AREA
+	        ,SCHE_CON
+	        ,EXTRA_DAY
+	        ,SCHE_REPET_FLAG
+	        ,SCHE_ALARM_FLAG
+	        ,SCHE_ALARM_HOW
+	        ,SCHE_IMPORTANT
+	        ,SCHE_CHK_FLAG
+	        ,SCHE_CHK_DATE
+	        ,SCHE_PUBLIC_FLAG
+	        ,SCHE_PERIOD_FLAG
+	        ,CAR_USE_FLAG
+	        ,CAR_ID
+	        ,SCHE_ALARM_FLAG_NM
+	        ,SCHE_ALARM_HOW_NM
+	        ,SCHE_IMPORTANT_NM
+	        ,REG_PER_SABUN
+	        ,REG_PER_NM
+	        ,PROJECT_CSS
+	        ,APPV_DOC_ID
+	        ,PROJECT_NM
+	        ,ACTIVITY_NM
+	        ,CAR_NUMBER
+	        ,COMPANY_NM
+	        ,CUSTOMER_NM
+	        ,SCHE_REPET_FLAG_NM
+            ,REG_PER_RANK_NM
+            ,ATTEND_YN
+            ,(CASE WHEN REG_PER_SABUN != #perSabun# THEN 'notDraggable'
+                     WHEN IFNULL(SCHE_GRP_CD,'') = 'Period' THEN 'notDraggable'  /*기간일정 불가 */
+                     WHEN SCHE_CHK_FLAG = 'Y' THEN 'notDraggable'
+                     WHEN IFNULL(APPV_DOC_ID,'') != '' THEN 'notDraggable'
+                     ELSE 'darggableLi'
+             END) AS CSS_MOVE_DATE
+		FROM (
+        SELECT
+            DD AS SCHE_CAL_DAY
+	        ,CAL_YEAR
+	        ,MM AS CAL_MONTH
+	        ,DD AS CAL_DAY
+	        ,DATE_FORMAT(SYS_DATE, '%Y-%m-%d') AS CAL_DATE
+	        ,HOLIDAY AS HOLI_FLAG
+	        ,FORMAL_HOL
+	        ,NATIONAL_HOL,
+            SCHE_SEQ, SCHE_GRP_CD, PER_SABUN, SCHE_GUBUN
+            , S.PROJECT_ID, S.ACTIVITY_ID, MNA_TYPE,
+            (CASE WHEN SCHE_ALL_TIME = 'N' THEN SCHE_S_TIME
+               ELSE 'A'
+               END) AS VIEW_TIME,
+            SCHE_S_YEAR, SCHE_S_MONTH, SCHE_S_DAY, SCHE_S_DATE, SCHE_S_TIME,
+            SCHE_E_YEAR, SCHE_E_MONTH, SCHE_E_DAY, SCHE_E_DATE, SCHE_E_TIME,
+            SCHE_ALL_TIME, SCHE_TITLE, SCHE_AREA, SCHE_CON,
+            DATEDIFF(SCHE_S_DATE, NOW()) EXTRA_DAY ,
+            SCHE_REPET_FLAG, SCHE_ALARM_FLAG, SCHE_ALARM_HOW, SCHE_IMPORTANT, SCHE_CHK_FLAG,
+            DATE_FORMAT(SCHE_CHK_DATE, '%Y-%m-%d') SCHE_CHK_DATE,
+            SCHE_PUBLIC_FLAG, SCHE_PERIOD_FLAG, CAR_USE_FLAG, CAR_ID,
+            CASE SCHE_ALARM_FLAG WHEN '7' THEN '일주일전' WHEN '0' THEN '당일' WHEN 'None' THEN '없음' ELSE CONCAT('직접입력 (', SCHE_ALARM_FLAG, '일전)') END SCHE_ALARM_FLAG_NM,
+            CASE SCHE_ALARM_HOW WHEN 'Pop' THEN '팝업만' WHEN 'PopSMS' THEN '팝업, 문자 모두' ELSE '없음' END SCHE_ALARM_HOW_NM,
+            CASE SCHE_IMPORTANT WHEN 'top' THEN '상' WHEN 'middle' THEN '중' WHEN 'bottom' THEN '하' END SCHE_IMPORTANT_NM,
+            REG_PER_SABUN,
+            CASE SCHE_REPET_FLAG WHEN 'None' THEN '없음' WHEN 'Year' THEN '매년' WHEN 'Quarter' THEN '분기' WHEN 'Month' THEN '매월' WHEN 'Week' THEN '매주' WHEN 'Date' THEN '매일' ELSE '없음' END  AS SCHE_REPET_FLAG_NM,
+            (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = S.REG_PER_SABUN) REG_PER_NM,
+            (SELECT J.VALUE_MEAN_KOR
+              FROM BS_CODE_GV J, BS_USER_MASTER K
+             WHERE K.EMP_NO = S.REG_PER_SABUN
+                AND  J.DELETE_FLAG = 'N'
+                AND J.ORG_ID = #applyOrgId#
+                AND J.CODE_NAME = 'RANK'
+                AND J.CODE_VALUE = K.RANK ) AS REG_PER_RANK_NM,
+           <![CDATA[  (CASE WHEN REG_PER_SABUN != #perSabun# THEN '00'
+                    WHEN REG_PER_SABUN = #perSabun# AND SCHE_CHK_FLAG = 'Y' THEN '03'
+                    WHEN REG_PER_SABUN = #perSabun# AND SCHE_CHK_FLAG = 'N' AND SCHE_E_DATE <= DATE_FORMAT(now(), '%Y-%m-%d') THEN '01'
+                    WHEN REG_PER_SABUN = #perSabun# AND SCHE_CHK_FLAG = 'N' AND SCHE_E_DATE > DATE_FORMAT(now(), '%Y-%m-%d') THEN '04'
+                    ELSE '00'
+             END) AS PROJECT_CSS  ]]> ,
+             APPV_DOC_ID,
+             P.NAME  AS PROJECT_NM,
+            (SELECT NAME FROM BS_ACTIVITY P WHERE P.ACTIVITY_ID = S.ACTIVITY_ID) AS ACTIVITY_NM,
+           (SELECT CAR_NUMBER FROM BS_CAR_LIST WHERE CAR_ID = s.CAR_ID) AS CAR_NUMBER,
+           (SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = s.COMPANY_ID) AS COMPANY_NM,
+           (SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = s.CUSTOMER_ID) AS CUSTOMER_NM,
+           S.ATTEND_YN AS ATTEND_YN
+
+           FROM ERP_SCHEDULE S
+              LEFT JOIN BS_PROJECT P ON S.PROJECT_ID = P.PROJECT_ID
+	           INNER JOIN BS_CALENDAR K
+	                ON K.ORG_ID=#applyOrgId#
+	                AND K.SYS_DATE BETWEEN S.SCHE_S_DATE AND S.SCHE_E_DATE
+		           <isNotEqual property="eventType" compareValue="Alarm">
+		              AND K.CAL_YEAR = #scheSYear#
+                      AND K.MM = #scheSMonth#
+		           </isNotEqual>
+           WHERE 1=1
+           AND s.DEL_FLAG = 'N'
+
+           AND (
+                    CASE WHEN #vipAuthYn# = 'Y' THEN 1=1  <!-- 특별권한 조회가능 -->
+                           WHEN P.OPEN_FLAG = 'Y' THEN 1=1       <!-- 공개여부 Y 일땐 조회가능 -->
+                           ELSE (CASE WHEN P.EMPLOYEE = 'Y' THEN   <!-- 직원배정 Y 일땐 내것만, 아니면 조건없음 -->
+                                                     EXISTS (
+                                                                   SELECT 1
+                                                                    FROM BS_PROJECT_USER N
+                                                                    WHERE  P.PROJECT_ID = N.PROJECT_ID
+                                                                    AND N.ENABLE = 'Y'
+                                                                    AND N.USER_ID = #userId#
+                                                                )
+                                   ELSE 1=1 END)
+                    END
+                )
+
+
+           <isEqual property="eventType" compareValue="Alarm">
+                AND S.SCHE_CHK_FLAG = 'N'    <!-- 완료안된 일정 -->
+                AND S.SCHE_ALARM_HOW != 'None'
+                AND DATEDIFF(S.SCHE_S_DATE, NOW()) >= 0 AND DATEDIFF(S.SCHE_S_DATE, NOW()) <![CDATA[<=]]> S.SCHE_ALARM_FLAG
+           </isEqual>
+	        AND s.SCHE_SEQ IN (
+                   SELECT DISTINCT SCHE_SEQ
+                   FROM ERP_SCHEDULE_ENTRY
+                    WHERE 1=1
+                    AND DEL_FLAG = 'N'
+                    <!-- AND ORG_ID = #applyOrgId# -->
+                    <isNotEmpty property="searchPerSabun">
+                          <iterate prepend="AND PER_SABUN IN " property="arrSearchPerSabun" open="('" close="')" conjunction="','">$arrSearchPerSabun[]$</iterate>
+                   </isNotEmpty>
+                   <isEmpty property="searchPerSabun">
+                      AND 1 = 2
+                   </isEmpty>
+                    )
+             <isNotEmpty property="searchScheSDate"><!-- more 눌렀을시 -->
+                  AND DATE_FORMAT(K.SYS_DATE, '%Y-%m-%d') = #searchScheSDate# AND SCHE_SEQ IS NOT NULL
+              </isNotEmpty>
+              <isNotEmpty property="projectId">
+                AND S.PROJECT_ID = #projectId#
+              </isNotEmpty>
+              <isNotEmpty property="activityId">
+                AND ACTIVITY_ID = #activityId#
+              </isNotEmpty>
+              <isEqual property="eventType" compareValue="Alarm">
+                ORDER BY SCHE_S_DATE
+                    ,SCHE_SEQ
+              </isEqual>
+              <isNotEqual property="eventType" compareValue="Alarm">
+	              ORDER BY K.SYS_DATE
+		            ,SCHE_PERIOD_FLAG DESC
+		            ,SCHE_S_TIME
+		            ,SCHE_IMPORTANT DESC
+              </isNotEqual>
+        ) y
+        LEFT OUTER JOIN
+            (SELECT
+                SCHE_SEQ,
+                GROUP_CONCAT(x.PER_NM ORDER BY x.SORT_IDX, x.PER_SABUN ) ENTRY_NM,
+                GROUP_CONCAT(x.PER_NM_DETAIL ORDER BY x.SORT_IDX, x.PER_SABUN) ENTRY_NM_DETAIL
+            FROM(
+                SELECT
+                    SCHE_SEQ,
+                    PER_SABUN,
+                    F.NAME AS PER_NM,
+                    CONCAT (F.NAME, '(',
+                                        (CASE WHEN E.ORG_ID = #orgId# THEN ''
+                                                ELSE CONCAT((SELECT IC.CPN_NM FROM BS_ORG BO LEFT JOIN IB_COMPANY IC ON IC.S_NB = BO.COMPANY_SNB WHERE ORG_ID = E.ORG_ID) ,'-')
+                                         END),
+                                         (SELECT C.KOR_NAME
+                                         FROM BS_USER_DEPARTMENT   B
+                                           JOIN BS_DEPARTMENT   C ON B.DEPT_ID = C.DEPT_ID
+                                           WHERE F.USER_ID = B.USER_ID
+                                           AND B.MAIN_YN = 'Y'
+                                           AND B.ENABLE = 'Y'
+                                           AND B.DELETE_FLAG = 'N'
+                                           )
+                                           , ')') AS PER_NM_DETAIL,
+                    (CASE WHEN E.PER_SABUN = E.REG_PER_SABUN THEN 0 ELSE 1 END) as SORT_IDX
+                 FROM ERP_SCHEDULE_ENTRY E, BS_USER_MASTER F
+                 WHERE E.PER_SABUN = F.EMP_NO
+                 AND E.DEL_FLAG = 'N'
+                 ) x
+            GROUP BY x.SCHE_SEQ) z
+            ON y.SCHE_SEQ = z.SCHE_SEQ
+    </select>
+
+    <!-- 선택 일정 정보 받아오기 -->
+    <select id="scheduleDAO.GetScheInfo" resultClass="scheVO">
+       /* scheduleDAO.GetScheInfo */
+        SELECT
+              SCHE_SEQ        AS  scheSeq
+            , SCHE_GRP_CD   AS  scheGrpCd
+            , PER_SABUN     AS  perSabun
+            , SCHE_GUBUN    AS  scheGubun
+            , MNA_TYPE      AS  mnaType
+            , CASE SCHE_GUBUN WHEN 'All' THEN '전체일정' ELSE '개인일정' END AS scheGubunNm
+            , SCHE_S_YEAR AS schesYear
+            , SCHE_S_MONTH AS scheSMonth
+            , SCHE_S_DAY AS scheSDay
+            , SCHE_S_DATE AS scheSDate
+            , SCHE_S_TIME AS scheSTime
+            , SCHE_E_YEAR AS scheeYear
+            , SCHE_E_MONTH AS scheEMonth
+            , SCHE_E_DAY AS scheEDay
+            , SCHE_E_DATE AS scheEDate
+            , SCHE_E_TIME AS scheETime
+            , SCHE_ALL_TIME AS scheAllTime
+            , SCHE_TITLE AS scheTitle
+            , SCHE_AREA AS scheArea
+            , SCHE_CON AS scheCon
+            , SCHE_REPET_FLAG AS scheRepetFlag
+            , SCHE_ALARM_FLAG AS scheAlarmFlag
+            , SCHE_ALARM_HOW AS scheAlarmHow
+            , SCHE_IMPORTANT AS scheImportant
+            , SCHE_CHK_FLAG AS scheChkFlag
+            , DATE_FORMAT(SCHE_CHK_DATE, '%Y-%m-%d')  AS scheChkDate
+            , SCHE_PUBLIC_FLAG AS schePublicFlag
+            , SCHE_PERIOD_FLAG AS schePeriodFlag
+            , CASE SCHE_REPET_FLAG WHEN 'None' THEN '없음' WHEN 'Year' THEN '매년' WHEN 'Quarter' THEN '분기' WHEN 'Month' THEN '매월' WHEN 'Week' THEN '매주' WHEN 'Date' THEN '매일' ELSE '없음' END  AS scheRepetFlagNm
+            , CASE SCHE_ALARM_FLAG WHEN '7' THEN '일주일전' WHEN '0' THEN '당일' WHEN 'None' THEN '없음' ELSE CONCAT('직접입력 (', Sche_alarm_flag, '일전)') END  AS scheAlarmFlagNm
+            , CASE SCHE_ALARM_HOW WHEN 'Pop' THEN '팝업만' WHEN 'PopSMS' THEN '팝업, 문자 모두' ELSE '없음' END  AS scheAlarmHowNm
+            , CASE SCHE_IMPORTANT WHEN 'top' THEN '상' WHEN 'middle' THEN '중' WHEN 'bottom' THEN '하' END  AS scheImportantNm
+            , CAR_USE_FLAG AS carUseFlag
+            , CAR_ID AS carId
+            , (SELECT CAR_NUMBER FROM BS_CAR_LIST WHERE CAR_ID = a.CAR_ID) AS carNumber
+            , DATE_FORMAT(REG_DATE, '%Y-%m-%d %H:%i:%s')  AS regDate
+            , DATE_FORMAT(REG_DATE, '%Y-%m-%d')  AS regDateStr
+            , REG_PER_SABUN AS regPerSabun
+            , (SELECT NAME  AS PER_NM FROM BS_USER_MASTER WHERE EMP_NO = A.REG_PER_SABUN)  AS regPerNm
+            , (SELECT USER_ID AS USER_ID  FROM BS_USER_MASTER WHERE EMP_NO = A.REG_PER_SABUN) AS regUserId
+            ,(SELECT J.VALUE_MEAN_KOR
+	          FROM BS_CODE_GV J, BS_USER_MASTER K
+	         WHERE K.EMP_NO = A.REG_PER_SABUN
+	            AND  J.DELETE_FLAG = 'N'
+	            AND J.ORG_ID = #applyOrgId#
+	            AND J.CODE_NAME = 'RANK'
+	            AND J.CODE_VALUE = K.RANK ) AS regPerRankNm
+            , (SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY_ID) AS companyNm
+            , (SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = A.CUSTOMER_ID) AS customerNm
+            , COMPANY_ID AS companyId
+            , CUSTOMER_ID AS customerId
+            , COMPANY AS company
+            , CUSTOMER AS customer
+            , APPV_DOC_ID AS appvDocId
+            ,P.NAME AS projectNm
+            ,Q.NAME AS activityNm
+            ,A.PROJECT_ID AS projectId
+            ,A.ACTIVITY_ID AS activityId
+            ,P.NAME AS projectNm
+            ,Q.NAME AS activityNm
+            ,DATE_FORMAT(P.START_DATE, '%Y-%m-%d')  AS projectStartDate
+            ,DATE_FORMAT(P.END_DATE, '%Y-%m-%d')  AS projectEndDate
+            ,DATE_FORMAT(IF(P.END_DATE <![CDATA[<=]]> P.CLOSE_DATE, P.END_DATE, P.CLOSE_DATE),'%Y-%m-%d') AS lastDate
+            ,DATE_FORMAT(Q.START_DATE, '%Y-%m-%d')  AS activityStartDate
+            ,DATE_FORMAT(Q.END_DATE, '%Y-%m-%d')  AS activityEndDate
+            ,P.OPEN_FLAG AS openFlag
+            ,P.EMPLOYEE AS employee
+            ,Q.APPV_DOC_TYPE AS appvDocType
+            , A.ATTEND_YN AS attendYn
+            ,(CASE WHEN Q.APPV_DOC_TYPE IN ('ANNUAL_ALL','EVENT','SICK','REST','ANNUAL_AM','ANNUAL_PM','ETC_ALL','ETC_AM','ETC_PM') THEN 'Y' ELSE 'N' END) AS vacationYn
+            ,(CASE WHEN A.SCHE_GRP_CD IS NULL OR A.SCHE_GRP_CD = '' OR A.SCHE_GRP_CD = 'Period' THEN
+			             (SELECT IFNULL(MAX(X.END_YN),'N')
+						FROM BS_WORKTIME_END X, ERP_SCHEDULE_ENTRY Y
+						WHERE A.SCHE_SEQ = Y.SCHE_SEQ
+						AND X.ORG_ID = Y.ORG_ID
+						AND X.WORK_DATE BETWEEN A.SCHE_S_DATE AND A.SCHE_E_DATE)
+			       ELSE
+			           (SELECT IFNULL(MAX(X.END_YN),'N')
+	                    FROM BS_WORKTIME_END X, ERP_SCHEDULE_ENTRY Y, ERP_SCHEDULE Z
+	                    WHERE Y.SCHE_SEQ = Z.SCHE_SEQ
+	                    AND X.ORG_ID = Y.ORG_ID
+	                    AND A.SCHE_GRP_CD = Z.SCHE_GRP_CD
+	                    AND X.WORK_DATE BETWEEN Z.SCHE_S_DATE AND Z.SCHE_E_DATE)
+			END) AS worktimeEndYn
+        FROM ERP_SCHEDULE A
+            LEFT JOIN BS_PROJECT P ON A.PROJECT_ID = P.PROJECT_ID
+            LEFT JOIN BS_ACTIVITY Q ON A.ACTIVITY_ID = Q.ACTIVITY_ID
+        WHERE SCHE_SEQ = #scheSeq#
+    </select>
+
+    <!-- 선택일정 참가자 리스트 받아오기 -->
+    <select id="scheduleDAO.GetScheduleEntryList" parameterClass="scheVO" resultClass="egovMap">
+        /* scheduleDAO.GetScheduleEntryList */
+        SELECT  SCHE_SEQ
+               , PER_SABUN
+               ,B.NAME        PER_NM
+               ,B.USER_ID
+               ,a.ORG_ID  DIVISION
+               ,(CASE WHEN A.ORG_ID = #orgId# THEN ''
+                        ELSE (SELECT IC.CPN_NM FROM BS_ORG BO LEFT JOIN IB_COMPANY IC ON IC.S_NB = BO.COMPANY_SNB WHERE ORG_ID = A.ORG_ID)
+                 END) AS ORG_NM
+               ,DEL_FLAG
+               ,(SELECT C.KOR_NAME
+                FROM BS_USER_MASTER     D
+                      JOIN BS_USER_DEPARTMENT   B ON D.USER_ID = B.USER_ID
+                                                              AND B.MAIN_YN = 'Y'
+                                                              AND B.ENABLE = 'Y'
+                                                              AND B.DELETE_FLAG = 'N'
+                      JOIN BS_DEPARTMENT   C ON B.DEPT_ID = C.DEPT_ID
+                      WHERE A.PER_SABUN = D.EMP_NO) AS DEPT_NM
+               ,(CASE WHEN A.PER_SABUN = A.REG_PER_SABUN THEN 0 ELSE 1 END) as SORT_IDX
+        FROM    ERP_SCHEDULE_ENTRY A, BS_USER_MASTER B
+        WHERE   1=1
+        AND A.PER_SABUN = B.EMP_NO
+        AND B.DELETE_FLAG = 'N'
+        AND A.SCHE_SEQ = #scheSeq#
+        ORDER BY SORT_IDX, A.PER_SABUN
+    </select>
+
+
+    <!-- 메인화면 직원근태현황 리스트 -->
+    <select id = "scheduleDAO.getPresentEmpInfoList" parameterClass="HashMap" resultClass = "egovMap">
+       /*  scheduleDAO.getPresentEmpInfoList */
+       SELECT
+           <!-- MIN(ORDER_SEQ) -->
+           ACTIVITY_NM, PER_NM, DEPT_NM, RANK_NM, SCHE_DATE, APPV_DOC_TYPE, y.SCHE_SEQ, y.PER_SABUN,
+           SCHE_S_TIME,SCHE_E_TIME,COMPANY_NM,CUSTOMER_NM,POSITION
+           ,ATTEND_YN , USER_ID
+           <!-- ,(CASE WHEN INSTR(GROUP_CONCAT(APPV_DOC_TYPE),',') AND INSTR(GROUP_CONCAT(APPV_DOC_TYPE),'ATTEND') THEN 'Y' ELSE 'N' END) AS HAS_ATTEND_YN -->
+       FROM
+       ( SELECT
+           (CASE WHEN P.APPV_DOC_TYPE = 'ANNUAL_ALL' THEN '휴가'
+                   WHEN P.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM') THEN '반차'
+                   WHEN P.APPV_DOC_TYPE = 'SICK' THEN '병가'
+                   WHEN P.APPV_DOC_TYPE = 'REST' THEN '휴직'
+                   WHEN P.APPV_DOC_TYPE = 'ETC_ALL' THEN '기타휴가'
+                   WHEN P.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM') THEN '기타반차'
+                   WHEN A.APPV_DOC_CLASS = 'EDUCATION' THEN '교육'
+                   WHEN A.APPV_DOC_CLASS = 'TRIP' THEN '출장'
+                   WHEN A.ATTEND_YN = 'Y' THEN '현출'
+           END) AS ACTIVITY_NM,
+           (CASE WHEN P.APPV_DOC_TYPE IN ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM') THEN 'ANNUAL_ALL'
+                   WHEN P.APPV_DOC_TYPE = 'SICK' THEN 'SICK'
+                   WHEN P.APPV_DOC_TYPE = 'REST' THEN 'REST'
+                   WHEN P.APPV_DOC_TYPE IN ('ETC_ALL','ETC_AM','ETC_PM') THEN 'ETC_ALL'
+                   WHEN A.APPV_DOC_CLASS = 'EDUCATION' THEN 'EDUCATION'
+                   WHEN A.APPV_DOC_CLASS = 'TRIP' THEN 'TRIP'
+                   WHEN A.ATTEND_YN = 'Y' THEN 'ATTEND'
+           END) AS APPV_DOC_TYPE,
+		   (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = B.PER_SABUN ) PER_NM,
+		   (SELECT C.KOR_NAME
+		    FROM BS_USER_DEPARTMENT   B
+		      JOIN BS_DEPARTMENT   C ON B.DEPT_ID = C.DEPT_ID
+		      WHERE D.USER_ID = B.USER_ID
+              AND B.MAIN_YN = 'Y'
+              AND B.ENABLE = 'Y'
+              AND B.DELETE_FLAG = 'N'
+		      ) AS DEPT_NM,
+		   (SELECT J.VALUE_MEAN_KOR
+		    FROM BS_CODE_GV J
+		    WHERE  J.DELETE_FLAG = 'N'
+	        AND J.ORG_ID = A.ORG_ID
+	        AND J.CODE_NAME = 'RANK'
+	        AND J.CODE_VALUE = D.RANK ) AS RANK_NM,
+		    DATE_FORMAT(NOW(), '%y/%m/%d') AS SCHE_DATE,
+		    A.ACTIVITY_ID,
+		    A.SCHE_SEQ,
+		    B.PER_SABUN,
+		    SCHE_S_TIME,
+		    SCHE_E_TIME,
+            IFNULL((SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY_ID),'') AS COMPANY_NM,
+            IFNULL((SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = A.CUSTOMER_ID),'') AS CUSTOMER_NM,
+            IFNULL((SELECT POSITION FROM IB_CUSTOMER WHERE S_NB = A.CUSTOMER_ID),'') AS POSITION
+            , ( CASE
+                WHEN P.APPV_DOC_TYPE IN (
+                        'ANNUAL_ALL'
+                        ,'ANNUAL_AM'
+                        ,'ANNUAL_PM'
+			            ,'SICK'
+			            ,'REST'
+			            ,'ETC_ALL'
+                        ,'ETC_AM'
+                        ,'ETC_PM'
+			                        )
+			                    THEN 'A'
+			        WHEN A.APPV_DOC_CLASS IN (
+			            'EDUCATION'
+			            ,'TRIP'
+                        )
+                    THEN 'A'
+                 WHEN A.ATTEND_YN = 'Y'
+                    THEN 'B'
+			        ELSE 'C'
+			                END
+			            ) AS ORDER_SEQ
+			     ,A.ATTEND_YN
+			     ,D.USER_ID
+		FROM ERP_SCHEDULE A
+		    INNER JOIN ERP_SCHEDULE_ENTRY B ON A.SCHE_SEQ = B.SCHE_SEQ AND B.DEL_FLAG = 'N' AND B.ORG_ID = #applyOrgId#
+		    INNER JOIN BS_USER_MASTER D ON B.PER_SABUN = D.EMP_NO
+		    INNER JOIN BS_ACTIVITY P ON A.ACTIVITY_ID = P.ACTIVITY_ID
+		WHERE 1=1
+		AND A.DEL_FLAG = 'N'
+        <isEmpty property="searchInfoType">
+            AND (P.APPV_DOC_TYPE IN ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','SICK','REST','ETC_ALL','ETC_AM','ETC_PM')
+                       OR A.APPV_DOC_CLASS IN ('EDUCATION','TRIP')
+                       OR A.ATTEND_YN ='Y')    /* 교육(EDUCATION),출장(TRIP),휴가(ANNUAL_ALL), 병가(SICK), 휴직(REST) */
+        </isEmpty>
+        <isNotEmpty property="searchInfoType">
+            <isEqual property="searchInfoType" compareValue="ANNUAL_ALL">AND P.APPV_DOC_TYPE IN ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM')</isEqual>
+            <isEqual property="searchInfoType" compareValue="SICK">AND P.APPV_DOC_TYPE = 'SICK'</isEqual>
+            <isEqual property="searchInfoType" compareValue="REST">AND P.APPV_DOC_TYPE = 'REST'</isEqual>
+            <isEqual property="searchInfoType" compareValue="ETC_ALL">AND P.APPV_DOC_TYPE IN ('ETC_ALL','ETC_AM','ETC_PM')</isEqual>
+            <isEqual property="searchInfoType" compareValue="EDUCATION">AND A.APPV_DOC_CLASS = 'EDUCATION'</isEqual>
+            <isEqual property="searchInfoType" compareValue="TRIP">AND A.APPV_DOC_CLASS = 'TRIP'</isEqual>
+            <isEqual property="searchInfoType" compareValue="ATTEND">AND A.ATTEND_YN = 'Y'</isEqual>
+        </isNotEmpty>
+		AND REPLACE(#searchDate#, '.','-') BETWEEN A.SCHE_S_DATE AND A.SCHE_E_DATE
+		ORDER BY A.SCHE_SEQ DESC
+        ) y
+        <!-- GROUP BY Y.PER_SABUN -->
+    </select>
+
+    <!-- 메인화면 임원현황 리스트 -->
+    <select id = "scheduleDAO.getExecEmpInfoList" parameterClass="HashMap" resultClass = "egovMap">
+       /*  scheduleDAO.getExecEmpInfoList */
+       SELECT
+           Z.ENTRY_NM, ACTIVITY_NM, SCHE_DATE, APPV_DOC_TYPE, y.SCHE_SEQ, y.PER_SABUN,
+           SCHE_S_TIME, SCHE_E_TIME,COMPANY_NM,CUSTOMER_NM,POSITION, SCHE_ALL_TIME
+       FROM
+       ( SELECT
+           (CASE WHEN P.APPV_DOC_TYPE = 'ANNUAL_ALL' THEN '휴가'
+                   WHEN P.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM') THEN '반차'
+                   WHEN P.APPV_DOC_TYPE = 'SICK' THEN '병가'
+                   WHEN P.APPV_DOC_TYPE = 'REST' THEN '휴직'
+                   WHEN P.APPV_DOC_TYPE = 'ETC_ALL' THEN '기타휴가'
+                   WHEN P.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM') THEN '기타반차'
+                   WHEN A.APPV_DOC_CLASS = 'EDUCATION' THEN '교육'
+                   WHEN A.APPV_DOC_CLASS = 'TRIP' THEN '출장'
+                   ELSE A.SCHE_TITLE
+           END) AS ACTIVITY_NM,
+           P.APPV_DOC_TYPE,
+            DATE_FORMAT(NOW(), '%y/%m/%d') AS SCHE_DATE,
+            A.ACTIVITY_ID,
+            A.SCHE_SEQ,
+            A.PER_SABUN,
+            SCHE_S_TIME,
+            SCHE_E_TIME,
+            SCHE_ALL_TIME,
+            IFNULL((SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY_ID),'') AS COMPANY_NM,
+            IFNULL((SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = A.CUSTOMER_ID),'') AS CUSTOMER_NM,
+            IFNULL((SELECT POSITION FROM IB_CUSTOMER WHERE S_NB = A.CUSTOMER_ID),'') AS POSITION
+        FROM ERP_SCHEDULE A
+            LEFT JOIN BS_PROJECT PP ON A.PROJECT_ID = PP.PROJECT_ID
+            LEFT JOIN BS_ACTIVITY P ON A.ACTIVITY_ID = P.ACTIVITY_ID
+        WHERE 1=1
+        AND (
+                    CASE WHEN #vipAuthYn# = 'Y' THEN 1=1  <!-- 특별권한 조회가능 -->
+                           WHEN PP.OPEN_FLAG = 'Y' THEN 1=1       <!-- 공개여부 Y 일땐 조회가능 -->
+                           ELSE (CASE WHEN PP.EMPLOYEE = 'Y' THEN   <!-- 직원배정 Y 일땐 내것만, 아니면 조건없음 -->
+                                                     EXISTS (
+                                                                   SELECT 1
+                                                                    FROM BS_PROJECT_USER N
+                                                                    WHERE  PP.PROJECT_ID = N.PROJECT_ID
+                                                                    AND N.ENABLE = 'Y'
+                                                                    AND N.USER_ID = #userId#
+                                                                )
+                                   ELSE 1=1 END)
+                    END
+                )
+        AND A.DEL_FLAG = 'N'
+        AND A.SCHE_SEQ IN (
+                SELECT DISTINCT SCHE_SEQ
+                FROM ERP_SCHEDULE_ENTRY B, BS_USER_MASTER D
+                WHERE B.PER_SABUN = D.EMP_NO
+                AND B.DEL_FLAG = 'N'
+                AND B.ORG_ID = #applyOrgId#
+                AND D.OUT_OF_OFFICE_TRACKING = 'Y'
+                )
+        AND REPLACE(#searchDate2#, '.','-') BETWEEN A.SCHE_S_DATE AND A.SCHE_E_DATE
+        ORDER BY A.SCHE_SEQ DESC
+        ) y
+        LEFT OUTER JOIN
+        (SELECT SCHE_SEQ, GROUP_CONCAT(x.PER_NM) ENTRY_NM
+            FROM(
+                SELECT SCHE_SEQ,
+                         PER_SABUN,
+                 f.NAME,
+                         CONCAT (f.NAME, ':',
+                         (  SELECT J.VALUE_MEAN_KOR
+                            FROM BS_CODE_GV J
+                            WHERE  J.DELETE_FLAG = 'N'
+                            AND J.ORG_ID = f.ORG_ID
+                            AND J.CODE_NAME = 'RANK'
+                            AND J.CODE_VALUE = f.RANK )
+                            , ':',f.USER_ID
+                         	) AS PER_NM
+                FROM ERP_SCHEDULE_ENTRY e, BS_USER_MASTER f
+                WHERE e.PER_SABUN = f.EMP_NO
+                AND e.DEL_FLAG = 'N'
+            ) x
+            GROUP BY x.SCHE_SEQ) z
+            ON y.SCHE_SEQ = z.SCHE_SEQ
+    </select>
+
+    <!-- 메인 현지출근 알람 팝업 목록 -->
+    <select id = "scheduleDAO.getMainSpotWorkAlarmList" parameterClass="HashMap" resultClass = "egovMap">
+       /*  scheduleDAO.getMainSpotWorkAlarmList */
+       SELECT
+           Z.ENTRY_NM, ACTIVITY_NM, SCHE_DATE, APPV_DOC_TYPE, Y.SCHE_SEQ, Y.PER_SABUN,
+           SCHE_S_TIME, SCHE_E_TIME, COMPANY_NM, CUSTOMER_NM, POSITION, SCHE_TITLE
+           ,SCHE_GRP_CD
+           ,SCHE_ALL_TIME
+           ,SCHE_S_DATE
+           ,SCHE_E_DATE
+           ,PROJECT_ID
+           ,DATE_FORMAT(SCHE_E_DATE1, '%Y.%m.%d') AS SCHE_E_DATE1
+           ,DATE_DIFF
+       FROM
+       ( SELECT
+             P.NAME AS ACTIVITY_NM
+           , A.SCHE_TITLE AS SCHE_TITLE
+           , P.APPV_DOC_TYPE
+           , DATE_FORMAT(NOW(), '%y/%m/%d') AS SCHE_DATE
+           , A.ACTIVITY_ID
+           , A.SCHE_SEQ
+           , A.PER_SABUN
+           , SCHE_S_TIME
+           , SCHE_E_TIME
+           , IFNULL((SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY_ID),'') AS COMPANY_NM
+           , IFNULL((SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = A.CUSTOMER_ID),'') AS CUSTOMER_NM
+           , IFNULL((SELECT POSITION FROM IB_CUSTOMER WHERE S_NB = A.CUSTOMER_ID),'') AS POSITION
+           , A.SCHE_GRP_CD
+           , A.SCHE_ALL_TIME
+           , A.SCHE_S_DATE
+           , A.SCHE_E_DATE
+           , A.PROJECT_ID
+           , (STR_TO_DATE(A.SCHE_E_DATE, '%Y-%m-%d') +INTERVAL 7 DAY) AS SCHE_E_DATE1
+           , DATEDIFF(STR_TO_DATE(A.SCHE_E_DATE, '%Y-%m-%d'), STR_TO_DATE(A.SCHE_S_DATE, '%Y-%m-%d')) + 1 AS DATE_DIFF
+        FROM ERP_SCHEDULE A
+            LEFT JOIN BS_PROJECT PP ON A.PROJECT_ID = PP.PROJECT_ID
+            LEFT JOIN BS_ACTIVITY P ON A.ACTIVITY_ID = P.ACTIVITY_ID
+        WHERE 1=1
+        AND A.DEL_FLAG = 'N'
+        AND A.SCHE_SEQ IN (
+                SELECT DISTINCT SCHE_SEQ
+                FROM ERP_SCHEDULE_ENTRY B, BS_USER_MASTER D
+                WHERE B.PER_SABUN = D.EMP_NO
+                AND B.DEL_FLAG = 'N'
+                AND B.ORG_ID = #applyOrgId#
+                )
+        <isEqual property="mainAlarmType" compareValue="scheduleSpotWork"><!-- 현지 출근직원 메인팝업 -->
+	        AND DATE_FORMAT(NOW(), '%Y-%m-%d') BETWEEN A.SCHE_S_DATE AND A.SCHE_E_DATE
+	        AND A.ATTEND_YN = 'Y'
+	    </isEqual>
+	    <isEqual property="mainAlarmType" compareValue="worktimeRest"><!-- 휴직종료사전안내 메인팝업 -->
+            AND STR_TO_DATE(A.SCHE_E_DATE, '%Y-%m-%d')  BETWEEN CURDATE() AND (CURDATE()+INTERVAL 7 DAY)
+            AND P.APPV_DOC_TYPE = 'REST'  /* 휴직 */
+        </isEqual>
+        ORDER BY A.SCHE_SEQ DESC
+        ) y
+        LEFT OUTER JOIN
+        (SELECT SCHE_SEQ, GROUP_CONCAT(X.PER_NM SEPARATOR ':::::') ENTRY_NM
+            FROM(
+                SELECT SCHE_SEQ,
+                         PER_SABUN,
+                         F.NAME,
+                         CONCAT (F.NAME, '||-||',
+				                           (SELECT J.VALUE_MEAN_KOR
+				                            FROM BS_CODE_GV J
+				                            WHERE  J.ORG_ID = f.ORG_ID
+				                            AND J.CODE_NAME = 'RANK'
+				                            AND J.CODE_VALUE = f.RANK ), '||-||',
+				                            (SELECT C.KOR_NAME
+                                            FROM BS_USER_DEPARTMENT   B
+                                            JOIN BS_DEPARTMENT   C ON B.DEPT_ID = C.DEPT_ID
+                                            WHERE F.USER_ID = B.USER_ID
+                                            AND B.MAIN_YN = 'Y'
+                                            AND B.ENABLE = 'Y'
+                                            AND B.DELETE_FLAG = 'N')
+				         ) AS PER_NM
+                FROM ERP_SCHEDULE_ENTRY E, BS_USER_MASTER F
+                WHERE E.PER_SABUN = F.EMP_NO
+                AND E.DEL_FLAG = 'N'
+            ) X
+            GROUP BY X.SCHE_SEQ) Z
+            ON Y.SCHE_SEQ = Z.SCHE_SEQ
+    </select>
+
+    <!-- 네트워크 > 고객의 상세정보중 최근미팅 이력정보 -->
+    <select id = "scheduleDAO.getCustomerMeetList" parameterClass="HashMap" resultClass = "egovMap">
+       /*  scheduleDAO.getCustomerMeetList */
+       SELECT
+            (SELECT NAME FROM BS_PROJECT P WHERE P.PROJECT_ID = A.PROJECT_ID) AS PROJECT_NM
+           ,(SELECT NAME FROM BS_ACTIVITY P WHERE P.ACTIVITY_ID = A.ACTIVITY_ID) AS ACTIVITY_NM
+		    , (SELECT GROUP_CONCAT(F.NAME)
+		        FROM ERP_SCHEDULE_ENTRY E, BS_USER_MASTER F
+		        WHERE A.SCHE_SEQ = E.SCHE_SEQ
+		        AND E.PER_SABUN = F.EMP_NO
+		        AND E.DEL_FLAG = 'N'
+		        GROUP BY SCHE_SEQ) AS PER_NM
+		    , A.SCHE_S_DATE
+		    , A.SCHE_TITLE
+		    , (SELECT IC.CPN_NM FROM BS_ORG BO LEFT JOIN IB_COMPANY IC ON IC.S_NB = BO.COMPANY_SNB WHERE ORG_ID = A.ORG_ID) AS CPN_NM
+		FROM ERP_SCHEDULE A
+		WHERE A.CUSTOMER_ID = #customerId#
+		AND A.DEL_FLAG = 'N'
+		AND A.ORG_ID IN
+                  (SELECT    DISTINCT A.ORG_ID
+                    FROM    BS_RELATION_COMPANY_ACCESS_AUTH A
+                               ,BS_ORG                          B
+                               ,IB_COMPANY                    C
+                    WHERE  A.USER_ID = #userId#
+                    AND     A.ORG_ID = B.ORG_ID
+                    AND     NOW() BETWEEN B.START_DT AND DATE_ADD(DATE_SUB(DATE(B.END_DT), INTERVAL 1 SECOND), INTERVAL 1 DAY)
+                    AND     B.COMPANY_SNB = C.S_NB
+                  )
+        ORDER BY SCHE_S_DATE DESC
+        LIMIT 5
+    </select>
+
+    <!-- 일정알림 배치 -->
+    <select id = "scheduleDAO.getScheduleSmsList" parameterClass="HashMap" resultClass = "egovMap">
+       /*  scheduleDAO.getScheduleSmsList */
+       SELECT
+             D.USER_ID AS RECV_USER_ID
+           , (SELECT USER_ID FROM BS_USER_MASTER WHERE EMP_NO = A.PER_SABUN ) AS SEND_USER_ID
+           , A.SCHE_S_DATE
+           , A.SCHE_S_TIME
+           , A.SCHE_E_DATE
+           , A.SCHE_E_TIME
+           , SUBSTRING(A.SCHE_TITLE, 1, 10) AS SCHE_TITLE
+           , A.SCHE_ALL_TIME
+        FROM ERP_SCHEDULE A, ERP_SCHEDULE_ENTRY B, BS_USER_MASTER D ,BS_ORG	E
+        WHERE A.SCHE_SEQ = B.SCHE_SEQ
+        AND B.PER_SABUN = D.EMP_NO
+        AND A.DEL_FLAG = 'N'
+        AND B.DEL_FLAG = 'N'
+        AND A.SCHE_CHK_FLAG = 'N'
+        AND A.SCHE_ALARM_HOW  = 'PopSMS'
+        AND SCHE_ALARM_FLAG != 'None'
+        AND DATEDIFF(A.SCHE_S_DATE, NOW()) >= 0 AND DATEDIFF(A.SCHE_S_DATE, NOW()) <![CDATA[<=]]> A.SCHE_ALARM_FLAG
+        AND E.ORG_ID = D.ORG_ID
+        AND E.ENABLE = 'Y'
+        AND E.USE_YN = 'Y'
+        ORDER BY B.PER_SABUN, A.SCHE_S_DATE
+    </select>
+
+    <!-- 일정 등록을 위해 근태마감여부 체크 -->
+    <select id="scheduleDAO.getChkWorktiemEndYn" parameterClass="HashMap" resultClass = "egovMap">
+        /*  scheduleDAO.getChkWorktiemEndYn */
+        SELECT IFNULL(MAX(A.END_YN),'N') AS END_YN
+             , B.NAME AS USER_NM
+             , (SELECT Y.CPN_NM FROM BS_ORG X, IB_COMPANY Y WHERE X.COMPANY_SNB = Y.S_NB AND X.ORG_ID = B.ORG_ID) AS ORG_NM
+             , DATE_FORMAT(A.WORK_DATE, '%Y년%m월%d일') AS WORK_DATE
+             , COUNT(*) AS END_CNT
+        FROM BS_WORKTIME_END A, BS_USER_MASTER B
+        WHERE A.ORG_ID = B.ORG_ID
+        <isEqual property="fieldType" compareValue="empNo">
+          <isNotEmpty property="userList">
+             AND B.EMP_NO IN (
+                <iterate property="userList" conjunction=",">
+                    (
+                        #userList[]#
+                       )
+                </iterate>
+                )
+            </isNotEmpty>
+        </isEqual>
+        <isEqual property="repeatFlag" compareValue="REPEAT">
+            AND (A.WORK_DATE IN (
+                <iterate property="scheSDate" conjunction=",">
+                    (
+                        #scheSDate[]#
+                       )
+                </iterate>
+                )
+                OR
+                    A.WORK_DATE IN (
+                <iterate property="scheEDate" conjunction=",">
+                    (
+                        #scheEDate[]#
+                       )
+                </iterate>
+                )
+            )
+        </isEqual>
+        <isEqual property="repeatFlag" compareValue="NONE">
+            AND A.WORK_DATE BETWEEN #dateFrom# AND #dateTo#
+        </isEqual>
+        AND A.END_YN = 'Y'
+		GROUP BY A.END_YN, B.ORG_ID, B.NAME,A.WORK_DATE
+		ORDER BY B.ORG_ID,A.WORK_DATE
+    </select>
+
+    <!-- 일정 등록을 위해 휴가여부 체크 -->
+    <select id="scheduleDAO.getChkVacationYn" parameterClass="HashMap" resultClass = "egovMap">
+        /*  scheduleDAO.getChkVacationYn */
+        SELECT C.NAME AS USER_NM
+             , (SELECT Y.CPN_NM FROM BS_ORG X, IB_COMPANY Y WHERE X.COMPANY_SNB = Y.S_NB AND X.ORG_ID = C.ORG_ID) AS ORG_NM
+             , DATE_FORMAT(A.SCHE_S_DATE, '%Y년%m월%d일') AS SCHE_S_DATE
+             , DATE_FORMAT(A.SCHE_E_DATE, '%Y년%m월%d일') AS SCHE_E_DATE
+             , COUNT(*) AS VACATION_CNT
+        FROM ERP_SCHEDULE A
+            , ERP_SCHEDULE_ENTRY B
+            , BS_USER_MASTER C
+            , BS_ACTIVITY D
+        WHERE A.SCHE_SEQ = B.SCHE_SEQ
+        AND B.PER_SABUN = C.EMP_NO
+        AND A.ACTIVITY_ID = D.ACTIVITY_ID
+        AND A.DEL_FLAG = 'N'
+        AND B.DEL_FLAG = 'N'
+
+        AND D.APPV_DOC_TYPE IN ('ANNUAL_ALL','EVENT','SICK','REST','ETC_ALL')
+
+        <isEqual property="fieldType" compareValue="empNo">
+          <isNotEmpty property="userList">
+             AND B.PER_SABUN IN (
+                <iterate property="userList" conjunction=",">
+                    (
+                        #userList[]#
+                       )
+                </iterate>
+                )
+            </isNotEmpty>
+        </isEqual>
+
+        <isEqual property="repeatFlag" compareValue="NONE">
+            AND (
+               A.SCHE_S_DATE BETWEEN #dateFrom# AND #dateTo#
+               OR A.SCHE_E_DATE BETWEEN #dateFrom# AND #dateTo#
+               OR (A.SCHE_S_DATE  <![CDATA[ <  ]]> #dateFrom#  AND A.SCHE_E_DATE  <![CDATA[ > ]]>  #dateTo# )
+               )
+        </isEqual>
+
+        <isEqual property="repeatFlag" compareValue="REPEAT">
+            AND  (
+                <iterate property="searchCondition" conjunction="OR">
+                    (
+		               A.SCHE_S_DATE BETWEEN #searchCondition[].scheSDate# AND #searchCondition[].scheEDate#
+		               OR A.SCHE_E_DATE BETWEEN #searchCondition[].scheSDate# AND #searchCondition[].scheEDate#
+		               OR (A.SCHE_S_DATE  <![CDATA[ <  ]]> #searchCondition[].scheSDate#  AND A.SCHE_E_DATE  <![CDATA[ > ]]>  #searchCondition[].scheEDate# )
+                     )
+                </iterate>
+            )
+        </isEqual>
+
+        <isNotEmpty property="scheSeq">
+            AND A.SCHE_SEQ != #scheSeq#
+        </isNotEmpty>
+        GROUP BY C.ORG_ID, C.NAME, A.SCHE_S_DATE, A.SCHE_E_DATE
+        ORDER BY C.ORG_ID, A.SCHE_S_DATE
+    </select>
+
+    <!-- 스케줄 날짜 변경 -->
+    <update id = "scheduleDAO.updateScheduleDate" parameterClass="HashMap">
+       /* scheduleDAO.updateScheduleDate */
+       UPDATE ERP_SCHEDULE
+           SET
+               SCHE_S_DAY = CASE SUBSTR(#scheSDay#, 1, 1) WHEN 0 THEN SUBSTR(#scheSDay#, 2, 1) ELSE #scheSDay# END
+             , SCHE_S_DATE = #scheSDate#
+             , SCHE_E_DAY = CASE SUBSTR(#scheSDay#, 1, 1) WHEN 0 THEN SUBSTR(#scheSDay#, 2, 1) ELSE #scheSDay# END
+             , SCHE_E_DATE = #scheSDate#
+             , EDIT_DATE = NOW()
+        WHERE SCHE_SEQ = #scheSeq#
+
+   </update>
+
+
+</sqlMap>

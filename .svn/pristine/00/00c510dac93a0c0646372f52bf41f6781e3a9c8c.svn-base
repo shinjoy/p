@@ -1,0 +1,94 @@
+@charset "utf-8";
+@font-face{
+	font-family:'NanumGothic';
+	font-style:normal;
+	font-weight:normal;
+	src:url('/common/font/NanumGothic.eot'); 
+	src:url('/common/font/NanumGothic.woff') format('woff');
+	src:url('/common/font/NanumGothic.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'notokr-regular';
+    src: url('notokr-regular.eot');
+    src: url('notokr-regular.eot?#iefix') format('embedded-opentype'),
+         url('notokr-regular.woff2') format('woff2'),
+         url('notokr-regular.woff') format('woff'),
+         url('notokr-regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+	
+}
+
+@font-face {
+	
+	font-family: 'notokr-medium';
+    src: url('notokr-medium.eot');
+    src: url('notokr-medium.eot?#iefix') format('embedded-opentype'),
+         url('notokr-medium.woff2') format('woff2'),
+         url('notokr-medium.woff') format('woff'),
+         url('notokr-medium.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+	
+	font-family: 'notokr-blod';
+    src: url('notokr-bold.eot');
+    src: url('notokr-bold.eot?#iefix') format('embedded-opentype'),
+         url('notokr-bold.woff2') format('woff2'),
+         url('notokr-bold.woff') format('woff'),
+         url('notokr-bold.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+	
+}
+
+
+
+html, body, div, span, h1, h2, h3, h4, h5, h6, p, a, address, em, img, strong, dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, h1, h2, h3, h4, h5, h6, form, input, textarea, button, p {margin: 0; padding:0; border:0; letter-spacing:0; }
+
+html {overflow:scroll; overflow-x: auto; height:100%; -webkit-text-size-adjust:none; }
+
+body {font-size:0.75em; line-height:160%; font-family:"돋움",Dotum,"굴림",Gulim,arial,sans-serif; color:#666; height:100%; }
+
+h1, h2, h3, h4, h5, h6 {font-weight:normal; font-size:100%;}
+
+table {border-collapse:collapse; border-spacing:0; } 
+img {border:none; vertical-align:top;}
+address, em {font-style:normal;}
+ol, ul{list-style:none;}
+li,dt,dd{line-height:140%;}
+
+fieldset {border:none;}
+input.btn {border:none;}
+input, textarea, select{vertical-align:middle; font-family:inherit; font-size:1em; line-height:1.2em; }
+select, textarea{color:#666;}
+
+hr, legend, .blind, .hidden {position:absolute; top:-50000em; width:0px; height:0px; overflow:hidden; line-height:0; font-size:0; visibility:hidden; }
+
+label {cursor:pointer; vertical-align:middle;}
+
+caption { width:0px; height:0px; font-size:0; overflow:hidden; display:none; }
+address, caption, em {font-weight:normal; font-style:normal;}
+
+select, input, option, textarea {vertical-align:middle; font:12px gulim, "굴림", dotum, "돋움",sans-serif;}
+input, select, button{vertical-align:middle;}
+button {overflow:visible; background:transparent; cursor:pointer;}
+form, fieldset, iframe, button {border:0 none;}
+
+header,footer,section,article,aside,nav,hgroup,details,menu,figure,figcaption{ display:block; margin:0px; padding:0px; }
+
+a { text-decoration:none; color:inherit; }
+a:visited, a:hover, a:focus { text-decoration:none; color:inherit; }
+
+
+
+#skipNavigation {position:relative; z-index:10001;}
+#skipNavigation a {position:absolute; top:-40px; left:0; width:200px; height:24px; padding-top:4px; background-color:#000; text-align:center; color:#fff !important; font:bold 14px '맑은 고딕',Malgun Gothic,'돋움',Dotum,sans-serif;}
+#skipNavigation a:active, #skipNavigation a:focus {top:0;}
+
+
+

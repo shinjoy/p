@@ -1,0 +1,46 @@
+package ib.pass.service.impl;
+
+
+import ib.cmm.service.impl.ComAbstractDAO;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+
+/**
+ * <pre>
+ * package	: ib.pass.service.impl 
+ * filename	: PassDAO.java
+ * </pre>
+ * 
+ * 
+ * 
+ * @author	: oys
+ * @date	: 2017. 1. 26.
+ * @version : 
+ *
+ */
+@Repository("passDAO")
+public class PassDAO extends ComAbstractDAO{
+
+
+	//사용자 패스워드
+	public String getUserPwdByLoginId(Map<String, String> map) throws Exception{		
+		return (String) selectByPk("pass.selectUserPwdByLoginId", map);
+	}
+
+	
+	//각종 신규 정보 (개선요청게시판 신규건 등..)
+	public List<Map> getNewArticleList(Map<String, Object> map) throws Exception{
+		return list("pass.selectNewArticleList", map);
+	}
+
+
+	//시너지 사용자 상태 정보
+	public List<Map> getSynergyUserStatusList(Map<String, Object> map) throws Exception{
+		return list("pass.selectSynergyUserStatusList", map);
+	}
+
+	
+}

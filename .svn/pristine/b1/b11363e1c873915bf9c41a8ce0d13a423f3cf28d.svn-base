@@ -1,0 +1,196 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+<link href="<c:url value='/css/content.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/css/btn.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/css/management.css'/>" rel="stylesheet" type="text/css"/>
+<script type="text/JavaScript" src="<c:url value='/js/jquery.min.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/process.min.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/part/popUp.js'/>" ></script>
+<script>
+$(document).ready(function(){
+	$(".t_skinR00 tbody tr:odd").css("background-color", "#F6F9FB");
+	var tempX=0;
+	window.onscroll = function(){//alert($("#fixedTop").attr('class'));
+		var scrollX = window.scrollX || document.documentElement.scrollLeft;
+		if(tempX != scrollX){
+			//alert("좌우스크롤");
+			$("#fixedTop").css('right',scrollX);
+		}
+	    tempX = scrollX;
+	};
+
+
+
+	//20150901
+	setSortBtn();		//정렬버튼 모양 세팅 함수 호출
+
+});
+
+function addDeal(cpnId,th){
+	var obj = $(th).parent().parent().parent();
+	//var tm = obj.find('td:eq(0)').html();
+	var tm = $("#CurDay").val();
+	var tmArr = tm.split('-');
+	var comment = "주관사 : "+obj.find('td:eq(9)').html();
+	comment += "\n["+obj.find('td:eq(1)').html()+"] "+obj.find('td:eq(3)').html();
+	comment += "\n 발행규모 "+obj.find('td:eq(4)').html()+"억, 할인율 "+obj.find('td:eq(8)').html();
+
+	var data = {
+			choiceYear: tmArr[0]
+			,choiceMonth: tmArr[1]
+			,day: tmArr[2]
+			,middleOfferCd:'00003'
+			,cpnId: cpnId
+			,price: obj.find('td:eq(4)').html()+"억"
+			,categoryCd: '00004'
+			,memo: comment
+			,dueDt: obj.find('td:eq(6)').html()
+			,rgId: $("#rgstId").val()
+			};
+	var url = "../work/insertDeal.do";
+	var fn = function(){
+		document.modifyRec.submit();
+	};
+	ajaxModule(data,url,fn);
+}
+
+function validation(obj){
+	if(obj.attr('id')=='tbl00'){
+		if(obj.find("[id^=tm]").val().is_null()){
+			alert("접수일자를 입력하시요.");
+			return false;
+		}
+		if(obj.find("[id^=AP_cpnId]").val().is_null()){
+			alert("회사를 선택하시요.");
+			return false;
+		}
+	}
+	var pri =  obj.find("[id^=ratio]").val();
+	if(parseFloat(pri)>1) {
+		alert("할인율은 퍼센트문자를 지우고, 0.xxx 와 같이 소수로 입력하세요.");
+		return false;
+	}
+	if(obj.find("[id^=cate]").val().is_null()){
+		alert("구분을 입력하시요.");
+		return false;
+	}
+
+	if(obj.find("[id^=way]").val().is_null()){
+		alert("증자방식을 입력하시요.");
+		return false;
+	}
+	if(obj.find("[id^=pri]").val().is_null()){
+		alert("발행규모를 입력하시요.");
+		return false;
+	}
+	if(obj.find("[id^=subdt]").val().is_null()){
+		if(confirm("청약일이 입력되지 않았습니다! 그대로 등록하시겠습니까?")){		//20150724 청약일 입력안해도 저장되도록 수정
+			//////////go/////////
+		}else{
+			return;
+		}
+		//alert("청약일을 입력하시요.");
+		//return false;
+	}
+	if(obj.find("[id^=ratio]").val().is_null()){
+		alert("할인율을 입력하시요.");
+		return false;
+	}
+	return true;
+}
+function insertNotice(th){
+	var obj = $(th).parent().parent();
+	if(!validation(obj)) return;
+	var data = {
+			tmDt: 			obj.find('input:eq(0)').val()
+			,categoryCd: 	obj.find('input:eq(1)').val()
+			,cpnId: 		obj.find('input:eq(2)').val()
+			,way: 			obj.find('input:eq(3)').val()
+			,price: 		obj.find('input:eq(4)').val().replace(',','')
+			,assignmentDt: 	obj.find('input:eq(5)').val()
+			,payupDt: 		obj.find('input:eq(6)').val()
+			,subscriptionDt: obj.find('input:eq(7)').val()
+			,refixSale: 	obj.find('input:eq(8)').val()
+			,superCpn: 		obj.find('input:eq(9)').val()
+			,underWriter: 	obj.find('input:eq(10)').val()
+			,rgId: 			$("#rgstId").val()
+	};
+	var url = "../work/insertPublicNotice.do";
+	var fn = function(){
+		document.modifyRec.submit();
+	};
+	ajaxModule(data,url,fn);
+}
+function modifyNotice(th){
+	var obj = $(th).parent().parent();
+	if(!validation(obj)) return;
+	var data = {
+		sNb: 			obj.find('input:eq(0)').val()
+		,categoryCd: 	obj.find('input:eq(1)').val()
+		,way: 			obj.find('input:eq(2)').val()
+		,price: 		obj.find('input:eq(3)').val().replace(',','')
+		,assignmentDt: 	obj.find('input:eq(4)').val()
+		,payupDt: 		obj.find('input:eq(5)').val()
+		,subscriptionDt: obj.find('input:eq(6)').val()
+		,refixSale: 	obj.find('input:eq(7)').val()
+		,superCpn: 		obj.find('input:eq(8)').val()
+		,underWriter: 	obj.find('input:eq(9)').val()
+		,rgId: 			$("#rgstId").val()
+	};
+
+	var url = "../work/modifyPublicNoticeIncCap.do";
+	var fn = function(){
+		document.modifyRec.submit();
+	};
+	ajaxModule(data,url,fn);
+}
+function deleteNotice(snb){
+	var url = "<c:url value='/work/deletePublicNotice.do'/>"
+		, data = {sNb:snb}
+		, fn = function(arg){
+			document.modifyRec.submit();
+		};
+		ajaxModule(data,url,fn);
+}
+
+//20150901 추가(엑셀다운로드)
+function excelDownload(){
+	$('body').append('<iframe id="excelDown" style="display:none;"></iframe><form id="excelform"></form>');
+	$('#excelform').attr('action',"../work/excelPublicNoticeIncCap.do");
+	$('#excelform').attr('target','excelDown');
+	$('#excelform').submit();
+}
+
+var sortBtn = '${sortBtn}';		//정렬한 곳 숫자값 ('1',~'5')
+function setSortBtn(){
+	var sign;
+	if(sortBtn == undefined || sortBtn == null || sortBtn == '' || sortBtn == '0'){
+		sign = 1;
+		sortBtn = 1;
+	}else{
+		sign = ((1 * sortBtn) > (-1 * sortBtn))? 1:-1;
+	}// 1:정방향정렬, -1:역방향정렬
+
+	for(var i=1; i<=5; i++){
+		var btnShape = '▽';
+		if(sortBtn == i){
+			btnShape = '▲';
+		}else if((sortBtn * -1) == i){
+			btnShape = '▼';
+		}
+		$('#sortBtn'+i).html(btnShape);		//모양세팅
+	}
+}
+
+function openTab(strUrl){
+	location.href =  strUrl;
+}
+
+</script>
+
+<style> tbody tr:hover{background-color: moccasin !important;} input{margin:4px 0px;padding:2px 0px !important;}</style>
+

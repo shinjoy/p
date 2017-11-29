@@ -1,0 +1,1146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="card">
+
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="cardVO" type="ib.card.service.CardVO"/>
+
+	<!-- 지출 리스트 가져오기 -->
+	<select id="card.selectCardList" parameterClass="HashMap" resultClass="HashMap">
+		<![CDATA[
+		SELECT
+			   CARD.S_NB            AS sNb
+			 , STAFF.EMP_NO			AS sabun
+			 , STAFF.NAME           AS staffNm
+			 , (SELECT GROUP_CONCAT(DISTINCT Y.NAME ORDER BY Y.NAME DESC SEPARATOR ', ')
+                  FROM IB_CARD_USED_STAFF X INNER JOIN BS_USER_MASTER Y ON Y.USER_ID = X.STAFF_SNB
+                 WHERE X.CARD_SNB = CARD.S_NB
+               ) AS staff
+			 , IFNULL((SELECT CONCAT (Sche_E_Month,'/',Sche_E_Day,' ',Sche_E_Time,' ',Sche_Title)
+			   		    FROM ERP_SCHEDULE
+			   		   WHERE CARD.SCH_SEQ = sche_Seq),'') AS scheTitle
+			 , CARD.PLACE              				 AS place
+			 , IFNULL(CARD.NOTE,'')               	 AS note
+			 , CARD.DV                 				 AS dv
+			 , CARD.DV2                				 AS dv2
+
+			 , (SELECT VALUE_MEAN_KOR FROM BS_CODE_GV AS X WHERE X.ORG_ID = STAFF.ORG_ID AND X.CODE_VALUE = CARD.DV AND PARENT_CODE_NAME = 'ACCOUNT_SUBJECT') 	AS dvStr
+			 , (SELECT VALUE_MEAN_KOR FROM BS_CODE_GV AS X WHERE X.ORG_ID = STAFF.ORG_ID AND X.CODE_VALUE = CARD.DV2 AND CODE_NAME = 'ACCOUNT_SUBJECT' ) 		AS dv2Str
+
+			 , IFNULL(CARD.FEEDBACK,'')          	 AS feedback
+			 , CARD.PRICE              				 AS price
+			 , CARD.ETC_NUM            				 AS etcNum
+			 , IFNULL(CARD.extra_name,'')			 AS extraName
+			 , CARD.RG_DT              				 AS rgDt
+			 , DATE_FORMAT(CARD.tm_dt, '%Y-%m-%d')   AS tmDt
+			 , IFNULL(CARD.SCH_SEQ,'0')              AS schSeq
+			 , IFNULL(CARD.FROM_LOC,'')              AS fromLoc
+			 , IFNULL(CARD.TO_LOC,'')                AS toLoc
+			 , IFNULL(CARD.CAR_ID,'0')               AS carId
+			 , CARD.PROGRESS           				 AS progress
+			 , CARD.STATUS                           AS status
+			 , P.PROJECT_ID                          AS projectId
+			 , P.NAME                                AS projectNm
+			 , Q.ACTIVITY_ID                         AS activityId
+             , Q.NAME                                AS activityNm
+             , DATE_FORMAT(Q.START_DATE, '%Y-%m-%d') AS activityStartDate
+             , DATE_FORMAT(Q.END_DATE, '%Y-%m-%d')   AS activityEndDate
+             , DATE_FORMAT(P.START_DATE,'%Y-%m-%d')  AS projectStartDate
+             , DATE_FORMAT(IF(P.END_DATE <= P.CLOSE_DATE, P.END_DATE, P.CLOSE_DATE),'%Y-%m-%d') AS lastDate
+             , P.OT_EXPENSE 			AS otExpense
+             , CARD.EXPENSE_DOC_YN 		AS expenseDocYn
+             , CARD.RG_ID				AS rgId							    /*등록자ID*/
+             , CARD.CARD_CORP_USE_YN  	AS cardCorpUseYn    			    /*법인카드사용여부*/
+             /*  */
+             , IFNULL(I.CARD_LINK_YN,'N') AS infoLinkYn   				    /*I법인카드사용여부*/
+       		 , IFNULL(I.CARD_NICKNAME,'') AS cardNickname 				    /*I카드별명*/
+       		 , IFNULL(I.CARD_NICKNAME,-999) AS cardNicknameSort				/*I카드정렬값*/
+       		 , I.CARD_NUM				AS cardNum							/*I카드번호*/
+       		 , I.CARD_OWNER_USER_ID		AS cardOwnerUserId					/*I카드소유자*/
+       		 /*  */
+         	 , CARD.CARD_CORP_INFO_ID 	AS cardCorpInfoId   			    /*법인카드등록정보ID*/
+             , CARD.APPROVE_YN 			AS approveYn					    /*지출승인여부*/
+             , CARD.APPROVE_USER_ID 	AS approveId 					    /*지출승인자ID*/
+         	 , CARD.APPROVE_DATE        AS approveDate      			    /*지출승인일시*/
+         	 , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = CARD.APPROVE_USER_ID) AS approvalNm /*지출승인자명*/
+         	 , (SELECT NOTE FROM BS_CARD_INPUT_SETUP X WHERE X.ORG_ID = CARD.ORG_ID)        AS setupNote  /*지출입력설정메모*/
+         	 , (SELECT X.CAR_NICK FROM BS_CAR_LIST X WHERE CARD.CAR_ID = X.CAR_ID)  AS carNick /*차량 이름*/
+		 	 , C.DEPT_ID				AS deptId
+		 	 , C.KOR_NAME				AS deptNm
+
+		 FROM  IB_CARD_USED CARD
+		 LEFT JOIN BS_CARD_CORP_INFO I  ON I.CARD_CORP_INFO_ID = CARD.CARD_CORP_INFO_ID
+		 LEFT JOIN BS_USER_MASTER STAFF ON STAFF.USER_ID       = CARD.RG_ID
+		 LEFT OUTER JOIN BS_ACTIVITY Q  ON CARD.ACTIVITY_ID    = Q.ACTIVITY_ID
+		 LEFT OUTER JOIN BS_PROJECT P   ON CARD.PROJECT_ID     = P.PROJECT_ID
+		 LEFT JOIN BS_USER_DEPARTMENT	B	ON STAFF.USER_ID = B.USER_ID
+		 LEFT JOIN BS_DEPARTMENT		C	ON B.DEPT_ID = C.DEPT_ID
+
+		]]>
+		<dynamic prepend="WHERE">
+
+            <isEmpty property="sNb">													<!-- 리스트일때 -->
+            	<isNotEmpty prepend="AND" property="choiceDate">						<!-- 달 검색 -->
+					LEFT(card.tm_dt,7) = #choiceDate#
+				</isNotEmpty>
+				<isEmpty prepend="AND" property="choiceDate">							<!-- 기간검색 -->
+					CARD.tm_dt BETWEEN #startDate# AND #endDate#
+				</isEmpty>
+				<isNotEmpty prepend="AND" property="applyOrgId">						<!-- orgId 검색 -->
+					STAFF.org_id = #applyOrgId#
+				</isNotEmpty>
+			</isEmpty>
+			<isEmpty property="searchDeptId">
+				<isNotEmpty property="usrIdArrCount">
+						<isNotEqual prepend="AND" property="usrIdArrCount" compareValue="0">	<!--LEFT 에서 선택한 유저 리스트 Array -->
+							<iterate prepend="staff.user_id IN " property="usrIdArr" open="(" close=")" conjunction=",">
+								<![CDATA[	#usrIdArr[]#]]>
+							</iterate>
+						</isNotEqual>
+				</isNotEmpty>
+			</isEmpty>
+			<isNotEmpty prepend="AND" property="searchDeptId">
+				(SELECT X.DEPT_ID
+				   FROM BS_USER_DEPARTMENT X
+				  WHERE STAFF.USER_ID = X.USER_ID
+				  	AND CASE WHEN #vipAuthYn# = 'Y' THEN 1=1
+				  			 WHEN EXISTS (SELECT X.CARD_INPUT_SETUP_ID
+				  			 				FROM BS_CARD_INPUT_SETUP X
+				  			 			   WHERE X.STAFF_USER_ID = #userId#
+				  			 			  )
+				  			 	  THEN 1=1
+				  			 WHEN #deptMngrYn# = 'Y' THEN X.DEPT_ID = #searchDeptId# AND X.DEPT_ID = #deptId#
+				  			 ELSE X.USER_ID = #userId#
+				  		END
+				    AND X.MAIN_YN='Y') = #searchDeptId#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="sNb">
+				<![CDATA[	card.s_nb = #sNb#		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="dv2">		<!-- 기존 데이터 때문에 하드코딩 -->
+				CASE #dv2# WHEN 1000 THEN dv in (10,20,30,40,50)
+				WHEN 2000 THEN dv in (55,60,70,80,90)
+				WHEN 3000 THEN dv = 100
+				WHEN 4000 THEN dv in (110,120,130,140,150)
+				WHEN 5000 THEN dv = 160
+				WHEN 6000 THEN dv = 170
+				END
+			</isNotEmpty>
+
+			AND B.MAIN_YN = 'Y'
+		</dynamic>
+
+		<dynamic prepend="ORDER BY">
+            <isEqual prepend="" property="sorting" compareValue="" >
+				<![CDATA[	CARD.tm_dt DESC, CARD.s_nb DESC		]]>
+			</isEqual>
+            <isEqual prepend="" property="sorting" compareValue="1" >
+				<![CDATA[	staffNm ASC 		]]>
+			</isEqual>
+            <isEqual prepend="" property="sorting" compareValue="2" >
+				<![CDATA[	cstNm ASC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="3" >
+				<![CDATA[	 C.LEVEL_SEQ ASC, C.DEPT_SEQ ASC, C.DEPT_ID ASC, CARD.TM_DT DESC, CARD.S_NB DESC	 		]]>
+			</isEqual>
+		</dynamic>
+		/*card.selectCardList*/
+	</select>
+
+	<!-- 지출 등록 -->
+	<insert id="card.insertCardUse">
+		<![CDATA[
+			INSERT INTO IB_CARD_USED
+				  (
+				    PROJECT_ID
+				  , ACTIVITY_ID
+				  , PLACE
+				  , NOTE
+				  , DV
+				  , DV2
+				  , PRICE
+				  , ETC_NUM
+				  , EXTRA_NAME
+				  , SCH_SEQ
+				  , FROM_LOC
+				  , TO_LOC
+				  , CAR_ID
+				  , PROGRESS
+				  , STATUS
+				  , TM_DT
+				  , YEAR
+				  , MONTH
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+				  , EXPENSE_DOC_YN
+				  , CARD_CORP_INFO_ID
+		 ) VALUES (
+		 			#projectId#
+		 		  , #activityId#
+				  , #place#
+				  , #note#
+				  , #dv#
+				  , #dv2#
+				  , #price#
+				  , #etcNum#
+				  , #extraName#
+				  , #schSeq#
+				  , #fromLoc#
+				  , #toLoc#
+				  , #carId#
+				  , #progress#
+				  , #status#
+				  , #tmDt#
+				  , #year#
+				  , #month#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  , #expenseDocYn#
+				  , IF(#cardCorpInfoId#='',NULL,#cardCorpInfoId#)
+				  )
+		]]>
+		<selectKey resultClass="int" type="post" keyProperty="s_nb">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		/*card.insertCardUse*/
+	</insert>
+
+	<!-- 지출 수정 -->
+	<update id="card.updateCardUse">
+		<![CDATA[
+			UPDATE IB_CARD_USED
+			SET
+				  place		 = #place#
+				, note		 = #note#
+				, dv 		 = #dv#
+				, dv2 		 = #dv2#
+				, price 	 = #price#
+				, etc_num 	 = #etcNum#
+				, extra_name = #extraName#
+				, sch_seq 	 = #schSeq#
+				, from_loc 	 = #fromLoc#
+				, to_loc 	 = #toLoc#
+				, car_id 	 = #carId#
+				, progress 	 = #progress#
+				, status 	 = #status#
+				, tm_dt 	 = #tmDt#
+				, year		 = #year#
+				, month		 = #month#
+				, up_dt 	 = now()
+				, up_id  	 = #rgId#
+				, EXPENSE_DOC_YN      = #expenseDocYn#
+				, card_corp_info_id   = IF(#cardCorpInfoId#='',NULL,#cardCorpInfoId#)
+				, project_id =IFNULL(#projectId#, project_id)
+				, activity_id =IFNULL(#activityId#, activity_id)
+			WHERE S_NB	= #sNb#
+		]]>
+		/*card.updateCardUse*/
+	</update>
+
+	<!-- 피드백 등록/수정 -->
+	<update id="card.updateCardFeedback">
+		<![CDATA[
+			UPDATE IB_CARD_USED
+			SET
+				  FEEDBACK    =  #feedback#
+				, UP_ID       =  #rgId#
+				, UP_DT       =  now()
+				, ORG_ID      = #orgId#
+			WHERE S_NB = #sNb#
+		]]>
+		/*card.updateCardFeedback*/
+	</update>
+
+	<!-- 지출 삭제 -->
+	<delete id="card.deleteCardUsed">
+		<![CDATA[
+			DELETE FROM IB_CARD_USED
+			WHERE S_NB      =  #sNb#
+		]]>
+		/*card.deleteCardUsed*/
+	</delete>
+
+	<!-- 해당 지출건 참가자리스트 (퇴근시간 포함) -->
+	<select id="card.selectCardUserList" parameterClass="HashMap" resultClass="HashMap">
+
+			SELECT
+				 card.s_nb 			as sNb
+				,card.card_snb 		as cardSnb
+				,staff.name		    as cstNm
+				,staff.emp_no		as sabun
+				,staff.user_id		as userId
+				,staff.name			as userName
+				,(SELECT value_mean_kor FROM bs_code_gv WHERE code_name = 'RANK' AND code_value = staff.rank AND org_id = staff.org_id)	AS position
+
+			FROM ib_card_used_staff as card
+ 			LEFT OUTER JOIN BS_USER_MASTER as staff ON card.staff_snb =staff.USER_ID
+
+
+		<dynamic prepend="WHERE">
+            <isNotEmpty prepend="AND" property="cardSnb">
+				<![CDATA[	card.card_snb = #cardSnb#	]]>
+			</isNotEmpty>
+		</dynamic>
+		ORDER BY card.s_nb ASC;
+		/*card.selectCardUserList*/
+	</select>
+
+	<!-- 지출 고객 리스트 -->
+	<select id="card.selectCardCusUserList" parameterClass="HashMap" resultClass="HashMap">
+			select
+					 A.CARD_USED_SNB   AS cardUsedSnb
+			        ,A.CST_SNB         AS cstSnb
+			        ,B.CST_NM          AS cstNm
+					,C.CPN_NM          AS cpnNm
+			 from BS_CARD_USED_CST A
+			 INNER JOIN IB_CUSTOMER B ON A.CST_SNB = B.S_NB
+			 INNER JOIN IB_COMPANY C ON B.CPN_ID = C.CPN_ID
+			 WHERE A.CARD_USED_SNB =#cardSnb#
+			/*card.selectCardCusUserList*/
+	</select>
+
+	<!-- 지출 참가자 등록 -->
+	<insert id="card.insertCardUsedStaffListBysabun">
+		<![CDATA[
+			INSERT INTO IB_CARD_USED_STAFF
+				  (
+				    CARD_SNB
+				  , STAFF_SNB
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES (
+				    #sNb#
+				  , #userId#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+		]]>
+		<selectKey resultClass="int" type="post" keyProperty="s_nb">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		/*card.insertCardUsedStaffListBysabun*/
+	</insert>
+
+	<!-- 지출 참가자 등록 -->
+	<insert id="card.insertCardUsedCusStaff">
+		<![CDATA[
+			INSERT INTO BS_CARD_USED_CST
+				  (
+				     CARD_USED_SNB
+					,CST_SNB
+					,CREATED_BY
+					,CREATE_DATE
+					,UPDATED_BY
+					,UPDATE_DATE
+		 ) VALUES (
+				    #sNb#
+				  , #cstSnb#
+				  , #rgId#
+				  , now()
+				  , #rgId#
+				  , now()
+				  )
+		]]>
+		<selectKey resultClass="int" type="post" keyProperty="s_nb">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		/*card.insertCardUsedCusStaff*/
+	</insert>
+
+	<!-- 지출 참가자 삭제 -->
+	<delete id="card.deleteCardUsedStaffList">
+		<![CDATA[
+			DELETE FROM IB_CARD_USED_STAFF
+			WHERE CARD_SNB = #sNb#
+		]]>
+		/*card.deleteCardUsedStaffList*/
+	</delete>
+
+	<!-- 지출 고객 삭제 -->
+	<delete id="card.deleteCardUsedCusStaffList">
+		<![CDATA[
+			DELETE FROM BS_CARD_USED_CST
+			WHERE CARD_USED_SNB = #sNb#
+		]]>
+		/*card.deleteCardUsedCusStaffList*/
+	</delete>
+
+	<!-- 소모품 리스트 -->
+	<select id="card.selectCardMro" parameterClass="HashMap" resultClass="HashMap">
+		<![CDATA[
+			SELECT
+				  	mro_id 		AS mroId
+				  , card_id		AS cardId
+				  , mro_code	AS mroCode
+				  , mro_name	AS mroName
+				  , qty
+				  , price
+			FROM  bs_card_mro
+		]]>
+		<dynamic prepend="WHERE">
+            <isNotEmpty prepend="AND" property="cardSnb">
+            	card_id = #cardSnb#
+            </isNotEmpty>
+        </dynamic>
+        ORDER BY mro_id ASC
+        /*card.selectCardMro*/
+	</select>
+
+	<!-- 소모품 등록 -->
+	<insert id="card.insertCardMro">
+		<![CDATA[
+			INSERT INTO base.bs_card_mro
+				  (
+				    card_id
+				  , mro_code
+				  , mro_name
+				  , qty
+				  , price
+			) VALUES (
+				    #sNb#
+				  , #mroCode#
+				  , #mroName#
+				  , #qty#
+				  , #price#
+				  )
+		]]>
+		<selectKey resultClass="int" type="post" keyProperty="mro_id">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		/*card.insertCardMro*/
+	</insert>
+
+	<!-- 소모품 리스트 삭제 -->
+	<delete id="card.delectCardMro">
+		<![CDATA[
+			DELETE FROM bs_card_mro
+			WHERE card_id = #sNb#
+		]]>
+		/*card.delectCardMro*/
+	</delete>
+
+	<!--최초 데이터 입력 년도 -->
+	<select id="card.selectMinYear" parameterClass="HashMap" resultClass="java.lang.String">
+		<![CDATA[
+			SELECT MIN(distinct year) AS year FROM ib_card_used;
+		]]>
+		/*card.selectMinYear*/
+	</select>
+
+	<!--======================== 통계=============================-->
+
+	<!--통계 dv-->
+	<select id="card.selectDvCardStatistics" parameterClass="HashMap" resultClass="HashMap">
+		<![CDATA[
+			SELECT
+					 CARD.MONTH		 	AS month
+					,CARD.DV		 	AS dv
+					,CARD.DV2		 	AS dv2
+					,SUM(CARD.PRICE) 	AS sum
+					,DEPT.DEPT_ID	 	AS deptSeq
+					,STAFF.NAME	 		AS usrNm
+
+			FROM IB_CARD_USED					CARD
+			LEFT OUTER JOIN BS_USER_MASTER		STAFF 	ON CARD.rg_id = STAFF.user_id
+			LEFT OUTER JOIN BS_USER_DEPARTMENT	USDT	ON STAFF.USER_ID = USDT.USER_ID AND USDT.MAIN_YN='Y'
+			LEFT OUTER JOIN BS_DEPARTMENT		DEPT 	ON USDT.DEPT_ID = DEPT.DEPT_ID
+		]]>
+		<dynamic prepend="WHERE">
+			STAFF.org_id = #applyOrgId#
+            <isNotEmpty property="choiceYear">
+            	AND year = #choiceYear#
+            </isNotEmpty>
+	        <isEqual property="searchType" compareValue="team" >
+				AND dept.dept_id = #search#
+			</isEqual>
+			<isEqual property="searchType" compareValue="person" >
+				<isNotEmpty property="search">
+					AND CARD.RG_ID = #search#
+				 </isNotEmpty>
+			</isEqual>
+		</dynamic>
+		GROUP BY dv, month
+        ORDER BY CAST(dv as UNSIGNED), month ASC
+        /*card.selectDvCardStatistics*/
+	</select>
+
+	<!--통계 dv2-->
+	<select id="card.selectDv2CardStatistics" parameterClass="HashMap" resultClass="HashMap">
+		<![CDATA[
+			SELECT
+					 MONTH				as month
+					,DV2				AS dv2
+					,SUM(PRICE) 		AS sum
+					,DEPT.DEPT_ID		AS deptSeq
+					,STAFF.NAME		 	AS usrNm
+
+			FROM IB_CARD_USED					CARD
+			LEFT OUTER JOIN BS_USER_MASTER		STAFF 	ON CARD.rg_id = STAFF.user_id
+			LEFT OUTER JOIN BS_USER_DEPARTMENT	USDT	ON STAFF.USER_ID = USDT.USER_ID AND USDT.MAIN_YN='Y'
+			LEFT OUTER JOIN BS_DEPARTMENT		DEPT 	ON USDT.DEPT_ID = DEPT.DEPT_ID
+
+		]]>
+		<dynamic prepend="WHERE">
+			STAFF.org_id = #applyOrgId#
+            <isNotEmpty property="choiceYear">
+            	AND  YEAR = #choiceYear#
+            </isNotEmpty>
+
+        	<isEqual property="searchType" compareValue="team" >
+				AND DEPT.DEPT_ID = #search#
+			</isEqual>
+			<isEqual property="searchType" compareValue="person" >
+				<isNotEmpty property="search">
+					AND CARD.RG_ID = #search#
+				 </isNotEmpty>
+			</isEqual>
+		 </dynamic>
+
+        GROUP BY dv2,month
+        ORDER BY CAST(dv2 as UNSIGNED), month ASC
+        /*card.selectDv2CardStatistics*/
+	 </select>
+
+	 <!--월별 통계-->
+	<select id="card.selectMonthCardStatistics" parameterClass="HashMap" resultClass="HashMap">
+		<![CDATA[
+			SELECT
+					 MONTH				AS month
+					,SUM(PRICE) 		AS sum
+					,DEPT.DEPT_ID		AS deptSeq
+					,STAFF.NAME			AS usrNm
+
+			FROM IB_CARD_USED					CARD
+			LEFT OUTER JOIN BS_USER_MASTER		STAFF 	ON CARD.rg_id = STAFF.user_id
+			LEFT OUTER JOIN BS_USER_DEPARTMENT	USDT	ON STAFF.USER_ID = USDT.USER_ID AND USDT.MAIN_YN='Y'
+			LEFT OUTER JOIN BS_DEPARTMENT		DEPT 	ON USDT.DEPT_ID = DEPT.DEPT_ID
+		]]>
+		<dynamic prepend="WHERE">
+
+			 STAFF.org_id = #applyOrgId#
+			 AND DV IS NOT NULL
+            <isNotEmpty property="choiceYear">
+            	AND year = #choiceYear#
+            </isNotEmpty>
+            <isEqual property="searchType" compareValue="team" >
+				<!-- AND DEPT.DEPT_ID = #search# -->
+				AND DEPT.DEPT_ID IN
+				<iterate property="deptList" open="(" close=")" conjunction=",">
+					<![CDATA[	#deptList[].deptId#]]>
+				</iterate>
+			</isEqual>
+			<isEqual property="searchType" compareValue="person" >
+				 <isNotEmpty property="search">
+					AND CARD.RG_ID = #search#
+				 </isNotEmpty>
+			</isEqual>
+        </dynamic>
+
+        GROUP BY month
+        ORDER BY month ASC
+        /*card.selectMonthCardStatistics*/
+	 </select>
+	 <!-- 필수수신참조자설정 리스트 -->
+	 <select id="card.getCardExpenseSetupList" parameterClass="HashMap" resultClass="egovMap">
+		 /* card.getCardExpenseSetupList */
+	     SELECT A.ORG_ID
+			  , A.APPV_DOC_CLASS
+			  , A.APPV_DOC_CLASS_NAME
+			  , A.APPV_DOC_TYPE
+			  , A.APPV_DOC_TYPE_NAME
+			  , B.APPV_COMPANY_FORM_ID
+			  , IFNULL(B.USE_YN, 'Y') USE_YN
+			  , B.CREATED_BY
+			  , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = B.CREATED_BY) AS CREATED_NAME
+			  , B.CREATE_DATE
+			  , B.UPDATED_BY
+			  , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = B.UPDATED_BY) AS UPDATED_NAME
+			  , B.UPDATE_DATE
+			  , A.SORT1
+			  , A.SORT2
+			  , B.RECEIVER_NAMES
+			  , B.CC_NAMES
+			  , (CASE WHEN A.APPV_DOC_CLASS = 'COMPANY' THEN CONCAT(A.APPV_DOC_CLASS, '|', A.APPV_COMPANY_FORM_ID)
+			  	      ELSE CONCAT(A.APPV_DOC_CLASS, '|', A.APPV_DOC_TYPE)
+			    END) AS APPV_KEY
+			  , (CASE WHEN A.APPV_DOC_CLASS = 'COMPANY' THEN CONCAT(A.APPV_DOC_CLASS, '_', A.APPV_COMPANY_FORM_ID)
+				      ELSE CONCAT(A.APPV_DOC_CLASS, '_', A.APPV_DOC_TYPE)
+			    END) AS SPAN_KEY
+		   FROM
+			  (
+			    SELECT A.ORG_ID
+					 , B.VALUE          AS  APPV_DOC_CLASS
+					 , B.MEANING_KOR    AS  APPV_DOC_CLASS_NAME
+				     , D.VALUE          AS  APPV_DOC_TYPE
+					 , D.MEANING_KOR    AS  APPV_DOC_TYPE_NAME
+					 , B.SORT           AS  SORT1
+					 , D.SORT           AS  SORT2
+					 , 0 AS APPV_COMPANY_FORM_ID
+				  FROM BS_CODE_SET  A
+					   INNER JOIN BS_CODE_LIST B ON A.CODE_SET_ID = B.CODE_SET_ID
+					   INNER JOIN BS_CODE_SET  C ON B.SON_SET_ID  = C.CODE_SET_ID
+					   INNER JOIN BS_CODE_LIST D ON C.CODE_SET_ID = D.CODE_SET_ID
+				 WHERE A.ORG_ID = #orgId#  /* 각 관계사 코드 */
+				   AND A.CODE_SET_NAME = 'APPV_DOC_CLASS'
+				   AND A.DELETE_FLAG   = 'N'
+				   AND B.DELETE_FLAG   = 'N'
+				   AND C.DELETE_FLAG   = 'N'
+				   AND D.DELETE_FLAG   = 'N'
+			 UNION ALL
+			    SELECT A.ORG_ID
+					 , A.APPV_DOC_CLASS
+					 , '사내서식' AS  APPV_DOC_CLASS_NAME
+					 , ''       AS  APPV_DOC_TYPE
+					 , A.APPV_DOC_TYPE_NAME
+					 , 99999999 AS  SORT1
+					 , 99999999 AS  SORT2
+					 , A.APPV_COMPANY_FORM_ID
+				  FROM BS_APPV_COMPANY_FORM  A
+				 WHERE A.ORG_ID = #orgId#  /* 각 관계사 코드 */
+				   AND A.DELETE_FLAG = 'N'
+			  ) A
+		  LEFT JOIN(
+			  SELECT APPV_RECEIVER_SETUP_ID
+				   , ORG_ID
+				   , APPV_DOC_CLASS
+				   , APPV_DOC_TYPE
+				   , APPV_COMPANY_FORM_ID
+				   , USE_YN
+				   , CREATED_BY
+				   , CREATE_DATE
+				   , UPDATED_BY
+				   , UPDATE_DATE
+				   , (SELECT GROUP_CONCAT(CONCAT(Y.USER_ID, '||-||', Y.NAME) SEPARATOR ':::::') SCHE_CONTENTS
+						FROM BS_APPV_RECEIVER_USER X
+				  INNER JOIN BS_USER_MASTER Y ON X.USER_ID = Y.USER_ID
+				 	   WHERE X.APPV_RECEIVER_SETUP_ID = B.APPV_RECEIVER_SETUP_ID
+					     AND X.USER_ROLE_TYPE = 'RECEIVER'
+					GROUP BY X.APPV_RECEIVER_SETUP_ID
+					 ) AS RECEIVER_NAMES
+				   , (SELECT GROUP_CONCAT(CONCAT(Y.USER_ID, '||-||', Y.NAME) SEPARATOR ':::::') SCHE_CONTENTS
+					    FROM BS_APPV_RECEIVER_USER X
+				  INNER JOIN BS_USER_MASTER Y ON X.USER_ID = Y.USER_ID
+					   WHERE X.APPV_RECEIVER_SETUP_ID = B.APPV_RECEIVER_SETUP_ID
+					     AND X.USER_ROLE_TYPE = 'CC'
+					GROUP BY X.APPV_RECEIVER_SETUP_ID
+				     ) AS CC_NAMES
+			   FROM BS_APPV_RECEIVER_SETUP B
+			  WHERE ORG_ID = #orgId#
+		      <isNotEmpty property="useYn">
+			    AND USE_YN = #useYn#
+		      </isNotEmpty>
+			      ) B ON A.ORG_ID = B.ORG_ID
+				AND A.APPV_DOC_CLASS = B.APPV_DOC_CLASS
+			    AND (CASE WHEN A.APPV_DOC_CLASS = 'COMPANY' THEN A.APPV_COMPANY_FORM_ID = B.APPV_COMPANY_FORM_ID
+				     ELSE A.APPV_DOC_TYPE = B.APPV_DOC_TYPE
+				    END)
+			  WHERE 1=1
+		      <isNotEmpty property="appvDocClass">
+			    AND A.APPV_DOC_CLASS = #appvDocClass#
+		      </isNotEmpty>
+		      <isNotEmpty property="appvDocType">
+		        AND A.APPV_DOC_TYPE = #appvDocType#
+		      </isNotEmpty>
+		      ORDER BY SORT1, SORT2
+	</select>
+
+	<!-- 지출입력설정 정보  -->
+    <select id="card.getCardExpenseSetupDetail" parameterClass="HashMap" resultClass="egovMap">
+        /* card.getCardExpenseSetupDetail */
+        SELECT A.CARD_INPUT_SETUP_ID
+		     , A.ORG_ID
+		     , A.STAFF_USER_ID
+		     , A.STAFF_DEPT_ID
+	         , A.NOTE
+		     , A.CREATED_BY
+		     , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY) AS CREATED_NAME
+		     , A.CREATE_DATE
+		     , A.UPDATED_BY
+		     , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.UPDATED_BY) AS UPDATED_NAME
+		     , A.UPDATE_DATE
+	      FROM BS_CARD_INPUT_SETUP A
+         WHERE A.ORG_ID = #orgId#
+    </select>
+
+    <!-- 지출담당자설정  -->
+    <select id="card.getCardManagerSetupList" parameterClass="HashMap" resultClass="egovMap">
+        /* card.getCardManagerSetupList */
+        SELECT A.CARD_INPUT_SETUP_ID
+             , A.ORG_ID
+             , A.STAFF_USER_ID
+             , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.STAFF_USER_ID) AS USER_NAME
+             , A.CREATED_BY
+             , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY) AS CREATED_NAME
+             , A.CREATE_DATE
+             , A.UPDATED_BY
+             , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.UPDATED_BY) AS UPDATED_NAME
+             , A.UPDATE_DATE
+             , (SELECT G.VALUE_MEAN_KOR
+                FROM BS_CODE_GV G
+                 WHERE G.ORG_ID     = #orgId#
+                   AND G.CODE_NAME  = 'RANK'
+                   AND G.CODE_VALUE = (SELECT RANK FROM BS_USER_MASTER WHERE USER_ID = A.STAFF_USER_ID) ) AS RANK_NM
+              , A.STAFF_DEPT_ID
+              , (SELECT KOR_NAME FROM BS_DEPARTMENT K WHERE A.STAFF_DEPT_ID = K.DEPT_ID) AS STAFF_DEPT_NM
+          FROM BS_CARD_INPUT_SETUP A
+         WHERE A.ORG_ID = #orgId#
+      ORDER BY UPDATE_DATE
+    </select>
+
+	<!-- 지출입력설정 삭제 -->
+    <delete id="card.deleteCardExpenseSetup" parameterClass="HashMap">
+        /* card.deleteCardExpenseSetup */
+        DELETE FROM BS_CARD_INPUT_SETUP
+         WHERE ORG_ID = #orgId#
+    </delete>
+
+    <!-- 지출담당자설정 삭제
+    <delete id="card.deleteCardManagerSetup" parameterClass="HashMap">
+        /* card.deleteCardManagerSetup */
+        DELETE FROM BS_APPV_EXPENSE_MANAGER_SETUP
+         WHERE ORG_ID = #orgId#
+    </delete>
+	-->
+
+	<!-- 지출입력설정 저장 -->
+    <insert id="card.insertCardExpenseSetup" parameterClass="HashMap">
+		/* card.insertCardExpenseSetup */
+        INSERT INTO BS_CARD_INPUT_SETUP (
+                                          ORG_ID
+                                        , STAFF_USER_ID
+                                        , STAFF_DEPT_ID
+                                        , NOTE
+                                        , CREATED_BY
+                                        , CREATE_DATE
+                                        , UPDATED_BY
+                                        , UPDATE_DATE
+                                    ) VALUES (
+                                          #orgId#
+                                        , #staffUserId#
+                                        , #staffDeptId#
+                                        , #note#
+                                        , IF(#createdBy#='',#sessionUserId#,#createdBy#)
+                                        , IF(#createDate#='',NOW(),#createDate#)
+                                        , #sessionUserId#
+                                        , now()
+                                    )
+    </insert>
+
+    <!-- 지출담당자설정 저장
+    <insert id="card.insertCardManagerSetup" parameterClass="HashMap">
+        /* card.insertCardManagerSetup */
+        INSERT INTO BS_APPV_EXPENSE_MANAGER_SETUP (
+			                                        ORG_ID
+			                                      , USER_ID
+			                                      , CREATED_BY
+			                                      , CREATE_DATE
+			                                      , UPDATED_BY
+			                                      , UPDATE_DATE
+                                    		  ) VALUES (
+                                         			#orgId#
+                                        		  , #userId#
+                                                  , IF(#createdBy#='',#sessionUserId#,#createdBy#)
+                                                  , IF(#createDate#='',NOW(),#createDate#)
+                                                  , #sessionUserId#
+                                                  , now()
+                                    		  )
+    </insert>
+	-->
+
+	<!-- 법인카드설정 리스트 -->
+	<select id="card.getCardCorpInfoSetupList" parameterClass="HashMap" resultClass="egovMap">
+		/* card.getCardCorpInfoSetupList */
+		SELECT A.CARD_CORP_INFO_ID    									       /* 법인카드등록정보ID */
+	       	 , A.ORG_ID                                                        /* 관계사ID        */
+	         , A.CARD_LINK_YN                                                  /* 법인카드연동여부      */
+	         , A.CARD_CORP_SETUP_ID                                           /* 법인카드연동정보ID */
+	         , A.CARD_COMPANY		                                           /* 카드사                    */
+	         , (SELECT G.VALUE_MEAN_KOR FROM BS_CODE_GV G
+                 WHERE G.ORG_ID = A.ORG_ID
+                   AND G.CODE_VALUE = A.CARD_COMPANY) AS cardCompanyNm         /* 카드사명                 */
+	         , A.CARD_NUM             				                           /* 카드번호                 */
+	         , SUBSTR(CARD_NUM, 1, 4) 										   AS cardNum1
+	         , SUBSTR(CARD_NUM, 6, 4)										   AS cardNum2
+	         , SUBSTR(CARD_NUM, 11, 4)										   AS cardNum3
+             , SUBSTR(CARD_NUM, 16, 4) 										   AS cardNum4
+             , REPLACE(SUBSTR(CARD_NUM, 6, 4), SUBSTR(CARD_NUM,6,4) , '****')  AS cardNumPw2
+     		 , REPLACE(SUBSTR(CARD_NUM, 11, 4), SUBSTR(CARD_NUM,11,4), '****') AS cardNumPw3
+	         , A.CARD_NICKNAME AS cardNickNm                                   /* 카드별명                 */
+	         , A.CARD_OWNER_USER_ID   				                           /* 카드소유자ID     */
+	         , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.CARD_OWNER_USER_ID) AS cardOwnerUserNm           /* 카드소유자명 */
+	         , (SELECT G.VALUE_MEAN_KOR FROM BS_CODE_GV G
+                 WHERE G.ORG_ID     = A.ORG_ID
+                   AND G.CODE_NAME  = 'RANK'
+                   AND G.CODE_VALUE = (SELECT RANK FROM BS_USER_MASTER WHERE USER_ID = A.CARD_OWNER_USER_ID) ) AS rankNm /* 직급            */
+	         , A.USE_YN               				 																	 /* 사용여부       */
+	         , A.COMMENT              				 																	 /* 비고             */
+	         , A.CREATED_BY           				 																	 /* 등록자          */
+	         , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY) AS createdByNm 						 /* 등록자명        */
+	         , A.CREATE_DATE                         																	 /* 등록일           */
+	         , A.UPDATED_BY           				 																	 /* 수정자           */
+	         , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.UPDATED_BY) AS updatedByNm 						 /* 등록자명        */
+	         , A.UPDATE_DATE          				 																	 /* 수정일           */
+	         , (CASE WHEN A.CARD_LINK_YN = 'Y' AND A.CARD_NUM IS NOT NULL AND CARD_OWNER_USER_ID IS NULL THEN 'N' ELSE 'Y' END) AS CARD_INPUT_YN
+	      FROM BS_CARD_CORP_INFO AS A
+	     WHERE ORG_ID = #orgId#
+	</select>
+
+	<!-- 법인카드 Number/User 중복체크 -->
+	<select id="card.getCardCheck" parameterClass="HashMap" resultClass="egovMap">
+		/* card.getCardCheck */
+		SELECT COUNT(A.CARD_NUM)           AS cardNumCnt
+             , AA.cardUserCnt
+	      FROM BS_CARD_CORP_INFO A
+           , (
+               SELECT COUNT(CARD_OWNER_USER_ID) AS cardUserCnt
+                 FROM BS_CARD_CORP_INFO
+                WHERE CARD_OWNER_USER_ID = #cardOwnerUserId#
+                <isNotEmpty property="cardCorpInfoId">
+			      AND CARD_CORP_INFO_ID != #cardCorpInfoId#
+		   		</isNotEmpty>
+             ) AS AA
+         WHERE 1=1
+           AND A.ORG_ID   = #orgId#
+           AND A.CARD_NUM = #cardNum#
+           <isNotEmpty property="cardCorpInfoId">
+			  AND A.CARD_CORP_INFO_ID != #cardCorpInfoId#
+		   </isNotEmpty>
+	</select>
+
+	<!-- 법인카드설정 저장 -->
+	<insert id ="card.insertCardCorpInfo" parameterClass="HashMap">
+		/* card.insertCardCorpInfo */
+		INSERT INTO BS_CARD_CORP_INFO (
+									    ORG_ID					/*관계사ID*/
+									  , CARD_LINK_YN
+									  , CARD_CORP_SETUP_ID		/*법인카드연동정보ID*/
+									  , CARD_COMPANY			/*카드사*/
+									  , CARD_NUM				/*카드번호*/
+									  , CARD_NICKNAME			/*카드별명*/
+									  , CARD_OWNER_USER_ID		/*카드소유자*/
+									  , USE_YN					/*사용여부*/
+									  , COMMENT					/*비고*/
+									  , CREATED_BY				/*등록자*/
+									  , CREATE_DATE				/*등록일*/
+									  , UPDATED_BY				/*수정자*/
+									  , UPDATE_DATE				/*수정일*/
+									  ) VALUES (
+									    #orgId#
+									  , #cardLinkYn#
+									  , #cardCorpSetupId#
+									  , #cardCompany#
+									  , #cardNum#
+									  , #cardNickname#
+									  , #cardOwnerUserId#
+									  , #useYn#
+									  , #comment#
+									  , #userId#
+									  , now()
+									  , #userId#
+									  , now()
+									)
+	</insert>
+
+	<!-- 법인카드설정(연동X) 수정 -->
+	<update id ="card.updateCardCorpInfo" parameterClass="HashMap">
+	/* card.updateCardCorpInfo */
+	UPDATE BS_CARD_CORP_INFO
+	   SET CARD_NUM 	      = #cardNum#
+	     , CARD_NICKNAME      = #cardNickname#
+	     , COMMENT		      = #comment#
+	     , USE_YN             = #useYn#
+	     , CARD_COMPANY       = #cardCompany#
+	     , CARD_OWNER_USER_ID = #cardOwnerUserId#
+	 WHERE CARD_CORP_INFO_ID = #cardCorpInfoId#
+	   AND ORG_ID            = #orgId#
+	</update>
+
+	<!-- 법인카드설정(연동X) 삭제 -->
+	<delete id = "card.deleteCardCorpInfo" parameterClass="HashMap">
+		DELETE FROM BS_CARD_CORP_INFO
+		 WHERE CARD_CORP_INFO_ID = #cardCorpInfoId#
+	</delete>
+
+	<!-- 법인카드연동 저장 -->
+	<insert id ="card.insertCardLinkage" parameterClass="HashMap">
+		/* card.insertCardLinkage */
+		INSERT INTO BS_CARD_CORP_SETUP (
+									     ORG_ID 		  /*관계사ID*/
+									   , CORP_NUM 		  /*사업자등록번호*/
+									   , LINK_CORP_CODE	  /*연동대행업체*/
+									   , ORG_CARD_LINK_YN /*관계사법인카드연동여부*/
+									   , LINK_AUTH_CODE	  /*연동인증코드*/
+									   , LINK_AUTH_ID	  /*연동인증ID*/
+									   , LINK_AUTH_PW	  /*연동인증비밀번호*/
+									   , CREATED_BY		  /*등록자*/
+									   , CREATE_DATE	  /*등록일*/
+									   , UPDATED_BY		  /*수정자*/
+									   , UPDATE_DATE	  /*수정일*/
+									   ) VALUES (
+									     #orgId#
+									   , #corpNum#
+									   , #linkCorpCode#
+									   , #orgCardLinkYn#
+									   , #linkAuthCode#
+									   , #linkAuthId#
+									   , #linkAuthPw#
+									   , #userId#
+									   , now()
+									   , #userId#
+									   , now()
+									   )
+	</insert>
+
+	<!-- 법인카드연동Cnt -->
+	<select id="card.getProcessCardLk" parameterClass="HashMap" resultClass="Integer">
+		/* card.getProcessCardLk */
+		SELECT COUNT(*)
+          FROM BS_CARD_CORP_SETUP
+         WHERE 1=1
+           AND ORG_ID = #orgId#
+	</select>
+
+	<!-- 법인카드연동 저장수정 -->
+	<update id ="card.updateCardLinkAge" parameterClass="HashMap">
+	/* card.updateCardLinkAge */
+	UPDATE BS_CARD_CORP_SETUP
+	   SET CORP_NUM 	      = #corpNum#
+	     , LINK_AUTH_CODE     = #linkAuthCode#
+	     , ORG_CARD_LINK_YN   = #orgCardLinkYn#
+	     , LINK_AUTH_ID		  = #linkAuthId#
+	     , LINK_AUTH_PW       = #linkAuthPw#
+	     , UPDATED_BY		  = #userId#
+	     , UPDATE_DATE		  = now()
+	 WHERE 1=1
+	   AND ORG_ID = #orgId#
+	</update>
+
+    <!-- 법인카드연동 수정(해지) -->
+	<update id ="card.updateCardLkCancel" parameterClass="HashMap">
+	/* card.updateCardLkCancel */
+	UPDATE BS_CARD_CORP_SETUP
+	   SET CORP_NUM 	      = #corpNum#
+	     , LINK_AUTH_CODE     = #linkAuthCode#
+	     , ORG_CARD_LINK_YN   = #orgCardLinkYn#
+	     , LINK_AUTH_ID		  = #linkAuthId#
+	     , LINK_AUTH_PW       = #linkAuthPw#
+	     , UPDATED_BY         = #userId#
+	     , UPDATE_DATE		  = now()
+	 WHERE 1=1
+	   AND CARD_CORP_SETUP_ID = #cardCorpSetupId#
+	   AND ORG_ID 			  = #orgId#
+	</update>
+
+	<!-- [임시]법인카드 사용내역 연동 기능 여부 화면  -->
+    <select id="card.getCardCorpSetup" parameterClass="HashMap" resultClass="egovMap">
+        /* card.getCardCorpSetup */
+        SELECT CARD_CORP_SETUP_ID
+             , ORG_ID 		      /*관계사ID*/
+		     , CORP_NUM 		  /*사업자등록번호*/
+		     , LINK_CORP_CODE	  /*연동대행업체*/
+		     , ORG_CARD_LINK_YN   /*관계사법인카드연동여부*/
+		     , LINK_AUTH_CODE	  /*연동인증코드*/
+		     , LINK_AUTH_ID	      /*연동인증ID*/
+		     , LINK_AUTH_PW	      /*연동인증비밀번호*/
+		     , CREATED_BY		  /*등록자*/
+		     , CREATE_DATE	      /*등록일*/
+		     , UPDATED_BY		  /*수정자*/
+		     , UPDATE_DATE	      /*수정일*/
+          FROM BS_CARD_CORP_SETUP
+         WHERE ORG_ID = #orgId#
+    </select>
+
+	<!-- 승인처리 수정 -->
+	<update id="card.updateApproval" parameterClass="HashMap">
+		/* card.updateApproval */
+		<![CDATA[
+			UPDATE IB_CARD_USED
+			   SET APPROVE_USER_ID =  #userId# 			/* 지출승인자ID */
+				 , APPROVE_YN      =  #approveYn#		/* 지출승인여부   */
+				 , APPROVE_DATE    =  now()			    /* 지출승인일시   */
+			 WHERE S_NB IN ($sNbList$)
+		]]>
+	</update>
+
+	<!-- 법인카드사용여부판단 -->
+	<select id="card.baseInfo" parameterClass="HashMap" resultClass="egovMap">
+		/* card.baseInfo */
+		SELECT A.CARD_CORP_SETUP_ID 			AS cardCorpSetupId
+             , A.ORG_ID             			AS orgId
+		     , A.ORG_CARD_LINK_YN   			AS orgCardLinkYn					/*카드연동여부*/
+		     , (SELECT COUNT(*)
+		          FROM BS_CARD_CORP_INFO X
+		         WHERE X.ORG_ID = A.ORG_ID
+		           AND X.CARD_OWNER_USER_ID = #userId#
+		           AND X.CARD_LINK_YN = 'Y'
+		           AND X.USE_YN = 'Y') 			AS cardLinkYnCnt					/*로그인 유저의 사용가능한 법인카드 개수(연동된 개수)*/
+		     , (SELECT COUNT(*)
+		          FROM BS_CARD_CORP_INFO X
+		         WHERE X.ORG_ID = A.ORG_ID
+		           AND X.CARD_OWNER_USER_ID = #userId#
+		           AND X.USE_YN = 'Y') 			AS cardUseCnt						/*로그인 유저의 사용가능한 법인카드 개수(연동된 개수)*/
+		     , (SELECT X.STAFF_USER_ID
+		     	  FROM BS_CARD_INPUT_SETUP X
+		     	 WHERE X.ORG_ID = A.ORG_ID) 	AS staffUserId  					/*지출승인자ID*/
+		     , (SELECT X.STAFF_DEPT_ID
+		     	  FROM BS_CARD_INPUT_SETUP X
+		     	 WHERE X.ORG_ID = A.ORG_ID) 	AS staffDeptId  					/*지출승인자부서*/
+		  FROM BS_CARD_CORP_SETUP A /*법인카드연동정보*/
+		 WHERE A.ORG_ID = #applyOrgId#
+	</select>
+
+	<!--최초 데이터 유의사항 -->
+	<select id="card.getCardSetupNote" parameterClass="HashMap" resultClass="egovMap">
+		/*card.getCardSetupNote*/
+		<![CDATA[
+			SELECT X.NOTE as note
+			  FROM BS_CARD_INPUT_SETUP X
+			 WHERE X.ORG_ID = #orgId#
+		]]>
+	</select>
+
+	<!-- 카드선택  -->
+    <select id="card.getCardSelectList" parameterClass="HashMap" resultClass="egovMap">
+        /* card.getCardSelectList */
+        SELECT A.CARD_CORP_INFO_ID  /*법인카드등록정보ID*/
+             , A.CARD_NUM			/*카드번호*/
+             , A.CARD_NICKNAME		/*카드별명*/
+             , A.CARD_LINK_YN		/*법인카드연동여부*/
+             , A.USE_YN 			/*법인카드사용여부*/
+             , A.CARD_OWNER_USER_ID /*카드소유자*/
+	      FROM BS_CARD_CORP_INFO A
+         WHERE A.ORG_ID = #applyOrgId#
+           AND A.USE_YN = 'Y'
+           AND A.CARD_NICKNAME IS NOT NULL
+    </select>
+
+    <!-- 카드등록여부(이인희)  -->
+    <select id="card.existCardCorp" parameterClass="HashMap" resultClass="int">
+        /* card.existCardCorp */
+        SELECT COUNT(*) AS CARD_CNT
+          FROM BS_CARD_CORP_INFO A
+         WHERE A.CARD_NUM = #cardNum#
+    </select>
+
+    <!-- 바로빌 연동 카드정보 가져오기  -->
+    <select id="card.getBarobillCardCorpList" parameterClass="HashMap" resultClass="egovMap">
+        /* card.getCardSelectList */
+        SELECT
+		    A.CARD_CORP_SETUP_ID
+		    , A.ORG_ID
+		    , REPLACE(A.CORP_NUM, '-','') AS CORP_NUM
+		    , A.LINK_CORP_CODE
+		    , A.LINK_AUTH_CODE
+		    , A.LINK_AUTH_ID
+		    , A.LINK_AUTH_PW
+		    , REPLACE(B.CARD_NUM, '-','') AS CARD_NUM
+		    , B.CARD_CORP_INFO_ID
+		    , B.CARD_OWNER_USER_ID
+		FROM BS_CARD_CORP_SETUP A
+		    INNER JOIN BS_CARD_CORP_INFO B ON A.CARD_CORP_SETUP_ID = B.CARD_CORP_SETUP_ID
+		WHERE A.ORG_CARD_LINK_YN = 'Y'
+		AND A.LINK_CORP_CODE = 'BAROBILL'
+		AND B.CARD_LINK_YN = 'Y'
+		AND B.USE_YN = 'Y'
+    </select>
+
+    <!-- 지출 등록 (바로빌 법인카드 연동)-->
+    <insert id="card.insertCardUseForBarobill">
+        /*card.insertCardUseForBarobill*/
+        <![CDATA[
+            INSERT INTO IB_CARD_USED
+                  (
+                    ORG_ID
+                  ,  CARD_CORP_USE_YN
+                  , CARD_CORP_INFO_ID
+                  , PRICE
+                  , TM_DT
+                  , YEAR
+                  , MONTH
+                  , CARD_CORP_LINK_KEY
+                  , PLACE
+                  , RG_DT
+                  , UP_DT
+                  , RG_ID
+                  , UP_ID
+         ) VALUES (
+                    #orgId#
+                  , #cardCorpUseYn#
+                  , #cardCorpInfoId#
+                  , #price#
+                  , #tmDt#
+                  , #year#
+                  , LPAD(#month#, 2, '0')
+                  , #cardCorpLinkKey#
+                  , #place#
+                  , now()
+                  , now()
+                  , #rgId#
+                  , #rgId#
+                  )
+        ]]>
+        <selectKey resultClass="int" type="post" keyProperty="s_nb">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+
+    <!-- 카드사용내역등록여부(이인희)  -->
+    <select id="card.existCardCorpUsed" parameterClass="HashMap" resultClass="int">
+        /* card.existCardCorpUsed */
+        SELECT COUNT(*) AS CARD_USED_CNT
+          FROM IB_CARD_USED A
+         WHERE A.CARD_CORP_LINK_KEY = #cardCorpLinkKey#
+    </select>
+    <!-- 지출 리스트 가져오기 -->
+	<select id="card.getCardCorpUsedListForMainPopList" parameterClass="HashMap" resultClass="egovMap">
+		/* card.selectCardList */
+		SELECT A.S_NB
+			  ,A.TM_DT																								/*지출일*/
+			  ,B.CARD_OWNER_USER_ID																					/*카드소유자*/
+			  ,(SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = B.CARD_OWNER_USER_ID) AS CARD_OWNER_USER_NM	/*카드소유자이름*/
+			  ,B.CARD_NUM																							/*카드번호*/
+			  ,A.PLACE																								/*사용처*/
+			  ,A.PRICE
+		  FROM IB_CARD_USED A
+		 INNER JOIN BS_CARD_CORP_INFO B ON A.CARD_CORP_INFO_ID = B.CARD_CORP_INFO_ID
+		 WHERE A.CARD_CORP_USE_YN = 'Y'
+		   AND A.DV IS NULL
+		   AND B.CARD_LINK_YN = 'Y'
+		   AND IF((SELECT X.STAFF_USER_ID FROM BS_CARD_INPUT_SETUP X WHERE ORG_ID = #orgId#)=#userId#
+		   		  ,1=1
+		   		  ,B.CARD_OWNER_USER_ID=#userId#
+		   		)
+		   AND B.ORG_ID= #orgId#
+		   AND DATEDIFF(NOW(),A.RG_DT)<![CDATA[>]]>7
+	</select>
+
+	   <!-- 연동된 카드 사용내역  등록자 변경 -->
+    <update id="card.updateCardUsedToRgId" parameterClass="HashMap">
+        /* card.updateCardUsedToRgId */
+        <![CDATA[
+            UPDATE IB_CARD_USED
+            SET
+                RG_DT = now()
+				, UP_DT = now()
+				, RG_ID = #cardOwnerUserId#
+				, UP_ID = #cardOwnerUserId#
+            WHERE CARD_CORP_INFO_ID  = #cardCorpInfoId#
+            AND CARD_CORP_USE_YN = 'Y'
+            AND RG_ID = -1
+        ]]>
+    </update>
+</sqlMap>

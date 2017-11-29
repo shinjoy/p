@@ -1,0 +1,45 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+
+<script type="text/javascript" defer="defer">
+
+	
+	$(document).ready(function(){
+		
+	});
+	
+	//검색
+    function linkPage(){
+       
+		var url = contextRoot + "/system/transferUserListAjax.do";
+		var param = {
+				applyOrgId	:	$("#selectOrgId").val(),
+				searchText	:	$("#searchText").val()
+		};
+		
+		var callback = function(result){
+			
+			$("#tableListArea").html(result);
+			
+		};
+		
+		commonAjax("POST", url, param, callback);
+    }
+	
+  	//메모 검색 화면 팝업
+    function openCreateTransferUserPop(){
+
+    	var url = "${pageContext.request.contextPath}/system/createTransferUserPop.do";
+    	var option = "left=" + (screen.width > 1400?"200":"0") + ", top=" + (screen.height > 810?"40":"0") + ", width=1400, height=900, menubar=no, status=no, toolbar=no, location=no, scrollbars=auto, resizable=no";
+
+    	window.open(url, "_blank", option);
+
+    }
+	
+
+</script>
+

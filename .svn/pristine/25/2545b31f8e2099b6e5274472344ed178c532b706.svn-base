@@ -1,0 +1,2279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="worktime">
+
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+
+	<!-- 근태현황 통계 -->
+    <select id = "worktimeDAO.getWorktimeStatistics" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeStatistics */
+        SELECT
+		     IFNULL(SUM(Y.TOTAL_CNT),0) AS TOTAL_CNT  /* 전체직원 */
+		    , IFNULL(SUM(Y.WORK_CNT),0) AS WORK_CNT  /* 정상출근 */
+		    , IFNULL(SUM(Y.LEAVE_CNT),0) AS LEAVE_CNT  /* 휴가 */
+		    , IFNULL(SUM(Y.HALF_CNT),0) AS HALF_CNT  /* 반차 */
+		    , IFNULL(SUM(Y.F_EVENT_CNT),0) AS F_EVENT_CNT  /* 경조  */
+		    , IFNULL(SUM(Y.SICK_CNT),0) AS SICK_CNT  /* 병가  */
+		    , IFNULL(SUM(Y.REST_CNT),0) AS REST_CNT   /* 휴직 */
+
+		    , IFNULL(SUM(Y.ETC_LEAVE_CNT),0) AS ETC_LEAVE_CNT  /* 기타휴가 */
+            , IFNULL(SUM(Y.ETC_HALF_CNT),0) AS ETC_HALF_CNT  /* 기타반차 */
+
+		    , IFNULL(SUM(Y.ATTEND_CNT),0) AS ATTEND_CNT  /* 현지출근 */
+		    , IFNULL(SUM(Y.NO_LOGIN_CNT),0) AS NO_LOGIN_CNT  /* 미로그인  */
+		    , IFNULL(SUM(Y.LATE_CNT),0) AS LATE_CNT  /* 지각  */
+		    , IFNULL(SUM(Y.NO_WORK_CNT),0) AS NO_WORK_CNT  /* 결근 */
+		    , IFNULL(SUM(Y.WORK_CNT),0) + IFNULL(SUM(Y.LEAVE_CNT),0)+ IFNULL(SUM(Y.HALF_CNT),0)
+                + IFNULL(SUM(Y.F_EVENT_CNT),0) + IFNULL(SUM(Y.SICK_CNT),0) + IFNULL(SUM(Y.REST_CNT),0)
+                + IFNULL(SUM(Y.ETC_LEAVE_CNT),0)+ IFNULL(SUM(Y.ETC_HALF_CNT),0) + IFNULL(SUM(Y.ATTEND_CNT),0) AS NORMAL_TOT_CNT
+		    , IFNULL(SUM(Y.NO_LOGIN_CNT),0) + IFNULL(SUM(Y.LATE_CNT),0)+ IFNULL(SUM(Y.NO_WORK_CNT),0) AS NON_TOT_CNT
+		FROM(
+			SELECT
+			        COUNT(*) AS TOTAL_CNT /* 전체직원 */
+			      , (CASE WHEN X.WORK_TYPE = 'ANNUAL_ALL' THEN COUNT(*) ELSE 0 END)  AS LEAVE_CNT   /* 휴가 */
+			      , (CASE WHEN X.WORK_TYPE IN  ('ANNUAL_AM', 'ANNUAL_PM', 'HALF_LATE') THEN COUNT(*) ELSE 0 END)  AS HALF_CNT   /* 반차 */
+			      , (CASE WHEN X.WORK_TYPE = 'EVENT' THEN COUNT(*) ELSE 0 END)  AS F_EVENT_CNT   /* 경조  */
+			      , (CASE WHEN X.WORK_TYPE = 'SICK' THEN COUNT(*) ELSE 0 END)  AS SICK_CNT   /* 병가  */
+			      , (CASE WHEN X.WORK_TYPE = 'REST' THEN COUNT(*) ELSE 0 END)  AS REST_CNT   /* 휴직 */
+			      , (CASE WHEN X.WORK_TYPE = 'ETC_ALL' THEN COUNT(*) ELSE 0 END)  AS ETC_LEAVE_CNT   /* 기타휴가 */
+                  , (CASE WHEN X.WORK_TYPE IN  ('ETC_AM', 'ETC_PM', 'ETC_HALF_LATE') THEN COUNT(*) ELSE 0 END)  AS ETC_HALF_CNT   /* 기타반차 */
+			      , (CASE WHEN X.WORK_TYPE = 'ATTEND' THEN COUNT(*) ELSE 0 END)  AS ATTEND_CNT   /* 현지출근 */
+			      , (CASE WHEN X.WORK_TYPE = 'NO_LOGIN' THEN COUNT(*) ELSE 0 END)  AS NO_LOGIN_CNT   /* 미로그인  */
+			      , (CASE WHEN X.WORK_TYPE = 'LATE' OR X.WORK_TYPE = 'HALF_LATE' THEN COUNT(*) ELSE 0 END)  AS LATE_CNT   /* 지각  */
+			      , (CASE WHEN X.WORK_TYPE = 'NO_WORK' THEN COUNT(*) ELSE 0 END)  AS NO_WORK_CNT   /* 결근 */
+			      , (CASE WHEN X.WORK_TYPE = 'WORK' THEN COUNT(*) ELSE 0 END)  AS WORK_CNT   /* 정상출근 */
+			FROM (
+		        SELECT
+		             (CASE     WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM') AND  B.WORK_TYPE = 'LATE' THEN 'HALF_LATE'
+		                    WHEN H.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM') AND  B.WORK_TYPE = 'LATE' THEN 'ETC_HALF_LATE'
+			                WHEN H.APPV_DOC_TYPE IN  ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ETC_ALL','ETC_AM','ETC_PM','ATTEND') THEN H.APPV_DOC_TYPE
+			                WHEN A.SYS_DATE > NOW() THEN NULL                                                           /* 미래날짜 NULL 처리 */
+			                WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN NULL /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+			                WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN 'NO_LOGIN'
+			                ELSE B.WORK_TYPE
+			          END)                                  AS WORK_TYPE
+		         FROM    BS_CALENDAR A
+		              LEFT JOIN BS_WORKTIME  B  ON  A.ORG_ID     = B.ORG_ID
+		                                                 AND A.SYS_DATE   = B.WORK_DATE
+		                                                 <isNotEmpty property="searchUserId">
+		                                                    AND B.USER_ID = #searchUserId#    /* 개인의 월 */
+		                                                </isNotEmpty>
+		              LEFT JOIN BS_USER_MASTER        C  ON  B.USER_ID    = C.USER_ID
+		              LEFT JOIN BS_USER_DEPARTMENT    D  ON  B.USER_ID    = D.USER_ID AND D.MAIN_YN = 'Y'
+		              LEFT JOIN BS_DEPARTMENT         E  ON  D.DEPT_ID    = E.DEPT_ID
+		              LEFT JOIN BS_CODE_GV            F  ON  F.ORG_ID     = A.ORG_ID
+		                                                 AND F.CODE_NAME  = 'RANK'
+		                                                 AND F.CODE_VALUE = C.RANK
+		              LEFT JOIN BS_WORKTIME_END       G  ON  A.ORG_ID     = G.ORG_ID
+		                                                 AND A.SYS_DATE   = G.WORK_DATE
+		              LEFT JOIN (
+		                      SELECT  PER_SABUN
+		                             ,SYS_DATE
+		                             ,APPV_DOC_TYPE
+		                             ,MAX(LEAVE_YN )  LEAVE_YN
+		                             ,MAX(HALF_YN  )  HALF_YN
+		                             ,MAX(EVENT_YN )  EVENT_YN
+		                             ,MAX(SICK_YN  )  SICK_YN
+		                             ,MAX(REST_YN  )  REST_YN
+
+		                             ,MAX(ETC_LEAVE_YN )  ETC_LEAVE_YN
+                                     ,MAX(ETC_HALF_YN  )  ETC_HALF_YN
+
+		                             ,MAX(ATTEND_YN  )  ATTEND_YN
+		                             ,MAX(ANNUAL_YN)  ANNUAL_YN
+		                             ,GROUP_CONCAT(CONCAT(APPV_DOC_TYPE, '||-||', ACTIVITY_NM, '||-||', SCHE_TITLE) SEPARATOR ':::::') SCHE_CONTENTS
+		                      FROM    (
+		                              SELECT  A.SYS_DATE
+		                                     ,B.PER_SABUN
+		                                     ,B.SCHE_TITLE
+		                                     ,B.APPV_DOC_TYPE
+		                                     ,B.LEAVE_YN
+		                                     ,B.HALF_YN
+		                                     ,B.EVENT_YN
+		                                     ,B.SICK_YN
+		                                     ,B.REST_YN
+
+		                                     ,B.ETC_LEAVE_YN
+                                             ,B.ETC_HALF_YN
+
+		                                     ,B.ATTEND_YN
+		                                     ,B.ANNUAL_YN
+		                                     ,B.ACTIVITY_NM
+		                              FROM    BS_CALENDAR A
+		                                     ,(
+		                                      SELECT
+		                                           B.PER_SABUN
+		                                          ,A.SCHE_S_DATE
+		                                          ,A.SCHE_E_DATE
+		                                          ,A.SCHE_TITLE
+		                                          ,(CASE WHEN A.ATTEND_YN = 'Y' THEN 'ATTEND' ELSE P.APPV_DOC_TYPE END) AS APPV_DOC_TYPE
+		                                          /* 결재를 통한 휴가(ANNUAL_ALL),경조휴가(EVENT), 병가(SICK), 휴직(REST) 인경우 근태처리 안함. 반차(ANNUAL_AM,ANNUAL_PM), 교육(EDU), 출장신청(TRIP)은 미처리 */
+		                                          ,IF(P.APPV_DOC_TYPE = 'ANNUAL_ALL', 'Y', 'N')      AS LEAVE_YN   /* 년차여부 */
+		                                          ,IF(P.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM'), 'Y', 'N')       AS HALF_YN    /* 반차여부 */
+		                                          ,IF(P.APPV_DOC_TYPE = 'EVENT', 'Y', 'N')    AS EVENT_YN   /* 경조사여부 */
+		                                          ,IF(P.APPV_DOC_TYPE = 'SICK', 'Y', 'N')       AS SICK_YN    /* 병가여부 */
+		                                          ,IF(P.APPV_DOC_TYPE = 'REST', 'Y', 'N')       AS REST_YN    /* 휴직여부 */
+
+		                                          ,IF(P.APPV_DOC_TYPE = 'ETC_ALL', 'Y', 'N')      AS ETC_LEAVE_YN   /* 기타휴가여부 */
+                                                  ,IF(P.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM'), 'Y', 'N')       AS ETC_HALF_YN    /* 기타반차여부 */
+
+		                                          ,A.ATTEND_YN       AS ATTEND_YN    /* 현지출근 */
+		                                          ,(CASE WHEN INSTR('ANNUAL_ALL|EVENT|SICK|REST|ETC_ALL', P.APPV_DOC_TYPE) <![CDATA[ > ]]> 0  THEN 'Y'
+		                                                   WHEN A.ATTEND_YN = 'Y' THEN 'Y'
+		                                                   ELSE 'N'
+		                                           END) AS ANNUAL_YN /* 전자결재중 근태체크 불필요 여부 */
+		                                          , P.NAME AS ACTIVITY_NM
+		                                      FROM ERP_SCHEDULE       A
+		                                          ,ERP_SCHEDULE_ENTRY B
+		                                          ,BS_ACTIVITY P
+		                                      WHERE A.SCHE_SEQ = B.SCHE_SEQ
+		                                      AND A.ACTIVITY_ID = P.ACTIVITY_ID
+		                                      AND A.DEL_FLAG = 'N'
+		                                      AND B.DEL_FLAG = 'N'
+		                                      AND (P.APPV_DOC_TYPE IN ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ETC_ALL','ETC_AM','ETC_PM')
+		                                                  OR A.ATTEND_YN ='Y')
+		                                      AND B.ORG_ID = #applyOrgId#
+		                                      <isNotEmpty property="searchYear">
+		                                          <isNotEqual property="searchMonth" compareValue="All">
+		                                              /* 개인의 월 */
+		                                              AND (
+		                                                   SCHE_S_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+		                                                               AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+		                                                   OR
+		                                                   SCHE_E_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+		                                                               AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+		                                                   OR
+		                                                   (SCHE_S_DATE <![CDATA[ < ]]> DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND SCHE_E_DATE <![CDATA[ > ]]> LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))))
+		                                                  )
+		                                           </isNotEqual>
+		                                           <isEqual property="searchMonth" compareValue="All">
+                                                      /* 개인의 월 */
+                                                      AND (
+                                                           SCHE_S_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01'))
+                                                                       AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))
+                                                           OR
+                                                           SCHE_E_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01'))
+                                                                       AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))
+                                                           OR
+                                                           (SCHE_S_DATE <![CDATA[ < ]]> DATE(CONCAT(#searchYear#,'-01','-01')) AND SCHE_E_DATE <![CDATA[ > ]]> LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01'))))
+                                                          )
+                                                   </isEqual>
+		                                       </isNotEmpty>
+		                                       <isNotEmpty property="searchDate">
+		                                          /* 여려명 일  */
+		                                          AND #searchDate# BETWEEN A.SCHE_S_DATE AND A.SCHE_E_DATE
+		                                          GROUP BY B.PER_SABUN, A.SCHE_S_DATE,A.SCHE_E_DATE,A.SCHE_TITLE, P.APPV_DOC_TYPE
+		                                       </isNotEmpty>
+		                                      ) B
+		                              WHERE   A.ORG_ID    = #applyOrgId#
+		                              <isNotEmpty property="searchYear">
+		                                  <isNotEqual property="searchMonth" compareValue="All">
+		                                      AND     A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))) /*  개인의 월 */
+		                                  </isNotEqual>
+		                                  <isEqual property="searchMonth" compareValue="All">
+		                                      AND     A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01'))) /*  개인의 월 */
+		                                  </isEqual>
+		                              </isNotEmpty>
+		                              <isNotEmpty property="searchDate">
+		                                  AND     DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d') = #searchDate#  /* 여러명 일 */
+		                              </isNotEmpty>
+		                              AND     A.SYS_DATE BETWEEN B.SCHE_S_DATE AND B.SCHE_E_DATE
+		                              ) X
+		                      GROUP BY PER_SABUN, SYS_DATE, APPV_DOC_TYPE
+		              ) H ON  C.EMP_NO = H.PER_SABUN
+		                  AND A.SYS_DATE = H.SYS_DATE
+		        WHERE   A.ORG_ID    = #applyOrgId#
+		        <isEqual property="hideSynergyUserYn" compareValue="Y">     /* 관계사 시너지 유저 목록 활성화여부 */
+		            AND C.CUS_ID != 1133368
+		        </isEqual>
+		        <isNotEmpty property="searchDeptId">
+		            AND D.DEPT_ID  = #searchDeptId#
+		        </isNotEmpty>
+		        <isNotEmpty property="userArr">
+		            AND C.USER_ID  IN ($userArr$)
+		        </isNotEmpty>
+		        <isNotEmpty property="searchYear">
+		             <isNotEqual property="searchMonth" compareValue="All">
+		                 AND  A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))  /*  개인의 월 */
+		             </isNotEqual>
+		             <isEqual property="searchMonth" compareValue="All">
+		                 AND  A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))  /*  개인의 월 */
+		             </isEqual>
+		         </isNotEmpty>
+		         <isNotEmpty property="searchDate">
+		             AND     DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d') = #searchDate#          /* 여러명 일 */
+		             AND     C.USER_ID IS NOT NULL
+		         </isNotEmpty>
+		   ) X
+		GROUP BY WORK_TYPE
+		) Y
+    </select>
+
+    <!-- 근태관리조회 : 일별-->
+    <select id = "worktimeDAO.getWorktimeList" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeList */
+		SELECT
+		     B.WORKTIME_ID                          AS WORKTIME_ID
+	        ,A.ORG_ID                               AS ORG_ID
+	        ,A.SYS_DATE                             AS WORK_DATE
+	        ,B.USER_ID                              AS USER_ID
+	        ,DATE_FORMAT(A.SYS_DATE, '%Y/%m/%d')    AS WORK_DATE
+	        ,DATE_FORMAT(A.SYS_DATE, '%Y')          AS WORK_YEAR
+	        ,DATE_FORMAT(A.SYS_DATE, '%m')          AS WORK_MONTH
+	        ,DATE_FORMAT(A.SYS_DATE, '%d')          AS WORK_DD
+	        ,DATE_FORMAT(A.SYS_DATE, '%m/%d')       AS WORK_DATE_MMDD
+	        ,(CASE DAYOFWEEK(A.SYS_DATE)
+	                WHEN '1' THEN '일'
+	                WHEN '2' THEN '월'
+	                WHEN '3' THEN '화'
+	                WHEN '4' THEN '수'
+	                WHEN '5' THEN '목'
+	                WHEN '6' THEN '금'
+	                WHEN '7' THEN '토'
+	                END)                            AS WORK_DATE_WEEK
+	        ,(CASE WHEN IFNULL(A.HOLIDAY, 'N') = 'Y' THEN  'sunday'
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '1' THEN 'sunday'
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '2' THEN 'normal'
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '3' THEN 'normal'
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '4' THEN 'normal'
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '5' THEN 'normal'
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '6' THEN 'normal'
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '7' THEN 'saturday'
+                    ELSE  'normal'
+                    END)                            AS WORK_DATE_WEEK_CSS
+            ,(CASE WHEN IFNULL(A.HOLIDAY, 'N') = 'Y' THEN  'no_workbg'
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '1' THEN 'no_workbg'
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '2' THEN ''
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '3' THEN ''
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '4' THEN ''
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '5' THEN ''
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '6' THEN ''
+                    WHEN DAYOFWEEK(A.SYS_DATE) =  '7' THEN 'no_workbg'
+                    ELSE  ''
+                    END)                            AS NO_WORK_DATE_WEEK_CSS
+	        ,DATE_FORMAT(B.IN_TIME, '%H:%i')        AS IN_TIME
+	        ,B.IN_CONTACT_LOC                       AS IN_CONTACT_LOC
+	        ,DATE_FORMAT(B.OUT_TIME, '%H:%i')       AS OUT_TIME
+	        ,B.OUT_CONTACT_LOC                      AS OUT_CONTACT_LOC
+	        ,(CASE  WHEN A.SYS_DATE > NOW() THEN NULL                                                           /* 미래날짜 NULL 처리 */
+	                WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN NULL /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+	                WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN 'NO_LOGIN'
+	                ELSE B.WORK_TYPE
+	          END)                                  AS WORK_TYPE
+	        ,(CASE  WHEN A.SYS_DATE > NOW() THEN 'normal'                                                           /* 미래날짜 NULL 처리 */
+                    WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN 'normal' /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+                    WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN 'absence'
+                    WHEN B.WORK_TYPE = 'LATE' THEN 'late'
+                    WHEN B.WORK_TYPE = 'NO_WORK' THEN 'absence'
+                    WHEN B.WORK_TYPE = 'WORK' THEN 'normal'
+                    ELSE 'normal'
+              END)                                  AS WORK_TYPE_CSS
+	        ,(CASE  WHEN A.SYS_DATE > NOW() THEN ''                                                            /* 미래날짜 - 처리 */
+	                WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN '-'  /* 휴일, 전자결재를 통한 년차 - 처리 */
+	                WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN '미로그인'
+	                ELSE (  SELECT  J.VALUE_MEAN_KOR
+	                        FROM    BS_CODE_GV J
+	                        WHERE  J.ORG_ID        = A.ORG_ID
+	                        AND     J.CODE_NAME     = 'WORK_TYPE'
+	                        AND     J.CODE_VALUE    = B.WORK_TYPE )
+	          END)                                  AS WORK_TYPE_NM
+	        ,(CASE  WHEN A.SYS_DATE > NOW() THEN 'Y'   ELSE 'N' END)  AS FUTURE_YN
+	        ,B.WORK_REQ_TYPE                        AS WORK_REQ_TYPE
+	        ,B.WORK_REQ_REASON                      AS WORK_REQ_REASON
+	        ,B.WORK_REQ_ACCEPT_YN                   AS WORK_REQ_ACCEPT_YN
+	        ,B.WORK_CONFIRM_DATE                    AS WORK_CONFIRM_DATE
+	        ,B.WORK_CONFIRM_USER_ID                 AS WORK_CONFIRM_USER_ID
+	        ,C.NAME                                 AS NAME
+	        ,DATE_FORMAT(C.HIRED_DATE, '%Y/%m/%d')  AS HIRED_DATE
+	        ,D.DEPT_ID  							AS DEPT_ID
+	        ,E.KOR_NAME                             AS DEPT_NM
+	        ,F.VALUE_MEAN_KOR                       AS POSITION
+	        ,IFNULL(G.END_YN,'Y')                   AS END_YN   /* 마감처리구분 */
+	        ,IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) AS NO_WORK_DAY_YN  /* 근태체크불필요여부 */
+	        ,H.SCHE_CONTENTS                        AS SCHE_CONTENTS        /* 해당일의 일정 */
+	        ,IF(IFNULL(A.HOLIDAY, 'N') = 'N', IFNULL(LEAVE_YN , 'N'), 'N') LEAVE_YN    /* 년차 */
+	        ,IF(IFNULL(A.HOLIDAY, 'N') = 'N', IFNULL(HALF_YN  , 'N'), 'N') HALF_YN     /* 반차 */
+	        ,IF(IFNULL(A.HOLIDAY, 'N') = 'N', IFNULL(EVENT_YN , 'N'), 'N') EVENT_YN    /* 경조사 */
+	        ,IF(IFNULL(A.HOLIDAY, 'N') = 'N', IFNULL(SICK_YN  , 'N'), 'N') SICK_YN     /* 병가 */
+	        ,IF(IFNULL(A.HOLIDAY, 'N') = 'N', IFNULL(REST_YN  , 'N'), 'N') REST_YN     /* 휴직 */
+
+	        ,IF(IFNULL(A.HOLIDAY, 'N') = 'N', IFNULL(ETC_LEAVE_YN , 'N'), 'N') ETC_LEAVE_YN    /* 기타휴가 */
+            ,IF(IFNULL(A.HOLIDAY, 'N') = 'N', IFNULL(ETC_HALF_YN  , 'N'), 'N') ETC_HALF_YN     /* 기타반차 */
+
+	        ,IF(IFNULL(A.HOLIDAY, 'N') = 'N', IFNULL(ATTEND_YN  , 'N'), 'N') ATTEND_YN     /* 현지출근 */
+	        ,IFNULL(ANNUAL_YN, 'N') ANNUAL_YN   /* 휴일 */
+	        ,DATE_FORMAT((A.SYS_DATE + INTERVAL 7 DAY), '%m/%d')  AS WORK_DATE_END  /* 근태 마감기간 */
+	        ,IF((A.SYS_DATE + INTERVAL 7 DAY) >= CURDATE(), 'Y', 'N') AS END_DATE_YN    /* 근태일로부터 7일후면 출근인청요청 불가함 */
+	        ,IF(DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d')  = DATE_FORMAT(NOW(), '%Y-%m-%d') , 'Y', 'N') AS TODAY_YN    /* 근태일로부터 7일후면 출근인청요청 불가함 */
+	        ,IFNULL(A.HOLIDAY, 'N') AS HOLIDAY
+	        , B.MNG_WORK_PRC_TYPE
+            , B.MNG_WORK_PRC_DATE
+            , B.MNG_WORK_PRC_REASON
+	FROM    BS_CALENDAR A
+	          LEFT JOIN BS_WORKTIME  B  ON  A.ORG_ID     = B.ORG_ID
+                                                 AND A.SYS_DATE   = B.WORK_DATE
+                                                 <isNotEmpty property="searchUserId">
+										            AND B.USER_ID = #searchUserId#    /* 개인의 월 */
+										        </isNotEmpty>
+              LEFT JOIN BS_USER_MASTER        C  ON  B.USER_ID    = C.USER_ID
+              LEFT JOIN BS_USER_DEPARTMENT    D  ON  B.USER_ID    = D.USER_ID AND D.MAIN_YN = 'Y'
+              LEFT JOIN BS_DEPARTMENT         E  ON  D.DEPT_ID    = E.DEPT_ID
+              LEFT JOIN BS_CODE_GV            F  ON  F.ORG_ID     = A.ORG_ID
+                                                 AND F.CODE_NAME  = 'RANK'
+                                                 AND F.CODE_VALUE = C.RANK
+              LEFT JOIN BS_WORKTIME_END       G  ON  A.ORG_ID     = G.ORG_ID
+                                                 AND A.SYS_DATE   = G.WORK_DATE
+              LEFT JOIN (
+                      SELECT  PER_SABUN
+                             ,SYS_DATE
+                             ,MAX(LEAVE_YN )  LEAVE_YN
+                             ,MAX(HALF_YN  )  HALF_YN
+                             ,MAX(EVENT_YN )  EVENT_YN
+                             ,MAX(SICK_YN  )  SICK_YN
+                             ,MAX(REST_YN  )  REST_YN
+
+                             ,MAX(ETC_LEAVE_YN )  ETC_LEAVE_YN
+                             ,MAX(ETC_HALF_YN  )  ETC_HALF_YN
+
+                             ,MAX(ATTEND_YN  )  ATTEND_YN
+                             ,MAX(ANNUAL_YN)  ANNUAL_YN
+                             ,GROUP_CONCAT(CONCAT(APPV_DOC_TYPE, '||-||', ACTIVITY_NM, '||-||', SCHE_TITLE) SEPARATOR ':::::') SCHE_CONTENTS
+                      FROM    (
+                              SELECT  A.SYS_DATE
+                                     ,B.PER_SABUN
+                                     ,B.SCHE_TITLE
+                                     ,B.APPV_DOC_TYPE
+                                     ,B.LEAVE_YN
+                                     ,B.HALF_YN
+                                     ,B.EVENT_YN
+                                     ,B.SICK_YN
+                                     ,B.REST_YN
+
+                                     ,B.ETC_LEAVE_YN
+                                     ,B.ETC_HALF_YN
+
+                                     ,B.ATTEND_YN
+                                     ,B.ANNUAL_YN
+                                     ,B.ACTIVITY_NM
+                              FROM    BS_CALENDAR A
+                                     ,(
+                                      SELECT
+                                           B.PER_SABUN
+                                          ,A.SCHE_S_DATE
+                                          ,A.SCHE_E_DATE
+                                          ,A.SCHE_TITLE
+                                          ,(CASE WHEN A.ATTEND_YN = 'Y' THEN 'ATTEND' ELSE P.APPV_DOC_TYPE END) AS APPV_DOC_TYPE
+                                          /* 결재를 통한 휴가(ANNUAL_ALL),경조휴가(EVENT), 병가(SICK), 휴직(REST) 인경우 근태처리 안함. 반차(ANNUAL_AM,ANNUAL_PM), 교육(EDU), 출장신청(TRIP)은 미처리 */
+                                              ,IF(P.APPV_DOC_TYPE = 'ANNUAL_ALL', 'Y', 'N')      AS LEAVE_YN   /* 년차여부 */
+                                              ,IF(P.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM'), 'Y', 'N')       AS HALF_YN    /* 반차여부 */
+                                              ,IF(P.APPV_DOC_TYPE = 'EVENT', 'Y', 'N')    AS EVENT_YN   /* 경조사여부 */
+                                              ,IF(P.APPV_DOC_TYPE = 'SICK', 'Y', 'N')       AS SICK_YN    /* 병가여부 */
+                                              ,IF(P.APPV_DOC_TYPE = 'REST', 'Y', 'N')       AS REST_YN    /* 휴직여부 */
+
+                                              ,IF(P.APPV_DOC_TYPE = 'ETC_ALL', 'Y', 'N')      AS ETC_LEAVE_YN   /* 기타휴가여부 */
+                                              ,IF(P.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM'), 'Y', 'N')       AS ETC_HALF_YN    /* 기타반차여부 */
+
+                                              ,A.ATTEND_YN       AS ATTEND_YN    /* 여부 */
+                                              ,(CASE WHEN INSTR('ANNUAL_ALL|EVENT|SICK|REST|ETC_ALL', P.APPV_DOC_TYPE) <![CDATA[ > ]]> 0  THEN 'Y'
+                                                           WHEN A.ATTEND_YN = 'Y' THEN 'Y'
+                                                           ELSE 'N'
+                                                   END) AS ANNUAL_YN /* 전자결재중 근태체크 불필요 여부 */
+                                              , P.NAME AS ACTIVITY_NM
+                                      FROM ERP_SCHEDULE       A
+                                          ,ERP_SCHEDULE_ENTRY B
+                                          ,BS_ACTIVITY P
+                                      WHERE A.SCHE_SEQ = B.SCHE_SEQ
+                                      AND A.ACTIVITY_ID = P.ACTIVITY_ID
+                                      AND A.DEL_FLAG = 'N'
+                                      AND B.DEL_FLAG = 'N'
+                                      AND B.ORG_ID = #applyOrgId#
+                                      <isNotEmpty property="searchYear">
+                                          <isNotEqual property="searchMonth" compareValue="All">
+                                              /* 개인의 월 */
+                                              AND (
+                                                   SCHE_S_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+                                                               AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+                                                   OR
+                                                   SCHE_E_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+                                                               AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+                                                   OR
+                                                   (SCHE_S_DATE <![CDATA[ < ]]> DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND SCHE_E_DATE <![CDATA[ > ]]> LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))))
+                                                  )
+                                           </isNotEqual>
+                                       </isNotEmpty>
+                                       <isNotEmpty property="searchDate">
+                                          /* 여려명 일  */
+                                          AND #searchDate# BETWEEN A.SCHE_S_DATE AND A.SCHE_E_DATE
+                                          GROUP BY B.PER_SABUN, A.SCHE_S_DATE,A.SCHE_E_DATE,A.SCHE_TITLE, P.APPV_DOC_TYPE
+                                       </isNotEmpty>
+                                      ) B
+                              WHERE   A.ORG_ID    = #applyOrgId#
+                              <isNotEmpty property="searchYear">
+                                  <isNotEqual property="searchMonth" compareValue="All">
+                                      AND     A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))) /*  개인의 월 */
+                                  </isNotEqual>
+                              </isNotEmpty>
+                              <isNotEmpty property="searchDate">
+                                  AND     DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d') = #searchDate#  /* 여러명 일 */
+                              </isNotEmpty>
+                              AND     A.SYS_DATE BETWEEN B.SCHE_S_DATE AND B.SCHE_E_DATE
+                              ) X
+                      GROUP BY PER_SABUN, SYS_DATE
+              ) H ON  C.EMP_NO = H.PER_SABUN
+                  AND A.SYS_DATE = H.SYS_DATE
+		WHERE   A.ORG_ID    = #applyOrgId#
+        <isEqual property="hideSynergyUserYn" compareValue="Y">     /* 관계사 시너지 유저 목록 활성화여부 */
+            AND C.CUS_ID != 1133368
+        </isEqual>
+		<isNotEmpty property="searchDeptId">
+            AND D.DEPT_ID  = #searchDeptId#
+        </isNotEmpty>
+
+        <isNotEmpty property="userArr">
+            AND C.USER_ID  IN ($userArr$)
+        </isNotEmpty>
+
+		<isNotEmpty property="searchYear">
+             <isNotEqual property="searchMonth" compareValue="All">
+                 AND  A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))  /*  개인의 월 */
+             </isNotEqual>
+         </isNotEmpty>
+         <isNotEmpty property="searchDate">
+             AND     DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d') = #searchDate#          /* 여러명 일 */
+             AND     C.USER_ID IS NOT NULL
+         </isNotEmpty>
+		ORDER BY A.SYS_DATE, D.DEPT_ID , E.KOR_NAME, C.NAME
+    </select>
+
+    <!-- 근태상세조회-->
+    <select id = "worktimeDAO.getWorktime" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktime */
+        SELECT
+              WORKTIME_ID
+            , A.ORG_ID
+            , A.USER_ID
+            , DATE_FORMAT(A.WORK_DATE, '%Y/%m/%d') AS WORK_DATE
+            , DATE_FORMAT(A.WORK_DATE, '%m/%d') AS WORK_DATE_MMDD
+            , (CASE DAYOFWEEK(A.WORK_DATE)
+                WHEN '1' THEN '일요일'
+                WHEN '2' THEN '월요일'
+                WHEN '3' THEN '화요일'
+                WHEN '4' THEN '수요일'
+                WHEN '5' THEN '목요일'
+                WHEN '6' THEN '금요일'
+                WHEN '7' THEN '토요일'
+                END) AS WORK_DATE_WEEK
+            , DATE_FORMAT((A.WORK_DATE + INTERVAL 7 DAY), '%Y/%m/%d')  AS WORK_DATE_END  /* 근태 마감기간 */
+             , (CASE DAYOFWEEK(A.WORK_DATE + INTERVAL 7 DAY)
+                WHEN '1' THEN '일요일'
+                WHEN '2' THEN '월요일'
+                WHEN '3' THEN '화요일'
+                WHEN '4' THEN '수요일'
+                WHEN '5' THEN '목요일'
+                WHEN '6' THEN '금요일'
+                WHEN '7' THEN '토요일'
+                END) AS WORK_DATE_END_WEEK
+            , DATE_FORMAT(A.IN_TIME, '%H:%i') AS IN_TIME
+            , A.IN_CONTACT_LOC
+            , DATE_FORMAT(A.OUT_TIME, '%H:%i') AS OUT_TIME
+            , A.OUT_CONTACT_LOC
+            , A.WORK_TYPE
+           , (CASE WHEN A.IN_TIME IS NULL AND A.WORK_TYPE IS NULL THEN '미로그인'
+                      ELSE (SELECT J.VALUE_MEAN_KOR
+                            FROM BS_CODE_GV J
+                                    WHERE  J.ORG_ID = A.ORG_ID
+                                AND J.CODE_NAME = 'WORK_TYPE'
+                                AND J.CODE_VALUE = A.WORK_TYPE )
+               END) AS WORK_TYPE_NM
+            , A.WORK_REQ_TYPE
+            , A.WORK_REQ_REASON
+            , A.WORK_REQ_ACCEPT_YN
+            , A.WORK_CONFIRM_DATE
+            , A.WORK_CONFIRM_USER_ID
+            , A.CREATED_BY
+            , A.CREATE_DATE
+            , A.UPDATED_BY
+            , A.UPDATE_DATE
+            , (SELECT X.NAME FROM BASE.BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY)  AS CREATED_NM
+            , (SELECT X.NAME FROM BASE.BS_USER_MASTER X WHERE X.USER_ID = A.UPDATED_BY)  AS UPDATED_NM
+            , B.NAME
+            , D.KOR_NAME       AS DEPT_NM
+            , E.VALUE_MEAN_KOR AS POSITION
+            , DATE_FORMAT(B.HIRED_DATE, '%Y/%m/%d') AS HIRED_DATE
+            , A.MNG_WORK_PRC_TYPE
+            , (CASE WHEN A.IN_TIME IS NULL AND A.WORK_TYPE IS NULL THEN '미로그인'
+                      ELSE (SELECT J.VALUE_MEAN_KOR
+                            FROM BS_CODE_GV J
+                                    WHERE J.ORG_ID = A.ORG_ID
+                                AND J.CODE_NAME = 'WORK_TYPE'
+                                AND J.CODE_VALUE = A.MNG_WORK_PRC_TYPE )
+               END) AS MNG_WORK_PRC_TYPE_NM
+            , DATE_FORMAT(A.MNG_WORK_PRC_DATE, '%Y/%m/%d') AS MNG_WORK_PRC_DATE
+            , A.MNG_WORK_PRC_REASON
+        FROM BS_WORKTIME A
+            INNER JOIN BS_USER_MASTER B ON A.USER_ID = B.USER_ID
+            INNER JOIN BS_USER_DEPARTMENT C   ON A.USER_ID = C.USER_ID AND C.MAIN_YN = 'Y'
+            INNER JOIN BS_DEPARTMENT D   ON C.DEPT_ID = D.DEPT_ID
+            INNER JOIN BS_CODE_GV E  ON  E.ORG_ID = A.ORG_ID AND CODE_NAME = 'RANK' AND CODE_VALUE = B.RANK
+        WHERE 1=1
+        AND A.WORKTIME_ID = #worktimeId#
+    </select>
+
+    <!-- 근태관리조회:월별 마감여부 -->
+    <select id = "worktimeDAO.getWorktimeEndYnByMonthList" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeEndYnByMonthList */
+         SELECT A.CAL_DAY
+                 , (CASE WHEN IFNULL(MAX(B.END_YN),'N') = 'Y' THEN '마감'
+                           WHEN IFNULL(B.NOT_APPROVE_CNT,0) > 0 THEN '요청'
+                           ELSE ''
+                   END) AS END_YN_NM
+                  , (CASE WHEN IFNULL(MAX(B.END_YN),'N') = 'Y' THEN 'finish'
+                           WHEN IFNULL(B.NOT_APPROVE_CNT,0) > 0 THEN 'notice'
+                           ELSE ''
+                   END) AS END_YN_CSS
+         FROM
+         (
+          SELECT DISTINCT LPAD(DD, 2, '0') CAL_DAY
+          FROM BS_CALENDAR
+          WHERE CAL_YEAR = #searchYear#
+          AND LPAD(MM, 2, '0') = #searchMonth#
+          AND ORG_ID = #applyOrgId#
+          ) A
+          LEFT JOIN (
+	          SELECT DATE_FORMAT(A.WORK_DATE, '%d') AS CAL_DAY
+	                 , IFNULL(MAX(A.END_YN),'N') AS END_YN
+	                 , (  SELECT COUNT(*)
+	                                    FROM BS_WORKTIME J
+	                                    WHERE J.WORK_DATE = A.WORK_DATE
+	                                    AND J.ORG_ID = #applyOrgId#
+	                                    AND J.WORK_REQ_TYPE IS NOT NULL
+	                                    AND J.WORK_REQ_ACCEPT_YN IS NULL ) AS NOT_APPROVE_CNT
+	          FROM BS_WORKTIME_END A
+	          WHERE A.ORG_ID = #applyOrgId#
+	          AND DATE_FORMAT(A.WORK_DATE, '%Y%m') = CONCAT(#searchYear#,#searchMonth#)
+	          GROUP BY CAL_DAY
+	          ) B ON A.CAL_DAY = B.CAL_DAY
+          GROUP BY A.CAL_DAY
+    </select>
+
+    <!-- 근태관리조회:년별 마감여부 -->
+    <select id = "worktimeDAO.getWorktimeEndYnByYearList" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeEndYnByYearList */
+         SELECT A.CAL_MONTH
+                 , (CASE WHEN IFNULL(MIN(B.END_YN),'N') = 'Y' THEN '마감'
+                           WHEN IFNULL(B.NOT_APPROVE_CNT,0) > 0 THEN '요청'
+                           ELSE ''
+                   END) AS END_YN_NM
+                 , (CASE WHEN IFNULL(MAX(B.END_YN),'N') = 'Y' THEN 'finish'
+                           WHEN IFNULL(B.NOT_APPROVE_CNT,0) > 0 THEN 'notice'
+                           ELSE ''
+                   END) AS END_YN_CSS
+         FROM
+         (
+          SELECT DISTINCT LPAD(MM, 2, '0') CAL_MONTH
+          FROM BS_CALENDAR
+          WHERE CAL_YEAR = #searchYear#
+          AND ORG_ID = #applyOrgId#
+          ) A
+          LEFT JOIN (
+	          SELECT DATE_FORMAT(A.WORK_DATE, '%m') AS CAL_MONTH
+	                 , IFNULL(MIN(A.END_YN),'N') AS END_YN
+	                 , (  SELECT COUNT(*)
+	                                    FROM BS_WORKTIME J
+	                                    WHERE DATE_FORMAT(J.WORK_DATE, '%m') = DATE_FORMAT(A.WORK_DATE, '%m')
+	                                    AND J.ORG_ID = #applyOrgId#
+	                                    AND J.WORK_REQ_TYPE IS NOT NULL
+	                                    AND J.WORK_REQ_ACCEPT_YN IS NULL ) AS NOT_APPROVE_CNT
+	          FROM BS_WORKTIME_END A
+	          WHERE A.ORG_ID = #applyOrgId#
+	          AND DATE_FORMAT(A.WORK_DATE, '%Y') = #searchYear#
+	          GROUP BY CAL_MONTH
+	          ) B ON A.CAL_MONTH = B.CAL_MONTH
+          GROUP BY A.CAL_MONTH
+    </select>
+
+    <!-- 근태관리조회:월별 -->
+    <select id = "worktimeDAO.getWorktimeByMonthList" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeByMonthList */
+        SELECT A.USER_ID
+                , A.DAY01
+				, A.DAY02
+				, A.DAY03
+				, A.DAY04
+				, A.DAY05
+				, A.DAY06
+				, A.DAY07
+				, A.DAY08
+				, A.DAY09
+				, A.DAY10
+				, A.DAY11
+				, A.DAY12
+				, A.DAY13
+				, A.DAY14
+				, A.DAY15
+				, A.DAY16
+				, A.DAY17
+				, A.DAY18
+				, A.DAY19
+				, A.DAY20
+				, A.DAY21
+				, A.DAY22
+				, A.DAY23
+				, A.DAY24
+				, A.DAY25
+				, A.DAY26
+				, A.DAY27
+				, A.DAY28
+				, A.DAY29
+				, A.DAY30
+				, A.DAY31
+                , A.LATE_SUM
+                , A.NO_WORK_SUM
+                , A.NO_LOGIN_SUM
+                , A.LEAVE_SUM
+                , A.HALF_SUM
+                , A.F_EVENT_SUM
+                , A.SICK_SUM
+                , A.REST_SUM
+
+                , A.ETC_LEAVE_SUM
+                , A.ETC_HALF_SUM
+
+                , A.ATTEND_SUM
+                , A.ABSENT_SUM
+                , B.NAME
+                , D.KOR_NAME       AS DEPT_NM
+                , E.VALUE_MEAN_KOR AS POSITION
+                , DATE_FORMAT(B.HIRED_DATE, '%Y/%m/%d') AS HIRED_DATE
+        FROM (
+            SELECT B.USER_ID
+                    , MAX(IF(A.CAL_DAY = '01', B.ABSENT_NM, '')) DAY01
+                    , MAX(IF(A.CAL_DAY = '02', B.ABSENT_NM, '')) DAY02
+                    , MAX(IF(A.CAL_DAY = '03', B.ABSENT_NM, '')) DAY03
+                    , MAX(IF(A.CAL_DAY = '04', B.ABSENT_NM, '')) DAY04
+                    , MAX(IF(A.CAL_DAY = '05', B.ABSENT_NM, '')) DAY05
+                    , MAX(IF(A.CAL_DAY = '06', B.ABSENT_NM, '')) DAY06
+                    , MAX(IF(A.CAL_DAY = '07', B.ABSENT_NM, '')) DAY07
+                    , MAX(IF(A.CAL_DAY = '08', B.ABSENT_NM, '')) DAY08
+                    , MAX(IF(A.CAL_DAY = '09', B.ABSENT_NM, '')) DAY09
+                    , MAX(IF(A.CAL_DAY = '10', B.ABSENT_NM, '')) DAY10
+                    , MAX(IF(A.CAL_DAY = '11', B.ABSENT_NM, '')) DAY11
+                    , MAX(IF(A.CAL_DAY = '12', B.ABSENT_NM, '')) DAY12
+                    , MAX(IF(A.CAL_DAY = '13', B.ABSENT_NM, '')) DAY13
+                    , MAX(IF(A.CAL_DAY = '14', B.ABSENT_NM, '')) DAY14
+                    , MAX(IF(A.CAL_DAY = '15', B.ABSENT_NM, '')) DAY15
+                    , MAX(IF(A.CAL_DAY = '16', B.ABSENT_NM, '')) DAY16
+                    , MAX(IF(A.CAL_DAY = '17', B.ABSENT_NM, '')) DAY17
+                    , MAX(IF(A.CAL_DAY = '18', B.ABSENT_NM, '')) DAY18
+                    , MAX(IF(A.CAL_DAY = '19', B.ABSENT_NM, '')) DAY19
+                    , MAX(IF(A.CAL_DAY = '20', B.ABSENT_NM, '')) DAY20
+                    , MAX(IF(A.CAL_DAY = '21', B.ABSENT_NM, '')) DAY21
+                    , MAX(IF(A.CAL_DAY = '22', B.ABSENT_NM, '')) DAY22
+                    , MAX(IF(A.CAL_DAY = '23', B.ABSENT_NM, '')) DAY23
+                    , MAX(IF(A.CAL_DAY = '24', B.ABSENT_NM, '')) DAY24
+                    , MAX(IF(A.CAL_DAY = '25', B.ABSENT_NM, '')) DAY25
+                    , MAX(IF(A.CAL_DAY = '26', B.ABSENT_NM, '')) DAY26
+                    , MAX(IF(A.CAL_DAY = '27', B.ABSENT_NM, '')) DAY27
+                    , MAX(IF(A.CAL_DAY = '28', B.ABSENT_NM, '')) DAY28
+                    , MAX(IF(A.CAL_DAY = '29', B.ABSENT_NM, '')) DAY29
+                    , MAX(IF(A.CAL_DAY = '30', B.ABSENT_NM, '')) DAY30
+                    , MAX(IF(A.CAL_DAY = '31', B.ABSENT_NM, '')) DAY31
+                    , SUM(B.LATE_COUNT) LATE_SUM
+                    , SUM(B.NO_WORK_COUNT) NO_WORK_SUM
+                    , SUM(B.NO_LOGIN_COUNT) NO_LOGIN_SUM
+                    , SUM(B.LEAVE_COUNT) LEAVE_SUM
+                    , SUM(B.HALF_COUNT) HALF_SUM
+                    , SUM(B.F_EVENT_COUNT) F_EVENT_SUM
+                    , SUM(B.SICK_COUNT) SICK_SUM
+                    , SUM(B.REST_COUNT) REST_SUM
+
+                    , SUM(B.ETC_LEAVE_COUNT) ETC_LEAVE_SUM
+                    , SUM(B.ETC_HALF_COUNT) ETC_HALF_SUM
+
+                    , SUM(B.ATTEND_COUNT) ATTEND_SUM
+                    , SUM(B.ABSENT_COUNT) ABSENT_SUM
+            FROM  (
+                    SELECT DISTINCT LPAD(DD, 2, '0') CAL_DAY
+                    FROM BS_CALENDAR
+                    WHERE CAL_YEAR = #searchYear#
+                    AND LPAD(MM, 2, '0') = #searchMonth#
+                    AND ORG_ID = #applyOrgId#
+                    ) A
+                    LEFT JOIN (
+                    SELECT LPAD(A.DD, 2, '0')  AS CAL_DAY
+                     , B.USER_ID
+                    ,(CASE     WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM') AND  B.WORK_TYPE = 'LATE' THEN 0
+                           WHEN H.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM') AND  B.WORK_TYPE = 'LATE' THEN 0
+                            WHEN H.APPV_DOC_TYPE IN  ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ETC_ALL') THEN 0
+                            WHEN H.ATTEND_YN ='Y' THEN 0
+                            WHEN A.SYS_DATE > NOW() THEN 0                                                           /* 미래날짜 NULL 처리 */
+                            WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN 0 /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+                            WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN COUNT(*)
+                      ELSE 0
+                          END)  AS NO_LOGIN_COUNT
+                    ,(CASE     WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM')  AND  B.WORK_TYPE = 'LATE' THEN COUNT(*)
+                            WHEN H.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM')  AND  B.WORK_TYPE = 'LATE' THEN COUNT(*)
+                            WHEN H.APPV_DOC_TYPE IN   ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ETC_ALL')  THEN 0
+                            WHEN H.ATTEND_YN ='Y' THEN 0
+                            WHEN A.SYS_DATE > NOW() THEN 0                                                           /* 미래날짜 NULL 처리 */
+                            WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN 0 /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+                            WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN 0
+                            WHEN B.WORK_TYPE IN ('LATE') THEN COUNT(*)
+                      ELSE 0
+                          END)  AS LATE_COUNT
+                    ,(CASE     WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM') AND  B.WORK_TYPE = 'LATE' THEN 0
+                            WHEN H.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM') AND  B.WORK_TYPE = 'LATE' THEN 0
+                            WHEN H.APPV_DOC_TYPE IN   ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ETC_ALL') THEN 0
+                            WHEN H.ATTEND_YN ='Y' THEN 0
+                            WHEN A.SYS_DATE > NOW() THEN 0                                                           /* 미래날짜 NULL 처리 */
+                            WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN 0 /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+                            WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN 0
+                            WHEN B.WORK_TYPE IN ('NO_WORK') THEN COUNT(*)
+                            ELSE 0
+                          END)  AS NO_WORK_COUNT
+                   , (CASE WHEN H.LEAVE_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS LEAVE_COUNT
+                   , (CASE WHEN H.HALF_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS HALF_COUNT
+                   , (CASE WHEN H.EVENT_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS F_EVENT_COUNT
+                   , (CASE WHEN H.SICK_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS SICK_COUNT
+                   , (CASE WHEN H.REST_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS REST_COUNT
+
+                   , (CASE WHEN H.ETC_LEAVE_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS ETC_LEAVE_COUNT
+                   , (CASE WHEN H.ETC_HALF_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS ETC_HALF_COUNT
+
+                   , (CASE WHEN H.ATTEND_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS ATTEND_COUNT
+                   , (CASE WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM','ETC_AM','ETC_PM') AND  B.WORK_TYPE = 'LATE' THEN COUNT(*)
+                            WHEN H.APPV_DOC_TYPE IN   ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ETC_ALL') THEN COUNT(*)
+                            WHEN H.ATTEND_YN ='Y' THEN COUNT(*)
+                            WHEN A.SYS_DATE > NOW() THEN NULL                                                           /* 미래날짜 NULL 처리 */
+                            WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN NULL /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+                            WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN COUNT(*)
+                            WHEN B.WORK_TYPE IN ('NO_WORK','LATE') THEN COUNT(*)
+                            ELSE 0
+                      END)  AS ABSENT_COUNT
+                    , (CASE        WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM') AND B.WORK_TYPE = 'LATE' THEN '지각/반차'  <!-- 지각/반차 -->
+                                     WHEN H.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM') AND B.WORK_TYPE = 'LATE' THEN '지각/기타반차'  <!-- 지각/기타반차 -->
+                                     WHEN H.APPV_DOC_TYPE = 'ANNUAL_ALL' THEN '휴가'
+                                     WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM') THEN '반차'
+                                     WHEN H.APPV_DOC_TYPE = 'EVENT' THEN '경조'
+                                     WHEN H.APPV_DOC_TYPE = 'SICK' THEN '병가'
+                                     WHEN H.APPV_DOC_TYPE = 'REST' THEN '휴직'
+
+                                     WHEN H.APPV_DOC_TYPE = 'ETC_ALL' THEN '기타휴가'
+                                     WHEN H.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM') THEN '기타반차'
+
+                                     WHEN H.APPV_DOC_TYPE = 'ATTEND' THEN '현지출근'
+                                     WHEN A.SYS_DATE > NOW() THEN NULL                                                           /* 미래날짜 NULL 처리 */
+                                     WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN NULL /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+                                     WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN '-'  /* 미로그인 */
+                                     WHEN B.WORK_TYPE = 'LATE' THEN '지각'
+                                     WHEN B.WORK_TYPE = 'NO_WORK' THEN '결근'
+                                     ELSE ''
+                               END)  AS ABSENT_NM
+                 FROM    BS_CALENDAR A
+                      LEFT JOIN BS_WORKTIME B  ON  A.ORG_ID     = B.ORG_ID AND A.SYS_DATE   = B.WORK_DATE
+                      LEFT JOIN BS_USER_MASTER C  ON  B.USER_ID    = C.USER_ID
+                      LEFT JOIN BS_USER_DEPARTMENT  D  ON  B.USER_ID    = D.USER_ID AND D.MAIN_YN = 'Y'
+                      LEFT JOIN BS_DEPARTMENT E  ON  D.DEPT_ID    = E.DEPT_ID
+                      LEFT JOIN BS_CODE_GV F  ON  F.ORG_ID  = A.ORG_ID
+                                                         AND F.CODE_NAME  = 'RANK'
+                                                         AND F.CODE_VALUE = C.RANK
+                      LEFT JOIN BS_WORKTIME_END G  ON  A.ORG_ID = G.ORG_ID
+                                                         AND A.SYS_DATE   = G.WORK_DATE
+                      LEFT JOIN (
+                              SELECT  PER_SABUN
+                                     ,SYS_DATE
+                                     ,APPV_DOC_TYPE
+                                     ,MAX(LEAVE_YN )  LEAVE_YN
+                                     ,MAX(HALF_YN  )  HALF_YN
+                                     ,MAX(EVENT_YN )  EVENT_YN
+                                     ,MAX(SICK_YN  )  SICK_YN
+                                     ,MAX(REST_YN  )  REST_YN
+
+                                     ,MAX(ETC_LEAVE_YN )  ETC_LEAVE_YN
+                                     ,MAX(ETC_HALF_YN  )  ETC_HALF_YN
+
+                                     ,MAX(ATTEND_YN  )  ATTEND_YN
+                                     ,MAX(ANNUAL_YN)  ANNUAL_YN
+                                     ,GROUP_CONCAT(CONCAT(APPV_DOC_TYPE, '||-||', ACTIVITY_NM, '||-||', SCHE_TITLE) SEPARATOR ':::::') SCHE_CONTENTS
+                              FROM    (
+                                      SELECT  A.SYS_DATE
+                                             ,B.PER_SABUN
+                                             ,B.SCHE_TITLE
+                                             ,B.APPV_DOC_TYPE
+                                             ,B.LEAVE_YN
+                                             ,B.HALF_YN
+                                             ,B.EVENT_YN
+                                             ,B.SICK_YN
+                                             ,B.REST_YN
+
+                                             ,B.ETC_LEAVE_YN
+                                             ,B.ETC_HALF_YN
+
+                                             ,B.ATTEND_YN
+                                             ,B.ANNUAL_YN
+                                             ,B.ACTIVITY_NM
+                                      FROM    BS_CALENDAR A
+                                             ,(
+                                              SELECT
+                                                   B.PER_SABUN
+                                                  ,A.SCHE_S_DATE
+                                                  ,A.SCHE_E_DATE
+                                                  ,A.SCHE_TITLE
+                                                  ,(CASE WHEN A.ATTEND_YN = 'Y' THEN 'ATTEND' ELSE P.APPV_DOC_TYPE END) AS APPV_DOC_TYPE
+                                                  /* 결재를 통한 휴가(ANNUAL_ALL),경조휴가(EVENT), 병가(SICK), 휴직(REST) 인경우 근태처리 안함. 반차(ANNUAL_AM,ANNUAL_PM), 교육(EDU), 출장신청(TRIP)은 미처리 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'ANNUAL_ALL', 'Y', 'N')      AS LEAVE_YN   /* 년차여부 */
+                                                  ,IF(P.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM'), 'Y', 'N')       AS HALF_YN    /* 반차여부 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'EVENT', 'Y', 'N')    AS EVENT_YN   /* 경조사여부 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'SICK', 'Y', 'N')       AS SICK_YN    /* 병가여부 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'REST', 'Y', 'N')       AS REST_YN    /* 휴직여부 */
+
+                                                  ,IF(P.APPV_DOC_TYPE = 'ETC_ALL', 'Y', 'N')      AS ETC_LEAVE_YN   /* 기타휴가여부 */
+                                                  ,IF(P.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM'), 'Y', 'N')       AS ETC_HALF_YN    /* 기타반차여부 */
+
+                                                  ,A.ATTEND_YN       AS ATTEND_YN    /* 휴직여부 */
+                                                  ,(CASE WHEN INSTR('ANNUAL_ALL|EVENT|SICK|REST|ETC_ALL', P.APPV_DOC_TYPE) <![CDATA[ > ]]> 0  THEN 'Y'
+                                                           WHEN A.ATTEND_YN = 'Y' THEN 'Y'
+                                                           ELSE 'N'
+                                                   END) AS ANNUAL_YN /* 전자결재중 근태체크 불필요 여부 */
+                                              , P.NAME AS ACTIVITY_NM
+                                              FROM ERP_SCHEDULE       A
+                                                  ,ERP_SCHEDULE_ENTRY B
+                                                  ,BS_ACTIVITY P
+                                              WHERE A.SCHE_SEQ = B.SCHE_SEQ
+                                              AND A.ACTIVITY_ID = P.ACTIVITY_ID
+                                              AND A.DEL_FLAG = 'N'
+                                              AND B.DEL_FLAG = 'N'
+                                              AND (P.APPV_DOC_TYPE IN ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ETC_ALL','ETC_AM','ETC_PM')
+                                                          OR A.ATTEND_YN ='Y')
+                                              AND B.ORG_ID = #applyOrgId#
+                                                      AND (
+                                                           SCHE_S_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+                                                                       AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+                                                           OR
+                                                           SCHE_E_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+                                                                       AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+                                                           OR
+                                                           (SCHE_S_DATE  <![CDATA[ <  ]]>   DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND SCHE_E_DATE  <![CDATA[ > ]]>  LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))))
+                                                          )
+                                              ) B
+                                      WHERE   A.ORG_ID    = #applyOrgId#
+
+                                              AND     A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))) /*  개인의 월 */
+                                      AND     A.SYS_DATE BETWEEN B.SCHE_S_DATE AND B.SCHE_E_DATE
+                                      ) X
+                              GROUP BY PER_SABUN, SYS_DATE, APPV_DOC_TYPE
+                      ) H ON  C.EMP_NO = H.PER_SABUN  AND A.SYS_DATE = H.SYS_DATE
+                WHERE   A.ORG_ID    = #applyOrgId#
+                AND IFNULL(A.HOLIDAY, 'N') = 'N'
+                AND  A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))  /*  개인의 월 */
+            GROUP BY A.MM,B.USER_ID, H.APPV_DOC_TYPE, A.SYS_DATE
+           ) B ON A.CAL_DAY = B.CAL_DAY
+            WHERE USER_ID IS NOT NULL
+            GROUP BY B.USER_ID
+        ) A
+            INNER JOIN BS_USER_MASTER B ON A.USER_ID = B.USER_ID
+            INNER JOIN BS_USER_DEPARTMENT C   ON A.USER_ID = C.USER_ID AND C.MAIN_YN = 'Y'
+            INNER JOIN BS_DEPARTMENT D   ON C.DEPT_ID = D.DEPT_ID
+            INNER JOIN BS_CODE_GV E  ON  CODE_NAME = 'RANK' AND CODE_VALUE = B.RANK AND E.ORG_ID = #applyOrgId#
+            <isNotEmpty property="searchDeptId">
+                AND D.DEPT_ID  = #searchDeptId#
+            </isNotEmpty>
+            <isNotEmpty property="searchUserId">
+               AND B.USER_ID = #searchUserId#
+           </isNotEmpty>
+           <isNotEmpty property="userArr">
+	            AND B.USER_ID  IN ($userArr$)
+	        </isNotEmpty>
+            WHERE 1=1
+            <isEqual property="hideSynergyUserYn" compareValue="Y">     <!-- 관계사 시너지 유저 목록 활성화여부 -->
+	            AND B.CUS_ID != 1133368
+	        </isEqual>
+            ORDER BY D.KOR_NAME, B.NAME
+    </select>
+
+    <!-- 근태관리조회:년별 -->
+    <select id = "worktimeDAO.getWorktimeByYearList" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeByYearList */
+        SELECT A.USER_ID
+                , A.MONTH01
+                , A.MONTH02
+                , A.MONTH03
+                , A.MONTH04
+                , A.MONTH05
+                , A.MONTH06
+                , A.MONTH07
+                , A.MONTH08
+                , A.MONTH09
+                , A.MONTH10
+                , A.MONTH11
+                , A.MONTH12
+                , A.LATE_SUM
+                , A.NO_WORK_SUM
+                , A.NO_LOGIN_SUM
+                , A.LEAVE_SUM
+                , A.HALF_SUM
+                , A.F_EVENT_SUM
+                , A.SICK_SUM
+                , A.REST_SUM
+
+                , A.ETC_LEAVE_SUM
+                , A.ETC_HALF_SUM
+
+                , A.ATTEND_SUM
+                , A.ABSENT_SUM
+                , B.NAME
+                , D.KOR_NAME       AS DEPT_NM
+                , E.VALUE_MEAN_KOR AS POSITION
+                , DATE_FORMAT(B.HIRED_DATE, '%Y/%m/%d') AS HIRED_DATE
+        FROM (
+	        SELECT B.USER_ID
+	                , SUM(IF(A.CAL_MONTH = '01', B.ABSENT_COUNT, 0)) MONTH01
+	                , SUM(IF(A.CAL_MONTH = '02', B.ABSENT_COUNT, 0)) MONTH02
+	                , SUM(IF(A.CAL_MONTH = '03', B.ABSENT_COUNT, 0)) MONTH03
+	                , SUM(IF(A.CAL_MONTH = '04', B.ABSENT_COUNT, 0)) MONTH04
+	                , SUM(IF(A.CAL_MONTH = '05', B.ABSENT_COUNT, 0)) MONTH05
+	                , SUM(IF(A.CAL_MONTH = '06', B.ABSENT_COUNT, 0)) MONTH06
+	                , SUM(IF(A.CAL_MONTH = '07', B.ABSENT_COUNT, 0)) MONTH07
+	                , SUM(IF(A.CAL_MONTH = '08', B.ABSENT_COUNT, 0)) MONTH08
+	                , SUM(IF(A.CAL_MONTH = '09', B.ABSENT_COUNT, 0)) MONTH09
+	                , SUM(IF(A.CAL_MONTH = '10', B.ABSENT_COUNT, 0)) MONTH10
+	                , SUM(IF(A.CAL_MONTH = '11', B.ABSENT_COUNT, 0)) MONTH11
+	                , SUM(IF(A.CAL_MONTH = '12', B.ABSENT_COUNT, 0)) MONTH12
+	                , SUM(B.LATE_COUNT) LATE_SUM
+	                , SUM(B.NO_WORK_COUNT) NO_WORK_SUM
+	                , SUM(B.NO_LOGIN_COUNT) NO_LOGIN_SUM
+	                , SUM(B.LEAVE_COUNT) LEAVE_SUM
+	                , SUM(B.HALF_COUNT) HALF_SUM
+	                , SUM(B.F_EVENT_COUNT) F_EVENT_SUM
+	                , SUM(B.SICK_COUNT) SICK_SUM
+	                , SUM(B.REST_COUNT) REST_SUM
+
+	                , SUM(B.ETC_LEAVE_COUNT) ETC_LEAVE_SUM
+                    , SUM(B.ETC_HALF_COUNT) ETC_HALF_SUM
+
+	                , SUM(B.ATTEND_COUNT) ATTEND_SUM
+	                , SUM(B.ABSENT_COUNT) ABSENT_SUM
+			FROM  (
+			        SELECT DISTINCT LPAD(MM, 2, '0') CAL_MONTH
+			        FROM BS_CALENDAR
+			        WHERE CAL_YEAR = #searchYear#
+			        AND ORG_ID = #applyOrgId#
+			        ) A
+			        LEFT JOIN (
+			        SELECT LPAD(A.MM, 2, '0') AS CAL_MONTH
+                 , B.USER_ID
+                    ,(CASE     WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM','ETC_AM','ETC_PM') AND  B.WORK_TYPE = 'LATE' THEN 0
+                            WHEN H.APPV_DOC_TYPE IN  ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ATTEND','ETC_ALL','ETC_AM','ETC_PM') THEN 0
+                            WHEN A.SYS_DATE > NOW() THEN 0                                                           /* 미래날짜 NULL 처리 */
+                            WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN 0 /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+                            WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN COUNT(*)
+                      ELSE 0
+                          END)  AS NO_LOGIN_COUNT
+                    ,(CASE     WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM','ETC_AM','ETC_PM') AND  B.WORK_TYPE = 'LATE' THEN COUNT(*)
+                            WHEN H.APPV_DOC_TYPE IN  ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ATTEND','ETC_ALL','ETC_AM','ETC_PM') THEN 0
+                            WHEN A.SYS_DATE > NOW() THEN 0                                                           /* 미래날짜 NULL 처리 */
+                            WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN 0 /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+                            WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN 0
+                            WHEN B.WORK_TYPE IN ('LATE') THEN COUNT(*)
+                      ELSE 0
+                          END)  AS LATE_COUNT
+                    ,(CASE     WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM','ETC_AM','ETC_PM') AND  B.WORK_TYPE = 'LATE' THEN 0
+                            WHEN H.APPV_DOC_TYPE IN  ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ATTEND','ETC_ALL','ETC_AM','ETC_PM') THEN 0
+                            WHEN A.SYS_DATE > NOW() THEN 0                                                           /* 미래날짜 NULL 처리 */
+                            WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN 0 /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+                            WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN 0
+                            WHEN B.WORK_TYPE IN ('NO_WORK') THEN COUNT(*)
+                            ELSE 0
+                          END)  AS NO_WORK_COUNT
+                   , (CASE WHEN H.LEAVE_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS LEAVE_COUNT
+                   , (CASE WHEN H.HALF_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS HALF_COUNT
+                   , (CASE WHEN H.EVENT_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS F_EVENT_COUNT
+                   , (CASE WHEN H.SICK_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS SICK_COUNT
+                   , (CASE WHEN H.REST_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS REST_COUNT
+
+                   , (CASE WHEN H.ETC_LEAVE_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS ETC_LEAVE_COUNT
+                   , (CASE WHEN H.ETC_HALF_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS ETC_HALF_COUNT
+
+                   , (CASE WHEN H.ATTEND_YN = 'Y' THEN COUNT(*) ELSE 0 END) AS ATTEND_COUNT
+                   , (CASE     WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM','ETC_AM','ETC_PM') AND  B.WORK_TYPE = 'LATE' THEN COUNT(*)
+                            WHEN H.APPV_DOC_TYPE IN ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ATTEND','ETC_ALL','ETC_AM','ETC_PM') THEN COUNT(*)
+                            WHEN A.SYS_DATE > NOW() THEN NULL                                                           /* 미래날짜 NULL 처리 */
+                            WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN NULL /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+                            WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN COUNT(*)
+                            WHEN B.WORK_TYPE IN ('NO_WORK','LATE') THEN COUNT(*)
+                      ELSE 0
+                          END)  AS ABSENT_COUNT
+                 FROM    BS_CALENDAR A
+                      LEFT JOIN BS_WORKTIME  B  ON  A.ORG_ID     = B.ORG_ID
+                                                         AND A.SYS_DATE   = B.WORK_DATE
+                      LEFT JOIN BS_USER_MASTER        C  ON  B.USER_ID    = C.USER_ID
+                      LEFT JOIN BS_USER_DEPARTMENT    D  ON  B.USER_ID    = D.USER_ID AND D.MAIN_YN = 'Y'
+                      LEFT JOIN BS_DEPARTMENT         E  ON  D.DEPT_ID    = E.DEPT_ID
+                      LEFT JOIN BS_CODE_GV            F  ON  F.ORG_ID     = A.ORG_ID
+                                                         AND F.CODE_NAME  = 'RANK'
+                                                         AND F.CODE_VALUE = C.RANK
+                      LEFT JOIN BS_WORKTIME_END       G  ON  A.ORG_ID     = G.ORG_ID
+                                                         AND A.SYS_DATE   = G.WORK_DATE
+                      LEFT JOIN (
+                              SELECT  PER_SABUN
+                                     ,SYS_DATE
+                                     ,APPV_DOC_TYPE
+                                     ,MAX(LEAVE_YN )  LEAVE_YN
+                                     ,MAX(HALF_YN  )  HALF_YN
+                                     ,MAX(EVENT_YN )  EVENT_YN
+                                     ,MAX(SICK_YN  )  SICK_YN
+                                     ,MAX(REST_YN  )  REST_YN
+
+                                     ,MAX(ETC_LEAVE_YN )  ETC_LEAVE_YN
+                                     ,MAX(ETC_HALF_YN  )  ETC_HALF_YN
+
+                                     ,MAX(ATTEND_YN  )  ATTEND_YN
+                                     ,MAX(ANNUAL_YN)  ANNUAL_YN
+                                     ,GROUP_CONCAT(CONCAT(APPV_DOC_TYPE, '||-||', ACTIVITY_NM, '||-||', SCHE_TITLE) SEPARATOR ':::::') SCHE_CONTENTS
+                              FROM    (
+                                      SELECT  A.SYS_DATE
+                                             ,B.PER_SABUN
+                                             ,B.SCHE_TITLE
+                                             ,B.APPV_DOC_TYPE
+                                             ,B.LEAVE_YN
+                                             ,B.HALF_YN
+                                             ,B.EVENT_YN
+                                             ,B.SICK_YN
+                                             ,B.REST_YN
+
+                                             ,B.ETC_LEAVE_YN
+                                             ,B.ETC_HALF_YN
+
+                                             ,B.ATTEND_YN
+                                             ,B.ANNUAL_YN
+                                             ,B.ACTIVITY_NM
+                                      FROM    BS_CALENDAR A
+                                             ,(
+                                              SELECT
+                                                   B.PER_SABUN
+                                                  ,A.SCHE_S_DATE
+                                                  ,A.SCHE_E_DATE
+                                                  ,A.SCHE_TITLE
+                                                  ,(CASE WHEN A.ATTEND_YN = 'Y' THEN 'ATTEND' ELSE P.APPV_DOC_TYPE END) AS APPV_DOC_TYPE
+                                                  /* 결재를 통한 휴가(ANNUAL_ALL),경조휴가(EVENT), 병가(SICK), 휴직(REST) 인경우 근태처리 안함. 반차(ANNUAL_AM,ANNUAL_PM), 교육(EDU), 출장신청(TRIP)은 미처리 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'ANNUAL_ALL', 'Y', 'N')      AS LEAVE_YN   /* 년차여부 */
+                                                  ,IF(P.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM'), 'Y', 'N')       AS HALF_YN    /* 반차여부 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'EVENT', 'Y', 'N')    AS EVENT_YN   /* 경조사여부 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'SICK', 'Y', 'N')       AS SICK_YN    /* 병가여부 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'REST', 'Y', 'N')       AS REST_YN    /* 휴직여부 */
+
+                                                  ,IF(P.APPV_DOC_TYPE = 'ETC_ALL', 'Y', 'N')      AS ETC_LEAVE_YN   /* 기타휴가여부 */
+                                                  ,IF(P.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM'), 'Y', 'N')       AS ETC_HALF_YN    /* 기타반차여부 */
+
+                                                  ,A.ATTEND_YN       AS ATTEND_YN    /* 휴직여부 */
+                                                  ,(CASE WHEN INSTR('ANNUAL_ALL|EVENT|SICK|REST|ETC_ALL', P.APPV_DOC_TYPE) <![CDATA[ > ]]> 0  THEN 'Y'
+                                                           WHEN A.ATTEND_YN = 'Y' THEN 'Y'
+                                                           ELSE 'N'
+                                                   END) AS ANNUAL_YN /* 전자결재중 근태체크 불필요 여부 */
+                                                  , P.NAME AS ACTIVITY_NM
+                                              FROM ERP_SCHEDULE       A
+                                                  ,ERP_SCHEDULE_ENTRY B
+                                                  ,BS_ACTIVITY P
+                                              WHERE A.SCHE_SEQ = B.SCHE_SEQ
+                                              AND A.ACTIVITY_ID = P.ACTIVITY_ID
+                                              AND A.DEL_FLAG = 'N'
+                                              AND B.DEL_FLAG = 'N'
+                                              AND (P.APPV_DOC_TYPE IN ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ETC_ALL','ETC_AM','ETC_PM')
+                                                          OR A.ATTEND_YN ='Y')
+                                              AND B.ORG_ID = #applyOrgId#
+                                                      AND (
+                                                           SCHE_S_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01'))
+                                                                       AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))
+                                                           OR
+                                                           SCHE_E_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01'))
+                                                                       AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))
+                                                           OR
+                                                           (SCHE_S_DATE  <![CDATA[ <  ]]>   DATE(CONCAT(#searchYear#,'-01','-01')) AND SCHE_E_DATE  <![CDATA[ > ]]>  LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01'))))
+                                                          )
+                                              ) B
+                                      WHERE   A.ORG_ID    = #applyOrgId#
+
+                                              AND     A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01'))) /*  개인의 월 */
+                                      AND     A.SYS_DATE BETWEEN B.SCHE_S_DATE AND B.SCHE_E_DATE
+                                      ) X
+                              GROUP BY PER_SABUN, SYS_DATE, APPV_DOC_TYPE
+                      ) H ON  C.EMP_NO = H.PER_SABUN  AND A.SYS_DATE = H.SYS_DATE
+                WHERE   A.ORG_ID    = #applyOrgId#
+                AND IFNULL(A.HOLIDAY, 'N') = 'N'
+                AND  A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))  /*  개인의 월 */
+            GROUP BY A.MM,B.USER_ID, H.APPV_DOC_TYPE, A.SYS_DATE
+           ) B ON A.CAL_MONTH = B.CAL_MONTH
+            WHERE USER_ID IS NOT NULL
+            GROUP BY B.USER_ID
+        ) A
+		    INNER JOIN BS_USER_MASTER B ON A.USER_ID = B.USER_ID
+            INNER JOIN BS_USER_DEPARTMENT C   ON A.USER_ID = C.USER_ID AND C.MAIN_YN = 'Y'
+            INNER JOIN BS_DEPARTMENT D   ON C.DEPT_ID = D.DEPT_ID
+            INNER JOIN BS_CODE_GV E  ON  CODE_NAME = 'RANK' AND CODE_VALUE = B.RANK AND E.ORG_ID = #applyOrgId#
+       <isNotEmpty property="searchDeptId">
+           AND D.DEPT_ID  = #searchDeptId#
+       </isNotEmpty>
+       <isNotEmpty property="userArr">
+           AND B.USER_ID  IN ($userArr$)
+       </isNotEmpty>
+       <isNotEmpty property="searchUserId">
+           AND B.USER_ID = #searchUserId#
+       </isNotEmpty>
+       WHERE 1=1
+       <isEqual property="hideSynergyUserYn" compareValue="Y">     <!-- 관계사 시너지 유저 목록 활성화여부 -->
+            AND B.CUS_ID != 1133368
+        </isEqual>
+       ORDER BY D.KOR_NAME, B.NAME
+    </select>
+
+
+
+    <!-- 근태승인 저장 -->
+    <update id = "worktimeDAO.doSaveAttendanceApprov" parameterClass="HashMap">
+       /* worktimeDAO.doSaveAttendanceApprov */
+       UPDATE BS_WORKTIME
+          SET
+               UPDATED_BY  = #updatedBy#
+              ,UPDATE_DATE  = NOW()
+              <isNotEmpty property="workType">
+                ,WORK_TYPE  = #workType#
+              </isNotEmpty>
+              <isNotEmpty property="workReqAcceptYn">
+                ,WORK_REQ_ACCEPT_YN = #workReqAcceptYn#
+                ,WORK_CONFIRM_DATE = NOW()
+                ,WORK_CONFIRM_USER_ID = #updatedBy#
+              </isNotEmpty>
+              <isNotEmpty property="workReqType">
+                ,WORK_REQ_TYPE  = #workReqType#
+              </isNotEmpty>
+              <isNotEmpty property="workReqReason">
+                ,WORK_REQ_REASON  = #workReqReason#
+              </isNotEmpty>
+
+              <isNotEmpty property="mngWorkPrcType">
+                ,MNG_WORK_PRC_TYPE  = #mngWorkPrcType#
+              </isNotEmpty>
+              <isNotEmpty property="mngWorkPrcType">
+                ,MNG_WORK_PRC_DATE  = now()
+              </isNotEmpty>
+              <isNotEmpty property="mngWorkPrcReason">
+                ,MNG_WORK_PRC_REASON  = #mngWorkPrcReason#
+              </isNotEmpty>
+         WHERE WORKTIME_ID = #worktimeId#
+    </update>
+
+    <!-- 출근인정요청 저장 -->
+    <update id = "worktimeDAO.doSaveAttendanceApprovReq" parameterClass="HashMap">
+       /* worktimeDAO.doSaveAttendanceApprovReq */
+        UPDATE BS_WORKTIME
+          SET
+              WORK_REQ_TYPE  = #workReqType#
+              ,WORK_REQ_REASON  = #workReqReason#
+              ,WORK_REQ_DATE  = NOW()
+              ,UPDATED_BY  = #updatedBy#
+              ,UPDATE_DATE  = NOW()
+         WHERE WORKTIME_ID = #worktimeId#
+    </update>
+
+
+
+    <!-- 근태정보 : 년도별 -->
+    <select id = "worktimeDAO.getWorktimeInfoByYearList" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeInfoByYearList */
+        SELECT A.CAL_MONTH
+		      , DATE_FORMAT(CONCAT('9999','-',A.CAL_MONTH,'-','01'),  '%M') AS CAL_MONTH_NM
+		      , IFNULL(WORK_CNT,0) AS WORK_CNT  /* 정상근태 */
+		      , IFNULL(LEAVE_CNT,0) AS LEAVE_CNT  /* 휴가 */
+		      , IFNULL(HALF_CNT,0) AS  HALF_CNT /* 반차 */
+		      , IFNULL(F_EVENT_CNT,0) AS   F_EVENT_CNT /* 경조  */
+		      , IFNULL(SICK_CNT,0) AS SICK_CNT  /* 병가  */
+		      , IFNULL(REST_CNT,0) AS  REST_CNT  /* 휴직 */
+
+		      , IFNULL(ETC_LEAVE_CNT,0) AS ETC_LEAVE_CNT  /* 기타휴가 */
+              , IFNULL(ETC_HALF_CNT,0) AS  ETC_HALF_CNT /* 기타반차 */
+
+		      , IFNULL(ATTEND_CNT,0) AS ATTEND_CNT  /* 현지출근 */
+		      , IFNULL(NO_LOGIN_CNT,0) AS NO_LOGIN_CNT  /* 미로그인  */
+		      , IFNULL(LATE_CNT,0) AS LATE_CNT /* 지각  */
+		      , IFNULL(NO_WORK_CNT,0) AS NO_WORK_CNT   /* 결근 */
+		      , IFNULL(WORK_CNT,0) + IFNULL(LEAVE_CNT,0)+ IFNULL(HALF_CNT,0)
+                + IFNULL(F_EVENT_CNT,0) + IFNULL(SICK_CNT,0) + IFNULL(REST_CNT,0)
+                + IFNULL(ETC_LEAVE_CNT,0)+ IFNULL(ETC_HALF_CNT,0) + IFNULL(ATTEND_CNT,0) AS NORMAL_TOT_CNT
+            , IFNULL(NO_LOGIN_CNT,0) + IFNULL(LATE_CNT,0)+ IFNULL(NO_WORK_CNT,0) AS NON_TOT_CNT
+		FROM
+		     (SELECT DISTINCT LPAD(MM, 2, '0') CAL_MONTH
+		            FROM BS_CALENDAR
+		            WHERE CAL_YEAR = #searchYear#
+		            AND ORG_ID = #applyOrgId#
+		              ) A
+		      LEFT JOIN (
+		        SELECT
+		             Y.CAL_MONTH
+		            , IFNULL(SUM(Y.TOTAL_CNT),0) AS TOTAL_CNT  /* 전체직원 */
+		            , IFNULL(SUM(Y.LEAVE_CNT),0) AS LEAVE_CNT  /* 휴가 */
+		            , IFNULL(SUM(Y.HALF_CNT),0) AS HALF_CNT  /* 반차 */
+		            , IFNULL(SUM(Y.F_EVENT_CNT),0) AS F_EVENT_CNT  /* 경조  */
+		            , IFNULL(SUM(Y.SICK_CNT),0) AS SICK_CNT  /* 병가  */
+		            , IFNULL(SUM(Y.REST_CNT),0) AS REST_CNT   /* 휴직 */
+
+		            , IFNULL(SUM(Y.ETC_LEAVE_CNT),0) AS ETC_LEAVE_CNT  /* 기타휴가 */
+                    , IFNULL(SUM(Y.ETC_HALF_CNT),0) AS ETC_HALF_CNT  /* 기타반차 */
+
+		            , IFNULL(SUM(Y.ATTEND_CNT),0) AS ATTEND_CNT   /* 현지출근 */
+		            , IFNULL(SUM(Y.NO_LOGIN_CNT),0) AS NO_LOGIN_CNT  /* 미로그인  */
+		            , IFNULL(SUM(Y.LATE_CNT),0) AS LATE_CNT  /* 지각  */
+		            , IFNULL(SUM(Y.NO_WORK_CNT),0) AS NO_WORK_CNT  /* 결근 */
+		            , IFNULL(SUM(Y.WORK_CNT),0) AS WORK_CNT  /* 정상출근 */
+		        FROM(
+		            SELECT
+		                    X.CAL_MONTH
+		                  , COUNT(*) AS TOTAL_CNT /* 전체직원 */
+		                  , (CASE WHEN X.WORK_TYPE = 'ANNUAL_ALL' THEN COUNT(*) ELSE 0 END)  AS LEAVE_CNT   /* 휴가 */
+		                  , (CASE WHEN X.WORK_TYPE IN ('ANNUAL_AM','ANNUAL_PM','HALF_LATE') THEN COUNT(*) ELSE 0 END)  AS HALF_CNT   /* 반차 */
+		                  , (CASE WHEN X.WORK_TYPE = 'EVENT' THEN COUNT(*) ELSE 0 END)  AS F_EVENT_CNT   /* 경조  */
+		                  , (CASE WHEN X.WORK_TYPE = 'SICK' THEN COUNT(*) ELSE 0 END)  AS SICK_CNT   /* 병가  */
+		                  , (CASE WHEN X.WORK_TYPE = 'REST' THEN COUNT(*) ELSE 0 END)  AS REST_CNT   /* 휴직 */
+
+		                  , (CASE WHEN X.WORK_TYPE = 'ETC_ALL' THEN COUNT(*) ELSE 0 END)  AS ETC_LEAVE_CNT   /* 기타휴가 */
+                          , (CASE WHEN X.WORK_TYPE IN ('ETC_AM','ETC_PM','ETC_HALF_LATE') THEN COUNT(*) ELSE 0 END)  AS ETC_HALF_CNT   /* 기타반차 */
+
+		                  , (CASE WHEN X.WORK_TYPE = 'ATTEND' THEN COUNT(*) ELSE 0 END)  AS ATTEND_CNT   /* 현지출근 */
+		                  , (CASE WHEN X.WORK_TYPE = 'NO_LOGIN' THEN COUNT(*) ELSE 0 END)  AS NO_LOGIN_CNT   /* 미로그인  */
+		                  , (CASE WHEN X.WORK_TYPE = 'LATE' OR X.WORK_TYPE = 'HALF_LATE' THEN COUNT(*) ELSE 0 END)  AS LATE_CNT   /* 지각  */
+		                  , (CASE WHEN X.WORK_TYPE = 'NO_WORK' THEN COUNT(*) ELSE 0 END)  AS NO_WORK_CNT   /* 결근 */
+		                  , (CASE WHEN X.WORK_TYPE = 'WORK' THEN COUNT(*) ELSE 0 END)  AS WORK_CNT   /* 정상출근 */
+		            FROM (
+		                SELECT
+		                     LPAD(A.MM, 2, '0') AS CAL_MONTH
+		                    , (CASE
+		                            WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM') AND  B.WORK_TYPE = 'LATE' THEN 'HALF_LATE'
+		                            WHEN H.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM') AND  B.WORK_TYPE = 'LATE' THEN 'ETC_HALF_LATE'
+		                            WHEN H.APPV_DOC_TYPE IN  ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ATTEND','ETC_ALL','ETC_AM','ETC_PM') THEN H.APPV_DOC_TYPE
+		                            WHEN A.SYS_DATE > NOW() THEN NULL                                                           /* 미래날짜 NULL 처리 */
+		                            WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN NULL /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+		                            WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN 'NO_LOGIN'
+		                            ELSE B.WORK_TYPE
+		                      END)                                  AS WORK_TYPE
+		                 FROM    BS_CALENDAR A
+		                      LEFT JOIN BS_WORKTIME  B  ON  A.ORG_ID     = B.ORG_ID
+		                                                         AND A.SYS_DATE   = B.WORK_DATE
+		                                                         <isNotEmpty property="searchUserId">
+		                                                            AND B.USER_ID = #searchUserId#    /* 개인의 월 */
+		                                                        </isNotEmpty>
+		                      LEFT JOIN BS_USER_MASTER        C  ON  B.USER_ID    = C.USER_ID
+		                      LEFT JOIN BS_USER_DEPARTMENT    D  ON  B.USER_ID    = D.USER_ID AND D.MAIN_YN = 'Y'
+		                      LEFT JOIN BS_DEPARTMENT         E  ON  D.DEPT_ID    = E.DEPT_ID
+		                      LEFT JOIN BS_CODE_GV            F  ON  F.ORG_ID     = A.ORG_ID
+		                                                         AND F.CODE_NAME  = 'RANK'
+		                                                         AND F.CODE_VALUE = C.RANK
+		                      LEFT JOIN BS_WORKTIME_END       G  ON  A.ORG_ID     = G.ORG_ID
+		                                                         AND A.SYS_DATE   = G.WORK_DATE
+		                      LEFT JOIN (
+		                              SELECT  PER_SABUN
+		                                     ,SYS_DATE
+		                                     ,APPV_DOC_TYPE
+		                                     ,MAX(LEAVE_YN )  LEAVE_YN
+		                                     ,MAX(HALF_YN  )  HALF_YN
+		                                     ,MAX(EVENT_YN )  EVENT_YN
+		                                     ,MAX(SICK_YN  )  SICK_YN
+		                                     ,MAX(REST_YN  )  REST_YN
+
+		                                     ,MAX(ETC_LEAVE_YN )  ETC_LEAVE_YN
+                                             ,MAX(ETC_HALF_YN  )  ETC_HALF_YN
+
+		                                     ,MAX(ATTEND_YN  )  ATTEND_YN
+		                                     ,MAX(ANNUAL_YN)  ANNUAL_YN
+		                                     ,GROUP_CONCAT(CONCAT(APPV_DOC_TYPE, '||-||', ACTIVITY_NM, '||-||', SCHE_TITLE) SEPARATOR ':::::') SCHE_CONTENTS
+		                              FROM    (
+		                                      SELECT  A.SYS_DATE
+		                                             ,B.PER_SABUN
+		                                             ,B.SCHE_TITLE
+		                                             ,B.APPV_DOC_TYPE
+		                                             ,B.LEAVE_YN
+		                                             ,B.HALF_YN
+		                                             ,B.EVENT_YN
+		                                             ,B.SICK_YN
+		                                             ,B.REST_YN
+
+		                                             ,B.ETC_LEAVE_YN
+                                                     ,B.ETC_HALF_YN
+
+		                                             ,B.ATTEND_YN
+		                                             ,B.ANNUAL_YN
+		                                             ,B.ACTIVITY_NM
+		                                      FROM    BS_CALENDAR A
+		                                             ,(
+		                                              SELECT
+		                                                   B.PER_SABUN
+		                                                  ,A.SCHE_S_DATE
+		                                                  ,A.SCHE_E_DATE
+		                                                  ,A.SCHE_TITLE
+		                                                  ,(CASE WHEN A.ATTEND_YN = 'Y' THEN 'ATTEND' ELSE P.APPV_DOC_TYPE END) AS APPV_DOC_TYPE
+		                                                  /* 결재를 통한 휴가(ANNUAL_ALL),경조휴가(EVENT), 병가(SICK), 휴직(REST) 인경우 근태처리 안함. 반차(ANNUAL_AM,ANNUAL_PM), 교육(EDU), 출장신청(TRIP)은 미처리 */
+		                                                  ,IF(P.APPV_DOC_TYPE = 'ANNUAL_ALL', 'Y', 'N')      AS LEAVE_YN   /* 년차여부 */
+		                                                  ,IF(P.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM'), 'Y', 'N')       AS HALF_YN    /* 반차여부 */
+		                                                  ,IF(P.APPV_DOC_TYPE = 'EVENT', 'Y', 'N')    AS EVENT_YN   /* 경조사여부 */
+		                                                  ,IF(P.APPV_DOC_TYPE = 'SICK', 'Y', 'N')       AS SICK_YN    /* 병가여부 */
+		                                                  ,IF(P.APPV_DOC_TYPE = 'REST', 'Y', 'N')       AS REST_YN    /* 휴직여부 */
+
+		                                                  ,IF(P.APPV_DOC_TYPE = 'ETC_ALL', 'Y', 'N')      AS ETC_LEAVE_YN   /* 기타휴가여부 */
+                                                          ,IF(P.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM'), 'Y', 'N')       AS ETC_HALF_YN    /* 기타반차여부 */
+
+		                                                  ,A.ATTEND_YN       AS ATTEND_YN    /* 휴직여부 */
+		                                                  ,(CASE WHEN INSTR('ANNUAL_ALL|EVENT|SICK|REST|ETC_ALL', P.APPV_DOC_TYPE) <![CDATA[ > ]]> 0  THEN 'Y'
+		                                                           WHEN A.ATTEND_YN = 'Y' THEN 'Y'
+		                                                           ELSE 'N'
+		                                                   END) AS ANNUAL_YN /* 전자결재중 근태체크 불필요 여부 */
+		                                                  , P.NAME AS ACTIVITY_NM
+		                                              FROM ERP_SCHEDULE       A
+		                                                  ,ERP_SCHEDULE_ENTRY B
+		                                                  ,BS_ACTIVITY P
+		                                              WHERE A.SCHE_SEQ = B.SCHE_SEQ
+		                                              AND A.ACTIVITY_ID = P.ACTIVITY_ID
+		                                              AND A.DEL_FLAG = 'N'
+		                                              AND B.DEL_FLAG = 'N'
+		                                              AND (P.APPV_DOC_TYPE IN ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ETC_ALL','ETC_AM','ETC_PM')
+                                                          OR A.ATTEND_YN ='Y')
+		                                              AND B.ORG_ID = #applyOrgId#
+		                                              <isNotEmpty property="searchYear">
+		                                                  <isNotEqual property="searchMonth" compareValue="All">
+		                                                      /* 개인의 월 */
+		                                                      AND (
+		                                                           SCHE_S_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+		                                                                       AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+		                                                           OR
+		                                                           SCHE_E_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+		                                                                       AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+		                                                           OR
+		                                                           (SCHE_S_DATE <![CDATA[ < ]]> DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND SCHE_E_DATE <![CDATA[ > ]]> LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))))
+		                                                          )
+		                                                   </isNotEqual>
+		                                                   <isEqual property="searchMonth" compareValue="All">
+		                                                      /* 개인의 월 */
+		                                                      AND (
+		                                                           SCHE_S_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01'))
+		                                                                       AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))
+		                                                           OR
+		                                                           SCHE_E_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01'))
+		                                                                       AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))
+		                                                           OR
+		                                                           (SCHE_S_DATE <![CDATA[ < ]]> DATE(CONCAT(#searchYear#,'-01','-01')) AND SCHE_E_DATE <![CDATA[ > ]]> LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01'))))
+		                                                          )
+		                                                   </isEqual>
+		                                               </isNotEmpty>
+		                                               <isNotEmpty property="searchDate">
+		                                                  /* 여려명 일  */
+		                                                  AND #searchDate# BETWEEN A.SCHE_S_DATE AND A.SCHE_E_DATE
+		                                                  GROUP BY B.PER_SABUN, A.SCHE_S_DATE,A.SCHE_E_DATE,A.SCHE_TITLE, P.APPV_DOC_TYPE
+		                                               </isNotEmpty>
+		                                              ) B
+		                                      WHERE   A.ORG_ID    = #applyOrgId#
+		                                      <isNotEmpty property="searchYear">
+		                                          <isNotEqual property="searchMonth" compareValue="All">
+		                                              AND     A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))) /*  개인의 월 */
+		                                          </isNotEqual>
+		                                          <isEqual property="searchMonth" compareValue="All">
+		                                              AND     A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01'))) /*  개인의 월 */
+		                                          </isEqual>
+		                                      </isNotEmpty>
+		                                      <isNotEmpty property="searchDate">
+		                                          AND     DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d') = #searchDate#  /* 여러명 일 */
+		                                      </isNotEmpty>
+		                                      AND     A.SYS_DATE BETWEEN B.SCHE_S_DATE AND B.SCHE_E_DATE
+		                                      ) X
+		                              GROUP BY PER_SABUN, SYS_DATE, APPV_DOC_TYPE
+		                      ) H ON  C.EMP_NO = H.PER_SABUN
+		                          AND A.SYS_DATE = H.SYS_DATE
+		                WHERE   A.ORG_ID    = #applyOrgId#
+		                <isNotEmpty property="searchYear">
+		                     <isNotEqual property="searchMonth" compareValue="All">
+		                         AND  A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))  /*  개인의 월 */
+		                     </isNotEqual>
+		                     <isEqual property="searchMonth" compareValue="All">
+		                         AND  A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))  /*  개인의 월 */
+		                     </isEqual>
+		                 </isNotEmpty>
+		                 <isNotEmpty property="searchDate">
+		                     AND     DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d') = #searchDate#          /* 여러명 일 */
+		                 </isNotEmpty>
+		           ) X
+		        GROUP BY WORK_TYPE, X.CAL_MONTH
+		        ) Y
+		        GROUP BY Y.CAL_MONTH
+            ) Z ON A.CAL_MONTH = Z.CAL_MONTH
+            ORDER BY A.CAL_MONTH
+    </select>
+
+    <!-- 근태마감 여부 : 일 -->
+    <select id = "worktimeDAO.getWorktimeEndInfoForDay" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeEndInfoForDay */
+        SELECT
+            A.WORKTIME_END_ID
+            , A.END_YN
+            , (CASE WHEN (A.WORK_DATE + INTERVAL 7 DAY) >= CURDATE()  THEN 'Y'
+                      ELSE 'N'
+              END) AS END_DATE_YN  /* 근태일로부터 7일후부터 일마감처리 가능함 */
+            , (  SELECT COUNT(*)
+				FROM BS_WORKTIME J
+				WHERE J.WORK_DATE = A.WORK_DATE
+				AND J.ORG_ID = #applyOrgId#
+				AND J.WORK_REQ_TYPE IS NOT NULL
+				AND J.WORK_REQ_ACCEPT_YN IS NULL ) AS NOT_APPROVE_CNT
+        FROM BS_WORKTIME_END A
+        WHERE 1=1
+        AND A.ORG_ID = #applyOrgId#
+        AND DATE_FORMAT(A.WORK_DATE, '%Y-%m-%d') = #searchDate#
+    </select>
+
+    <!-- 근태마감 여부 : 월 -->
+    <select id = "worktimeDAO.getWorktimeEndInfoForMonth" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeEndInfoForMonth */
+        SELECT  DATE_FORMAT(A.WORK_DATE, '%m') AS WORK_MONTH
+            , GROUP_CONCAT( DATE_FORMAT(A.WORK_DATE, '%d') ORDER BY A.WORK_DATE) AS NOT_APPROVE_WORK_DAY
+            , COUNT(*) AS NOT_APPROVE_CNT
+        FROM BS_WORKTIME A
+        WHERE 1=1
+        AND A.ORG_ID = #applyOrgId#
+        AND A.WORK_REQ_TYPE IS NOT NULL
+        AND A.WORK_REQ_ACCEPT_YN IS NULL
+        AND DATE_FORMAT(A.WORK_DATE, '%Y%m') = CONCAT(#searchYear#,#searchMonth#)
+        GROUP BY WORK_MONTH
+    </select>
+
+    <!-- 근태마감 여부 : 월 -->
+    <select id = "worktimeDAO.getWorktimeEndInfoForMonth2" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeEndInfoForMonth2 */
+        SELECT
+            MIN(END_YN) AS END_YN
+            , (CASE WHEN (DATE_ADD(CONCAT(#searchYear#,'-',#searchMonth#,'-','07'),  INTERVAL 1 MONTH)) >= NOW() THEN 'Y'
+                      ELSE 'N'
+              END) AS END_DATE_YN  /* 다음달 7일이후부터 근태마감처리가능 */
+        FROM BS_WORKTIME_END A
+        WHERE 1=1
+        AND A.ORG_ID = #applyOrgId#
+        AND DATE_FORMAT(A.WORK_DATE, '%Y%m') = CONCAT(#searchYear#,#searchMonth#)
+    </select>
+
+    <!-- 일근태마감처리 -->
+    <update id = "worktimeDAO.updateWorkTimeEndForEnd" parameterClass="HashMap">
+       /* worktimeDAO.updateWorkTimeEndForEnd */
+       UPDATE BS_WORKTIME_END
+          SET
+              END_YN = 'Y'
+              ,END_PRC_DATE = NOW()
+              ,END_RPC_USER_ID = #updatedBy#
+              ,UPDATED_BY  = #updatedBy#
+              ,UPDATE_DATE  = NOW()
+         WHERE 1=1
+         AND ORG_ID = #applyOrgId#
+         <isNotEmpty property="searchYear">
+            <isNotEqual property="searchMonth" compareValue="All">
+                AND DATE_FORMAT(WORK_DATE, '%Y%m') = CONCAT(#searchYear#,#searchMonth#)
+             </isNotEqual>
+        </isNotEmpty>
+         <isNotEmpty property="searchDate">
+            AND DATE_FORMAT(WORK_DATE, '%Y-%m-%d') = #searchDate#
+        </isNotEmpty>
+    </update>
+
+    <!-- 일근태 처리 -->
+    <update id = "worktimeDAO.updateWorkTimeForEndOfNoWork" parameterClass="HashMap">
+       /* worktimeDAO.updateWorkTimeForEndOfNoWork */
+       UPDATE BS_WORKTIME A
+		    LEFT JOIN (
+		      SELECT
+		           U.USER_ID
+		          ,'Y' AS ANNUAL_YN
+		      FROM ERP_SCHEDULE       A
+		          ,ERP_SCHEDULE_ENTRY B
+		          ,BS_ACTIVITY P
+		          ,BS_USER_MASTER U
+		      WHERE A.SCHE_SEQ = B.SCHE_SEQ
+		      AND A.ACTIVITY_ID = P.ACTIVITY_ID
+		      AND B.PER_SABUN = U.EMP_NO
+		      AND B.ORG_ID = U.ORG_ID
+		      AND A.DEL_FLAG = 'N'
+		      AND B.DEL_FLAG = 'N'
+		      AND (P.APPV_DOC_TYPE IN ('ANNUAL_ALL','EVENT','SICK','REST') OR A.ATTEND_YN ='Y')
+		      AND B.ORG_ID = #applyOrgId#
+		      <isNotEmpty property="searchYear">
+	            <isNotEqual property="searchMonth" compareValue="All">
+	                AND (
+                             SCHE_S_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+                                         AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+                             OR
+                             SCHE_E_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+                                         AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+                             OR
+                             (SCHE_S_DATE <![CDATA[ < ]]> DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND SCHE_E_DATE <![CDATA[ > ]]> LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))))
+                            )
+	             </isNotEqual>
+	        </isNotEmpty>
+	         <isNotEmpty property="searchDate">
+	            AND #searchDate# BETWEEN A.SCHE_S_DATE AND A.SCHE_E_DATE
+	        </isNotEmpty>
+		      GROUP BY U.USER_ID ) B ON A.USER_ID = B.USER_ID
+		SET
+		    A.WORK_TYPE  =
+		        (CASE WHEN B.ANNUAL_YN = 'Y' THEN 'VACATION'
+		              ELSE 'NO_WORK'
+		         END)
+		    ,A.UPDATED_BY  = #updatedBy#
+		    ,A.UPDATE_DATE  = NOW()
+		WHERE 1=1
+		<isNotEmpty property="searchYear">
+            <isNotEqual property="searchMonth" compareValue="All">
+                AND DATE_FORMAT(A.WORK_DATE, '%Y%m') = CONCAT(#searchYear#,#searchMonth#)
+             </isNotEqual>
+        </isNotEmpty>
+         <isNotEmpty property="searchDate">
+            AND DATE_FORMAT(A.WORK_DATE, '%Y-%m-%d') = #searchDate#
+        </isNotEmpty>
+		AND A.ORG_ID = #applyOrgId#
+		AND A.WORK_TYPE IS NULL
+		AND A.WORK_REQ_TYPE IS NULL
+    </update>
+
+    <!-- 달력조회:월별 -->
+    <select id = "worktimeDAO.getCalendarPerMonth" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getCalendarPerMonth */
+        SELECT  LPAD(DD,2,0) AS DD
+		       ,IF(HOLIDAY = 'Y', CASE CONCAT(WEEK_AB, IFNULL(ORG_HOL_YN, ''), IFNULL(NATIONAL_HOL_YN, '') )
+		                            WHEN 'SAT' THEN 'SATURDAY'
+		                            WHEN 'SUN' THEN 'SUNDAY'
+		                            ELSE 'HOLIDAY'
+		                          END, NULL) HOLI_TYPE
+		FROM    (
+		        SELECT  A.DD, A.WEEK_AB, A.HOLIDAY
+		               ,(SELECT 'Y' FROM BS_HOLIDAY X WHERE A.ORG_ID = X.ORG_ID AND X.HOL_MM = A.MM AND X.HOL_DD = A.DD AND X.ENABLE = 'Y' AND X.HOL_YYYY = A.CAL_YEAR) ORG_HOL_YN
+		               ,(SELECT 'Y' FROM BS_NATIONAL_HOLIDAY X WHERE X.HOL_MM = A.MM AND X.HOL_DD = A.DD AND X.ENABLE = 'Y' AND X.HOL_YYYY = A.CAL_YEAR) NATIONAL_HOL_YN
+		        FROM    BS_CALENDAR A
+		        WHERE   A.ORG_ID = #applyOrgId#
+		        AND     A.CAL_YEAR = #searchYear#
+		        AND     LPAD(A.MM,2,0) = #searchMonth#
+		        ) A
+		ORDER BY A.DD
+    </select>
+
+
+    <!-- 근태관리조회 : 메인-->
+    <select id = "worktimeDAO.getWorktimeMainList" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeMainList */
+        SELECT  (CASE WHEN X.WORK_TYPE IN  ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ATTEND','ETC_ALL','ETC_AM','ETC_PM') THEN 'normal'
+                      ELSE 'wrong'
+                  END) AS WORK_TYPE_CSS
+                  , X.*
+        FROM (
+	        SELECT
+	             B.WORKTIME_ID                          AS WORKTIME_ID
+	            ,A.ORG_ID                               AS ORG_ID
+	            ,A.SYS_DATE                             AS SYS_DATE
+	            ,B.USER_ID                              AS USER_ID
+	            ,DATE_FORMAT(A.SYS_DATE, '%Y/%m/%d')    AS WORK_DATE
+	            ,DATE_FORMAT(A.SYS_DATE, '%Y')          AS WORK_YEAR
+	            ,DATE_FORMAT(A.SYS_DATE, '%m')          AS WORK_MONTH
+	            ,DATE_FORMAT(A.SYS_DATE, '%d')          AS WORK_DD
+	            ,DATE_FORMAT(A.SYS_DATE, '%m/%d')       AS WORK_DATE_MMDD
+	            ,(CASE DAYOFWEEK(A.SYS_DATE)
+	                    WHEN '1' THEN '일요일'
+	                    WHEN '2' THEN '월요일'
+	                    WHEN '3' THEN '화요일'
+	                    WHEN '4' THEN '수요일'
+	                    WHEN '5' THEN '목요일'
+	                    WHEN '6' THEN '금요일'
+	                    WHEN '7' THEN '토요일'
+	                    END)                            AS WORK_DATE_WEEK
+	            ,DATE_FORMAT(B.IN_TIME, '%H:%i')        AS IN_TIME
+	            ,B.IN_CONTACT_LOC                       AS IN_CONTACT_LOC
+	            ,DATE_FORMAT(B.OUT_TIME, '%H:%i')       AS OUT_TIME
+	            ,B.OUT_CONTACT_LOC                      AS OUT_CONTACT_LOC
+	            ,(CASE        WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM') AND  B.WORK_TYPE = 'LATE' THEN 'HALF_LATE'
+	                            WHEN H.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM') AND  B.WORK_TYPE = 'LATE' THEN 'ETC_HALF_LATE'
+	                            WHEN H.APPV_DOC_TYPE IN  ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ATTEND','ETC_ALL','ETC_AM','ETC_PM') THEN H.APPV_DOC_TYPE
+	                            WHEN A.SYS_DATE > NOW() THEN NULL                                                           /* 미래날짜 NULL 처리 */
+	                            WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN NULL /* 휴일, 전자결재를 통한 년차 NULL 처리*/
+	                            WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN 'NO_LOGIN'
+	                            ELSE B.WORK_TYPE
+	                      END)                                  AS WORK_TYPE
+	            ,(CASE  WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM') AND  B.WORK_TYPE = 'LATE' THEN '지각/반차'
+	                      WHEN H.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM') AND  B.WORK_TYPE = 'LATE' THEN '지각/반차'
+	                      WHEN H.APPV_DOC_TYPE = 'ANNUAL_ALL' THEN '휴가'
+                          WHEN H.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM') THEN '반차'
+                          WHEN H.APPV_DOC_TYPE = 'EVENT' THEN '경조'
+                          WHEN H.APPV_DOC_TYPE = 'SICK' THEN '병가'
+                          WHEN H.APPV_DOC_TYPE = 'REST' THEN '휴직'
+
+                          WHEN H.APPV_DOC_TYPE = 'ETC_ALL' THEN '기타휴가'
+                          WHEN H.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM') THEN '기타반차'
+
+                          WHEN H.APPV_DOC_TYPE = 'ATTEND' THEN '현지출근'
+	                    WHEN A.SYS_DATE > NOW() THEN '-'                                                            /* 미래날짜 - 처리 */
+	                    WHEN IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) = 'Y' THEN '-'  /* 휴일, 전자결재를 통한 년차 - 처리 */
+	                    WHEN B.WORKTIME_ID IS NOT NULL AND B.IN_TIME IS NULL AND B.WORK_TYPE IS NULL THEN '미로그인'
+	                    ELSE ( SELECT J.VALUE_MEAN_KOR
+	                            FROM BS_CODE_GV J
+	                                    WHERE  J.ORG_ID = A.ORG_ID
+	                                AND J.CODE_NAME = 'WORK_TYPE'
+	                                AND J.CODE_VALUE = B.WORK_TYPE )
+	              END)                                  AS WORK_TYPE_NM
+	            ,B.WORK_REQ_TYPE                        AS WORK_REQ_TYPE
+	            ,B.WORK_REQ_REASON                      AS WORK_REQ_REASON
+	            ,B.WORK_REQ_ACCEPT_YN                   AS WORK_REQ_ACCEPT_YN
+	            ,B.WORK_CONFIRM_DATE                    AS WORK_CONFIRM_DATE
+	            ,B.WORK_CONFIRM_USER_ID                 AS WORK_CONFIRM_USER_ID
+	            ,C.NAME                                 AS NAME
+	            ,DATE_FORMAT(C.HIRED_DATE, '%Y/%m/%d')  AS HIRED_DATE
+	            ,E.KOR_NAME                             AS DEPT_NM
+	            ,F.VALUE_MEAN_KOR                       AS POSITION
+	            ,IFNULL(G.END_YN,'Y')                   AS END_YN   /* 마감처리구분 */
+	            ,IF(H.ANNUAL_YN = 'Y', 'Y', IF(IFNULL(A.HOLIDAY, 'N') = 'Y', 'Y', 'N')) AS NO_WORK_DAY_YN  /* 근태체크불필요여부 */
+	            ,H.SCHE_CONTENTS                        AS SCHE_CONTENTS        /* 해당일의 일정 */
+	            ,IFNULL(ANNUAL_YN, 'N') ANNUAL_YN   /* 휴일 */
+	            ,DATE_FORMAT((A.SYS_DATE + INTERVAL 7 DAY), '%m/%d')  AS WORK_DATE_END  /* 근태 마감기간 */
+	            ,IF((A.SYS_DATE + INTERVAL 7 DAY) >= CURDATE(), 'Y', 'N') AS END_DATE_YN    /* 근태일로부터 7일후면 출근인청요청 불가함 */
+	            ,IF(DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d')  = DATE_FORMAT(NOW(), '%Y-%m-%d') , 'Y', 'N') AS TODAY_YN    /* 근태일로부터 7일후면 출근인청요청 불가함 */
+	            ,IFNULL(A.HOLIDAY, 'N') AS HOLIDAY
+	    FROM    BS_CALENDAR A
+	              LEFT JOIN BS_WORKTIME  B  ON  A.ORG_ID     = B.ORG_ID
+	                                                 AND A.SYS_DATE   = B.WORK_DATE
+	                                                 <isNotEmpty property="searchUserId">
+	                                                    AND B.USER_ID = #searchUserId#    /* 개인의 월 */
+	                                                </isNotEmpty>
+	              LEFT JOIN BS_USER_MASTER        C  ON  B.USER_ID    = C.USER_ID
+	              LEFT JOIN BS_USER_DEPARTMENT    D  ON  B.USER_ID    = D.USER_ID AND D.MAIN_YN = 'Y'
+	              LEFT JOIN BS_DEPARTMENT         E  ON  D.DEPT_ID    = E.DEPT_ID
+	              LEFT JOIN BS_CODE_GV            F  ON  F.ORG_ID     = A.ORG_ID
+	                                                 AND F.CODE_NAME  = 'RANK'
+	                                                 AND F.CODE_VALUE = C.RANK
+	              LEFT JOIN BS_WORKTIME_END       G  ON  A.ORG_ID     = G.ORG_ID
+	                                                 AND A.SYS_DATE   = G.WORK_DATE
+	              LEFT JOIN (
+	                      SELECT  PER_SABUN
+	                             ,SYS_DATE
+	                             ,APPV_DOC_TYPE
+	                             ,MAX(LEAVE_YN )  LEAVE_YN
+	                             ,MAX(HALF_YN  )  HALF_YN
+	                             ,MAX(EVENT_YN )  EVENT_YN
+	                             ,MAX(SICK_YN  )  SICK_YN
+	                             ,MAX(REST_YN  )  REST_YN
+
+	                             ,MAX(ETC_LEAVE_YN )  ETC_LEAVE_YN
+                                 ,MAX(ETC_HALF_YN  )  ETC_HALF_YN
+
+	                             ,MAX(ATTEND_YN  )  ATTEND_YN
+	                             ,MAX(ANNUAL_YN)  ANNUAL_YN
+	                             ,GROUP_CONCAT(CONCAT(APPV_DOC_TYPE, '||-||', ACTIVITY_NM, '||-||', SCHE_TITLE) SEPARATOR ':::::') SCHE_CONTENTS
+	                      FROM    (
+	                              SELECT  A.SYS_DATE
+	                                     ,B.PER_SABUN
+	                                     ,B.SCHE_TITLE
+	                                     ,B.APPV_DOC_TYPE
+	                                     ,B.LEAVE_YN
+	                                     ,B.HALF_YN
+	                                     ,B.EVENT_YN
+	                                     ,B.SICK_YN
+	                                     ,B.REST_YN
+
+	                                     ,B.ETC_LEAVE_YN
+                                         ,B.ETC_HALF_YN
+
+	                                     ,B.ATTEND_YN
+	                                     ,B.ANNUAL_YN
+	                                     ,B.ACTIVITY_NM
+	                              FROM    BS_CALENDAR A
+	                                     ,(
+	                                      SELECT
+	                                           B.PER_SABUN
+	                                          ,A.SCHE_S_DATE
+	                                          ,A.SCHE_E_DATE
+	                                          ,A.SCHE_TITLE
+	                                          ,(CASE WHEN A.ATTEND_YN = 'Y' THEN 'ATTEND' ELSE P.APPV_DOC_TYPE END) AS APPV_DOC_TYPE
+	                                          /* 결재를 통한 휴가(ANNUAL_ALL),경조휴가(EVENT), 병가(SICK), 휴직(REST) 인경우 근태처리 안함. 반차(ANNUAL_AM,ANNUAL_PM), 교육(EDU), 출장신청(TRIP)은 미처리 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'ANNUAL_ALL', 'Y', 'N')      AS LEAVE_YN   /* 년차여부 */
+                                                  ,IF(P.APPV_DOC_TYPE IN ('ANNUAL_AM','ANNUAL_PM'), 'Y', 'N')       AS HALF_YN    /* 반차여부 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'EVENT', 'Y', 'N')    AS EVENT_YN   /* 경조사여부 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'SICK', 'Y', 'N')       AS SICK_YN    /* 병가여부 */
+                                                  ,IF(P.APPV_DOC_TYPE = 'REST', 'Y', 'N')       AS REST_YN    /* 휴직여부 */
+
+                                                  ,IF(P.APPV_DOC_TYPE = 'ETC_ALL', 'Y', 'N')      AS ETC_LEAVE_YN   /* 기타휴가여부 */
+                                                  ,IF(P.APPV_DOC_TYPE IN ('ETC_AM','ETC_PM'), 'Y', 'N')       AS ETC_HALF_YN    /* 기타반차여부 */
+
+                                                  ,A.ATTEND_YN       AS ATTEND_YN    /* 현지출근 */
+                                                  ,(CASE WHEN INSTR('ANNUAL_ALL|EVENT|SICK|REST|ETC_ALL', P.APPV_DOC_TYPE) <![CDATA[ > ]]> 0  THEN 'Y'
+                                                           WHEN A.ATTEND_YN = 'Y' THEN 'Y'
+                                                           ELSE 'N'
+                                                   END) AS ANNUAL_YN /* 전자결재중 근태체크 불필요 여부 */
+                                                  , P.NAME AS ACTIVITY_NM
+	                                      FROM ERP_SCHEDULE       A
+	                                          ,ERP_SCHEDULE_ENTRY B
+	                                          ,BS_ACTIVITY P
+	                                      WHERE A.SCHE_SEQ = B.SCHE_SEQ
+	                                      AND A.ACTIVITY_ID = P.ACTIVITY_ID
+	                                      AND A.DEL_FLAG = 'N'
+	                                      AND B.DEL_FLAG = 'N'
+	                                      AND (P.APPV_DOC_TYPE IN ('ANNUAL_ALL','ANNUAL_AM','ANNUAL_PM','EVENT','SICK','REST','ETC_ALL','ETC_AM','ETC_PM')
+                                                          OR A.ATTEND_YN ='Y')
+	                                      AND B.ORG_ID = #applyOrgId#
+	                                      <isNotEmpty property="searchYear">
+	                                          <isNotEqual property="searchMonth" compareValue="All">
+	                                              /* 개인의 월 */
+	                                              AND (
+	                                                   SCHE_S_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+	                                                               AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+	                                                   OR
+	                                                   SCHE_E_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))
+	                                                               AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))
+	                                                   OR
+	                                                   (SCHE_S_DATE <![CDATA[ < ]]> DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND SCHE_E_DATE <![CDATA[ > ]]> LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))))
+	                                                  )
+	                                           </isNotEqual>
+	                                           <isEqual property="searchMonth" compareValue="All">
+	                                               AND (
+                                                       SCHE_S_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01'))
+                                                                   AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))
+                                                       OR
+                                                       SCHE_E_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01'))
+                                                                   AND     LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))
+                                                       OR
+                                                       (SCHE_S_DATE <![CDATA[ < ]]> DATE(CONCAT(#searchYear#,'-01','-01')) AND SCHE_E_DATE <![CDATA[ > ]]> LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01'))))
+                                                      )
+	                                           </isEqual>
+	                                       </isNotEmpty>
+	                                       <isNotEmpty property="searchDate">
+	                                          /* 여려명 일  */
+	                                          AND #searchDate# BETWEEN A.SCHE_S_DATE AND A.SCHE_E_DATE
+	                                          GROUP BY B.PER_SABUN, A.SCHE_S_DATE,A.SCHE_E_DATE,A.SCHE_TITLE, P.APPV_DOC_TYPE
+	                                       </isNotEmpty>
+	                                      ) B
+	                              WHERE   A.ORG_ID    = #applyOrgId#
+	                              <isNotEmpty property="searchYear">
+	                                  <isNotEqual property="searchMonth" compareValue="All">
+	                                      AND     A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01'))) /*  개인의 월 */
+	                                  </isNotEqual>
+	                                  <isEqual property="searchMonth" compareValue="All">
+	                                      AND     A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01'))) /*  개인의 월 */
+	                                  </isEqual>
+	                              </isNotEmpty>
+	                              <isNotEmpty property="searchDate">
+	                                  AND     DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d') = #searchDate#  /* 여러명 일 */
+	                              </isNotEmpty>
+	                              AND     A.SYS_DATE BETWEEN B.SCHE_S_DATE AND B.SCHE_E_DATE
+	                              ) X
+	                      GROUP BY PER_SABUN, SYS_DATE
+	              ) H ON  C.EMP_NO = H.PER_SABUN
+	                  AND A.SYS_DATE = H.SYS_DATE
+
+	        WHERE   A.ORG_ID    = #applyOrgId#
+	        AND IFNULL(A.HOLIDAY, 'N') = 'N'
+	        <isNotEmpty property="searchYear">
+	             <isNotEqual property="searchMonth" compareValue="All">
+	                 AND  A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))  /*  개인의 월 */
+	             </isNotEqual>
+	             <isEqual property="searchMonth" compareValue="All">
+                     AND  A.SYS_DATE BETWEEN DATE(CONCAT(#searchYear#,'-01','-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))  /*  개인의 월 */
+                 </isEqual>
+	         </isNotEmpty>
+	         <isNotEmpty property="searchDate">
+	             AND     DATE_FORMAT(A.SYS_DATE, '%Y-%m-%d') = #searchDate#          /* 여러명 일 */
+	         </isNotEmpty>
+         ) X
+        WHERE 1=1
+         <isEqual property="actionType" compareValue="mainPop">
+            AND X.SYS_DATE >= (CURDATE()-INTERVAL 7 DAY)
+            AND IFNULL(X.WORK_TYPE,'WORK') IN ('LATE','NO_WORK','NO_LOGIN')
+            AND X.WORK_REQ_ACCEPT_YN IS NULL
+            AND X.END_YN = 'N'
+            AND X.END_DATE_YN = 'Y'
+            AND X.WORK_REQ_TYPE IS NULL
+        </isEqual>
+        <isEqual property="actionType" compareValue="yearPop">
+            AND IFNULL(X.WORK_TYPE,'WORK') != 'WORK'
+        </isEqual>
+        <isEqual property="actionType" compareValue="noWork">
+            AND IFNULL(X.WORK_TYPE,'WORK') != 'WORK'
+        </isEqual>
+        ORDER BY X.SYS_DATE, X.DEPT_NM, X.NAME
+    </select>
+
+    <!-- 엑셀파일저장 -->
+	<insert id = "worktimeDAO.insertWorktimeExcelFile" parameterClass = "HashMap">
+		INSERT INTO BS_WORKTIME_EXCEL_FILE (
+											 ORG_ID
+											,ORG_FILE_NAME
+											,NEW_FILE_NAME
+											,FILE_PATH
+											,ATTEND_REQ_CNT
+											,ERROR_YN
+											,APPLY_YN
+											,CREATED_BY
+											,CREATE_DATE
+											,UPDATED_BY
+											,UPDATE_DATE
+											) VALUES (
+													 #orgId#
+													,#orgFileName#
+													,#newFileName#
+													,#filePath#
+													,0
+													,'N'
+													,'N'
+													,#rgId#
+													,NOW()
+													,#rgId#
+													,NOW()
+													)
+		<selectKey resultClass="int" type="post" keyProperty="worktimeExcelFileId">
+				SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+	<!-- 근태관리 엑셀 등록 -->
+	<insert id="worktimeDAO.insertWorktimeExcel" parameterClass="HashMap">
+            INSERT INTO BS_WORKTIME_EXCEL
+                  (
+                    ORG_ID
+					,WORKTIME_EXCEL_FILE_ID
+					,NAME
+					,DEPT_NAME
+					,IN_TIME_BASE
+					,OUT_TIME_BASE
+					,IN_TIME_DATE
+					,IN_TIME
+					,OUT_TIME_DATE
+					,OUT_TIME
+					,USER_ID
+					,ERROR_YN
+					,ERROR_TEXT
+					,WARNING_TEXT
+					,CREATED_BY
+					,CREATE_DATE
+					,UPDATED_BY
+					,UPDATE_DATE
+         ) VALUES (
+                    #orgId#
+                    ,#worktimeExcelFileId#
+                    ,#name#
+                    ,#deptName#
+                    ,#inTimeBase#
+                    ,#outTimeBase#
+                    ,#inTimeDate#
+                    ,#inTime#
+                    ,#outTimeDate#
+                    ,#outTime#
+                    ,#userId#
+                    ,#errorYn#
+                    ,#errorText#
+                    ,#warningText#
+                    , #rgId#
+                    , now()
+                    , #rgId#
+                    , now()
+                  )
+        /* worktimeDAO.insertWorktimeExcel */
+    </insert>
+    <!--근태일괄관리 업로드엑셀파일리스트  -->
+    <select id = "worktimeDAO.getWorkTimeExcelFileList" parameterClass="HashMap" resultClass = "egovMap">
+    	SELECT   A.WORKTIME_EXCEL_FILE_ID
+				,A.ORG_ID
+				,A.ORG_FILE_NAME
+				,A.NEW_FILE_NAME
+				,A.FILE_PATH
+				,A.ATTEND_REQ_CNT
+				,A.ERROR_YN
+				,A.APPLY_YN
+				,(SELECT COUNT(*) FROM BS_WORKTIME_EXCEL X WHERE X.WORKTIME_EXCEL_FILE_ID = A.WORKTIME_EXCEL_FILE_ID) UPLOAD_CNT
+				,A.CREATED_BY
+				,(SELECT X.NAME FROM BS_USER_MASTER X WHERE A.CREATED_BY = X.USER_ID) AS CREATED_NM
+				,DATE_FORMAT(A.CREATE_DATE, '%Y/%m/%d')    AS CREATE_DATE
+				,(SELECT X.NAME FROM BS_USER_MASTER X WHERE A.UPDATED_BY = X.USER_ID) AS UPDATED_NM
+				,A.UPDATED_BY
+				,DATE_FORMAT(A.UPDATE_DATE, '%Y/%m/%d')    AS UPDATE_DATE
+		  FROM BS_WORKTIME_EXCEL_FILE A
+		 WHERE A.ORG_ID = #orgId#
+		   AND A.ERROR_YN = 'N'
+		 <isNotEmpty property="searchYear">
+             <isNotEqual property="searchMonth" compareValue="All">
+                 AND  DATE(A.CREATE_DATE) BETWEEN DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-',#searchMonth#,'-01')))  /*  개인의 월 */
+             </isNotEqual>
+             <isEqual property="searchMonth" compareValue="All">
+                 AND  DATE(A.CREATE_DATE) BETWEEN DATE(CONCAT(#searchYear#,'-01','-01')) AND LAST_DAY(DATE(CONCAT(#searchYear#,'-12','-01')))  /*  개인의 월 */
+             </isEqual>
+         </isNotEmpty>
+         ORDER BY A.CREATE_DATE DESC
+    </select>
+     <!-- 근태일괄관리 엑셀 업로드 사용자조회 -->
+    <select id = "worktimeDAO.getAttendUserInfo" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT   A.USER_ID
+				,B.WORK_DATE 			 AS IN_WORK_DATE                     /*출근일*/
+				,B.IN_TIME               AS IN_TIME                          /*출근시간*/
+				,B.WORK_TYPE             AS IN_WORK_TYPE                     /*(출근일)근태구분*/
+				,B.WORK_REQ_TYPE         AS IN_WORK_REQ_TYPE                 /*(출근일)근태요청구분*/
+				,B.WORK_REQ_DATE         AS IN_WORK_REQ_DATE                 /*(출근일)근태요청일시*/
+				,B.WORK_REQ_REASON       AS IN_WORK_REQ_REASON               /*(출근일)근태요청사유*/
+				,B.WORK_REQ_ACCEPT_YN    AS IN_WORK_REQ_ACCEPT_YN            /*(출근일)근태요청처리구분*/
+				,B.WORK_CONFIRM_DATE     AS IN_WORK_CONFIRM_DATE             /*(출근일)근태인정일시*/
+				,B.WORK_CONFIRM_USER_ID  AS IN_WORK_CONFIRM_USER_ID          /*(출근일)근태인정자*/
+				,B.MNG_WORK_PRC_TYPE     AS IN_MNG_WORK_PRC_TYPE             /*(출근일)관리자근태처리구분*/
+				,B.MNG_WORK_PRC_DATE     AS IN_MNG_WORK_PRC_DATE             /*(출근일)관리자근태처리일시*/
+				,B.MNG_WORK_PRC_REASON   AS IN_MNG_WORK_PRC_REASON           /*(출근일)관리자근태처리사유*/
+				,B.IN_TIME_EXCEL_ID      AS IN_TIME_EXCEL_ID                 /*출근엑셀순번*/
+
+				,C.WORK_DATE              AS OUT_WORK_DATE                   /*퇴근시간*/
+				,C.OUT_TIME               AS OUT_TIME                        /*(퇴근일)근태구분*/
+				,C.IN_TIME                AS OUT_IN_TIME                     /*(퇴근일)출근시간*/
+				,C.WORK_TYPE              AS OUT_WORK_TYPE                   /*(퇴근일)근태요청구분*/
+				,C.WORK_REQ_TYPE          AS OUT_WORK_REQ_TYPE               /*(퇴근일)근태요청일시*/
+				,C.WORK_REQ_DATE          AS OUT_WORK_REQ_DATE               /*(퇴근일)근태요청사유*/
+				,C.WORK_REQ_REASON        AS OUT_WORK_REQ_REASON             /*(퇴근일)근태요청처리구분*/
+				,C.WORK_REQ_ACCEPT_YN     AS OUT_WORK_REQ_ACCEPT_YN          /*(퇴근일)근태인정일시*/
+				,C.WORK_CONFIRM_DATE      AS OUT_WORK_CONFIRM_DATE           /*(퇴근일)근태인정자*/
+				,C.WORK_CONFIRM_USER_ID   AS OUT_WORK_CONFIRM_USER_ID        /*(퇴근일)관리자근태처리구분*/
+				,C.MNG_WORK_PRC_TYPE      AS OUT_MNG_WORK_PRC_TYPE           /*(퇴근일)관리자근태처리일시*/
+				,C.MNG_WORK_PRC_DATE      AS OUT_MNG_WORK_PRC_DATE           /*(퇴근일)관리자근태처리사유*/
+				,C.MNG_WORK_PRC_REASON    AS OUT_MNG_WORK_PRC_REASON         /*퇴근엑셀순번*/
+				,C.OUT_TIME_EXCEL_ID      AS OUT_TIME_EXCEL_ID
+
+				,(SELECT X.STTS_FROM_DT
+				    FROM BS_USER_STTS_HIST X
+				   WHERE X.USER_ID = A.USER_ID
+				     AND (DATE(X.STTS_FROM_DT) <![CDATA[<= ]]> DATE(B.WORK_DATE)  OR DATE(X.STTS_FROM_DT) <![CDATA[<= ]]> DATE(C.WORK_DATE))
+				     AND USER_STATUS IN ('F','R')
+				    ORDER BY STTS_FROM_DT ASC
+				    LIMIT 1
+				     ) AS FIRE_DATE											/*출근일 , 퇴근일이 해고일 뒤에있을경우 해고일을 조회함*/
+		  FROM BS_USER_MASTER A
+		INNER JOIN BS_USER_DEPARTMENT D ON D.USER_ID = A.USER_ID AND D.MAIN_YN = 'Y'
+		INNER JOIN BS_DEPARTMENT 	  E ON D.DEPT_ID = E.DEPT_ID
+		LEFT OUTER JOIN BS_WORKTIME B ON A.USER_ID = B.USER_ID AND  DATE(B.WORK_DATE) = DATE(#inTimeDate#)
+		LEFT OUTER JOIN BS_WORKTIME C ON A.USER_ID = C.USER_ID AND  DATE(C.WORK_DATE) = DATE(#outTimeDate#)
+		WHERE A.NAME = #name# AND A.ORG_ID = #orgId# AND E.KOR_NAME = #deptName#
+    </select>
+
+    <!-- 출퇴근 시간 (같은날 같은사용자의 출근시간보다 퇴근시간이 이전일수 없다.) -->
+    <update id = "worktimeDAO.updateWorktimeExcelErrorMsgForIntime" parameterClass="HashMap">
+	    UPDATE BS_WORKTIME_EXCEL
+		   SET ERROR_TEXT = CONCAT(IFNULL(ERROR_TEXT,''),'같은날 같은사용자의 퇴근시간이 출근시간보다 빠를수 없습니다.|')
+				,ERROR_YN = 'Y'
+		 WHERE WORKTIME_EXCEL_ID IN (
+										SELECT Z.WORKTIME_EXCEL_ID FROM (
+											SELECT X.WORKTIME_EXCEL_ID
+											  FROM BS_WORKTIME_EXCEL X
+											INNER JOIN BS_WORKTIME_EXCEL Y
+											 WHERE X.USER_ID = Y.USER_ID
+												AND X.WORKTIME_EXCEL_FILE_ID = Y.WORKTIME_EXCEL_FILE_ID
+												AND Y.OUT_TIME_DATE IS NOT NULL
+												AND X.IN_TIME_DATE IS NOT NULL
+												AND X.IN_TIME_DATE = Y.OUT_TIME_DATE
+												AND STR_TO_DATE(X.IN_TIME,'%H:%i')>STR_TO_DATE(Y.OUT_TIME,'%H:%i')
+		                                        AND X.WORKTIME_EXCEL_FILE_ID = #worktimeExcelFileId#
+										) Z
+									)
+    </update>
+
+    <!-- 근태일괄처리 엑셀 업로드 벨리데이션 후 파일 업데이트 -->
+    <update id = "worktimeDAO.updateWorktimeExcelFileResult" parameterClass="HashMap">
+    	UPDATE BS_WORKTIME_EXCEL_FILE
+    	  SET ERROR_YN = #errorYn#
+    	  	  ,ATTEND_REQ_CNT = #attendReqCnt#
+    	 WHERE WORKTIME_EXCEL_FILE_ID = #worktimeExcelFileId#
+    </update>
+
+    <!-- 업로드한 엑셀의 업로드 대상 출근 기록을 조회한다. -->
+    <select id = "worktimeDAO.getWorktimeExcelIntimeList" parameterClass="HashMap" resultClass = "egovMap">
+    	SELECT A.USER_ID
+    		  ,A.ORG_ID
+    		  ,A.WORKTIME_EXCEL_ID
+    		  ,A.IN_TIME_BASE
+    		  ,A.IN_TIME_DATE
+    		  ,A.IN_TIME
+    		  ,A.OUT_TIME_BASE
+    		  ,IF((SELECT COUNT(*) FROM BS_WORKTIME X WHERE X.USER_ID = A.USER_ID AND DATE(X.WORK_DATE) = DATE(A.IN_TIME_DATE))>0,'U','C') AS TYPE
+    		  ,IFNULL((SELECT Y.END_YN FROM BS_WORKTIME_END Y WHERE DATE(Y.WORK_DATE)=DATE(A.IN_TIME_DATE) AND Y.ORG_ID = #orgId#),'C') AS END_TYPE
+    	 FROM BS_WORKTIME_EXCEL A
+    	WHERE A.WORKTIME_EXCEL_FILE_ID = #worktimeExcelFileId#
+    	  AND A.ERROR_YN = 'N'
+    	  AND A.IN_TIME_DATE IS NOT NULL
+    	  AND A.IN_TIME_DATE != ''
+    	  AND A.USER_ID IS NOT NULL
+    	GROUP BY A.USER_ID , A.IN_TIME_DATE HAVING MIN(IN_TIME)
+    </select>
+
+    <!-- 엑셀 일괄처리 유저의 출근부 기록이 없을경우 인서트한다.-->
+	<insert id = "worktimeDAO.insertWorkTimeForExcelUserIntime" parameterClass = "egovMap">
+		INSERT INTO BS_WORKTIME(  ORG_ID
+								, USER_ID
+								, WORK_DATE
+								, IN_TIME
+								, IN_CONTACT_LOC
+								, WORK_TYPE
+								, IN_TIME_EXCEL_ID
+								, IN_TIME_BASE
+								, OUT_TIME_BASE
+								, CREATED_BY
+								, CREATE_DATE
+								, UPDATED_BY
+								, UPDATE_DATE
+								) VALUES (
+								  #orgId#
+								, #userId#
+								, #inTimeDate#
+								, STR_TO_DATE(CONCAT(#inTimeDate#,' ',#inTime#),'%Y-%m-%d %H:%i')
+								, 'excel'
+								, (
+									SELECT /*
+							    	      	출근 처리 조건
+							    	       2.USER_STATUS = 'W' (재직 상태)
+							    	       3.APPV_DOC_CLASS IS NULL (일정에 전자결재에서 넘어온 휴가 , 병가 , 경조휴가 , 휴직 의 데이터가 없음)
+							    	       4. 1,2,3, OR S.APPV_DOC_TYPE = 'ANNUAL_AM' (휴가지만 오전 반차일경우 출근시간을 (반차)일정의 종료 시간)
+							    	      */
+									IF( B.USER_STATUS = 'W' AND (S.APPV_DOC_CLASS IS NULL OR S.APPV_DOC_TYPE = 'ANNUAL_AM' OR S.APPV_DOC_TYPE = 'ANNUAL_PM' OR S.APPV_DOC_TYPE = 'ETC_AM' OR S.APPV_DOC_TYPE = 'ETC_PM')
+											AND NOT EXISTS (
+ 													SELECT  X.SCHE_SEQ
+ 													  FROM  ERP_SCHEDULE X, ERP_SCHEDULE_ENTRY Z
+ 													 WHERE  DATE(#inTimeDate#) BETWEEN STR_TO_DATE(X.SCHE_S_DATE,'%Y-%m-%d') AND STR_TO_DATE(X.SCHE_E_DATE,'%Y-%m-%d')
+ 													   AND X.SCHE_SEQ = Z.SCHE_SEQ
+ 													   AND X.DEL_FLAG = 'N'
+    	 			     							   AND Z.PER_SABUN = (SELECT Y.EMP_NO FROM BS_USER_MASTER Y WHERE Y.USER_ID = #userId#)
+    	 			     							   AND X.ATTEND_YN = 'Y'
+    	      									)
+    	      								, ( SELECT IF(X.HOLIDAY = 'Y', NULL
+    	      												, IF( IF(S.APPV_DOC_TYPE = 'ANNUAL_AM' OR S.APPV_DOC_TYPE = 'ETC_AM'
+    	      													, STR_TO_DATE(CONCAT(#inTime#,':00'),'%H:%i:%s') , X.IN_TIME)  <![CDATA[<=]]> DATE_FORMAT(NOW(),'%H:%i:%s'), 'LATE', 'WORK')) WORK_TYPE
+                                                        FROM   BS_CALENDAR X
+										  		        WHERE  X.ORG_ID = #orgId#
+												        AND    X.SYS_DATE = DATE(#inTimeDate#)
+												)
+									  		  ,NULL)
+									FROM BS_USER_MASTER B
+									LEFT OUTER JOIN
+												( SELECT D.APPV_DOC_CLASS
+							    	 					,D.APPV_DOC_TYPE
+							    	 					,C.SCHE_E_TIME
+							    	 					,C.PER_SABUN
+							    	 			    FROM ERP_SCHEDULE C , BS_ACTIVITY D, ERP_SCHEDULE_ENTRY E
+							    	 			   WHERE C.PROJECT_ID = D.PROJECT_ID
+							    	 			     AND C.ACTIVITY_ID = D.ACTIVITY_ID
+							    	 			     AND C.SCHE_SEQ = E.SCHE_SEQ
+							    	 			     AND DATE(#inTimeDate#) BETWEEN STR_TO_DATE(C.SCHE_S_DATE,'%Y-%m-%d') AND STR_TO_DATE(SCHE_E_DATE,'%Y-%m-%d')
+							    	 			     AND C.DEL_FLAG = 'N'
+							    	 			     AND E.PER_SABUN = (SELECT X.EMP_NO FROM BS_USER_MASTER X WHERE X.USER_ID = #userId#)
+							    	 			     ORDER BY IF(D.APPV_DOC_TYPE = 'ANNUAL_AM' OR D.APPV_DOC_TYPE = 'ETC_AM',1,0) ASC , IF(D.APPV_DOC_CLASS = 'VACATION' , 1 ,IF(D.APPV_DOC_CLASS IS NOT NULL , 2,3)) ASC
+							    	 			     LIMIT 1
+							    	 			  ) S ON B.EMP_NO = S.PER_SABUN
+									WHERE B.USER_ID = #userId#
+
+									)
+								, #worktimeExcelId#
+								, #inTimeBase#
+								, #outTimeBase#
+								, #rgId#
+								, NOW()
+								, #rgId#
+								, NOW()
+								)
+
+	</insert>
+	<update id = "worktimeDAO.updateWorkTimeForExcelUserIntime" parameterClass = "egovMap">
+		UPDATE BS_WORKTIME
+		  SET 	IN_TIME =  STR_TO_DATE(CONCAT(#inTimeDate#,' ',#inTime#),'%Y-%m-%d %H:%i')
+			  ,	IN_CONTACT_LOC = 'excel'
+			  ,	IN_CONTACT_IP = NULL
+			  , WORK_TYPE = (
+									SELECT /*
+							    	      	출근 처리 조건
+							    	       2.USER_STATUS = 'W' (재직 상태)
+							    	       3.APPV_DOC_CLASS IS NULL (일정에 전자결재에서 넘어온 휴가 , 병가 , 경조휴가 , 휴직 의 데이터가 없음)
+							    	       4. 1,2,3, OR S.APPV_DOC_TYPE = 'ANNUAL_AM' (휴가지만 오전 반차일경우 출근시간을 (반차)일정의 종료 시간)
+							    	      */
+									IF( B.USER_STATUS = 'W' AND (S.APPV_DOC_CLASS IS NULL OR S.APPV_DOC_TYPE = 'ANNUAL_AM' OR S.APPV_DOC_TYPE = 'ANNUAL_PM' OR S.APPV_DOC_TYPE = 'ETC_AM' OR S.APPV_DOC_TYPE = 'ETC_PM')
+											 AND NOT EXISTS (
+ 													SELECT  X.SCHE_SEQ
+ 													  FROM  ERP_SCHEDULE X, ERP_SCHEDULE_ENTRY Z
+ 													 WHERE  DATE(#inTimeDate#) BETWEEN STR_TO_DATE(X.SCHE_S_DATE,'%Y-%m-%d') AND STR_TO_DATE(X.SCHE_E_DATE,'%Y-%m-%d')
+ 													   AND X.SCHE_SEQ = Z.SCHE_SEQ
+ 													   AND X.DEL_FLAG = 'N'
+    	 			     							   AND Z.PER_SABUN = (SELECT Y.EMP_NO FROM BS_USER_MASTER Y WHERE Y.USER_ID = #userId#)
+    	 			     							   AND X.ATTEND_YN = 'Y'
+    	      									)
+    	      								, ( SELECT IF(X.HOLIDAY = 'Y', NULL
+    	      												, IF( IF(S.APPV_DOC_TYPE = 'ANNUAL_AM' OR S.APPV_DOC_TYPE = 'ETC_AM'
+    	      													, STR_TO_DATE(CONCAT(S.SCHE_E_TIME,':00'),'%H:%i:%s') , STR_TO_DATE(CONCAT(#inTimeBase#,':00'),'%H:%i:%s'))  <![CDATA[<=]]> STR_TO_DATE(CONCAT(#inTime#,':00'),'%H:%i:%s'), 'LATE', 'WORK')) WORK_TYPE
+                                                        FROM   BS_CALENDAR X
+										  		        WHERE  X.ORG_ID = #orgId#
+												        AND    X.SYS_DATE = DATE(#inTimeDate#)
+												)
+									  		  ,NULL)
+									FROM BS_USER_MASTER B
+									LEFT OUTER JOIN
+												( SELECT D.APPV_DOC_CLASS
+							    	 					,D.APPV_DOC_TYPE
+							    	 					,C.SCHE_E_TIME
+							    	 					,C.PER_SABUN
+							    	 			    FROM ERP_SCHEDULE C , BS_ACTIVITY D, ERP_SCHEDULE_ENTRY E
+							    	 			   WHERE C.PROJECT_ID = D.PROJECT_ID
+							    	 			     AND C.ACTIVITY_ID = D.ACTIVITY_ID
+							    	 			     AND C.SCHE_SEQ = E.SCHE_SEQ
+							    	 			     AND DATE(#inTimeDate#) BETWEEN STR_TO_DATE(C.SCHE_S_DATE,'%Y-%m-%d') AND STR_TO_DATE(SCHE_E_DATE,'%Y-%m-%d')
+							    	 			     AND C.DEL_FLAG = 'N'
+							    	 			     AND E.PER_SABUN = (SELECT X.EMP_NO FROM BS_USER_MASTER X WHERE X.USER_ID = #userId#)
+							    	 			     ORDER BY IF(D.APPV_DOC_TYPE = 'ANNUAL_AM' OR D.APPV_DOC_TYPE = 'ETC_AM',1,0) ASC , IF(D.APPV_DOC_CLASS = 'VACATION' , 1 ,IF(D.APPV_DOC_CLASS IS NOT NULL , 2,3)) ASC
+							    	 			     LIMIT 1
+							    	 			  ) S ON B.EMP_NO = S.PER_SABUN
+									WHERE B.USER_ID = #userId#
+
+									)
+			  , WORK_REQ_TYPE         = NULL
+			  , WORK_REQ_DATE         = NULL
+			  , WORK_REQ_REASON       = NULL
+			  , WORK_REQ_ACCEPT_YN    = NULL
+			  , WORK_CONFIRM_DATE     = NULL
+			  , WORK_CONFIRM_USER_ID  = NULL
+			  , MNG_WORK_PRC_TYPE     = NULL
+			  , MNG_WORK_PRC_DATE     = NULL
+			  , MNG_WORK_PRC_REASON   = NULL
+			  , IN_TIME_EXCEL_ID 	  = #worktimeExcelId#
+			  , IN_TIME_BASE		  = #inTimeBase#
+			  , OUT_TIME_BASE		  = #outTimeBase#
+		  	  , UPDATED_BY = #rgId#
+			  , UPDATE_DATE = NOW()
+		WHERE DATE(WORK_DATE) = DATE(#inTimeDate#)
+		  AND ORG_ID = #orgId#
+		  AND USER_ID = #userId#
+	</update>
+	<!-- 업로드한 엑셀의 업로드 대상 퇴근 기록을 조회한다. -->
+    <select id = "worktimeDAO.getWorktimeExcelOuttimeList" parameterClass="HashMap" resultClass = "egovMap">
+    	SELECT A.USER_ID
+    		  ,A.ORG_ID
+    		  ,A.WORKTIME_EXCEL_ID
+    		  ,A.IN_TIME_BASE
+    		  ,A.OUT_TIME_BASE
+    		  ,A.OUT_TIME_DATE
+    		  ,A.OUT_TIME
+    		  ,IF((SELECT COUNT(*) FROM BS_WORKTIME X WHERE X.USER_ID = A.USER_ID AND DATE(X.WORK_DATE) = DATE(A.OUT_TIME_DATE))>0,'U','C') AS TYPE
+    		  ,IFNULL((SELECT Y.END_YN FROM BS_WORKTIME_END Y WHERE DATE(Y.WORK_DATE)=DATE(A.OUT_TIME_DATE) AND Y.ORG_ID = #orgId#),'C') AS END_TYPE
+    	 FROM BS_WORKTIME_EXCEL A
+    	WHERE A.WORKTIME_EXCEL_FILE_ID = #worktimeExcelFileId#
+    	  AND A.ERROR_YN = 'N'
+    	  AND A.OUT_TIME_DATE IS NOT NULL
+    	  AND A.OUT_TIME_DATE != ''
+    	  AND A.USER_ID IS NOT NULL
+    	GROUP BY A.USER_ID , A.OUT_TIME_DATE HAVING MAX(OUT_TIME)
+    </select>
+
+	<!-- 엑셀 일괄처리 유저의 출근부 기록이 없을경우 인서트한다.(퇴근)-->
+	<insert id = "worktimeDAO.insertWorkTimeForExcelUserOuttime" parameterClass = "egovMap">
+		INSERT INTO BS_WORKTIME(  ORG_ID
+								, USER_ID
+								, WORK_DATE
+								, OUT_TIME
+								, OUT_TIME_EXCEL_ID
+								, IN_TIME_BASE
+								, OUT_TIME_BASE
+								, CREATED_BY
+								, CREATE_DATE
+								, UPDATED_BY
+								, UPDATE_DATE
+								) VALUES (
+								  #orgId#
+								, #userId#
+								, #outTimeDate#
+								, STR_TO_DATE(CONCAT(#outTimeDate#,' ',#outTime#),'%Y-%m-%d %H:%i')
+								, #worktimeExcelId#
+								, #inTimeBase#
+								, #outTimeBase#
+								, #rgId#
+								, NOW()
+								, #rgId#
+								, NOW()
+								)
+
+	</insert>
+
+	<update id = "worktimeDAO.updateWorkTimeForExcelUserOuttime" parameterClass = "egovMap">
+		UPDATE BS_WORKTIME
+		  SET 	OUT_TIME = STR_TO_DATE(CONCAT(#outTimeDate#,' ',#outTime#),'%Y-%m-%d %H:%i')
+			  ,	OUT_CONTACT_LOC = 'excel'
+			  , OUT_TIME_EXCEL_ID 	  = #worktimeExcelId#
+			  , IN_TIME_BASE = #inTimeBase#
+			  , OUT_TIME_BASE = #outTimeBase#
+		  	  , UPDATED_BY = #rgId#
+			  , UPDATE_DATE = NOW()
+		WHERE WORK_DATE = #outTimeDate#
+		  AND ORG_ID = #orgId#
+		  AND USER_ID = #userId#
+	</update>
+
+	<!-- 엑셀 일괄처리 유저의 출근부 기록이 없을경우 출근부마감데이터 생성 -->
+    <insert id = "worktimeDAO.insertWorkTimeEndByExcelUpload" parameterClass="HashMap">
+		INSERT INTO BS_WORKTIME_END(ORG_ID, WORK_DATE, END_YN, CREATED_BY, CREATE_DATE, UPDATED_BY, UPDATE_DATE)
+		SELECT  A.ORG_ID, A.SYS_DATE, A.HOLIDAY, -1, NOW(), -1, NOW()
+		FROM    BS_CALENDAR A
+				,BS_ORG     B
+		WHERE   A.SYS_DATE = DATE(NOW())
+		  AND   B.ORG_ID = A.ORG_ID
+		  AND   B.ORG_ID = #orgId#
+		  AND   B.ENABLE = 'Y'
+          AND   B.USE_YN = 'Y'
+    </insert>
+
+    <!-- 엑셀파일 적용여부를 업데이트한다 -->
+    <update id = "worktimeDAO.updateWorkTimeExcelApply" parameterClass="HashMap">
+    	UPDATE BS_WORKTIME_EXCEL_FILE
+    	  SET APPLY_YN = 'Y'
+    	     , UPDATED_BY = #userId#
+    	     , UPDATE_DATE = NOW()
+    	 WHERE WORKTIME_EXCEL_FILE_ID = #worktimeExcelFileId#
+    </update>
+    <!-- 엑셀파일 정보조회 -->
+    <select id = "worktimeDAO.getExcelFileInfo" parameterClass="HashMap" resultClass = "egovMap">
+    	SELECT   WORKTIME_EXCEL_FILE_ID
+				,ORG_ID
+				,ORG_FILE_NAME
+				,NEW_FILE_NAME
+				,FILE_PATH
+				,ATTEND_REQ_CNT
+				,ERROR_YN
+				,APPLY_YN
+				,CREATED_BY
+				,CREATE_DATE
+				,UPDATED_BY
+				,UPDATE_DATE
+		 FROM BS_WORKTIME_EXCEL_FILE
+		WHERE WORKTIME_EXCEL_FILE_ID = #worktimeExcelFileId#
+    </select>
+     <!-- 출근인정 요청안내 : 메인-->
+    <select id = "worktimeDAO.getWorktimeReqAlarmList" parameterClass="HashMap" resultClass = "egovMap">
+        /* worktimeDAO.getWorktimeReqAlarmList */
+        SELECT B.NAME AS USER_NM
+                , (SELECT J.VALUE_MEAN_KOR
+	                FROM BS_CODE_GV J
+	                WHERE  J.ORG_ID = B.ORG_ID
+	                AND J.CODE_NAME = 'RANK'
+	                AND J.CODE_VALUE = B.RANK ) AS USER_RANK
+	             , (SELECT K.KOR_NAME
+	                FROM BS_USER_DEPARTMENT   J
+	                    JOIN BS_DEPARTMENT   K ON J.DEPT_ID = K.DEPT_ID
+	                WHERE B.USER_ID = J.USER_ID
+	                AND J.MAIN_YN = 'Y'
+	                AND J.ENABLE = 'Y'
+	                AND J.DELETE_FLAG = 'N') AS DEPT_NM
+	            , A.WORK_REQ_REASON
+	            , DATE_FORMAT(A.WORK_DATE, '%Y.%m.%d') AS WORK_DATE
+	            , (SELECT J.VALUE_MEAN_KOR
+                   FROM BS_CODE_GV J
+                  WHERE  J.ORG_ID = B.ORG_ID
+                    AND J.CODE_NAME = 'WORK_TYPE'
+                    AND J.CODE_VALUE = A.WORK_TYPE ) AS WORK_TYPE_NM
+                 ,DATE_FORMAT(A.WORK_DATE, '%Y')          AS WORK_YEAR
+                 ,DATE_FORMAT(A.WORK_DATE, '%m')          AS WORK_MONTH
+                 ,DATE_FORMAT(A.WORK_DATE, '%d')          AS WORK_DD
+                 ,DATE_FORMAT(A.WORK_DATE, '%Y-%m-%d') AS SEARCH_DATE
+        FROM BS_WORKTIME A
+            LEFT JOIN BS_USER_MASTER B ON A.USER_ID = B.USER_ID
+        WHERE A.ORG_ID = #applyOrgId#
+          AND (A.WORK_REQ_TYPE = 'WORK' OR A.WORK_REQ_TYPE = 'LATE')
+          AND A.WORK_REQ_ACCEPT_YN IS NULL
+        ORDER BY A.WORK_DATE ASC
+
+    </select>
+</sqlMap>

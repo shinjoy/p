@@ -1,0 +1,1994 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="person">
+
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="personVO" type="ib.person.service.PersonVO"/>
+	<typeAlias  alias="companyVO" type="ib.company.service.CompanyVO"/>
+	<typeAlias  alias="staffVO" type="ib.login.service.StaffVO"/>
+	<typeAlias  alias="excelVO" type="ib.basic.service.CpnExcelVO"/>
+
+<!-- PERSON left -->
+	<select id="personDAO.selectPersonList" parameterClass="personVO" resultClass="egovMap">
+			SELECT
+				  A.S_NB
+				, A.CPN_ID
+				, B.S_NB                      as  CPN_SNB
+				, B.CPN_NM                    as  CPN_NM
+				, A.POSITION                  as  POSITION
+				, A.TEAM                  as  TEAM
+				, A.CST_NM                    as  CST_NM
+				, A.PHN_1  as mobile
+				, (select VALUE_MEAN_KOR from BS_CODE_GV where CODE_NAME = 'CUSTOMER_TYPE' and CODE_VALUE = CC.CATEGORY_PERSON_CD AND ORG_ID = #applyOrgId#) as  CATEGORY_PERSON_NM
+                , mgmt.STAFF_ID                 as MANAGER_ID
+                , mgmt.manager_nm               as MANAGER_NM
+		<![CDATA[
+				, CC.CATEGORY_PERSON_CD
+			FROM IB_CUSTOMER A
+			LEFT JOIN IB_COMPANY B ON B.CPN_ID = A.CPN_ID
+			LEFT JOIN (SELECT a.customer_id,
+                                a.staff_id,
+                                a.MEMO,
+                                b.cus_id as manager_cus_id,
+                                b.name as manager_nm
+                        FROM BS_customer_manager a , bs_user_master b
+                        WHERE 1=1
+                        AND a.staff_id = b.user_id
+                        AND a.status = 'Y'
+                        AND a.org_Id = #applyOrgId#
+                       ) mgmt ON mgmt.customer_id = a.s_nb
+			LEFT JOIN BS_ORG_CUSTOMER_CATEGORY CC ON A.S_NB = CC.CUS_ID AND CC.ORG_ID = #applyOrgId#
+			WHERE 1=1
+			  AND (
+					A.CST_NM LIKE CONCAT('%',#searchCstNm#,'%')
+				 or A.CST_NM LIKE CONCAT('%',#searchCstNm#,'%')
+				 or B.CPN_NM LIKE CONCAT('%',#searchCstNm#,'%')
+				  )
+
+			  AND A.DELETE_FLAG = 'N'
+		]]>
+			<!--  or B.CPN_NM LIKE CONCAT('%',#cstNm#,'%')) -->
+			<isNotEmpty prepend="AND" property="sNb">
+				<![CDATA[	A.S_NB = #sNb# 		]]>
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="cpnId">
+				<![CDATA[	A.CPN_ID = #cpnId# 		]]>
+			</isNotEmpty>
+
+			ORDER BY A.CST_NM ASC
+			<isNotEqual property="recordCountPerPage" compareValue="0">
+			limit #firstIndex#, #recordCountPerPage#
+			</isNotEqual>
+	</select>
+
+
+	<select id="personDAO.selectPersonListCnt" parameterClass="personVO" resultClass="java.lang.Integer">
+		<![CDATA[
+			SELECT
+					COUNT(1)
+			FROM IB_CUSTOMER A
+            LEFT JOIN IB_COMPANY B ON B.CPN_ID = A.CPN_ID
+            WHERE 1=1
+              AND (
+                    A.CST_NM LIKE CONCAT('%',#searchCstNm#,'%')
+                 or A.CST_NM LIKE CONCAT('%',#searchCstNm#,'%')
+                 or B.CPN_NM LIKE CONCAT('%',#searchCstNm#,'%')
+                  )
+
+              AND A.DELETE_FLAG = 'N'
+            ]]>
+            <!--  or B.CPN_NM LIKE CONCAT('%',#cstNm#,'%')) -->
+            <isNotEmpty prepend="AND" property="sNb">
+                <![CDATA[   A.S_NB = #sNb#      ]]>
+            </isNotEmpty>
+
+            <isNotEmpty prepend="AND" property="cpnId">
+                <![CDATA[   A.CPN_ID = #cpnId#      ]]>
+            </isNotEmpty>
+
+	</select>
+
+    <!-- PERSON main -->
+	<select id="personDAO.selectMainPersonList" parameterClass="personVO" resultClass="personVO">
+	   /* personDAO.selectMainPersonList */
+			SELECT
+				  A.S_NB                      as  sNb
+				, A.CST_NM                    as  cstNm
+				, A.CPN_ID                    as  cpnId
+				, B.CPN_NM                    as  cpnNm
+				, B.S_NB                      as  cpnSnb
+				, A.EMAIL                     as  email
+				, A.PHN_EXPOSURE              as  phnExposure
+				, A.PHN_1                     as  phn1
+				, A.PHN_2                     as  phn2
+				, A.PHN_3                     as  phn3
+				, A.POSITION                  as  position
+				, (select VALUE_MEAN_KOR from BS_CODE_GV where CODE_NAME = 'CUSTOMER_TYPE' and CODE_VALUE = CC.CATEGORY_PERSON_CD AND ORG_ID = #searchOrgId#) as  categoryPersonNm
+				, CC.CATEGORY_PERSON_CD 		  as  categoryPersonCd
+				, (SELECT EMP_NO FROM BS_USER_MASTER WHERE LOGIN_ID = #rgId#)		as  RegPerSabun
+				, A.UP_ID						as upId
+				, A.RG_ID						as rgId
+				, ''						as snb1st
+				, A.FAX                     AS  fax
+				, A.MY_WORK             AS  myWork
+				, A.MF_SEX                 AS  mfSex
+				, A.MARRIED               AS  married
+				, A.CHILD_F                AS  childF
+				, A.CHILD_M               AS  childM
+				, A.HOMETOWN          AS  hometown
+				, A.HOME_PHONE        AS  homePhone
+				, A.BIRTH        AS  birth
+				, A.TEAM        AS  team
+				, A.DOMESTIC_YN AS  domesticYn
+				, mgmt.memo   as  memo
+				, mgmt.manager_nm   			as managerNm
+				, mgmt.staff_id 				as managerId
+				, (select max(lv_cd)
+					from IB_NET_POINT_AVAL_V
+					where 1=1
+					  and ((SNB_1ST = mgmt.manager_cus_id and SNB_2ND = A.S_NB) or (SNB_1ST = A.S_NB and SNB_2ND = mgmt.manager_cus_id))) as lvCd
+			FROM IB_CUSTOMER A
+			LEFT JOIN IB_COMPANY B ON B.CPN_ID = A.CPN_ID
+			LEFT JOIN (SELECT a.customer_id,
+								a.staff_id,
+								a.MEMO,
+								b.cus_id as manager_cus_id,
+								b.name as manager_nm
+					    FROM BS_customer_manager a , bs_user_master b
+					    WHERE 1=1
+					    AND a.staff_id = b.user_id
+					    AND a.status = 'Y'
+					    AND a.org_Id = #searchOrgId#
+					   ) mgmt ON mgmt.customer_id = a.s_nb
+			LEFT JOIN BS_ORG_CUSTOMER_CATEGORY CC ON A.S_NB = CC.CUS_ID AND CC.ORG_ID = #searchOrgId#
+			WHERE 1=1
+			  <!-- AND A.DELETE_FLAG = 'N' -->
+			<isNotEmpty prepend="AND" property="sNb">
+				<![CDATA[	A.S_NB = #sNb# 		]]>
+			</isNotEmpty>
+			<isEmpty prepend="AND" property="sNb">
+				<![CDATA[	A.S_NB = 0 		]]>
+			</isEmpty>
+	</select>
+
+	<insert id="personDAO.insertCustomer">
+		<![CDATA[
+			INSERT INTO IB_CUSTOMER
+				  (
+				    CST_NM
+				  , CPN_ID
+				  , POSITION
+				  , PHN_1
+				  , PHN_2
+				  , PHN_3
+				  , EMAIL
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , PHN_EXPOSURE
+				  , FAX
+				  , MY_WORK
+				  , MF_SEX
+				  , MARRIED
+				  , CHILD_F
+				  , CHILD_M
+				  , HOMETOWN
+				  , HOME_PHONE
+				  , SOLAR
+				  , BIRTH
+				  , TEAM
+				  , DOMESTIC_YN
+		 ) VALUES (
+				    #cstNm#
+				  , #cpnId#
+				  , #position#
+				  , #phn1#
+				  , #phn2#
+				  , #phn3#
+				  , #email#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #phnExposure#
+				  , #fax#
+                  , #myWork#
+                  , #mfSex#
+                  , #married#
+                  , #childF#
+                  , #childM#
+                  , #hometown#
+                  , #homePhone#
+                  , #solar#
+                  , #birth#
+                  , #team#
+                  , #domesticYn#
+				  )
+		]]>
+		<selectKey resultClass="String" type="post" keyProperty="cstId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+
+
+	<!-- 사용자 등록시 고객테이블에 등록 -->
+	<insert id="personDAO.insertCustomerByUser">
+		<![CDATA[
+			INSERT INTO IB_CUSTOMER
+				  (
+				    CST_NM
+				  , CPN_ID
+				  , POSITION
+				  , PHN_1
+				  , PHN_2
+				  , PHN_3
+				  , EMAIL
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , PHN_EXPOSURE
+				  , FAX
+				  , MY_WORK
+				  , MF_SEX
+				  , MARRIED
+				  , CHILD_F
+				  , CHILD_M
+				  , HOMETOWN
+				  , HOME_PHONE
+				  , SOLAR
+				  , BIRTH
+				  , TEAM
+		 ) VALUES (
+				    #cstNm#
+				  , (select cpn_id from ib_company where s_nb = #company#)
+				  , #position#
+				  , #phn1#
+				  , #phn2#
+				  , #phn3#
+				  , #email#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #phnExposure#
+				  , #fax#
+                  , #userWork#
+                  , #mfSex#
+                  , #married#
+                  , #childF#
+                  , #childM#
+                  , #hometown#
+                  , #homePhone#
+                  , #solar#
+                  , #birth#
+                  , (select kor_name from bs_department where dept_id = #deptId#)
+				  )
+		]]>
+		<selectKey resultClass="String" type="post" keyProperty="cstId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		/* personDAO.insertCustomerByUser */
+	</insert>
+	<!-- 사용자수정시 고객테이블에 등록 -->
+	<update id="personDAO.updateCustomerByUser">
+		<![CDATA[
+			UPDATE IB_CUSTOMER A, BS_USER_MASTER B
+			   SET  A.CST_NM                =#cstNm#
+				  , A.CPN_ID                =(select cpn_id from ib_company where s_nb = #company#)
+				  , A.POSITION              =#position#
+				  , A.PHN_1                 =#phn1#
+				  , A.PHN_2                 =#phn2#
+				  , A.PHN_3                 =#phn3#
+				  , A.EMAIL                 =#email#
+				  , A.UP_DT                 =now()
+				  , A.UP_ID                 =#rgId#
+				  , A.PHN_EXPOSURE          =#phnExposure#
+				  , A.FAX                   =#fax#
+				  , A.MY_WORK               =#userWork#
+				  , A.MF_SEX                =#mfSex#
+				  , A.MARRIED               =#married#
+				  , A.CHILD_F               =#childF#
+				  , A.CHILD_M               =#childM#
+				  , A.HOMETOWN              =#hometown#
+				  , A.HOME_PHONE            =#homePhone#
+				  , A.SOLAR                 =#solar#
+				  , A.BIRTH                 =#birth#
+				  , A.TEAM                  =(select kor_name from bs_department where dept_id = #deptId#)
+			  WHERE  B.USER_ID = #uId#
+			    AND  B.CUS_ID = A.S_NB
+			    AND  B.COMPANY = (SELECT X.S_NB FROM IB_COMPANY X WHERE A.CPN_ID = X.CPN_ID AND X.REF_ORG_ID = B.ORG_ID)
+		]]>
+		/* personDAO.updateCustomerByUser */
+	</update>
+
+	<update id="personDAO.updateCustomer">
+        <![CDATA[
+            UPDATE IB_CUSTOMER
+            SET
+                  CST_NM     =  #cstNm#
+                , CPN_ID     =  #cpnId#
+                , POSITION   =  #position#
+                , PHN_1      =  #phn1#
+                , PHN_2      =  #phn2#
+                , PHN_3      =  #phn3#
+                , EMAIL      =  #email#
+                , UP_DT      =  now()
+                , UP_ID      =  #rgId#
+                , PHN_EXPOSURE      =  #phnExposure#
+                , FAX   =  #fax#
+                , MY_WORK   =  #myWork#
+                , MF_SEX   =  #mfSex#
+                , MARRIED   =  #married#
+                , CHILD_F   =  #childF#
+                , CHILD_M   =  #childM#
+                , HOMETOWN   =  #hometown#
+                , HOME_PHONE   =  #homePhone#
+                , SOLAR   =  #solar#
+                , BIRTH   =  #birth#
+                , TEAM   =  #team#
+                , DOMESTIC_YN = #domesticYn#
+            WHERE S_NB       =  #sNb#
+        ]]>
+    </update>
+
+
+	<select id="personDAO.selectSearchDuplicateB4excelInsert" parameterClass="workVO" resultClass="java.lang.Integer">
+		select
+				count(1)
+		  from IB_CUSTOMER cst
+	 left join ib_company cpn on cpn.cpn_id = cst.cpn_id
+		 where cst.cst_nm like concat('%',#cstNm#,'%')
+<isNotEmpty prepend="AND" property="cpnNm"> cpn.cpn_nm = #cpnNm# </isNotEmpty>
+	</select>
+
+	<insert id="personDAO.excelInsertCustomer">
+		<![CDATA[
+			INSERT INTO IB_CUSTOMER
+				  (
+				    CST_NM
+				  , CPN_ID
+				  , POSITION
+				  , PHN_1
+				  , PHN_2
+				  , EMAIL
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+		 ) VALUES (
+				    #cstNm#
+				  , (SELECT CPN_ID FROM IB_COMPANY WHERE CPN_NM = #cpnNm#)
+				  , #position#
+				  , #phn1#
+				  , #phn2#
+				  , #email#
+				  , #rgDt#
+				  , now()
+				  , #rgId#
+				  , 'excel'
+				  )
+		  ON DUPLICATE KEY UPDATE
+				    CST_NM    =  #cstNm#
+				  , CPN_ID    =  (SELECT CPN_ID FROM IB_COMPANY WHERE CPN_NM = #cpnNm#)
+				  , POSITION  =  #position#
+				  , PHN_1     =  #phn1#
+				  , PHN_2     =  #phn2#
+				  , EMAIL     =  #email#
+				  , RG_DT     =  #rgDt#
+				  , UP_DT     =  now()
+				  , RG_ID     =  #rgId#
+				  , UP_ID     =  'excel'
+		]]>
+	</insert>
+
+	<insert id="personDAO.insertNetworkCst">
+			INSERT INTO IB_NET_POINT
+				  (
+				    SNB_1ST
+				  , SNB_2ND
+			<isNotEmpty property="relDegree">
+				  , LV_CD
+			</isNotEmpty>
+				  , NOTE
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES (
+				    #snb1st#
+				  , #snb2nd#
+			<isNotEmpty property="relDegree">
+				  , #relDegree#
+			</isNotEmpty>
+				  , #note#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+
+	</insert>
+
+	<insert id="personDAO.insertNote">
+		<![CDATA[
+			INSERT INTO IB_NOTE
+				  (
+				    CST_SNB
+				  , TITLE
+				  , NOTE
+				  , RG_NM
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES (
+				    #cstSnb#
+				  , #title#
+				  , #note#
+				  , (SELECT NAME FROM BS_USER_MASTER WHERE LOGIN_ID = #rgId#)
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+		]]>
+	</insert>
+
+	<insert id="personDAO.excelInsertNote">
+		<![CDATA[
+			INSERT INTO IB_NOTE
+				  (
+				    CST_SNB
+				  , TITLE
+				  , NOTE
+				  , RG_NM
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES (
+				    #cstSnb#
+				  , #title#
+				  , #note#
+				  , (SELECT NAME FROM BS_USER_MASTER WHERE LOGIN_ID = #rgId#)
+				  , #rgDt#
+				  , now()
+				  , #rgId#
+				  , 'exel'
+				  , #orgId#
+				  )
+		  ON DUPLICATE KEY UPDATE
+				    CST_SNB  =  #cstSnb#
+				  , TITLE     =  #title#
+				  , NOTE      =  #note#
+				  , RG_NM     =  (SELECT NAME FROM BS_USER_MASTER WHERE LOGIN_ID = #rgId#)
+				  , RG_DT     =  #rgDt#
+				  , UP_DT     =  now()
+				  , RG_ID     =  #rgId#
+				  , UP_ID     =  'exel'
+				  , ORG_ID = #orgId#
+		]]>
+	</insert>
+
+
+	<update id="personDAO.updateCstPhn">
+		<![CDATA[
+			UPDATE IB_CUSTOMER
+			SET
+				  PHN_1      =  #phn1#
+				, PHN_EXPOSURE = #phnExposure#
+				, UP_DT      =  now()
+				, UP_ID      =  #rgId#
+			WHERE S_NB       =  #sNb#
+		]]>
+	</update>
+	<select id="personDAO.selectCheckStaff" parameterClass="staffVO" resultClass="staffVO">
+		<![CDATA[
+			SELECT
+				  A.name                    as usrNm
+				, A.login_id                as usrId
+				, A.password                as usrPw
+				, B.PERMISSION              as permission
+
+				, A.emp_no					as sabun
+				, A.user_id					as staffSnb
+				, A.cus_id					as cusId
+
+				, A.mobile_tel				as phn1
+				, A.rank   					as position
+				, (select 'Y' from ib_common_code where menu_cd = '00023' and dtail_cd = a.user_id) as analMaster
+
+				, B.INFO_LEVEL				as infoLevel
+				, B.MNA_LEVEL				as mnaLevel
+				, B.REVIEW_LEVEL			as reviewLevel
+
+				, A.email					as email
+
+				, dept.dept_id				as deptId
+				, dept.kor_name as deptNm
+				, (
+					SELECT emp_no
+					FROM bs_user_master as master
+					LEFT JOIN bs_dept_manager as manager ON master.user_id = manager.user_id
+					WHERE dept.dept_id = manager.dept_id
+				  ) as deptMngr
+
+				, A.org_id  as division
+				, (SELECT hq_name FROM BS_COMPANY_HQ WHERE A.company = hq_id) as hqName
+				, IFNULL(B.car_work_yn, 'N') as carWorkYn
+				, IFNULL(B.MEZZ_L, 'N') as mezzL
+				, IFNULL(B.MEZZ_N, 'N') as mezzN
+
+			FROM BS_USER_MASTER					as	A
+			LEFT JOIN BS_USER_PROFILE			as	B	 	ON A.USER_ID = B.USER_ID
+			LEFT JOIN bs_user_department 		as userdept ON 	A.USER_ID = userdept.user_id AND main_yn='Y'
+			LEFT JOIN bs_department 			as dept		ON userdept.dept_id = dept.dept_id
+
+			WHERE A.password = #usrPw#
+			AND A.DELETE_FLAG = 'N' AND A.USER_STATUS IN ('W','H')
+		]]>
+		<isNotEmpty prepend="AND" property= "usrId">
+			<![CDATA[	A.login_id = #usrId#	]]>
+		</isNotEmpty>
+	</select>
+	<select id="personDAO.selectCheckStaff_original_dont_delete" parameterClass="staffVO" resultClass="staffVO">
+		SELECT
+			  A.NAME					as usrNm
+			, A.LOGIN_ID				as usrId
+			, A.PASSWORD                as usrPw
+			, B.PERMISSION              as permission
+
+			, A.EMP_NO					as sabun
+			, A.USER_ID					as staffSnb
+			, A.CUS_ID					as cusId
+
+			, A.MOBILE_TEL				as phn1
+			, (SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK AND ORG_ID = A.ORG_ID)					as position
+			, (SELECT 'Y' FROM BS_CODE_GV WHERE CODE_NAME = 'ANAL_MASTER' AND CAST(CODE_VALUE AS UNSIGNED) = A.USER_ID AND ORG_ID = A.ORG_ID) as analMaster
+
+			, B.INFO_LEVEL				as infoLevel
+			, B.MNA_LEVEL				as mnaLevel
+			, B.REVIEW_LEVEL			as reviewLevel
+
+			, A.EMAIL					as email
+
+			, D.DEPT_ID					as deptId
+			, (SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = D.DEPT_ID) as deptNm
+			, (SELECT EMP_NO FROM BS_USER_MASTER WHERE USER_ID = (
+							SELECT USER_ID FROM BS_DEPT_MANAGER WHERE DEPT_ID = D.DEPT_ID AND DELETE_FLAG='N' AND ENABLE='Y')) as deptMngr
+
+			, A.ORG_ID                  as division
+			, (SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY) as hqName
+
+			, IFNULL(B.CAR_WORK_YN, 'N') as carWorkYn
+			, IFNULL(B.MEZZ_L, 'N') 	as mezzL
+			, IFNULL(B.MEZZ_N, 'N') 	as mezzN
+
+		FROM BS_USER_MASTER				A
+		LEFT JOIN BS_USER_PROFILE		B	ON A.USER_ID = B.USER_ID
+		LEFT JOIN BS_USER_ROLE_LIST 	C	ON A.USER_ID = C.USER_ID
+		LEFT JOIN BS_USER_DEPARTMENT 	D	ON A.USER_ID = D.USER_ID
+
+		WHERE 1=1
+		  AND A.LOGIN_ID = #usrId#
+		  <!-- AND A.PASSWORD = #usrPw# -->
+		  AND A.DELETE_FLAG = 'N'
+		  AND C.ENABLE = 'Y'
+		  AND D.DELETE_FLAG = 'N'
+		  AND D.ENABLE = 'Y'
+		  AND D.MAIN_YN = 'Y'
+
+	</select>
+
+
+	<select id="personDAO.selectStaff" parameterClass="HashMap" resultClass="HashMap">
+			SELECT
+				  USER_ID           as userId
+				, NAME				as userName
+				, LOGIN_ID			as loginId
+				, PASSWORD          as loginPwd
+				, CUS_ID			as cusId
+			<!--
+				, TEAM				as team
+				, POSITION			as position
+				, DIVISION			as division
+
+				, CUS_ID            as cstId
+				, PHN_1             as phn1
+				, PHN_2             as phn2
+				, PHN_3             as phn3
+				, EMAIL             as email
+				, OFFICE			as office
+				, SRT_CD            as srtCd
+				, STAT_SEQ			as statSeq
+				, PERMISSION        as permission
+				, SABUN             as sabun -->
+
+			FROM BS_USER_MASTER
+		<dynamic prepend="WHERE" >
+			<isNotEmpty prepend="AND" property="loginId">
+				LOGIN_ID = <![CDATA[#loginId#]]>
+			</isNotEmpty>
+		</dynamic>
+		ORDER BY USER_ID
+
+		<!-- <dynamic prepend="ORDER BY" >
+			<isEmpty property="sort_t"> S_NB </isEmpty>
+			<isEqual property="sort_t" compareValue="1"> USR_NM, S_NB </isEqual>
+			<isEqual property="sort_t" compareValue="2"> SRT_CD, S_NB </isEqual>
+			<isEqual property="sort_t" compareValue="3"> PERMISSION, S_NB </isEqual>
+			<isEqual property="sort_t" compareValue="4"> OFFICE, S_NB </isEqual>
+			<isEqual property="sort_t" compareValue="5"> TEAM, STAT_SEQ </isEqual>
+			<isEqual property="sort_t" compareValue="6"> DIVISION, STAT_SEQ </isEqual>
+		</dynamic> -->
+	</select>
+
+	<select id="personDAO.selectCheckStaffCnt" parameterClass="staffVO" resultClass="java.lang.Integer">
+			SELECT
+				 COUNT(1)
+			FROM BS_USER_MASTER
+			WHERE PASSWORD = <![CDATA[#usrPw#]]>
+		<isNotEmpty prepend="AND" property= "usrId">
+				LOGIN_ID = <![CDATA[#usrId#]]>
+		</isNotEmpty>
+	</select>
+
+	<select id="personDAO.selectCheckIdCnt" parameterClass="staffVO" resultClass="java.lang.Integer">
+			SELECT
+				 COUNT(1)
+			FROM BS_USER_MASTER
+		<dynamic prepend="WHERE" >
+			<isNotEmpty prepend="AND" property= "usrId">
+				<![CDATA[	LOGIN_ID = #usrId#	]]>
+			</isNotEmpty>
+		</dynamic>
+	</select>
+
+	<update id="personDAO.updateStaffInfo">
+		<![CDATA[
+			UPDATE BS_USER_MASTER
+			SET
+				 PASSWORD     =  #userPwd#
+				,UPDATE_DATE      =  now()
+
+			WHERE USER_ID    =  #usrId#
+			AND PASSWORD = #curPw#
+		]]>
+	</update>
+
+	<!-- 이용약관동의 -->
+	<update id="personDAO.updateUserRule">
+		<![CDATA[
+			UPDATE BS_USER_MASTER
+			SET
+				 USER_RULE_INFO_YN     =  #userRuleInfoYn#
+				,USER_PROCESS_INFO_YN  =  #userProcessInfoYn#
+				,UPDATE_DATE      =  now()
+
+			WHERE USER_ID    =  #userId#
+
+		]]>
+	</update>
+
+
+	<select id="personDAO.selectMaxSnb" parameterClass="personVO" resultClass="personVO">
+			SELECT
+				  MAX(S_NB)       as sNb
+			FROM IB_CUSTOMER
+	</select>
+
+	<select id="personDAO.selectExcelDown" parameterClass="personVO" resultClass="personVO">
+		<![CDATA[
+			SELECT
+				  CST_NM                    as  cstNm
+				, IFNULL((SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = IB_CUSTOMER.CPN_ID),"-")      as  cpnNm
+				, IFNULL(POSITION,"-")                  as  position
+				, IFNULL(EMAIL,"-")                     as  email
+				, IFNULL(PHN_1,"-")                     as  phn1
+				, IFNULL(PHN_2,"-")                     as  phn2
+				, IFNULL(PHN_3,"-")                     as  phn3
+			FROM IB_CUSTOMER
+			ORDER BY cpnNm ASC, CST_NM ASC
+		]]>
+	</select>
+
+
+	<!-- 증권사 ib 고객 담당자 등록 -->
+	<insert id="personDAO.doSaveCstManager" parameterClass="HashMap">
+		INSERT INTO BS_customer_manager(
+							    customer_id
+							  , staff_id
+							  , seq
+							  , memo
+							  , manage_date
+							  , status
+							  , ORG_ID
+							  , CREATED_BY
+							  , CREATE_DATE
+							  , UPDATED_BY
+						  	  , UPDATE_DATE
+					 		)
+				 	<dynamic>
+						<iterate prepend="VALUES" conjunction="," property="cstArrayList">
+							(
+								#cstArrayList[]#
+							  , #usrId#
+							  , (select ifnull(max(m.seq) + 10, 10) FROM BS_customer_manager m where m.customer_id = #cstArrayList[]#)
+							  , (case when #memo# = '' then null else #memo# end)
+							  , now()
+							  , 'A'
+							  ,#orgId#
+							  ,#userSeq#
+							  ,now()
+							  ,#userSeq#
+							  ,now()
+					 		)
+						</iterate>
+					</dynamic>
+	</insert>
+	<!-- 고객 담당자 관계메모 업데이트 -->
+	<update id = "person.doUpdateCstManagerDirect" parameterClass="HashMap">
+		UPDATE BS_CUSTOMER_MANAGER A
+		   SET A.MEMO = (case when #memo# = '' then null else #memo# end)
+		      ,UPDATED_BY = #userId#
+		      ,UPDATE_DATE = NOW()
+		 WHERE A.CUSTOMER_ID = #cstId# AND A.STAFF_ID = (SELECT USER_ID FROM BS_USER_MASTER WHERE CUS_ID = #usrCusId# AND ORG_ID = #orgId#)  AND A.STATUS = 'Y'
+	</update>
+	<!-- 고객 담당자 친밀도  업데이트 -->
+	<update id = "person.doUpdateCstManagerLvCd" parameterClass="HashMap">
+		UPDATE IB_NET_POINT A
+		   SET A.LV_CD =  #relDegree#
+		   	  ,UP_ID = #loginId#
+		      ,UP_DT = NOW()
+		 WHERE  ((SNB_1ST = #usrCusId# and SNB_2ND = #cstId#) or (SNB_1ST = #cstId# and SNB_2ND = #usrCusId#))
+	</update>
+
+	<!-- 고객 담당자 바로 등록(상태값 'Y') -->
+	<insert id="person.doSaveCstManagerDirect" parameterClass="HashMap">
+	    /* person.doSaveCstManagerDirect */
+		INSERT INTO BS_CUSTOMER_MANAGER(
+							    CUSTOMER_ID
+							  , STAFF_ID
+							  , SEQ
+							  , MEMO
+							  , MANAGE_DATE
+							  , STATUS
+							  , ORG_ID
+							  , CREATED_BY
+							  , CREATE_DATE
+							  , UPDATED_BY
+						  	  , UPDATE_DATE
+					 		)
+				 	values
+							(
+								#cstId#
+							  , (SELECT USER_ID FROM BS_USER_MASTER WHERE CUS_ID = #usrCusId# AND ORG_ID = #regOrgId#)
+							  , (select ifnull(max(m.seq) + 10, 10) FROM BS_customer_manager m where m.customer_id = #cstId#)
+							  , (case when #memo# = '' then null else #memo# end)
+							  , now()
+							  , 'Y'
+					          ,#regOrgId#
+
+							  ,#userSeq#
+							  ,now()
+							  ,#userSeq#
+							  ,now()
+					 		)
+	</insert>
+
+	<!-- 고객 담당자 바로 등록(상태값 'Y') -->
+    <insert id="person.deleteCstManager" parameterClass="HashMap">
+        DELETE FROM BS_CUSTOMER_MANAGER
+        WHERE customer_id = #cstId#
+    </insert>
+
+
+	<delete id="personDAO.deletePersonNetInfo">
+		<![CDATA[
+			DELETE FROM
+				IB_NET_POINT
+			 WHERE S_NB      =  #sNb#
+		]]>
+	</delete>
+
+	<update id="personDAO.modifyNetPoint">
+            UPDATE
+                IB_NET_POINT
+            SET
+            	  NOTE      =  #note#
+                <isEmpty property="acceptCstManager">
+                , SNB_1ST = #snb1st#
+                , SNB_2ND = #snb2nd#
+                </isEmpty>
+                <isNotEmpty property="relDegree">
+                  , LV_CD = #relDegree#
+                </isNotEmpty>
+                , UP_DT     =  now()
+                , UP_ID     =  #rgId#
+            WHERE S_NB      =  #sNb#
+    </update>
+
+	<select id="personDAO.selectNetworkListTotalCnt" parameterClass="personVO" resultClass="Integer">
+	SELECT COUNT(*) FROM (
+    SELECT  U0_SNB_1ST          CUSTOMER_SNB_1         /*  U0_SNB_1ST           */
+	       ,MAX(B.CST_NM   )    CUSTOMER_NAME_1        /*  U0_SNB_1ST_CST_NM    */
+	       ,MAX(B.POSITION )    CUSTOMER_POSITION_1    /*  U0_SNB_1ST_POSITION  */
+	       ,MAX(C.CPN_NM   )    CUSTOMER_CPN_NAME_1    /*  U0_SNB_1ST_CPN_NM    */
+	       ,MAX(1ST_ORG_ID )    ORG_ID_1
+	       ,MAX(U0_NOTE    )    CUSTOMER_NOTE_2        /*  U0_NOTE              */
+	       ,MAX(U0_LV_CD   )    CUSTOMER_LV_CD_2       /*  U0_LV_CD             */
+	       ,U0_SNB_2ND          CUSTOMER_SNB_2         /*  U0_SNB_2ND           */
+	       ,MAX(B0.CST_NM  )    CUSTOMER_NAME_2        /*  U0_SNB_2ND_CST_NM    */
+	       ,MAX(B0.POSITION)    CUSTOMER_POSITION_2    /*  U0_SNB_2ND_POSITION  */
+	       ,MAX(C0.CPN_NM  )    CUSTOMER_CPN_NAME_2    /*  U0_SNB_2ND_CPN_NM    */
+	       ,MAX(C0.CPN_ID  )    CUSTOMER_CPN_ID_2      /*  U0_SNB_2ND_CPN_ID    */
+	       ,MAX(U0_ORG_ID  )    ORG_ID_2               /*  U0_SNB_2ND_ORG_ID    */
+	       ,U1_SNB_2ND          CUSTOMER_SNB_3         /*  U1_SNB_2ND           */
+	       ,MAX(B1.CST_NM  )    CUSTOMER_NAME_3        /*  U1_SNB_2ND_CST_NM    */
+	       ,MAX(B1.POSITION)    U1_SNB_2ND_POSITION    /*  U1_SNB_2ND_POSITION  */
+	       ,MAX(C1.CPN_NM  )    U1_SNB_2ND_CPN_NM      /*  U1_SNB_2ND_CPN_NM    */
+	       ,MAX(U1_ORG_ID  )    ORG_ID_3               /*  U1_SNB_2ND_ORG_ID    */
+	       ,U2_SNB_2ND          CUSTOMER_SNB_4         /*  U2_SNB_2ND           */
+	       ,MAX(B2.CST_NM  )    CUSTOMER_NAME_4        /*  U2_SNB_2ND_CST_NM    */
+	       ,MAX(B2.POSITION)    U2_SNB_2ND_POSITION    /*  U2_SNB_2ND_POSITION  */
+	       ,MAX(C2.CPN_NM  )    U2_SNB_2ND_CPN_NM      /*  U2_SNB_2ND_CPN_NM    */
+	       ,MAX(U2_ORG_ID  )    ORG_ID_4               /*  U2_SNB_2ND_ORG_ID    */
+	FROM    (
+            SELECT
+                     U0_SNB_1ST
+                    ,1ST_ORG_ID
+                    ,U0_SNB_2ND
+                    ,U0_NOTE
+                    ,U0_LV_CD
+                    ,U0_ORG_ID
+                    ,U1_SNB_2ND
+                    ,U1_ORG_ID
+                    ,U2_SNB_2ND
+                    ,U2_ORG_ID
+            FROM    (
+                    SELECT   DISTINCT
+                             U0.SNB_1ST U0_SNB_1ST
+                            ,1ST_ORG_ID 1ST_ORG_ID
+                            ,U0.SNB_2ND U0_SNB_2ND
+                            ,U0.NOTE    U0_NOTE
+                            ,U0.LV_CD   U0_LV_CD
+                            ,U0.ORG_ID  U0_ORG_ID
+                            ,IF(U0.ORG_ID = #searchOrgId#, NULL, U1.SNB_2ND) U1_SNB_2ND
+                            ,IF(U0.ORG_ID = #searchOrgId#, NULL, U1.ORG_ID ) U1_ORG_ID
+                            ,IF(U0.ORG_ID = #searchOrgId#, NULL, IF(U1.ORG_ID = #searchOrgId#, NULL, U2.SNB_2ND)) U2_SNB_2ND
+                            ,IF(U0.ORG_ID = #searchOrgId#, NULL, IF(U1.ORG_ID = #searchOrgId#, NULL, U2.ORG_ID )) U2_ORG_ID
+                    FROM   (
+                                SELECT  DISTINCT SNB_1ST, SNB_2ND, NOTE, LV_CD, B.ORG_ID,
+                                        (SELECT ORG_ID FROM BS_USER_MASTER C WHERE SNB_1ST = C.CUS_ID AND C.USER_STATUS NOT IN ('F','R') AND C.ORG_ID = #searchOrgId#) 1ST_ORG_ID
+                                FROM    (
+                                        SELECT SNB_1ST, SNB_2ND, NOTE, LV_CD FROM IB_NET_POINT_AVAL_V A WHERE SNB_1ST = #sNb#
+                                        UNION ALL
+                                        SELECT SNB_2ND, SNB_1ST, NOTE, LV_CD FROM IB_NET_POINT_AVAL_V B WHERE SNB_2ND = #sNb#
+                                        ) A
+                                        LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                            ) U0
+                            LEFT OUTER JOIN (
+                                SELECT  DISTINCT SNB_1ST, SNB_2ND, B.ORG_ID
+                                FROM    (
+                                        SELECT SNB_1ST, SNB_2ND FROM IB_NET_POINT_AVAL_V A
+                                        UNION ALL
+                                        SELECT SNB_2ND, SNB_1ST FROM IB_NET_POINT_AVAL_V B
+                                        ) A
+                                        LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                            ) U1  ON U1.SNB_1ST = U0.SNB_2ND AND U1.SNB_2ND != U0.SNB_1ST
+                                    <isEqual property="chkPerson" compareValue="N">
+                                            AND 1 = IF(U0.1ST_ORG_ID IS NULL, 1, IF(#searchOrgId# = U0.1ST_ORG_ID,2,1))
+                                    </isEqual>
+                            LEFT OUTER JOIN (
+                                SELECT  DISTINCT SNB_1ST, SNB_2ND, B.ORG_ID
+                                FROM    (
+                                        SELECT SNB_1ST, SNB_2ND FROM IB_NET_POINT_AVAL_V A
+                                        UNION ALL
+                                        SELECT SNB_2ND, SNB_1ST FROM IB_NET_POINT_AVAL_V B
+                                        ) A
+                                        LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                            ) U2  ON U2.SNB_1ST = U1.SNB_2ND AND U2.SNB_2ND != U1.SNB_1ST AND 1 = 2
+                        <isEqual property="chkPerson" compareValue="N">
+                            WHERE   1 = IF(U0.1ST_ORG_ID = #searchOrgId#, 1, IF(U0.ORG_ID IS NOT NULL OR U1.ORG_ID IS NOT NULL OR U2.ORG_ID IS NOT NULL, 1, 0))
+                              AND   1 = IF(U0.1ST_ORG_ID = #searchOrgId#, 1, IF(U0.ORG_ID = #searchOrgId# OR U1.ORG_ID = #searchOrgId# OR U2.ORG_ID = #searchOrgId#, 1, 0))
+                        </isEqual>
+                        <isEqual property="chkPerson" compareValue="Y">
+                            WHERE   (U0.ORG_ID IS NOT NULL OR U1.ORG_ID IS NOT NULL OR U2.ORG_ID IS NOT NULL)
+                              AND   (U0.ORG_ID = #searchOrgId# OR U1.ORG_ID = #searchOrgId# OR U2.ORG_ID = #searchOrgId#)
+                              AND   IFNULL(U0.1ST_ORG_ID, -1) != #searchOrgId#
+                        </isEqual>
+                    ) A
+                    , (
+                    SELECT  SNB, MIN(SNB_SEQ) MIN_SNB_SEQ
+                    FROM   (
+                            SELECT  IF(U0.ORG_ID = #searchOrgId#, U0.SNB_2ND, IF(U1.ORG_ID = #searchOrgId#, U1.SNB_2ND, IF(U2.ORG_ID = #searchOrgId#, U2.SNB_2ND, NULL))) SNB
+                                    ,IF(U0.ORG_ID = #searchOrgId#, 1, IF(U1.ORG_ID = #searchOrgId#, 2, IF(U2.ORG_ID = #searchOrgId#, 3, NULL))) SNB_SEQ
+                            FROM   (
+                                    SELECT  DISTINCT SNB_1ST, SNB_2ND, NOTE, LV_CD, B.ORG_ID,
+                                            (SELECT ORG_ID FROM BS_USER_MASTER C WHERE SNB_1ST = C.CUS_ID AND C.USER_STATUS NOT IN ('F','R') AND C.ORG_ID = #searchOrgId#) 1ST_ORG_ID
+                                    FROM    (
+                                            SELECT SNB_1ST, SNB_2ND, NOTE, LV_CD FROM IB_NET_POINT_AVAL_V A WHERE SNB_1ST = #sNb#
+                                            UNION ALL
+                                            SELECT SNB_2ND, SNB_1ST, NOTE, LV_CD FROM IB_NET_POINT_AVAL_V B WHERE SNB_2ND = #sNb#
+                                            ) A
+                                            LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                                ) U0
+                                LEFT OUTER JOIN (
+                                    SELECT  DISTINCT SNB_1ST, SNB_2ND, B.ORG_ID
+                                    FROM    (
+                                            SELECT SNB_1ST, SNB_2ND FROM IB_NET_POINT_AVAL_V A
+                                            UNION ALL
+                                            SELECT SNB_2ND, SNB_1ST FROM IB_NET_POINT_AVAL_V B
+                                            ) A
+                                            LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                                ) U1  ON U1.SNB_1ST = U0.SNB_2ND AND U1.SNB_2ND != U0.SNB_1ST
+                                        <isEqual property="chkPerson" compareValue="N">
+                                                AND 1 = IF(U0.1ST_ORG_ID IS NULL, 1, IF(#searchOrgId# = U0.1ST_ORG_ID,2,1))
+                                        </isEqual>
+                                LEFT OUTER JOIN (
+                                    SELECT  DISTINCT SNB_1ST, SNB_2ND, B.ORG_ID
+                                    FROM    (
+                                            SELECT SNB_1ST, SNB_2ND FROM IB_NET_POINT_AVAL_V A
+                                            UNION ALL
+                                            SELECT SNB_2ND, SNB_1ST FROM IB_NET_POINT_AVAL_V B
+                                            ) A
+                                            LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                                ) U2  ON U2.SNB_1ST = U1.SNB_2ND AND U2.SNB_2ND != U1.SNB_1ST AND 1 = 2
+                            <isEqual property="chkPerson" compareValue="N">
+                                WHERE   1 = IF(U0.1ST_ORG_ID = #searchOrgId#, 1, IF(U0.ORG_ID IS NOT NULL OR U1.ORG_ID IS NOT NULL OR U2.ORG_ID IS NOT NULL, 1, 0))
+                                  AND   1 = IF(U0.1ST_ORG_ID = #searchOrgId#, 1, IF(U0.ORG_ID = #searchOrgId# OR U1.ORG_ID = #searchOrgId# OR U2.ORG_ID = #searchOrgId#, 1, 0))
+                            </isEqual>
+                            <isEqual property="chkPerson" compareValue="Y">
+                                WHERE   (U0.ORG_ID IS NOT NULL OR U1.ORG_ID IS NOT NULL OR U2.ORG_ID IS NOT NULL)
+                                  AND   (U0.ORG_ID = #searchOrgId# OR U1.ORG_ID = #searchOrgId# OR U2.ORG_ID = #searchOrgId#)
+                                  AND   IFNULL(U0.1ST_ORG_ID, -1) != #searchOrgId#
+                            </isEqual>
+                            ) A
+                      GROUP BY SNB
+                    ) B
+                    WHERE   CONCAT(B.MIN_SNB_SEQ, B.SNB) IN (CONCAT(1, A.U0_SNB_2ND), CONCAT(2, A.U1_SNB_2ND), CONCAT(3, A.U2_SNB_2ND))
+	        ) A
+	        LEFT JOIN IB_CUSTOMER B  ON B.S_NB  = A.U0_SNB_1ST
+	        LEFT JOIN IB_CUSTOMER B0 ON B0.S_NB = A.U0_SNB_2ND
+	        LEFT JOIN IB_CUSTOMER B1 ON B1.S_NB = A.U1_SNB_2ND
+	        LEFT JOIN IB_CUSTOMER B2 ON B2.S_NB = A.U2_SNB_2ND
+	        LEFT JOIN IB_COMPANY  C  ON C.CPN_ID  = B.CPN_ID
+	        LEFT JOIN IB_COMPANY  C0 ON C0.CPN_ID = B0.CPN_ID
+	        LEFT JOIN IB_COMPANY  C1 ON C1.CPN_ID = B1.CPN_ID
+	        LEFT JOIN IB_COMPANY  C2 ON C2.CPN_ID = B2.CPN_ID
+    GROUP BY U0_SNB_1ST, U0_SNB_2ND, U1_SNB_2ND, U2_SNB_2ND
+   	) X
+	</select>
+	<select id="personDAO.selectNetworkList" parameterClass="personVO" resultClass="egovMap">
+		SELECT
+	        U0_SNB_1ST          CUSTOMER_SNB_1         /*  U0_SNB_1ST           */
+	       ,MAX(B.CST_NM   )    CUSTOMER_NAME_1        /*  U0_SNB_1ST_CST_NM    */
+	       ,MAX(B.POSITION )    CUSTOMER_POSITION_1    /*  U0_SNB_1ST_POSITION  */
+	       ,MAX(C.CPN_NM   )    CUSTOMER_CPN_NAME_1    /*  U0_SNB_1ST_CPN_NM    */
+	       ,MAX(1ST_ORG_ID )    ORG_ID_1
+	       ,MAX(U0_NOTE    )    CUSTOMER_NOTE_2        /*  U0_NOTE              */
+	       ,MAX(U0_LV_CD   )    CUSTOMER_LV_CD_2       /*  U0_LV_CD             */
+	       ,U0_SNB_2ND          CUSTOMER_SNB_2         /*  U0_SNB_2ND           */
+	       ,MAX(B0.CST_NM  )    CUSTOMER_NAME_2        /*  U0_SNB_2ND_CST_NM    */
+	       ,MAX(B0.POSITION)    CUSTOMER_POSITION_2    /*  U0_SNB_2ND_POSITION  */
+	       ,MAX(C0.CPN_NM  )    CUSTOMER_CPN_NAME_2    /*  U0_SNB_2ND_CPN_NM    */
+	       ,MAX(C0.CPN_ID  )    CUSTOMER_CPN_ID_2      /*  U0_SNB_2ND_CPN_ID    */
+	       ,MAX(U0_ORG_ID  )    ORG_ID_2               /*  U0_SNB_2ND_ORG_ID    */
+	       ,U1_SNB_2ND          CUSTOMER_SNB_3         /*  U1_SNB_2ND           */
+	       ,MAX(B1.CST_NM  )    CUSTOMER_NAME_3        /*  U1_SNB_2ND_CST_NM    */
+	       ,MAX(B1.POSITION)    U1_SNB_2ND_POSITION    /*  U1_SNB_2ND_POSITION  */
+	       ,MAX(C1.CPN_NM  )    U1_SNB_2ND_CPN_NM      /*  U1_SNB_2ND_CPN_NM    */
+	       ,MAX(U1_ORG_ID  )    ORG_ID_3               /*  U1_SNB_2ND_ORG_ID    */
+	       ,U2_SNB_2ND          CUSTOMER_SNB_4         /*  U2_SNB_2ND           */
+	       ,MAX(B2.CST_NM  )    CUSTOMER_NAME_4        /*  U2_SNB_2ND_CST_NM    */
+	       ,MAX(B2.POSITION)    U2_SNB_2ND_POSITION    /*  U2_SNB_2ND_POSITION  */
+	       ,MAX(C2.CPN_NM  )    U2_SNB_2ND_CPN_NM      /*  U2_SNB_2ND_CPN_NM    */
+	       ,MAX(U2_ORG_ID  )    ORG_ID_4               /*  U2_SNB_2ND_ORG_ID    */
+	FROM    (
+            SELECT
+                     U0_SNB_1ST
+                    ,1ST_ORG_ID
+                    ,U0_SNB_2ND
+                    ,U0_NOTE
+                    <isEqual property="chkPerson" compareValue="Y">
+                    ,LPAD(CONVERT(IFNULL(U0_LV_CD, 0), UNSIGNED) + CONVERT(IFNULL(U1_LV_CD, 0), UNSIGNED) + CONVERT(IFNULL(U2_LV_CD, 0), UNSIGNED), 5, '0') U0_LV_CD
+                    </isEqual>
+                    <isEqual property="chkPerson" compareValue="N">
+                    ,U0_LV_CD
+                    </isEqual>
+                    ,U0_ORG_ID
+                    ,U1_SNB_2ND
+                    ,U1_LV_CD
+                    ,U1_ORG_ID
+                    ,U2_SNB_2ND
+                    ,U2_LV_CD
+                    ,U2_ORG_ID
+            FROM    (
+                    SELECT   DISTINCT
+                             U0.SNB_1ST U0_SNB_1ST
+                            ,1ST_ORG_ID 1ST_ORG_ID
+                            ,U0.SNB_2ND U0_SNB_2ND
+                            ,U0.NOTE    U0_NOTE
+                            ,U0.LV_CD   U0_LV_CD
+                            ,U0.ORG_ID  U0_ORG_ID
+                            ,IF(U0.ORG_ID = #searchOrgId#, NULL, U1.SNB_2ND) U1_SNB_2ND
+                            ,IF(U0.ORG_ID = #searchOrgId#, NULL, U1.LV_CD  ) U1_LV_CD
+                            ,IF(U0.ORG_ID = #searchOrgId#, NULL, U1.ORG_ID ) U1_ORG_ID
+                            ,IF(U0.ORG_ID = #searchOrgId#, NULL, IF(U1.ORG_ID = #searchOrgId#, NULL, U2.SNB_2ND)) U2_SNB_2ND
+                            ,IF(U0.ORG_ID = #searchOrgId#, NULL, IF(U1.ORG_ID = #searchOrgId#, NULL, U2.LV_CD  )) U2_LV_CD
+                            ,IF(U0.ORG_ID = #searchOrgId#, NULL, IF(U1.ORG_ID = #searchOrgId#, NULL, U2.ORG_ID )) U2_ORG_ID
+                    FROM   (
+                                SELECT  DISTINCT SNB_1ST, SNB_2ND, NOTE, LV_CD, B.ORG_ID,
+                                        (SELECT ORG_ID FROM BS_USER_MASTER C WHERE SNB_1ST = C.CUS_ID AND C.USER_STATUS NOT IN ('F','R') AND C.ORG_ID = #searchOrgId#) 1ST_ORG_ID
+                                FROM    (
+                                        SELECT SNB_1ST, SNB_2ND, NOTE, LV_CD FROM IB_NET_POINT_AVAL_V A WHERE SNB_1ST = #sNb#
+                                        UNION ALL
+                                        SELECT SNB_2ND, SNB_1ST, NOTE, LV_CD FROM IB_NET_POINT_AVAL_V B WHERE SNB_2ND = #sNb#
+                                        ) A
+                                        LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                            ) U0
+                            LEFT OUTER JOIN (
+                                SELECT  DISTINCT SNB_1ST, SNB_2ND, LV_CD, B.ORG_ID
+                                FROM    (
+                                        SELECT SNB_1ST, SNB_2ND, LV_CD FROM IB_NET_POINT_AVAL_V A
+                                        UNION ALL
+                                        SELECT SNB_2ND, SNB_1ST, LV_CD FROM IB_NET_POINT_AVAL_V B
+                                        ) A
+                                        LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                            ) U1  ON U1.SNB_1ST = U0.SNB_2ND AND U1.SNB_2ND != U0.SNB_1ST
+                                    <isEqual property="chkPerson" compareValue="N">
+                                            AND 1 = IF(U0.1ST_ORG_ID IS NULL, 1, IF(#searchOrgId# = U0.1ST_ORG_ID,2,1))
+                                    </isEqual>
+                            LEFT OUTER JOIN (
+                                SELECT  DISTINCT SNB_1ST, SNB_2ND, LV_CD, B.ORG_ID
+                                FROM    (
+                                        SELECT SNB_1ST, SNB_2ND, LV_CD FROM IB_NET_POINT_AVAL_V A
+                                        UNION ALL
+                                        SELECT SNB_2ND, SNB_1ST, LV_CD FROM IB_NET_POINT_AVAL_V B
+                                        ) A
+                                        LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                            ) U2  ON U2.SNB_1ST = U1.SNB_2ND AND U2.SNB_2ND != U1.SNB_1ST AND 1 = 2
+                        <isEqual property="chkPerson" compareValue="N">
+                            WHERE   1 = IF(U0.1ST_ORG_ID = #searchOrgId#, 1, IF(U0.ORG_ID IS NOT NULL OR U1.ORG_ID IS NOT NULL OR U2.ORG_ID IS NOT NULL, 1, 0))
+                              AND   1 = IF(U0.1ST_ORG_ID = #searchOrgId#, 1, IF(U0.ORG_ID = #searchOrgId# OR U1.ORG_ID = #searchOrgId# OR U2.ORG_ID = #searchOrgId#, 1, 0))
+                        </isEqual>
+                        <isEqual property="chkPerson" compareValue="Y">
+                            WHERE   (U0.ORG_ID IS NOT NULL OR U1.ORG_ID IS NOT NULL OR U2.ORG_ID IS NOT NULL)
+                              AND   (U0.ORG_ID = #searchOrgId# OR U1.ORG_ID = #searchOrgId# OR U2.ORG_ID = #searchOrgId#)
+                              AND   IFNULL(U0.1ST_ORG_ID, -1) != #searchOrgId#
+                        </isEqual>
+                    ) A
+                    , (
+                    SELECT  SNB, MIN(SNB_SEQ) MIN_SNB_SEQ
+                    FROM   (
+                            SELECT  IF(U0.ORG_ID = #searchOrgId#, U0.SNB_2ND, IF(U1.ORG_ID = #searchOrgId#, U1.SNB_2ND, IF(U2.ORG_ID = #searchOrgId#, U2.SNB_2ND, NULL))) SNB
+                                    ,IF(U0.ORG_ID = #searchOrgId#, 1, IF(U1.ORG_ID = #searchOrgId#, 2, IF(U2.ORG_ID = #searchOrgId#, 3, NULL))) SNB_SEQ
+                            FROM   (
+                                    SELECT  DISTINCT SNB_1ST, SNB_2ND, NOTE, LV_CD, B.ORG_ID,
+                                            (SELECT ORG_ID FROM BS_USER_MASTER C WHERE SNB_1ST = C.CUS_ID AND C.USER_STATUS NOT IN ('F','R') AND C.ORG_ID = #searchOrgId#) 1ST_ORG_ID
+                                    FROM    (
+                                            SELECT SNB_1ST, SNB_2ND, NOTE, LV_CD FROM IB_NET_POINT_AVAL_V A WHERE SNB_1ST = #sNb#
+                                            UNION ALL
+                                            SELECT SNB_2ND, SNB_1ST, NOTE, LV_CD FROM IB_NET_POINT_AVAL_V B WHERE SNB_2ND = #sNb#
+                                            ) A
+                                            LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                                ) U0
+                                LEFT OUTER JOIN (
+                                    SELECT  DISTINCT SNB_1ST, SNB_2ND, B.ORG_ID
+                                    FROM    (
+                                            SELECT SNB_1ST, SNB_2ND FROM IB_NET_POINT_AVAL_V A
+                                            UNION ALL
+                                            SELECT SNB_2ND, SNB_1ST FROM IB_NET_POINT_AVAL_V B
+                                            ) A
+                                            LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                                ) U1  ON U1.SNB_1ST = U0.SNB_2ND AND U1.SNB_2ND != U0.SNB_1ST
+                                        <isEqual property="chkPerson" compareValue="N">
+                                                AND 1 = IF(U0.1ST_ORG_ID IS NULL, 1, IF(#searchOrgId# = U0.1ST_ORG_ID,2,1))
+                                        </isEqual>
+                                LEFT OUTER JOIN (
+                                    SELECT  DISTINCT SNB_1ST, SNB_2ND, B.ORG_ID
+                                    FROM    (
+                                            SELECT SNB_1ST, SNB_2ND FROM IB_NET_POINT_AVAL_V A
+                                            UNION ALL
+                                            SELECT SNB_2ND, SNB_1ST FROM IB_NET_POINT_AVAL_V B
+                                            ) A
+                                            LEFT JOIN BS_USER_MASTER B ON A.SNB_2ND = B.CUS_ID AND B.USER_STATUS NOT IN ('F','R')
+                                ) U2  ON U2.SNB_1ST = U1.SNB_2ND AND U2.SNB_2ND != U1.SNB_1ST AND 1 = 2
+                            <isEqual property="chkPerson" compareValue="N">
+                                WHERE   1 = IF(U0.1ST_ORG_ID = #searchOrgId#, 1, IF(U0.ORG_ID IS NOT NULL OR U1.ORG_ID IS NOT NULL OR U2.ORG_ID IS NOT NULL, 1, 0))
+                                  AND   1 = IF(U0.1ST_ORG_ID = #searchOrgId#, 1, IF(U0.ORG_ID = #searchOrgId# OR U1.ORG_ID = #searchOrgId# OR U2.ORG_ID = #searchOrgId#, 1, 0))
+                            </isEqual>
+                            <isEqual property="chkPerson" compareValue="Y">
+                                WHERE   (U0.ORG_ID IS NOT NULL OR U1.ORG_ID IS NOT NULL OR U2.ORG_ID IS NOT NULL)
+                                  AND   (U0.ORG_ID = #searchOrgId# OR U1.ORG_ID = #searchOrgId# OR U2.ORG_ID = #searchOrgId#)
+                                  AND   IFNULL(U0.1ST_ORG_ID, -1) != #searchOrgId#
+                            </isEqual>
+                            ) A
+                      GROUP BY SNB
+                    ) B
+                    WHERE   CONCAT(B.MIN_SNB_SEQ, B.SNB) IN (CONCAT(1, A.U0_SNB_2ND), CONCAT(2, A.U1_SNB_2ND), CONCAT(3, A.U2_SNB_2ND))
+	        ) A
+	        LEFT JOIN IB_CUSTOMER B  ON B.S_NB  = A.U0_SNB_1ST
+	        LEFT JOIN IB_CUSTOMER B0 ON B0.S_NB = A.U0_SNB_2ND
+	        LEFT JOIN IB_CUSTOMER B1 ON B1.S_NB = A.U1_SNB_2ND
+	        LEFT JOIN IB_CUSTOMER B2 ON B2.S_NB = A.U2_SNB_2ND
+	        LEFT JOIN IB_COMPANY  C  ON C.CPN_ID  = B.CPN_ID
+	        LEFT JOIN IB_COMPANY  C0 ON C0.CPN_ID = B0.CPN_ID
+	        LEFT JOIN IB_COMPANY  C1 ON C1.CPN_ID = B1.CPN_ID
+	        LEFT JOIN IB_COMPANY  C2 ON C2.CPN_ID = B2.CPN_ID
+    GROUP BY U0_SNB_1ST, U0_SNB_2ND, U1_SNB_2ND, U2_SNB_2ND
+    <isEqual property="chkPerson" compareValue="N">
+	ORDER BY C0.CPN_ID,IF(U0_SNB_2ND IS NULL, 1, IF(U1_SNB_2ND IS NULL, 2, IF(U2_SNB_2ND IS NULL, 3, 4))),  U0_SNB_2ND, U1_SNB_2ND, U2_SNB_2ND
+    </isEqual>
+    <isEqual property="chkPerson" compareValue="Y">
+	ORDER BY IF(U0_SNB_2ND IS NULL, 1, IF(U1_SNB_2ND IS NULL, 2, IF(U2_SNB_2ND IS NULL, 3, 4))), U0_LV_CD DESC, C0.CPN_ID, U0_SNB_2ND, U1_SNB_2ND, U2_SNB_2ND
+    </isEqual>
+   	<isNotEqual property="recordCountPerPage" compareValue="0">
+		LIMIT #firstIndex#, #recordCountPerPage#
+	</isNotEqual>
+	</select>
+
+	<select id="personDAO.selectCpnDeptList" parameterClass="Map" resultClass="HashMap">
+		SELECT COMPANY_ID	as cpnSnb
+			  ,DEPT_CODE	as deptCd
+		      ,KOR_NAME		as deptNm
+
+		  FROM BS_COMPANY_DEPARTMENT	A
+		  JOIN IB_COMPANY		B ON A.COMPANY_ID = B.S_NB
+		 WHERE 1=1
+		   AND (CASE WHEN B.A_CPN_ID IS NULL OR B.A_CPN_ID = '' THEN CPN_ID ELSE A_CPN_ID END) = #cpnId#
+		   AND ENABLED = 'Y'
+		   AND DELETE_FLAG = 'N'
+		 ORDER BY DEPT_SEQ ASC
+
+		/* personDAO.selectCpnDeptList */
+	</select>
+
+
+
+	<!-- 부서코드 반환(신규인 경우 등록후 반환) -->
+	<parameterMap id="pDeptCode" class="HashMap">
+		<parameter property="cpnId" mode="IN" javaType="java.lang.String" jdbcType="VARCHAR"/>
+		<parameter property="deptNm" mode="IN" javaType="java.lang.String" jdbcType="VARCHAR"/>
+		<parameter property="deptDs" mode="IN" javaType="java.lang.String" jdbcType="VARCHAR"/>
+		<parameter property="loginId" mode="IN" javaType="java.lang.String" jdbcType="VARCHAR"/>
+
+		<parameter property="cpnDeptId" mode="OUT" javaType="java.lang.String" jdbcType="VARCHAR"/>
+		<parameter property="returnGood" mode="OUT" javaType="java.lang.String" jdbcType="VARCHAR"/>
+		<parameter property="returnCode" mode="OUT" javaType="java.lang.String" jdbcType="VARCHAR"/>
+		<parameter property="returnMsg" mode="OUT" javaType="java.lang.String" jdbcType="VARCHAR"/>
+		<parameter property="deptCode" mode="OUT" javaType="java.lang.String" jdbcType="VARCHAR"/>
+	</parameterMap>
+
+	<procedure id="personDAO.getDeptCodeByCallProcedure" parameterClass="Map">
+		 { CALL base.Insert_Company_Dept_P(#cpnId#, #deptNm#, #deptDs#, #loginId#, #cpnDeptId#, #returnGood#, #returnCode#, #returnMsg#, #deptCode#) }
+	</procedure>
+
+
+	<select id="person.selectCustList" parameterClass="HashMap" resultClass="HashMap">
+	   /* person.selectCustList */
+		SELECT
+				  O.S_NB						as sNb
+				, O.CST_NM						as cstNm
+				, O.CPN_ID						as cpnId
+				, ifnull(Q.CPN_NM, '')			as cpnNm
+				, Q.category_business			as cpnCate
+                , CC.CATEGORY_PERSON_CD			as custType
+                , ifnull((SELECT VALUE_MEAN_KOR	FROM BS_CODE_GV	WHERE CODE_NAME = 'CUSTOMER_TYPE' and CODE_VALUE = CC.CATEGORY_PERSON_CD AND ORG_ID = #applyOrgId#), '') as custTypeNm
+				, O.EMAIL                     	as  email
+				, O.PHN_1                     	as  phn1
+				, O.PHN_2                     	as  phn2
+				, O.PHN_3                     	as  phn3
+				, O.POSITION                  	as  position
+                , O.TEAM                        as team
+                , O.DOMESTIC_YN					as domesticYn
+				, c.staff_id					as staffId
+				, usr.user_id					as userId
+				,ifnull((select NAME from BS_USER_MASTER X where X.user_id = usr.user_id),'') as usrNm
+				,ifnull(usr.user_status,'') as usrRank
+				<isNotEmpty property="searchNoStaff">
+				    , null as lvCd
+				</isNotEmpty>
+				<isEmpty property="searchNoStaff">
+					, (select max(lv_cd)
+						from ib_net_point
+						where 1=1
+						  and ((SNB_1ST = usr.cus_id and SNB_2ND = O.S_NB) or (SNB_1ST = O.S_NB and SNB_2ND = usr.cus_id))) as lvCd
+				</isEmpty>
+				, (select count(1)
+					from ib_net_point
+					where SNB_2ND = O.S_NB)
+					+ (select count(1)
+                    from ib_net_point
+                    where SNB_1ST = O.S_NB) as netCnt
+
+               , ifnull(date_format((
+                            select SCHE_S_DATE
+                              from ERP_SCHEDULE
+                             where CUSTOMER_ID = O.S_NB
+                             order by SCHE_S_DATE desc
+                             limit 1
+                         ), '%Y/%m/%d'),'')  as lastDt
+
+                ,(  select J.NAME
+                    from ERP_SCHEDULE I, BS_ACTIVITY J
+                   where I.CUSTOMER_ID = O.S_NB
+                   and I.ACTIVITY_ID = J.ACTIVITY_ID
+                   order by I.SCHE_S_DATE desc
+                   limit 1)  as lastType
+                , (select NAME from BS_USER_MASTER
+                   where EMP_NO = (
+                                            select PER_SABUN
+                                              from ERP_SCHEDULE
+                                             where CUSTOMER_ID = O.S_NB
+                                             order by SCHE_S_DATE desc
+                                             limit 1
+                                         ))  as lastNm
+                ,date_format(o.rg_dt, '%Y/%m/%d') as rgDt
+
+                ,ifnull((select customer_id FROM BS_customer_manager where customer_id = o.s_nb and org_id=#applyOrgId# and status = 'A' limit 1), '') as isSending
+
+			FROM
+				IB_CUSTOMER O
+			LEFT JOIN
+				bs_customer_manager c on c.customer_id = o.s_nb and c.status = 'Y' AND c.org_id = #applyOrgId#
+			LEFT JOIN bs_user_master usr on c.staff_id = usr.user_id
+
+			LEFT JOIN
+				IB_COMPANY Q ON Q.CPN_ID = O.CPN_ID
+			LEFT JOIN
+				BS_ORG_CUSTOMER_CATEGORY CC ON O.S_NB = CC.CUS_ID AND CC.ORG_ID = #applyOrgId#
+		where 1=1
+		  AND O.DELETE_FLAG = 'N'
+
+        <isNotEmpty property="srchCustNm">
+		  and ( O.CST_NM like concat('%',#srchCustNm#,'%') or O.CST_NM like concat('%',#srchCustNmKor#,'%') )
+        </isNotEmpty>
+
+        <isNotEmpty property="srchCpnNm">
+		  and Q.CPN_NM like concat('%',#srchCpnNm#,'%')
+        </isNotEmpty>
+
+        <isNotEqual property="actionType" compareValue="All">
+	        <isNotEmpty property="searchStaffId">
+			  and exists(
+						select 1
+	                      FROM BS_customer_manager K
+						 where K.staff_id in ($searchStaffId$)
+	                       and K.customer_id = O.S_NB
+	                       and K.org_id = #applyOrgId#
+	                       and K.status = 'Y'
+						)
+	        </isNotEmpty>
+	        <isEmpty property="searchStaffId">
+	          and 1=2
+	        </isEmpty>
+	    </isNotEqual>
+
+		<isNotEmpty property="cstType">
+			and (
+			  CC.CATEGORY_PERSON_CD = #cstType#
+			<isEqual prepend="" property="isStock" compareValue="Y">		<!-- 고객구분이 증권사IB 이면 -->
+			  or Q.category_business = '증권'								<!-- 고객구분이 증권사IB가 아니더라도, 고객의 회사가 증권사인 고객도 불러온다 -->
+			</isEqual>
+			)
+		</isNotEmpty>
+		<isNotEmpty property="searchFireStaff">
+            and usr.user_status in ('F','R')
+        </isNotEmpty>
+        <isNotEmpty property="searchNoStaff">
+            and c.staff_id is null
+        </isNotEmpty>
+        <isEmpty property="isNew">
+			<isEmpty prepend="" property="sortCol">
+                <isNotEmpty property="searchNoStaff">
+					ORDER BY cpnId ASC, cstNm ASC
+                </isNotEmpty>
+                <isEmpty property="searchNoStaff">
+					ORDER BY usrNm ASC, cpnNm ASC, cstNm ASC
+                </isEmpty>
+			</isEmpty>
+			<isNotEmpty prepend="" property="sortCol">
+				<isEqual property="sortCol" compareValue="CPN">		<!-- 증권사 -->
+				ORDER BY cpnNm $sortAD$, cstNm ASC
+				</isEqual>
+				<isEqual property="sortCol" compareValue="NM">		<!-- 이름 -->
+				ORDER BY cstNm $sortAD$, cpnNm ASC
+				</isEqual>
+				<isEqual property="sortCol" compareValue="RGDATE">	<!-- 등록일 -->
+				ORDER BY rgDt $sortAD$, cpnNm ASC, cstNm ASC
+				</isEqual>
+				<isEqual property="sortCol" compareValue="CSTTYPE">	<!-- 고객구분 -->
+				ORDER BY custTypeNm $sortAD$, cpnNm ASC, cstNm ASC
+				</isEqual>
+			</isNotEmpty>
+        </isEmpty>
+
+        <isNotEmpty prepend="" property="limit">
+            LIMIT #offset#,#limit#
+        </isNotEmpty>
+	</select>
+
+
+	<select id="person.selectCustListCount" parameterClass="HashMap" resultClass="Integer">
+	   /* person.selectCustListCount */
+		SELECT
+				count(1)
+
+		FROM  IB_CUSTOMER O
+            LEFT JOIN
+                bs_customer_manager c on c.customer_id = o.s_nb and c.status = 'Y' AND c.org_id = #applyOrgId#
+            LEFT JOIN bs_user_master usr on c.staff_id = usr.user_id
+            LEFT JOIN
+                IB_COMPANY Q ON Q.CPN_ID = O.CPN_ID
+            LEFT JOIN BS_ORG_CUSTOMER_CATEGORY CC ON O.S_NB = CC.CUS_ID AND CC.ORG_ID = #applyOrgId#
+        where 1=1
+          AND O.DELETE_FLAG = 'N'
+
+        <isNotEmpty property="srchCustNm">
+          and ( O.CST_NM like concat('%',#srchCustNm#,'%') or O.CST_NM like concat('%',#srchCustNmKor#,'%') )
+        </isNotEmpty>
+
+        <isNotEmpty property="srchCpnNm">
+          and Q.CPN_NM like concat('%',#srchCpnNm#,'%')
+        </isNotEmpty>
+
+        <isNotEqual property="actionType" compareValue="All">
+            <isNotEmpty property="searchStaffId">
+              and exists(
+                        select 1
+                          FROM BS_customer_manager K
+                         where K.staff_id in ($searchStaffId$)
+                           and K.customer_id = O.S_NB
+                           and K.org_id = #applyOrgId#
+                           and K.status = 'Y'
+                        )
+            </isNotEmpty>
+            <isEmpty property="searchStaffId">
+              and 1=2
+            </isEmpty>
+        </isNotEqual>
+
+        <isNotEmpty property="cstType">
+            and (
+              CC.CATEGORY_PERSON_CD = #cstType#
+            <isEqual prepend="" property="isStock" compareValue="Y">        <!-- 고객구분이 증권사IB 이면 -->
+              or Q.category_business = '증권'                             <!-- 고객구분이 증권사IB가 아니더라도, 고객의 회사가 증권사인 고객도 불러온다 -->
+            </isEqual>
+            )
+        </isNotEmpty>
+        <isNotEmpty property="searchFireStaff">
+            and usr.user_status in ('F','R')
+        </isNotEmpty>
+        <isNotEmpty property="searchNoStaff">
+            and c.staff_id is null
+        </isNotEmpty>
+	</select>
+
+	<select id="person.selectCustListNewInCharge" parameterClass="HashMap" resultClass="HashMap">
+	    /* person.selectCustListNewInCharge */
+		SELECT
+				  O.S_NB						as sNb
+				, O.CST_NM						as cstNm
+				, O.CPN_ID						as cpnId
+				, ifnull(Q.CPN_NM, '')			as cpnNm
+				, Q.category_business			as cpnCate
+
+                , CC.CATEGORY_PERSON_CD			as custType
+                , ifnull((SELECT VALUE_MEAN_KOR	FROM BS_CODE_GV	WHERE CODE_NAME = 'CUSTOMER_TYPE' and CODE_VALUE = CC.CATEGORY_PERSON_CD AND ORG_ID = #orgId#), '') as custTypeNm
+
+				, O.EMAIL                     	as  email
+				, O.PHN_1                     	as  phn1
+				, O.PHN_2                     	as  phn2
+				, O.PHN_3                     	as  phn3
+				, O.POSITION                  	as  position
+
+				<!-- ,ifnull((select cst_nm from IB_CUSTOMER where s_nb = c.staff_id),'') as usrNm -->
+
+				,ifnull((select NAME
+						   from BS_USER_MASTER
+						  where user_id = (select staff_id FROM BS_customer_manager where customer_id = o.s_nb and status = 'Y' limit 1)),'') as usrNm
+				, (select count(1)
+					from ib_net_point
+					where 1=1
+					  and (SNB_2ND = O.S_NB or SNB_1ST = O.S_NB)) as netCnt
+
+                , ifnull(date_format((
+                            select SCHE_S_DATE
+                              from ERP_SCHEDULE
+                             where CUSTOMER_ID = O.S_NB
+                             order by SCHE_S_DATE desc
+                             limit 1
+                         ), '%y-%m-%d'),'')  as lastDt
+
+                ,(  select J.NAME
+                    from ERP_SCHEDULE I, BS_ACTIVITY J
+                   where I.CUSTOMER_ID = O.S_NB
+                   and I.ACTIVITY_ID = J.ACTIVITY_ID
+                   order by I.SCHE_S_DATE desc
+                   limit 1)  as lastType
+                , (select NAME from BS_USER_MASTER where EMP_NO = (
+                                                                select PER_SABUN
+                                                                  from ERP_SCHEDULE
+                                                                 where CUSTOMER_ID = O.S_NB
+                                                                 order by SCHE_S_DATE desc
+                                                                 limit 1
+                                                             ))  as lastNm
+                ,date_format(o.rg_dt, '%y-%m-%d') as rgDt
+
+			FROM
+				IB_CUSTOMER O
+			JOIN
+				BS_CUSTOMER_MANAGER C ON C.CUSTOMER_ID = O.S_NB
+
+			LEFT JOIN
+				IB_COMPANY Q ON Q.CPN_ID = O.CPN_ID
+			LEFT JOIN BS_ORG_CUSTOMER_CATEGORY CC ON O.S_NB = CC.CUS_ID AND CC.ORG_ID = #orgId#
+		WHERE 1=1
+		  AND O.DELETE_FLAG = 'N'
+		  AND C.STAFF_ID = #usrId#
+		  AND C.STATUS = 'A'
+	</select>
+
+
+	<update id="person.updateCstManager" parameterClass="HashMap">
+		UPDATE BS_customer_manager
+		   set status = 'T'
+		   	  ,updated_by = #userSeq#
+		   	  ,update_date = now()
+		 where status = 'Y'
+		   and org_id = #applyOrgId#
+		   and customer_id = #cstId#
+	</update>
+	<update id="person.updateAcceptCstManager" parameterClass="HashMap">
+		UPDATE BS_customer_manager
+		   set status = 'Y'
+		   	  ,updated_by = #userSeq#
+		   	  ,update_date = now()
+		where status = 'A'
+		  and customer_id = #cstId#
+		  and org_id = #applyOrgId#
+		  and staff_id = #userSeq#
+	</update>
+
+
+
+	<select id="person.selectCustomerByName" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			  A.S_NB                      	as  cstId
+			, A.CST_NM                    	as  cstNm
+			, A.CPN_ID                    	as  cpnId
+			, (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = A.CPN_ID)      as  cpnNm
+			, A.EMAIL                     	as  email
+		<!-- , A.PHN_EXPOSURE              	as  phnExposure -->
+			, A.PHN_1                     	as  phn1
+			, A.PHN_2                     	as  phn2
+			, A.PHN_3                     	as  phn3
+			, A.POSITION                  	as  position
+		<!-- , A.LV_CD                     	as  lvCd -->
+			, (select VALUE_MEAN_KOR from BS_CODE_GV where CODE_NAME = 'CUSTOMER_TYPE' and CODE_VALUE = CC.CATEGORY_PERSON_CD AND ORG_ID = #applyOrgId#) as  categoryPersonNm
+			, CC.CATEGORY_PERSON_CD			as  categoryPersonCd
+			, A.DOMESTIC_YN					as domesticYn
+			, A.UP_ID						as upId
+			, A.RG_ID						as rgId
+		FROM IB_CUSTOMER	A
+		LEFT OUTER JOIN BS_ORG_CUSTOMER_CATEGORY CC ON A.S_NB = CC.CUS_ID AND CC.ORG_ID = #applyOrgId#
+		WHERE A.CST_NM = #cstNm#
+		  OR A.PHN_1 = #phn1#
+		  <!-- AND A.DELETE_FLAG = 'N' -->
+
+		/* person.selectCustomerByName */
+	</select>
+
+	<select id="person.getCustomerSameMobile" parameterClass="HashMap" resultClass="HashMap">
+        SELECT
+            A.CST_NM                      as  cstNm
+        FROM IB_CUSTOMER    A
+        WHERE A.PHN_1 = #phn1#
+          <!-- AND A.DELETE_FLAG = 'N' -->
+        LIMIT 1
+        /* person.selectCustomerByName */
+    </select>
+
+    <select id="person.getCustomerSameName" parameterClass="HashMap" resultClass="HashMap">
+        SELECT
+            A.CST_NM                      as  cstNm
+        FROM IB_CUSTOMER    A
+        WHERE A.CST_NM = #cstNm#
+          <!-- AND A.DELETE_FLAG = 'N' -->
+        LIMIT 1
+        /* person.selectCustomerByName */
+    </select>
+
+
+	<!--
+	<update id="person.deleteCustomer" parameterClass="HashMap">
+		update IB_CUSTOMER
+		   set delete_flag = 'Y'
+
+		   	  ,deleted_by = #userSeq#
+		   	  ,delete_date = now()
+
+		where s_nb in ($cstList$)
+
+		/* person.deleteCustomer */
+	</update>
+	 -->
+	<update id="person.deleteCustomer" parameterClass="HashMap">
+		UPDATE BS_CUSTOMER_MANAGER
+		   SET STATUS = 'T'
+
+		   	  ,UPDATED_BY = #userSeq#
+		   	  ,UPDATE_DATE = now()
+
+		 WHERE CUSTOMER_ID in ($cstList$)
+		   AND STAFF_ID = #userSeq#
+
+		/* person.deleteCustomer */
+	</update>
+
+	<!-- -->
+	<select id="personDAO.selectStaffList" parameterClass="HashMap" resultClass="HashMap">
+			SELECT
+				  user.user_id               AS  sNb
+				, user.name                  AS  usrNm
+				, user.login_id              AS  usrId
+				, user.mobile_tel            AS  phn1
+				, user.company_tel           AS  phn2
+				, user.EMAIL                 AS  email
+				, LEFT(user.EMP_NO,9)        AS  sabun
+				, dept.kor_name				 AS  deptNm
+
+
+			FROM BS_USER_MASTER AS user
+			LEFT OUTER JOIN BS_user_profile as up on user.user_id = up.user_id
+			LEFT JOIN bs_user_department 	as userdept ON 	user.USER_ID = userdept.user_id AND main_yn='Y'
+			LEFT JOIN bs_department 		as dept		ON 	userdept.dept_id = dept.dept_id
+			WHERE  user.user_status ='W' AND up.car_work_yn='Y'
+
+			<isNotEmpty property="applyOrgId">
+				AND user.org_id = #applyOrgId#
+			</isNotEmpty>
+
+			ORDER BY user.user_id ASC
+
+	</select>
+
+	<insert id="personDAO.insertCustomerCareer">
+            INSERT INTO BS_CUSTOMER_CAREER
+                  (
+					CUSTOMER_ID
+					, COMPANY_ID
+					, DEPART_TEAM
+					, MEMO
+					, START_DATE
+					, END_DATE
+					, DELETE_FLAG
+					, CREATED_BY
+					, CREATE_DATE
+					, UPDATED_BY
+					, UPDATE_DATE
+         ) VALUES (
+					#customerId#
+					, #companyId#
+					, #departTeam#
+					, #careerMemo#
+					, STR_TO_DATE(CONCAT(#startDate#,'01','01') , '%Y%m%d')
+					, STR_TO_DATE(CONCAT(#endDate#,'01','01'), '%Y%m%d')
+					, 'N'
+					, #userId#
+					, now()
+					, #userId#
+					, now()
+                  )
+    </insert>
+
+    <insert id="personDAO.insertCustomerSchool">
+            INSERT INTO BS_CUSTOMER_SCHOOL
+                  (
+                      CUSTOMER_ID
+					, SCHOOL_TYPE
+					, SCHOOL_NM
+					, MAJOR
+					, GRADUATE
+                    , DELETE_FLAG
+                    , CREATED_BY
+                    , CREATE_DATE
+                    , UPDATED_BY
+                    , UPDATE_DATE
+         ) VALUES (
+                    #customerId#
+                    , #schoolType#
+                    , #schoolNm#
+                    , #major#
+                    , #graduate#
+                    , 'N'
+                    , #userId#
+                    , now()
+                    , #userId#
+                    , now()
+                  )
+    </insert>
+
+    <select id="personDAO.selectCustomerCareerList" parameterClass="personVO" resultClass="egovMap">
+           SELECT
+                     A.CAREER_ID
+					,A.CUSTOMER_ID
+					,A.COMPANY_ID
+					,A.DEPART_TEAM
+					,A.MEMO
+					,DATE_FORMAT(A.START_DATE,'%Y') AS START_DATE
+					,DATE_FORMAT(A.END_DATE,'%Y') AS END_DATE
+					,A.DELETE_FLAG
+					,A.CREATED_BY
+					,A.CREATE_DATE
+					,A.UPDATED_BY
+					,A.UPDATE_DATE
+					,A.DELETED_BY
+					,A.DELETE_DATE
+					,(SELECT X.CPN_NM X FROM IB_COMPANY X WHERE A.COMPANY_ID = X.S_NB) AS CPN_NM
+            FROM BS_CUSTOMER_CAREER A
+            WHERE 1=1
+            AND A.CUSTOMER_ID = #sNb#
+            ORDER BY A.CAREER_ID
+    </select>
+
+    <select id="personDAO.selectCustomerSchoolList" parameterClass="personVO" resultClass="egovMap">
+           SELECT
+                      A.SCHOOL_ID
+					, A.CUSTOMER_ID
+					, A.SCHOOL_TYPE
+					,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'SCHOOL_TYPE' AND CODE_VALUE = A.SCHOOL_TYPE AND ORG_ID = #orgId#)   AS SCHOOL_TYPE_NM
+					, A.SCHOOL_NM
+					, A.MAJOR
+					, A.GRADUATE
+					,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'GRADUATE_TYPE' AND CODE_VALUE = A.GRADUATE AND ORG_ID = #orgId#)   AS GRADUATE_NM
+					, A.START_DATE
+					, A.END_DATE
+					, A.DELETE_FLAG
+					, A.CREATED_BY
+					, A.CREATE_DATE
+					, A.UPDATED_BY
+					, A.UPDATE_DATE
+					, A.DELETED_BY
+					, A.DELETE_DATE
+            FROM BS_CUSTOMER_SCHOOL A
+            WHERE 1=1
+            AND A.CUSTOMER_ID = #sNb#
+            ORDER BY A.SCHOOL_ID
+    </select>
+
+    <select id="person.selectCustomer" parameterClass="personVO" resultClass="personVO">
+       /* person.selectCustomer */
+        SELECT
+                  A.S_NB                      AS  cstId
+                , A.S_NB                      AS  sNb
+                , A.CST_NM                    AS  cstNm
+                , A.CPN_ID                    AS  cpnId
+                , B.CPN_NM                    AS  cpnNm
+                , B.S_NB                      AS  cpnSnb
+                , A.EMAIL                     AS  email
+                , A.PHN_EXPOSURE              AS  phnExposure
+                , A.PHN_1                     AS  phn1
+                , A.PHN_2                     AS  phn2
+                , A.PHN_3                     AS  phn3
+                , A.POSITION                  AS  position
+                , (select max(lv_cd)
+					from ib_net_point
+					where 1=1
+					  and ((SNB_1ST = d.cus_id and SNB_2ND = A.S_NB) or (SNB_1ST = A.S_NB and SNB_2ND = d.cus_id))) as lvCd
+                , (select VALUE_MEAN_KOR from BS_CODE_GV where CODE_NAME = 'CUSTOMER_TYPE' and CODE_VALUE = CC.CATEGORY_PERSON_CD AND ORG_ID = #applyOrgId#) AS  categoryPersonNm
+                , CC.CATEGORY_PERSON_CD        AS  categoryPersonCd
+                , (SELECT EMP_NO FROM BS_USER_MASTER WHERE LOGIN_ID = #rgId#)       AS  RegPerSabun
+                , A.UP_ID                     AS  upId
+                , A.RG_ID                     AS  rgId
+                , C.STAFF_ID                  AS  staffId
+                , ''                          AS  snb1st
+                , A.FAX                       AS  fax
+                , A.MY_WORK                   AS  myWork
+                , A.MF_SEX                    AS  mfSex
+                , A.MARRIED                   AS  married
+                , A.CHILD_F                   AS  childF
+                , A.CHILD_M                   AS  childM
+                , A.HOMETOWN                  AS  hometown
+                , A.HOME_PHONE                AS  homePhone
+                , A.BIRTH                     AS  birth
+                , A.TEAM                      AS  team
+                , A.DOMESTIC_YN				  AS  domesticYn
+                , (SELECT MEMO FROM BS_CUSTOMER_MANAGER K WHERE K.STATUS ='Y' AND K.CUSTOMER_ID = A.S_NB AND K.ORG_ID = #applyOrgId# LIMIT 1)  as  memo
+                , B.REF_ORG_ID				  AS refOrgId
+                , D.NAME					  AS usrNm
+                , D.CUS_ID					  AS managerId
+                , (SELECT COUNT(*) FROM BS_USER_MASTER U WHERE U.USER_STATUS NOT IN ('F','R') AND A.S_NB = U.CUS_ID) AS userCnt  /* 퇴사/해고가 아닌 사용자 등록카운트 */
+                , (CASE WHEN D.USER_STATUS IN ('F', 'R') THEN 'Y' ELSE 'N' END) AS fireStaffYn
+            FROM IB_CUSTOMER A
+            LEFT JOIN IB_COMPANY B ON B.CPN_ID = A.CPN_ID
+            LEFT JOIN BS_CUSTOMER_MANAGER C ON C.CUSTOMER_ID = A.S_NB AND STATUS ='Y' AND C.ORG_ID = #applyOrgId#
+            LEFT JOIN BS_USER_MASTER D ON C.STAFF_ID = D.USER_ID
+            LEFT JOIN BS_ORG_CUSTOMER_CATEGORY CC ON A.S_NB = CC.CUS_ID AND CC.ORG_ID = #applyOrgId#
+            WHERE 1=1
+            AND A.DELETE_FLAG = 'N'
+            AND A.S_NB = #cstId#
+    </select>
+
+    <delete id="personDAO.deleteCustomerSchool">
+        <![CDATA[
+            DELETE FROM  BS_CUSTOMER_SCHOOL
+             WHERE CUSTOMER_ID = #cstId#
+        ]]>
+    </delete>
+
+    <delete id="personDAO.deleteCustomerCareer">
+        <![CDATA[
+            DELETE FROM  BS_CUSTOMER_CAREER
+             WHERE CUSTOMER_ID = #cstId#
+        ]]>
+    </delete>
+	<!-- 회사 직원 리스트  : psj-->
+	<select id = "personDAO.getCpnUserList"  parameterClass="String" resultClass="egovMap">
+		SELECT X.* FROM (
+			SELECT S_NB
+				,CST_NM
+				,CPN_ID
+				,EMAIL
+				,PHN_1
+				,PHN_2
+				,PHN_3
+				,FAX
+				,TEAM
+				,'대표이사' AS POSITION
+				,MY_WORK
+				,CC.CATEGORY_PERSON_CD
+				,PICTURE
+				,MF_SEX
+				,MARRIED
+				,CHILD_F
+				,CHILD_M
+				,HOMETOWN
+				,HOME_ZIP
+				,ADDR
+				,HOME_PHONE
+				,SOLAR
+				,BIRTH
+				,CARRIER
+				,SCHOOL
+				,ResearchFlag
+				,PHN_EXPOSURE
+				,RG_DT
+				,RG_ID
+				, 1 AS ORDERBY
+			FROM IB_CUSTOMER A
+			LEFT JOIN BS_ORG_CUSTOMER_CATEGORY CC ON A.S_NB = CC.CUS_ID AND CC.ORG_ID = #applyOrgId#
+			WHERE S_NB =  (SELECT CEO_ID FROM IB_COMPANY WHERE CPN_ID =  #value#)
+			 and  DELETE_FLAG = 'N'
+		UNION
+			SELECT S_NB
+				,CST_NM
+				,CPN_ID
+				,EMAIL
+				,PHN_1
+				,PHN_2
+				,PHN_3
+				,FAX
+				,TEAM
+				,POSITION
+				,MY_WORK
+				,CC.CATEGORY_PERSON_CD
+				,PICTURE
+				,MF_SEX
+				,MARRIED
+				,CHILD_F
+				,CHILD_M
+				,HOMETOWN
+				,HOME_ZIP
+				,ADDR
+				,HOME_PHONE
+				,SOLAR
+				,BIRTH
+				,CARRIER
+				,SCHOOL
+				,ResearchFlag
+				,PHN_EXPOSURE
+				,RG_DT
+				,RG_ID
+				,2 AS ORDERBY
+			FROM IB_CUSTOMER A
+			LEFT JOIN BS_ORG_CUSTOMER_CATEGORY CC ON A.S_NB = CC.CUS_ID AND CC.ORG_ID = #applyOrgId#
+			WHERE CPN_ID = #value#
+			 and  DELETE_FLAG = 'N'
+		 ) X
+         GROUP BY X.S_NB
+         ORDER BY X.ORDERBY
+	</select>
+
+	<select id = "personDAO.getCustomerOrgIdList" parameterClass ="personVO" resultClass="egovMap">
+		SELECT B.ORG_ID , A.CPN_NM
+		FROM IB_COMPANY A
+		INNER JOIN BS_ORG B ON A.S_NB = B.COMPANY_SNB
+		WHERE A.CPN_ID IN (
+			SELECT X.CPN_ID FROM IB_CUSTOMER X WHERE X.S_NB = #sNb#
+			UNION
+			SELECT Z.CPN_ID FROM IB_COMPANY Z WHERE CEO_ID = #sNb#
+		)
+	</select>
+
+	<select id = "person.getChkDupNetCnt" parameterClass="HashMap" resultClass = "Integer">
+		SELECT A.S_NB
+		  FROM IB_NET_POINT A
+		 WHERE (A.SNB_1ST = #managerCstId# AND A.SNB_2ND = #cusId#)
+		   OR  (A.SNB_1ST = #cusId# AND A.SNB_2ND = #managerCstId#)
+
+	</select>
+	<!-- 담당자정보를 조회한다 -->
+	<select id = "person.getOtherOrgStaff" parameterClass="HashMap" resultClass = "egovMap">
+		SELECT B.NAME AS MANAGER_NM
+			  ,A.MEMO
+			  ,(SELECT MAX(LV_CD)
+					FROM IB_NET_POINT X
+					WHERE 1=1
+					  AND ((X.SNB_1ST = C.S_NB AND X.SNB_2ND = A.CUSTOMER_ID) OR (X.SNB_1ST = A.CUSTOMER_ID AND X.SNB_2ND = C.S_NB))) AS LV_CD
+		FROM BS_CUSTOMER_MANAGER A
+		INNER JOIN BS_USER_MASTER B ON A.STAFF_ID = B.USER_ID
+		INNER JOIN IB_CUSTOMER C ON B.CUS_ID = C.S_NB
+		WHERE A.CUSTOMER_ID = #sNb#
+		  AND B.ORG_ID = #orgId#
+		  AND A.STATUS = 'Y'
+	</select>
+
+	<select id="person.getUserNameList" parameterClass="HashMap" resultClass="egovMap">
+	   /* person.getUserNameList */
+	    SELECT  A.USER_ID
+	             , A.NAME
+		FROM BS_USER_MASTER A
+		WHERE 1=1
+		<isNotEmpty property="searchStaffId">
+			AND A.USER_ID IN ($searchStaffId$)
+	        ORDER BY FIELD(A.USER_ID , $searchStaffId$)
+        </isNotEmpty>
+        <isEmpty property="searchStaffId">
+           AND 1=2
+        </isEmpty>
+    </select>
+
+    <!-- 전체 관계사 목록  -->
+    <select id = "person.getOrgIdListForCustomer" parameterClass="personVO" resultClass="HashMap">
+    SELECT  /*+ 전체 관계사 목록 */
+              B.ORG_ID as orgId
+            ,B.ORG_LOGO as orgLogo
+            ,B.DESCRIPTION as description
+            ,B.COMPANY_SNB as companySnb
+            ,C.CPN_ID as cpnId
+            ,C.CPN_NM as cpnNm
+            ,IFNULL(D.CUSTOMER_ID , 0) as managerId
+    FROM    BS_ORG                          B
+    INNER JOIN IB_COMPANY                   C ON  B.COMPANY_SNB = C.S_NB
+	LEFT OUTER JOIN BS_CUSTOMER_MANAGER		D ON D.CUSTOMER_ID = #sNb# AND D.ORG_ID = B.ORG_ID
+    WHERE   1=1
+    AND     B.ENABLE = 'Y'
+    AND     NOW() BETWEEN B.START_DT AND DATE_ADD(DATE_SUB(DATE(B.END_DT), INTERVAL 1 SECOND), INTERVAL 1 DAY)
+    ORDER BY B.ORG_ID
+    </select>
+
+    <!--  고객유형 저장/수정 -->
+	<insert id="person.doSaveOrgCustomerCate"  parameterClass="HashMap">
+		INSERT INTO BS_ORG_CUSTOMER_CATEGORY (
+			 ORG_ID
+			,CUS_ID
+			,CATEGORY_PERSON_CD
+		) VALUES (
+			 #orgId#
+			,#cusId#
+			,#categoryPersonCd#
+		)
+		ON DUPLICATE KEY
+		UPDATE CATEGORY_PERSON_CD = #categoryPersonCd#
+	</insert>
+	<!-- 고객 알림 팝업 노출 여부 판단 -->
+	<select id="person.getChkPersonNoticeInfo" parameterClass="HashMap" resultClass="Integer">
+		SELECT A.CNT + B.CNT
+		FROM (
+		SELECT   COUNT(*)	as CNT
+		  FROM BS_CUSTOMER_INFO_CHANGE_CONFIRM A
+		  <!-- INNER JOIN IB_CUSTOMER B ON A.CUSTOMER_ID = B.S_NB																								/*고객의 정보*/
+		  INNER JOIN IB_COMPANY C ON B.CPN_ID = C.CPN_ID																									/*고객의 회사*/
+		  INNER JOIN BS_ORG D ON  D.ORG_ID = A.UPDATED_ORG_ID
+		  INNER JOIN IB_COMPANY E ON D.COMPANY_SNB = E.S_NB									/*변경한 담당자 회사...COMPANY의 REF_ORG_ID로 접근하면 여러건이나와서 BS_ORG테이블 정보로 조회.*/
+		  LEFT JOIN BS_ORG_CUSTOMER_CATEGORY CC ON B.S_NB = CC.CUS_ID AND CC.ORG_ID = #orgId# 	 -->														/*고객의 직원정보*/
+		WHERE A.STAFF_ID = #userId#
+		) A ,
+		(
+		SELECT
+				COUNT(*)	as CNT
+			FROM
+				IB_CUSTOMER O
+			JOIN
+				BS_CUSTOMER_MANAGER C ON C.CUSTOMER_ID = O.S_NB
+			LEFT JOIN
+				IB_COMPANY Q ON Q.CPN_ID = O.CPN_ID
+			LEFT JOIN BS_ORG_CUSTOMER_CATEGORY CC ON O.S_NB = CC.CUS_ID AND CC.ORG_ID = #orgId#
+		WHERE 1=1
+		  AND O.DELETE_FLAG = 'N'
+		  AND C.STAFF_ID = #userId#
+		  AND C.STATUS = 'A'
+		) B
+
+	</select>
+	<!-- 담당고객정보수정확인 리스트 -->
+	<select id="person.getCustomerChangeConfirmList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT   A.STAFF_ID									/*담당자 순번*/
+				,A.CUSTOMER_ID								/*고객 순번*/
+				,A.UPDATED_ORG_ID							/*변경한 ORG_ID*/
+				,A.CUSTOMER_INFO_CHANGE_TYPE				/*변경타입*/
+				,A.UPDATED_USER_ID							/*변경자 순번*/
+				,B.POSITION									/*고객 직급*/
+				,B.PHN_1									/*고객 연락처*/
+				,B.CST_NM									/*고객 이름*/
+				,C.CPN_NM
+				,(select VALUE_MEAN_KOR from BS_CODE_GV where CODE_NAME = 'CUSTOMER_TYPE' and CODE_VALUE = CC.CATEGORY_PERSON_CD AND ORG_ID = #orgId#) as  CATEGORY_PERSON_NM
+				,(SELECT X.NAME FROM BS_USER_MASTER X  WHERE A.UPDATED_USER_ID = X.USER_ID) AS OTHER_MANAGER_NM		/*변경자이름*/
+				,E.CPN_NM AS UPDATED_CPN_NM																			/*변경한 관계사 이름*/
+		  FROM BS_CUSTOMER_INFO_CHANGE_CONFIRM A
+		  LEFT JOIN IB_CUSTOMER B ON A.CUSTOMER_ID = B.S_NB																								/*고객의 정보*/
+		  LEFT JOIN IB_COMPANY C ON B.CPN_ID = C.CPN_ID																									/*고객의 회사*/
+		  LEFT JOIN BS_ORG D ON  D.ORG_ID = A.UPDATED_ORG_ID
+		  LEFT JOIN IB_COMPANY E ON D.COMPANY_SNB = E.S_NB									/*변경한 담당자 회사...COMPANY의 REF_ORG_ID로 접근하면 여러건이나와서 BS_ORG테이블 정보로 조회.*/
+		  LEFT JOIN BS_ORG_CUSTOMER_CATEGORY CC ON B.S_NB = CC.CUS_ID AND CC.ORG_ID = #orgId# 															/*고객의 직원정보*/
+		WHERE A.STAFF_ID = #userId#
+		<isNotEmpty property="customerInfoChangeType">
+			AND A.CUSTOMER_INFO_CHANGE_TYPE = #customerInfoChangeType#
+		</isNotEmpty>
+	</select>
+
+	<!--고객 알림 데이터 삭제  -->
+	<delete id ="person.deleteCustomerInfoChange" parameterClass="HashMap">
+		DELETE FROM BS_CUSTOMER_INFO_CHANGE_CONFIRM
+		WHERE STAFF_ID = #userId#
+	</delete>
+
+	<!-- 고객의 타담당자정보목록을 조회한다 -->
+    <select id = "person.getOtherStaffList" parameterClass="HashMap" resultClass = "egovMap">
+        SELECT    A.STAFF_ID AS staffId
+                   , (SELECT B.CST_NM FROM IB_CUSTOMER B WHERE B.S_NB= A.CUSTOMER_ID) AS cstNm
+         FROM    BS_CUSTOMER_MANAGER A
+         WHERE   A.CUSTOMER_ID = #sNb#                   /* 수정된 고객 ID   */
+         AND     A.STATUS = 'Y'                        /* 현재 담당자만    */
+         AND     A.ORG_ID != #orgId#                        /* 수정자 관계사 담당자 제외    */
+         /* person.getOtherStaffList */
+    </select>
+
+    <!--  고객담당자고객정보수정확인  등록 -->
+    <insert id="person.insertCustomerInfoChangeConfirm"  parameterClass="HashMap">
+        INSERT INTO BASE.BS_CUSTOMER_INFO_CHANGE_CONFIRM (
+            STAFF_ID,
+            CUSTOMER_ID,
+            UPDATED_ORG_ID,
+            CUSTOMER_INFO_CHANGE_TYPE,
+            UPDATED_USER_ID) SELECT * FROM (
+                                        SELECT  STAFF_ID
+                                               ,CUSTOMER_ID
+                                               ,#orgId#       UPDATED_ORG_ID             /* 수정자 관계사 ID */
+                                               ,#customerInfoChangeType#  CUSTOMER_INFO_CHANGE_TYPE   /* 'INFO' 데이터 수정, 'MANAGER' 담당자 변경 */
+                                               ,#userId#      UPDATED_USER_ID            /* 수정자 USER ID */
+                                        FROM    BASE.BS_CUSTOMER_MANAGER
+                                        WHERE   CUSTOMER_ID = #sNb#                   /* 수정된 고객 ID   */
+                                        AND     STATUS = 'Y'                        /* 현재 담당자만    */
+                                        AND     ORG_ID != #orgId#                        /* 수정자 관계사 담당자 제외    */
+        ) B ON DUPLICATE KEY UPDATE
+                           STAFF_ID = B.STAFF_ID,
+                           CUSTOMER_ID = B.CUSTOMER_ID,
+                           UPDATED_ORG_ID = B.UPDATED_ORG_ID,
+                           CUSTOMER_INFO_CHANGE_TYPE = B.CUSTOMER_INFO_CHANGE_TYPE,
+                           UPDATED_USER_ID = B.UPDATED_USER_ID
+
+        /* person.insertCustomerInfoChangeConfirm */
+    </insert>
+</sqlMap>

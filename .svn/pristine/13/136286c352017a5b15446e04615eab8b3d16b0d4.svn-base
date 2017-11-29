@@ -1,0 +1,262 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<link href="<c:url value='/css/management.css'/>" rel="stylesheet" type="text/css"/>
+<link href="<c:url value='/css/content.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/css/btn.css'/>" rel="stylesheet" type="text/css">
+<script type="text/JavaScript" src="<c:url value='/js/jquery.min.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/process.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/calendar_beans_v2.0.js'/>" ></script>
+<script>
+CalAddCss();
+/*
+	id		:텍스트박스Id   // *필수
+	type	:day,mon	    // 둘중 하나입력		,기본값> 일달력 출력
+	minYear :xxxx			// 최소년도 4자리 입력	,기본값> 2000
+	maxYear :xxxx  			// 최대년도 4자리 입력	,기본값> 현재년도
+	splitKey:'-','/'		// 달력 구분값        	,기본값> '-'
+	todayYN :'y','n'		// today 표시         	,기본값> 안보여주기
+	iconYN  :'y','n'		// 달력그림표시여부	  	,기본값> 안보여주기
+	iconUrl :fullUrl 혹은 해당위치 상대경로 url'	,기본값> jquery 사이트 달력
+ */
+ $(document).ready(function(){
+ });
+</script>
+<style>tbody tr:hover{background-color: moccasin !important;}</style>
+<div id="wrap" class="content_box">
+
+	<jsp:scriptlet>
+		pageContext.setAttribute("cr", "\r");
+		pageContext.setAttribute("lf", "\n");
+		pageContext.setAttribute("crlf", "\r\n");
+	</jsp:scriptlet>
+
+<input type="hidden" id="rgstId" value="<c:out value='${baseUserLoginInfo.loginId}'/>">
+
+	<section>
+		<article>
+
+		<c:set var="now" value="<%= new java.util.Date() %>"/>
+		<fmt:formatDate var="cur_day" value='${now}' pattern='yyyy-MM-dd'/>
+
+		<form name="modifyRec" action="<c:url value='/work/selectWorkMediateDealR.do' />" method="post"><input type="hidden" name="sorting" id="sorting"><input type="hidden" name="total" value="${ttT}"></form>
+		<input type="hidden" id="SendReceive" value="MR">
+
+		<div style="z-index:10;">
+
+			<header>
+				<form name="dayForm" id="dayForm" method="post" action="<c:url value='/work/selectWorkMediateDealR.do' />">
+				<input type="hidden" name="total" id="total">
+				<div class="year_wrap" style="top:0px"><h2 class="headerTitle">
+
+					<c:set var="now" value="<%= new java.util.Date() %>"/>
+					<fmt:formatDate var="cur_year" value='${now}' pattern='yyyy'/>
+
+					<span class="year">
+						<select id='deal_select_year' name='choiceYear'>
+							<c:forEach var="year" begin="2011" end="${cur_year}">
+								<option value="${year}"
+								<c:choose>
+									<c:when test="${choiceYear == null}">
+										<c:if test="${year == cur_year}">selected</c:if>>
+									</c:when>
+									<c:otherwise>
+										<c:if test="${year == choiceYear}">selected</c:if>>
+									</c:otherwise>
+								</c:choose>
+								${year}</option>
+							</c:forEach>
+						</select>
+					</span>
+					<span class="btn s red"><a onclick="totalView('total');">전체</a></span>
+				<%-- ${middleT}  --%>중개 제안받은현황</h2>
+				</div>
+				</form>
+				<h2 class="headerTitle">&nbsp;</h2>
+			</header>
+
+			<!-- 신규 Tab :S -->
+			<div>
+				<div class="clear" style="float:left;width:10px;height:15px;">&nbsp;</div>
+				<div style="height:16px;line-height:15px;"class="1st subTabon" onclick="moveTab('/work/selectWorkMediateDealR.do')">중개</div>
+				<div style="height:16px;line-height:15px;"class="1st subTab" onclick="moveTab('/work/selectWorkDirectDealS.do')">직접발굴</div>
+				<div style="height:16px;line-height:15px;"class="1st subTab" onclick="moveTab('/work/selectWorkMnaDeal.do')">M&A</div>
+				<div style="height:16px;line-height:15px;"class="1st subTab" onclick="moveTab('/work/selectWorkIPO.do')">프리IPO</div>
+				<div style="height:16px;line-height:15px;"class="1st subTab" onclick="moveTab('/recommend/index.do')">추천</div>
+				<div style="height:16px;line-height:15px;"class="1st subTab" onclick='window.open("http://106.250.177.91:8280/SynergyCus/InvestCom.do","투자회사", "scrollbars=yes,toolbar=yes,resizable=yes,width=1180,height=800,left=100,top=100");'>투자회사</div>
+				<div class="tabUnderBar" style="float:left;height:15px;">&nbsp;</div>
+				<div class="clear" style="height:4px;"></div>
+			</div>
+			<!-- 신규 Tab :E -->
+			<table class="t_skinR00" style="table-layout:fixed">
+				<colgroup>
+					<col width="77"><col width="47"><col width="102"><col width="47"><col width="47"><col width="102"><col width="102"><col width="102"><col width="52"><col width="76"><col width="88"><col width="88"><col width="76"><col width="76"><col width="180">
+				</colgroup>
+				<thead>
+					<tr>
+						<th rowspan="2" onclick="sortTable();" class="hand bgYlw">제안일자<br/>▼</th>
+						<th rowspan="2" onclick="sortTable(6);" class="hand bgYlw pd0">공동<br/>진행<br/>▼</th>
+						<th colspan="2" class="bgYlw">중개인</th>
+						<th rowspan="2" onclick="sortTable(3);" class="hand bgYlw pd0">제안<br/>받은자<br/>▼</th>
+						<th rowspan="2" onclick="sortTable(4);" class="hand bgYlw pd0">물건<br/><small>(회사명)</small><br/>▼</th>
+						<th rowspan="2" onclick="sortTable(5);" class="hand bgYlw pd0">제안<br/>유형<br/>▼</th>
+						<th rowspan="2" class="bgYlw pd0">발행<br/>규모</th>
+						<th rowspan="2" class="bgYlw pd0">투자<br/>규모</th>
+						<th rowspan="2" class="bgYlw pd0">피드백</th>
+						<th rowspan="2" class="bgYlw pd0">진행<br/>사항</th>
+						<th rowspan="2" class="bgYlw pd0">의견</th>
+						<th rowspan="2" class="bgYlw pd0">투자<br/>의견</th>
+						<th rowspan="2" class="bgYlw pd0">성과/<br/>중요도</th>
+						<th rowspan="2" class="bgYlw pd0">메모</th>
+					</tr>
+					<tr>
+						<th class="bgYlw pd0 companyName">회사</th>
+						<th onclick="sortTable(2);" class="hand bgYlw pd0 personName">이름<br/>▼</th>
+						<!-- <th class="bgYlw">소속/직위</th> -->
+					</tr>
+					<tr style="height:1px;"></tr>
+				</thead>
+				</table></div>
+			<div>
+			<table class="t_skinR00" style="table-layout:fixed">
+				<colgroup>
+					<col width="77"><col width="47"><col width="102"><col width="47"><col width="47"><col width="102"><col width="102"><col width="102"><col width="52"><col width="76"><col width="88"><col width="88"><col width="76"><col width="76"><col width="180">
+				</colgroup>
+				<tbody>
+					<c:forEach var="offer" items="${offerList}" varStatus="status">
+						<tr
+							<c:choose>
+								<c:when test="${offer.progressCd == '10000'}"> style="background-color:#B9B9B9" </c:when>
+								<c:otherwise> <c:if test="${offer.progressCd == '00002'}">style="background-color:#E7E7E7"</c:if><c:if test="${offer.progressCd == '00003'}">style="background-color:#A9F5BC"</c:if><%-- <c:if test="${fn:length(offer.cpnId) == 7}"> style="background-color:#CEF6EC"</c:if> --%></c:otherwise>
+							</c:choose>
+						>
+							<td class="cent pd0">${offer.tmDt}</td>
+						<input type="hidden" id="offerSnb${status.count}" value="${offer.sNb}">
+							<td class="cent pd0"><nobr>${offer.supporterNm}</nobr></td>
+							<td class="cent pd0">${offer.cstCpnNm}</td>
+							<td class="cent pd0" title="${offer.position}"><nobr>${offer.cstNm}</nobr></td>
+							<%-- <td class="cent">${offer.position}</td> --%>
+							<td class="cent pd0"><nobr>${offer.rgNm}</nobr></td>
+							<td class="cent pd0">${offer.cpnNm}</td>
+							<td class="cent pd0"><c:forEach var="cmmCd" items="${cmmCdCategoryList}"><c:if test="${offer.categoryCd == cmmCd.cd}">${cmmCd.nm}</c:if></c:forEach></td>
+							<td class="cent pd0">${offer.price}</td>
+							<td class="cent pd0">${offer.investPrice}</td>
+							<td class="cent pd0">
+								<select id='feedback' name='feedback' <c:if test="${baseUserLoginInfo.permission < '00020'  and  baseUserLoginInfo.userName!=offer.rgNm}">disabled="disabled"</c:if>>
+								<c:forEach var="cmmCd" items="${cmmCdFeedbackList}"><option value="${cmmCd.cd}" <c:if test="${offer.feedback == cmmCd.cd}">selected</c:if>>${cmmCd.nm}</option></c:forEach>
+								</select>
+							</td>
+							<td class="cent pd0">
+								<select id='progressCd' name='progressCd' <c:if test="${baseUserLoginInfo.permission < '00020'  and  baseUserLoginInfo.userName!=offer.rgNm}">disabled="disabled"</c:if>>
+								<c:forEach var="cmmCd" items="${cmmCdProgressList}"><option value="${cmmCd.cd}" <c:if test="${offer.progressCd == cmmCd.cd}">selected</c:if>>${cmmCd.nm}</option></c:forEach>
+								</select><c:if test="${offer.jointCnt!=0}"><br/><a onclick="popUp('','supporter','','${offer.sNb}')"><b>공동 ${offer.jointCnt} 명</b></a></c:if>
+							</td>
+							<td class="pd0"><nobr>
+								&nbsp;<span class="btn s gold"><a id="opinionBtn${cnt }" onclick="popUp('${offer.tmDt}','rcmdComment','','${offer.sNb}');">의견</a></span>
+								<c:if test="${not empty offer.analysis and offer.analysis!=0}"><span style="color:mediumvioletred">&nbsp;<b>[${offer.analysis}]</b></span></c:if><c:if test="${not empty offer.opinion and offer.opinion != 0}"><span style="color:darkgoldenrod">&nbsp;<b>[${offer.opinion}]</b></span></c:if>&nbsp;</nobr>
+							</td>
+							<td style="padding:2px;">
+								<a class="opinion_m" id="opinion_${offer.sNb}"><font color="blue">
+								<c:choose><c:when test="${empty offer.investOpinion}"><small><font style="color:gray">의견..</font></small></c:when>
+									<c:otherwise>${fn:substring(offer.investOpinion,0,10)}<c:if test="${fn:length(offer.investOpinion) > 10}">...</c:if></c:otherwise></c:choose>
+								</font></a>
+							</td>
+							<td style="padding:2px;">
+								<a class="result_m" id="result_${offer.sNb}"><font color="red"><c:choose><c:when test="${empty offer.result}"><small><font style="color:gray">성과...</font></small></c:when><c:otherwise>${fn:substring(offer.result,0,10)}<c:if test="${fn:length(offer.result) > 10}">...</c:if></c:otherwise></c:choose>
+								</font></a>
+							</td>
+							<td>
+								<a class="memo_m" id="memo_${offer.sNb}"><c:choose><c:when test="${empty offer.memo}"><font style="color:gray">메모를 입력하세요.</font></c:when><c:otherwise>${fn:substring(offer.memo,0,18)}<c:if test="${fn:length(offer.memo) > 18}">...</c:if></c:otherwise></c:choose>
+								</a>
+							</td>
+						</tr>
+					</c:forEach>
+				</tbody>
+			</table>
+			</div>
+		</article>
+	</section>
+<div>
+<!-- 메모 -->
+	<c:forEach var="offer" items="${offerList}" varStatus="status">
+		<div class="popUpMenu title_area" id="memoPr${offer.sNb}" name="textR">
+		<c:choose>
+			<c:when test="${baseUserLoginInfo.permission > '00019'  or baseUserLoginInfo.userName==offer.rgNm}">
+				<input type="hidden" id="dealMemoSNb${offer.sNb}" value="${offer.sNb }">
+				<p class="closePopUpMenu" name="textR">ⅹ닫기</p>
+				<ul>
+					<c:choose>
+						<c:when test="${empty offer.memo}">
+						<li class="c_note"><textarea id="memoarea0" placeholder="메모를 입력하세요."></textarea></li>
+						</c:when>
+						<c:otherwise>
+						<li class="c_note"><textarea id="memoarea${offer.sNb}">${offer.memo}</textarea></li>
+						</c:otherwise>
+					</c:choose>
+					<p class="bsnsR_btn">
+						<span class="dealMemo_btnOk btn s green"><a><spring:message code="button.save" /></a></span>&nbsp;&nbsp;&nbsp;
+						<input type="text" tabindex="1" id="RM_${offer.sNb}" style="height:1px;width:1px;border:0px none;padding:0;vertical-align:bottom;">
+						<!-- <span class="dealMemo_btnDel">완전삭제</span> -->
+					</p>
+				</ul>
+			</c:when>
+
+			<c:otherwise>
+				<input type="hidden" id="memoSNb${offer.sNb}" value="${offer.sNb }">
+				<p class="closePopUpMenu" name="textR">ⅹ닫기</p>
+				<ul>
+					<li class="c_note v-textarea">${fn:replace(offer.memo, lf,"<br/>")}</li>
+				</ul>
+			</c:otherwise>
+		</c:choose>
+		</div>
+<!-- 메모 -->
+<!-- 성과 -->
+		<div class="popUpMenu title_area" id="resultPr${offer.sNb}" name="textR">
+		<c:choose><c:when test="${baseUserLoginInfo.permission > '00019'  or  baseUserLoginInfo.userName==offer.rgNm}">
+				<input type="hidden" id="dealResultSNb${offer.sNb}" value="${offer.sNb }">
+				<p class="closePopUpMenu" name="textR">ⅹ닫기</p>
+				<ul><c:choose>
+					<c:when test="${empty offer.result}"><li class="c_note"><textarea id="resultarea0" placeholder="성과 내용을 입력하세요."></textarea></li></c:when>
+					<c:otherwise><li class="c_note"><textarea id="resultarea${offer.sNb}">${offer.result}</textarea></li></c:otherwise></c:choose>
+					<p class="bsnsR_btn">
+						<span class="dealResult_btnOk btn s green"><a><spring:message code="button.save" /></a></span>&nbsp;&nbsp;&nbsp;
+						<!-- <span class="dealResult_btnDel">완전삭제</span> -->
+					</p>
+				</ul>
+			</c:when><c:otherwise>
+				<input type="hidden" id="resultSNb${offer.sNb}" value="${offer.sNb }">
+				<p class="closePopUpMenu" name="textR">ⅹ닫기</p>
+				<ul>
+					<li class="c_note v-textarea">${fn:replace(offer.result, lf,"<br/>")}</li>
+				</ul></c:otherwise>
+		</c:choose>
+		</div>
+<!-- 성과 -->
+<!-- 의견 -->
+		<div class="popUpMenu title_area" id="opinionPr${offer.sNb}" name="textR">
+		<c:choose><c:when test="${baseUserLoginInfo.permission > '00019'  or  baseUserLoginInfo.userName==offer.rgNm}">
+				<input type="hidden" id="dealOpinionSNb${offer.sNb}" value="${offer.sNb }">
+				<p class="closePopUpMenu" name="textR">ⅹ닫기</p>
+				<ul><c:choose>
+					<c:when test="${empty offer.investOpinion}"><li class="c_note"><textarea id="opinionarea0" placeholder="투자의견을 입력하세요."></textarea></li></c:when>
+					<c:otherwise><li class="c_note"><textarea id="opinionarea${offer.sNb}">${offer.investOpinion}</textarea></li></c:otherwise></c:choose>
+					<p class="bsnsR_btn">
+						<span class="dealResult_btnOk btn s green"><a><spring:message code="button.save" /></a></span>&nbsp;&nbsp;&nbsp;
+						<!-- <span class="dealResult_btnDel">완전삭제</span> -->
+					</p>
+				</ul>
+			</c:when><c:otherwise>
+				<input type="hidden" id="opinionSNb${offer.sNb}" value="${offer.sNb }">
+				<p class="closePopUpMenu" name="textR">ⅹ닫기</p>
+				<ul>
+					<li class="c_note v-textarea">${fn:replace(offer.investOpinion, lf,"<br/>")}</li>
+				</ul></c:otherwise>
+		</c:choose>
+		</div>
+<!-- 의견 -->
+	</c:forEach>
+</div>
+</div>

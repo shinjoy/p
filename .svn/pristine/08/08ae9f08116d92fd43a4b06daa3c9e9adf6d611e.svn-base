@@ -1,0 +1,404 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+ <!--  	
+  	 /**
+	 *  인수인계자 설정 등록 화면
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: sjy
+	 * @date		: 2017. 10. 12.
+	 */
+-->
+
+
+<script type="text/javascript" defer="defer">
+
+var g_orgId = '${baseUserLoginInfo.applyOrgId}';
+var g_leftUserList = new Array();
+var g_rightUserList = new Array();
+
+var myUserLeftTree = new UserTree(); 	//UserTree 객체생성(left)
+var myUserRightTree = new UserTree(); 	//UserTree 객체생성(right)
+
+
+	$(document).ready(function(){
+		
+		setUserTree('leftTreeArea','N','leftTree','work');
+		setUserTree('rightTreeArea','N','rightTree','dept');
+		
+	});
+	
+	//org 변경시
+	function changeOrgSelect(){
+		
+		g_orgId = $("#selectOrgId option:selected").val();
+		$("#orgNmArea").html($("#selectOrgId option:selected").text());
+		
+		//트리 세팅
+		setUserTree('leftTreeArea','N','leftTree','work');
+		setUserTree('rightTreeArea','N','rightTree','dept');
+		
+		//하단 선택영역 초기화
+		clearSelectArea('leftTree');
+		clearSelectArea('rightTree');
+		
+		$('#leftTreeSearchArea').hide();
+		$('#rightTreeSearchArea').hide();
+		
+		
+	}
+	
+	//사용자 트리 생성
+	function setUserTree(targetID, fireChk, liClass, liID){ 	//setUserTree('leftTreeArea','N','leftTree','work');
+		
+		if(liClass == 'leftTree') myUserLeftTree = new UserTree(); 		//UserTree 객체생성(left)
+		if(liClass == 'rightTree') myUserRightTree = new UserTree(); 	//UserTree 객체생성(right)
+		
+		//tab 초기화 및 표시 
+		$("."+liClass).removeClass('current');
+		$("#"+liID).addClass('current');
+		$('#'+targetID).empty();
+
+		
+		/* 사용자트리 설정정보 */
+		var configObj = {
+				targetID : targetID,									//대상 위치 id (div, span)
+				url : contextRoot + "/common/getOrgDeptUserList.do",	//데이터 URL
+				isCheckbox	:false,
+				isOnlyOne : true,										//선택건수 1개 여부			(false: 복수,		그외,: 한명(default))
+				isAllOrg : false,										//전체 ORG 범위로의 여부		(true: 전체ORG, 		그외,: 나의권한ORG (default))
+				oneOrg : g_orgId,										//전달받은 한개의 ORG ID
+				//defaultSelectList : ['${baseUserLoginInfo.userId}'],	//기본 선택 id array 			(로딩시점 초기 기본 선택 노드 id list)
+				isDeptSelectable : false,								//부서선택 가능여부(= 하위 사용자 모두 선택)		(true: 해당부서하위모두선택, 	그외,:부서선택불가 (default))
+				callbackFn : liClass == 'leftTree' ? setLeftData : setRightData,			//콜백 function
+				useAllCheck : false,									//전체선택 기능 사용 여부		(true: 사용,			그외,: 미사용(default))
+				userStatusFire : fireChk == 'Y' ? true : false,
+				isReturnObj : true,
+				treeId		: 'multiTree'+targetID,
+				useNameSortList : liClass == 'leftTree' ? false : true
+			
+			
+		};
+		
+		//디폴트 체크
+		if($('#selectId'+liClass).length > 0) configObj.defaultSelectList = [$('#selectId'+liClass).val()];
+		
+		if(liClass == 'leftTree') {
+			
+			myUserLeftTree.setConfig(configObj);	//설정정보 세팅
+			myUserLeftTree.drawTree();				//트리 생성
+			
+			g_leftUserList = returnUserList();		//left 사용자 정보
+		
+		}else{
+			 
+			myUserRightTree.setConfig(configObj);	//설정정보 세팅
+			myUserRightTree.drawTree();				//트리 생성
+			
+			g_rightUserList = returnUserList();			//right 사용자 정보
+			
+			//부서별
+			if(liID == 'dept'){
+				
+	  			$("#multiTreerightTreeArea"+g_orgId).show();
+	  	  		$("#nameSortListmultiTreerightTreeArea"+g_orgId).hide();
+	  	  		selectTabZone('DEPT', g_orgId);		//UserTree.js 탭 선택 액션
+	  	  	//직원별	
+	  		}else{
+	  			
+	  			$("#multiTreerightTreeArea"+g_orgId).hide();
+	  	  		$("#nameSortListmultiTreerightTreeArea"+g_orgId).show();
+	  	  		selectTabZone('USER', g_orgId);		//UserTree.js 탭 선택 액션
+	  	  		
+	  	  		if($("#selectIdrightTree").length > 0)$('input[name=nameSortInputNm' + g_orgId + '][value="'+$("#selectIdrightTree").val()+'"]').prop("checked",true);
+	  		}
+		}
+		
+		$("#tabZoneTreeList").hide();
+		$(".tnavi_title").hide();
+		
+		
+	}
+	
+	//--------------------------tree 선택 결과 세팅 : S
+	
+	//왼쪽 선택 
+	function setLeftData(userId, userList, orgId){
+		
+		selectResult(userId, userList, orgId, 'leftTree');
+	}
+	
+	//오른쪽 선택 
+	function setRightData(userId, userList, orgId){
+		
+		selectResult(userId, userList, orgId, 'rightTree');
+	}
+	
+	//선택 결과 그리드 
+	function selectResult(userId, userList, orgId, divId){ 	//divId : rightTree , leftTree
+		
+	
+		var str ='';
+		
+		var obj = getRowObjectWithValue(userList, 'userId', userId);
+		
+	
+		str += '<td>'+obj.orgNm+'<input type="hidden" value="'+userId+'" id="selectId'+divId+'"></td>';
+		str += '<td>'+obj.deptNm+'</td>';
+		str += '<td>'+obj.userName+'</td>';
+		str += '<td>'+obj.showEmpNo+'</td>';
+		str += '<td><button type="button" class="btn_s_replay mgl6" onclick="clearSelectArea(\''+divId+'\');"><em>초기화</em></button></td>';
+	
+	
+		$("#"+divId+"SelectArea").html(str);
+	}
+	
+	//--------------------------tree 선택 결과 세팅 : E
+	
+	//그리드 초기화 
+	function clearSelectArea(trPosition){ //trPosition : rightTree , leftTree
+		
+		
+		var id = $("#selectId"+trPosition).val();
+	
+		$("#"+trPosition+"SelectArea").html('<td colspan="5">직원을 선택해주세요.</td>');
+		
+		$('#'+trPosition+'Area').find("#"+id+"_anchor").removeClass('jstree-clicked');	//트리 표시 없애기
+		if(trPosition == 'rightTree') $('input[name=nameSortInputNm' + g_orgId + ']').prop("checked",false);	//라디오 체크해제
+    	
+		
+	}
+	
+	//---------------------------검색기능 : S
+	
+	//이름검색
+    function doSearchNm(searchValue, th, targetID){
+
+        g_searchList = [];
+        
+        var list = new Array();
+        
+        if(targetID == 'leftTree')  list = g_leftUserList;
+        else  list = g_rightUserList;
+
+        var left = $(th).position().left;
+        var top = $(th).position().top + $(th).height()+2;
+        $("#"+targetID+"SearchArea").css({display:"",left:left,top:top});
+
+        var searchList =[];
+        var str ='';
+        
+        for(var i=0;i<list.length;i++){
+            var userName = list[i].userName;
+            if(userName.match(searchValue)){
+                searchList.push(list[i]);
+                str +='<li onclick="javascript:searchClick(\''+list[i].userId+'\',\''+targetID+'\');"><a href="" class="atcmp_keyword" onclick="return false;">';
+                str +='<span class="atcmp_name">'+userName.replace(new RegExp(searchValue,"gi"), '<strong>'+searchValue+'</strong>')+'</span>';
+                str +='<span class="experson">(<em class="atcmp_com">'+list[i].orgNm+'</em>|<em class="atcmp_team">'+list[i].deptNm+'</em>|<em class="atcmp_num">'+list[i].showEmpNo+'</em>)</span></a></li>';
+            }
+        }
+
+        if(searchList.length==0){
+            str +='<li><a href="" class="atcmp_keyword" onclick="return false;">';
+            str +='<span class="atcmp_name">검색결과가 없습니다.</span>';
+            str +='</a></li>';
+        }
+       
+        $("#"+targetID+"ResultArea").html(str);
+
+
+    }
+	
+  	//직원 검색에서 선택시
+    function searchClick(userId, id){
+  		
+    	$('#'+id+'Area').find("#"+userId+"_anchor").trigger('click');
+    	
+    	if(id == 'rightTree' && $("#selectIdrightTree").length > 0){
+    		$('input[name=nameSortInputNm' + g_orgId + '][value="'+$("#selectIdrightTree").val()+'"]').prop("checked",true);
+    	}
+    	
+    	$('#'+id+'SearchArea').hide();
+
+    }
+  	
+  	//---------------------------검색기능 : E
+  	
+  	//저장
+  	function createTransferUser(){
+  		
+  		var giveUserId = $("#selectIdleftTree").val();		//인계
+  		var takeUserId = $("#selectIdrightTree").val();		//인수
+  		
+  		//-------------------validation : S
+  		
+  		if($("#selectIdleftTree").length == 0 ||  giveUserId == null){
+  			alert("인계직원을 선택해주세요.");
+  			return;
+  		}
+  		
+  		if($("#selectIdrightTree").length == 0 ||  takeUserId == null){
+  			alert("인수직원을 선택해주세요.");
+  			return;
+  		}
+  		
+  		if(giveUserId == takeUserId){
+  			alert("동일인으로는 인계 할 수 없습니다.");
+  			return;
+  		}
+  		
+  		if($("#comment").val() == ""){
+  			alert("인수사유를 입력해주세요.");
+  			$("#comment").focus();
+  			return;
+  		}
+  		
+  		//-------------------validation : E
+  		
+  		
+  		var url = contextRoot + "/system/createTransferUser.do";
+ 	    var param = {
+ 	    		giveUserId	:	giveUserId,
+ 	    		takeUserId	:	takeUserId, 
+ 	    		comment		:	$("#comment").val(), 
+ 	    		orgId		:	$("#selectOrgId option:selected").val(),
+ 	    		useYn		:	'Y'
+ 	    };
+ 	   
+ 	    var callback = function(result){
+ 		   
+ 		   var obj = JSON.parse(result);
+ 		   
+ 		   if(obj.resultVal > 0){
+ 			   
+ 			   opener.linkPage();
+ 			   opener.toast.push("저장되었습니다.");
+ 			   window.close();
+ 			   
+ 		   }else{
+ 			   alert("서버오류!!");
+ 		   }
+ 		   
+ 		   
+ 	    };
+ 	   
+ 	    commonAjax("POST", url, param, callback);
+  		
+  		
+  		
+  	}
+  
+  	
+  	
+
+</script>
+<section id="detail_contents">
+	<div class="sys_halfWrap">
+		<!--인계직원선택-->
+		<div class="fl_halfBox">
+			<h3 class="h3_title_basic">인계 직원선택</h3>
+			<div class="pop_title_bgBox">
+				
+				<select id="selectOrgId" name="selectOrgId" onChange="changeOrgSelect();" ${fn:length(orgList) <= 1 or baseUserLoginInfo.orgId != 1 ? 'style="display:none;"' : '' } class="select_b" title="관계사 선택">
+					<c:forEach items="${orgList}" var="data">
+						<option value="${data.orgId}">${data.orgNm}</option>
+					</c:forEach>
+				</select>
+				
+				<c:if test="${fn:length(orgList) <= 1 }">
+					<strong class="mgr10">${baseUserLoginInfo.cpnNm}</strong>
+				</c:if>
+				<!-- 검색 결과창 -->
+	            <div id="leftTreeSearchArea" class="pre_search_warp" style="z-index:10000;display:none;position:absolute;">
+	                <div class="pre_search_con">
+	                    <ul class="search_table_st" id="leftTreeResultArea">
+	                    </ul>
+	                </div>
+	                <div class="btn_prewindow" onclick="javascript:$('#leftTreeSearchArea').hide();return false;"><a class="funoff" href="javascript:$('#leftTreeSearchArea').hide();return false;">닫기</a></div>
+	            </div>
+	            <!-- //검색 결과창// -->
+	            <input id="leftTreeSearchText"  onkeypress="if(event.keyCode==13) doSearchNm(this.value,this,'leftTree');" class="input_b w_148px">
+             
+			</div>
+			<div class="conbody_b">
+				<div class="tabZone_tree_list">
+					<ul>
+						<li class="leftTree" id="work" onclick="setUserTree('leftTreeArea','N','leftTree','work');"><a href="javascript:;">재직자</a></li>
+						<li class="leftTree" id="fire" onclick="setUserTree('leftTreeArea','Y','leftTree','fire');"><a href="javascript:;">퇴직자</a></li>
+					</ul>
+				</div>
+				<div id="leftTreeArea" style="padding: 0px 10px 10px 25px;"></div>
+			</div>
+			<table class="tb_list_basic2" summary="인수인계자 직원선택">
+				<caption>인수인계자 직원선택</caption>
+				<tbody><tr>
+					<th scope="col">회사</th>
+					<th scope="col">부서</th>
+					<th scope="col">직원명</th>
+					<th scope="col">사번</th>
+					<th scope="col">삭제</th>
+				</tr>
+				<tr id="leftTreeSelectArea"><td colspan="5">직원을 선택해주세요.</td></tr>
+			</tbody></table>
+		</div>
+		<!--//인계직원선택//-->
+		
+		<!--인수직원선택-->
+		<div class="fr_halfBox">
+			<h3 class="h3_title_basic">인수 직원선택</h3>
+			<div class="pop_title_bgBox">
+				<strong id="orgNmArea" class="mgr10" >${baseUserLoginInfo.orgNm} </strong>
+				<!-- 검색 결과창 -->
+	            <div id="rightTreeSearchArea" class="pre_search_warp" style="z-index:10000;display:none;position:absolute;">
+	                <div class="pre_search_con">
+	                    <ul class="search_table_st" id="rightTreeResultArea">
+	                    </ul>
+	                </div>
+	                <div class="btn_prewindow" onclick="javascript:$('#rightTreeSearchArea').hide();return false;"><a class="funoff" href="javascript:$('#rightTreeSearchArea').hide();return false;">닫기</a></div>
+	            </div>
+	            <!-- //검색 결과창// -->
+	            <input id="rightTreeSearchText"  onkeypress="if(event.keyCode==13) doSearchNm(this.value,this,'rightTree');" class="input_b w_148px">
+			</div>
+			<div class="conbody_b">
+				<div class="tabZone_tree_list">
+					<ul>
+						<li class="rightTree" id="dept" onclick="setUserTree('rightTreeArea','N','rightTree','dept');"><a href="javascript:;">부서별</a></li>
+						<li class="rightTree" id="name" onclick="setUserTree('rightTreeArea','N','rightTree','name');"><a href="javascript:;">직원별</a></li>
+					</ul>
+				</div>	
+				<div id="rightTreeArea" style="padding: 0px 10px 10px 25px;"></div>
+			</div>
+			<table class="tb_list_basic2" summary="인수인계자 직원선택">
+				<caption>인수인계자 직원선택</caption>
+				<tbody><tr>
+					<th scope="col">회사</th>
+					<th scope="col">부서</th>
+					<th scope="col">직원명</th>
+					<th scope="col">사번</th>
+					<th scope="col">삭제</th>
+				</tr>
+				<tr id="rightTreeSelectArea"><td colspan="5">직원을 선택해주세요.</td></tr>
+			</tbody></table>
+		</div>
+		<!--//인수직원선택//-->
+		<div class="btn_arrow_takeover"></div>
+	</div>
+	<!--인수사유입력-->
+	<div class="mo_notiBox mgt20">
+		<p><span class="username">인수인계자</span> 설정 후 <span class="comname">인수사유</span>를 입력해주세요.</p>
+		<p><textarea class="textarea_basic w100pro mgt10" id="comment" placeholder="인수사유 내용입력"></textarea></p>
+	</div>
+	<!--//인수사유입력//-->
+	<!--버튼-->
+	<div class="btnZoneBox" id="btn_save">
+		<a href="javascript:createTransferUser();" class="p_blueblack_btn">저장</a>
+		<a href="javascript:window.close();" class="p_withelin_btn">닫기</a>
+	</div>
+	<!--//버튼//-->
+</section>

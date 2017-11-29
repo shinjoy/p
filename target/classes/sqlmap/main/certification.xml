@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="certification">
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+
+	<!-- 사원리스트 받아오기 -->
+	<select id="certification.getPerList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.EMP_NO					AS perSabun
+			 , A.USER_ID				AS userId
+			 , A.NAME					AS perNm
+			 , A.MOBILE_TEL				AS perPhone
+			 , (SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY) 					AS composition
+			 , (SELECT G.VALUE_MEAN_KOR FROM BS_CODE_GV G WHERE G.CODE_NAME = 'RANK'
+			 												AND G.CODE_VALUE = A.RANK AND G.ORG_ID = A.ORG_ID)	AS perPositionNm
+			 , B.DEPT_ID				AS perDept
+			 , LEFT(A.JOIN_DATE, 10)	AS perJoinCom
+
+		  FROM BS_USER_MASTER			A
+		  LEFT JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID
+		 WHERE 1=1
+		   AND A.DELETE_FLAG = 'N'
+		   AND A.USER_STATUS IN ('W','H', 'L')
+		   AND B.ENABLE = 'Y'
+		   AND B.DELETE_FLAG = 'N'
+		   AND B.MAIN_YN = 'Y'
+
+		   AND A.ORG_ID = #targetOrgId#
+
+		 ORDER BY A.NAME
+		 /* certification.getPerList */
+	</select>
+
+	<!-- 퇴사자 포함 사원리스트 받아오기 -->
+	<select id="certification.getAllPerList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.EMP_NO					AS perSabun
+			 , A.USER_ID				AS userId
+			 , A.NAME					AS perNm
+			 , A.MOBILE_TEL				AS perPhone
+			 , LEFT(A.JOIN_DATE,10)		AS perJoinCom
+			 , LEFT(A.FIRED_DATE,10)	AS perOutCom
+
+		  FROM BS_USER_MASTER	A
+		 WHERE 1=1
+		   AND A.ORG_ID = #targetOrgId#
+
+		 ORDER BY A.NAME
+		/* certification.getAllPerList */
+	</select>
+
+	<!-- 선택 사원 정보 받아오기 -->
+	<select id="certification.getPerInfo" resultClass="HashMap" parameterClass="HashMap">
+		SELECT A.EMP_NO									AS perSabun
+			 , A.USER_ID								AS userId
+			 , A.ORG_ID									AS orgId
+			 , ( SELECT IC.CPN_NM FROM BS_ORG BOR
+					LEFT JOIN IB_COMPANY IC ON IC.S_NB = BOR.COMPANY_SNB
+					WHERE 1=1 AND BOR.ORG_ID = A.ORG_ID) As orgCpnNm
+			 , A.NAME									AS perNm
+			 , B.DEPT_ID								AS perDept
+			 , IFNULL((SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = B.DEPT_ID), '') AS deptNm
+			 , (SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = A.ORG_ID)			AS perPositionNm
+
+			 , (SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY) AS cpnNm
+			 , A.COMPANY								AS company
+			 , DATE(A.JOIN_DATE)						AS perJoinCom
+			 , DATE(A.FIRED_DATE)						AS perOutCom
+			 , CONCAT(A.HOME_ADDR1, ' ', A.HOME_ADDR2)	AS perAddr
+			 , (SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = company.CEO_ID) AS ownNm
+		  FROM BS_USER_MASTER			A
+		  LEFT JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID
+		  LEFT OUTER JOIN IB_COMPANY AS company ON A.company = company.s_nb
+		 WHERE 1=1
+		   AND A.USER_ID = #targetUserId#
+		   AND B.MAIN_YN = 'Y'
+		   AND B.ENABLE = 'Y'
+		   AND B.DELETE_FLAG = 'N'
+
+		 /* certification.getPerInfo */
+	</select>
+
+	<!-- 증명서 발급내역 리스트 -->
+	<select id="certification.getCertDocRqmtList" parameterClass="HashMap" resultClass="HashMap">
+
+			SELECT
+				FORM_DOC_REQ_SEQ as formDocReqSeq
+				, REQ_PER_SABUN as reqUserId
+				, TARGET_PER_SABUN as targetUserId
+				, a.FORM_DOC_CD as formDocCd
+				, b.FORM_DOC_NM as formDocNm
+				, (SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = REQ_PER_SABUN) reqPerNm
+				, IF(a.FORM_DOC_CD = 'WorkDoc',(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = TARGET_PER_SABUN),TARGET_NM) targetPerNm
+				, FORM_DOC_ETC as formDocEtc, FORM_DOC_USE as formDocUse, FORM_DOC_REASON as formDocReason
+				, DATE_FORMAT(REQ_DATE, '%Y-%m-%d') as reqDate, DATE_FORMAT(REQ_END_DATE, '%Y-%m-%d') as reqEndDate
+				, REQ_STATUS AS reqStatus
+				, (SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = REQ_END_PER_SABUN) as reqEndPerNm
+				, REQ_END_PER_SABUN AS reqEndUserId
+				, CASE REQ_STATUS WHEN 'New' THEN '신규' WHEN 'Return' THEN '반려' WHEN 'Ing' THEN '진행중' ELSE '완료' END reqStatusNm
+				, CASE REQ_STATUS WHEN 'New' THEN 1 WHEN 'Return' THEN 2 WHEN 'Ing' THEN 3 ELSE 4 END reqStatusOrder
+			FROM ERP_FORM_DOC a
+			LEFT JOIN ERP_FORM_DOC_TYPE b on a.FORM_DOC_CD = b.FORM_DOC_CD
+			where 1=1 AND a.DEL_FLAG = 'N'
+				<isEmpty property="inputStartDate">
+					<isNotEqual property="month" compareValue="13">AND DATE_FORMAT(REQ_DATE, '%Y-%m') = CONCAT(#year#, '-', #month#)</isNotEqual>
+					<isEqual property="month" compareValue="13">AND DATE_FORMAT(REQ_DATE, '%Y') = CONCAT(#year#)</isEqual>
+				</isEmpty>
+				<isNotEmpty property="inputStartDate">
+					AND DATE_FORMAT(REQ_DATE, '%Y-%m-%d') BETWEEN #inputStartDate# AND #inputEndDate#
+				</isNotEmpty>
+			<isNotEmpty property="reqUserId">AND REQ_PER_SABUN = #reqUserId#</isNotEmpty>
+			<isNotEmpty property="targetUserId">AND TARGET_PER_SABUN = #targetUserId#</isNotEmpty>
+			<isNotEmpty property="keyWord">
+				AND (REQ_PER_SABUN = #keyWord# OR TARGET_PER_SABUN = #keyWord#)
+			</isNotEmpty>
+			<isNotEmpty property="targetOrgId">
+				AND a.ORG_ID = #targetOrgId#
+			</isNotEmpty>
+
+			<isNotEmpty property="sortCol">
+				ORDER BY $sortCol$ $sortVal$
+			</isNotEmpty>
+			<isEmpty property="sortCol">
+				ORDER BY REQ_DATE DESC
+			</isEmpty>
+
+			<isGreaterThan prepend="" property="limit" compareValue="0">
+				LIMIT #offset#, #limit#
+			</isGreaterThan>
+
+	</select>
+
+	<!-- 증명서 정보 받아오기 -->
+	<select id="certification.getCertDocView" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			EFD.FORM_DOC_REQ_SEQ as formDocReqSeq
+			, EFD.REQ_PER_SABUN as reqUserId
+			, EFD.TARGET_PER_SABUN as targetUserId
+			, EFD.FORM_DOC_CD as formDocCd
+			, EFDT.FORM_DOC_NM as formDocNm
+			, EFD.Jumin1 as realJumin1
+			, EFD.Jumin2 as realJumin2
+			, CASE EFD.Jumin1 WHEN '' THEN '******' ELSE Jumin1 END as jumin1
+			, CASE EFD.JUMIN_FLAG WHEN 'Y' THEN Jumin2 ELSE RPAD(SUBSTRING(Jumin2, 1, 1), 7, '*') END jumin2
+			, EFD.JUMIN_FLAG as juminFlag
+			, (SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = EFD.REQ_PER_SABUN) reqPerNm
+			, (SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = EFD.TARGET_PER_SABUN) targetPerNm
+			, (SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = EFD.REQ_END_PER_SABUN) reqEndPerNm
+			, PER_ADDR as perAddr
+			, PER_DEPT as perDept
+			, IFNULL((SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = EFD.PER_DEPT), '') as deptNm
+			, EFD.PER_POSITION_NM as perPositionNm
+			, EFD.Period as period
+			, EFD.FORM_DOC_ETC as formDocEtc
+			, EFD.FORM_DOC_USE as formDocUse
+			, EFD.FORM_DOC_REASON as formDocReason
+			, EFD.COM_POSITION as composition
+			, DATE_FORMAT(EFD.REQ_DATE, '%Y-%m-%d') as reqDate
+			, DATE_FORMAT(EFD.REQ_END_DATE, '%Y-%m-%d') as reqEndDate
+			, EFD.REQ_STATUS as reqStatus
+			, EFD.ORG_ID AS orgId
+			, ( SELECT CPN_NM FROM IB_COMPANY IC WHERE IC.S_NB = EFD.COM_POSITION) as companyNm
+			, (SELECT CST_NM FROM IB_CUSTOMER IC, IB_COMPANY ICOM WHERE IC.S_NB = ICOM.CEO_ID AND ICOM.S_NB = EFD.COM_POSITION) AS ownNm
+			/* 17.07.07 경력증명서 관련 추가*/
+			, EFD.TARGET_NM AS targetNm
+			, EFD.PER_DEPT_NM AS perDeptNm
+			, EFD.COM_POSITION_NM AS comPositionNm
+			, EFD.EMPLOY_FORM AS employForm
+			, EFD.CEO_NM AS ceoNm
+		 FROM ERP_FORM_DOC		EFD
+		 JOIN ERP_FORM_DOC_TYPE	EFDT	ON EFD.FORM_DOC_CD = EFDT.FORM_DOC_CD
+
+		WHERE 1=1
+		  AND EFD.FORM_DOC_REQ_SEQ =#formDocReqSeq#
+	</select>
+
+
+	<!-- 증명서 상태 변경 -->
+	<update id="certification.updateCertDocStatus" parameterClass="HashMap">
+		UPDATE ERP_FORM_DOC
+		SET  REQ_END_PER_SABUN = #reqEndUserId#, REQ_STATUS = #reqStatus#, REQ_END_DATE = NOW(), Jumin1 = '', Jumin2 = ''
+		WHERE FORM_DOC_REQ_SEQ = #formDocReqSeq#
+	</update>
+
+	<!-- 증명서 요청 취소 완료 -->
+	<update id="certification.cancelCertDoc" parameterClass="HashMap">
+		UPDATE ERP_FORM_DOC SET DEL_FLAG = 'Y', DEL_DATE = NOW() WHERE FORM_DOC_REQ_SEQ = #formDocReqSeq#
+	</update>
+
+	<!-- 증명서 반려 완료 -->
+	<update id="certification.returnCertDoc" parameterClass="HashMap">
+		UPDATE ERP_FORM_DOC
+		   SET REQ_END_PER_SABUN = #reqEndUserId#, REQ_STATUS = 'Return', REQ_END_DATE = NOW(), Jumin1 = '', Jumin2 = ''
+		 WHERE FORM_DOC_REQ_SEQ = #formDocReqSeq#
+	</update>
+
+	<!-- 증명서 발급 요청 완료 -->
+	<insert id="certification.insertCertDoc" parameterClass="HashMap">
+		INSERT INTO ERP_FORM_DOC (REQ_PER_SABUN
+								, TARGET_PER_SABUN
+								, TARGET_NM
+								, FORM_DOC_CD
+								, Jumin1
+								, Jumin2
+								, JUMIN_FLAG
+								, ORG_ID
+								, PER_ADDR
+								, PER_DEPT
+								, PER_DEPT_NM
+								, PER_POSITION_NM
+								, PERIOD
+								, FORM_DOC_ETC
+								, FORM_DOC_USE
+								, FORM_DOC_REASON
+								, COM_POSITION
+								, COM_POSITION_NM
+								, DIRECT_INPUT
+								, EMPLOY_FORM
+								, CEO_NM
+								, REQ_STATUS
+								, DEL_FLAG
+								, REQ_DATE)
+						VALUES
+								( #reqUserId#
+								, #targetUserId#
+								, #targetNm#
+								, #formDocCd#
+								, #jumin1#
+								, #jumin2#
+								, #juminFlag#
+								, #targetOrgId#
+								, #perAddr#
+								, #perDept#
+								, #perDeptNm#
+								, #perPositionNm#
+								, #period#
+								, #formDocEtc#
+								, #formDocUse#
+								, #formDocReason#
+								, #composition#
+								, #comPositionNm#
+								, #directInputYn#
+								, #employForm#
+								, #ceoNm#
+								, #reqStatus#
+								, 'N'
+								, NOW()
+								)
+			<selectKey resultClass="int" type="post" keyProperty="formDocReqSeq">
+				SELECT LAST_INSERT_ID()
+			</selectKey>
+	</insert>
+
+	<!-- 증명서 : 회사구분 받아오기 사용안함 -->
+	<select id="certification.getComInfoForSynergy" resultClass="HashMap">
+		SELECT DISTINCT S_NB AS sNb, ADDR AS addr,
+          (SELECT CST_NM FROM IB_CUSTOMER IC WHERE IC.S_NB = CEO_ID) AS ownNm,
+			CASE S_NB
+				WHEN '3937' THEN '시너지파트너스 주식회사'
+				WHEN '2013' THEN '시너지투자자문 주식회사'
+				WHEN '66751' THEN '시너지아이비투자 주식회사'
+				WHEN '73947' THEN '시너지벤처투자 주식회사'
+				WHEN '밸류인포맥스' THEN '밸류인포맥스 주식회사'
+				WHEN '한국가치정보' THEN '한국가치정보(주)'
+				WHEN '시너지인베스트먼트' THEN '시너지인베스트먼트 주식회사'
+				END comNm,
+          CASE S_NB
+				WHEN '3937' THEN 'part_name.jpg'
+				WHEN '2013' THEN 'asset_name.jpg'
+				WHEN '66751' THEN 'ib_name.jpg'
+				WHEN '73947' THEN 'ven_name.jpg'
+				WHEN '시너지인베스트먼트' THEN 'invest_name.jpg'
+				END nameStamp
+          FROM IB_COMPANY
+		 <isNotEmpty property="composition">
+		  WHERE S_NB = #composition#
+		 </isNotEmpty>
+	</select>
+
+	<!--  증명서 발급을 위한 관계사 리스트 반환 -->
+	<select id="certification.getOrgListByUser" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			BRCAA.USER_ID as userId, BRCAA.ORG_ID as orgId
+			,  BSS.CPN_NM as cpnNm, BSS.CPN_ID as cpnId, BSS.BUSINESS_GRP_SEQ as businessGrpSeq
+			,  BSS.S_NB as sNb
+			,  (SELECT BUSINESS_GRP_NM FROM BS_BUSINESS_GROUP BBG WHERE bss.BUSINESS_GRP_SEQ = BBG.BUSINESS_GRP_SEQ) AS businessGrpNm
+			FROM BS_RELATION_COMPANY_ACCESS_AUTH BRCAA
+			LEFT JOIN (
+				SELECT BOR.BUSINESS_GRP_SEQ, BOR.ORG_ID, IC.CPN_ID, IC.CPN_NM , IC.S_NB
+				FROM BS_ORG BOR, IB_COMPANY IC
+				WHERE BOR.COMPANY_SNB = IC.S_NB
+			)BSS ON BSS.ORG_ID = BRCAA.ORG_ID
+		WHERE BRCAA.USER_ID = #userId#
+	</select>
+
+	<!-- 증명서 발급을 위한 관계사 정보 -->
+	<select id="certification.getOrgCompanyInfo" parameterClass="HashMap" resultClass="HashMap">
+
+		SELECT
+				  user.org_id					AS orgId
+				, user.company 					AS sNb
+				, company.addr 					AS addr
+				, IFNULL(company.company_full_name,company.cpn_nm) 	AS comNm
+		 		, (SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = company.CEO_ID) AS ownNm
+
+
+		FROM BS_USER_MASTER AS user
+		LEFT OUTER JOIN IB_COMPANY AS company ON user.company = company.s_nb
+
+
+ 		WHERE user.user_id = #targetUserId#
+ 		/*  certification.getOrgCompanyInfo */
+	</select>
+	<!-- 증명서 반려 완료 -->
+	<update id="certification.certDocReqProc" parameterClass="HashMap">
+		UPDATE ERP_FORM_DOC
+		   SET
+				 TARGET_NM 				= #targetNm#
+				, Jumin1                = #jumin1#
+				, Jumin2                = #jumin2#
+				, JUMIN_FLAG            = #juminFlag#
+				, PER_ADDR              = #perAddr#
+				, PER_DEPT_NM           = #perDeptNm#
+				, PER_POSITION_NM       = #perPositionNm#
+				, PERIOD                = #period#
+				, FORM_DOC_ETC          = #formDocEtc#
+				, FORM_DOC_USE          = #formDocUse#
+				, FORM_DOC_REASON       = #formDocReason#
+				, COM_POSITION_NM       = #comPositionNm#
+				, EMPLOY_FORM           = #employForm#
+				, CEO_NM                = #ceoNm#
+				, REQ_STATUS            = #reqStatus#
+		 WHERE FORM_DOC_REQ_SEQ = #formDocReqSeq#
+	</update>
+
+</sqlMap>

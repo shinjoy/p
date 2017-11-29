@@ -1,0 +1,259 @@
+@charset "utf-8";
+
+@import url('http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css');
+
+.ui-datepicker-calendar > tbody td.ui-datepicker-week-end:first-child a { color:#f00; } 
+.ui-datepicker-calendar > tbody td.ui-datepicker-week-end:last-child a { color:#00f; }
+
+.Click {
+	cursor:pointer;
+}
+
+.FixTable {
+	width:100%;
+	position:fixed;
+	z-index:999;
+	top:0px;
+	left:0px;
+}
+
+.ConTable {
+	position:overflow-y:scroll;
+	position:absolute;
+	height:100%;
+	width:100%;
+}
+
+.InBox {
+	background-color:#FFFFFF;
+	border: 0px;
+	text-align:right;
+}
+
+.OutBox {
+	background-color:#E7E7E7;
+	border: 0px;
+	text-align:right;
+}
+
+table {
+	border-collapse:collapse;	/*td공백시에도 선 유지*/
+}
+
+body {
+	margin:0px;
+	padding:0px;
+}
+
+form {
+	display:inline;
+}
+
+.ui-select {
+	display:inline;
+	position:relative;
+}
+
+.viewpage {
+	font-size: 10pt;  color: #496b9b;
+	border:2px solid #b4cef3;
+	border-radius:20px;
+	vertical-align:middle;
+}
+
+.viewpage .viewul {
+	font-size:10pt;
+	color:#000000;
+	list-style-type:none;
+	margin:0;
+	padding:20;
+}
+
+.viewpage .viewli {
+	font-size:10pt;
+	color:#496b9b;
+	display:inline;
+}
+
+.list {
+	font-size: 10pt;  color: #496b9b;
+	border-collapse:collapse;	/*td공백시에도 선 유지*/
+	border-bottom: 1px solid #b4cef3;
+	border-left: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+	vertical-align:middle;
+}
+
+.input_B {
+	color: #333232;
+	border-bottom: 1px solid #b4cef3;
+}
+
+.input_T {
+	color: #333232;
+	border-top: 1px solid #b4cef3;
+}
+
+.input_L {
+	color: #333232;
+	border-left: 1px solid #b4cef3;
+}
+
+.input_R {
+	color: #333232;
+	border-right: 1px solid #b4cef3;
+}
+
+.input_BR {
+	color: #333232;
+	border-bottom: 1px solid #b4cef3;
+	border-right: 1px solid #b4cef3;
+}
+
+/*	프로세스 레이어		*/
+#prolayer {
+	position:absolute;
+	left:0px;
+	top:0px;
+	z-index:100;
+	-ms-filter:alpha(opacity=80);
+	filter:alpha(opacity=80);
+	opacity:0.8;
+	-moz-opacity:0.8;
+	background-color:#FFFFFF;
+}
+
+
+
+/* 박스 */
+.input_box {
+	font-size: 8pt; color: #oooooo;
+	border:1px #b5b8c8 solid;
+	background-image: url(/PASS/images/sp/CSS/input_text_bg.gif);
+	height:15pt;
+}
+
+.input_box_focus {
+	font-size: 8pt; color: #oooooo;
+	border:1px #b5b8c8 solid;
+	background-color:#D9FFFF;
+	height:15pt;
+	width:70pt;
+}
+
+.output_box {
+	font-size: 8pt; color: #oooooo;
+	border:2px #FF0000 solid;
+	background-image: url(/PASS/images/sp/CSS/input_text_bg.gif);
+	height:15pt;
+}
+
+.output_box_focus {
+	font-size: 8pt; color: #oooooo;
+	border:2px #FF0000 solid;
+	background-color:#D9FFFF;
+	height:15pt;
+}
+
+.close_box {
+	display:none;
+}
+
+/*	텍스트	*/
+.Text_C {
+	text-align:center;
+}
+
+.Text_R {
+	text-align:right;
+	padding-right:5px;
+}
+
+.Text_BL {
+	font-weight:bold;
+	text-align:left;
+}
+
+.Text_BC {
+	font-weight:bold;
+	text-align:center;
+}
+
+.Text_BR {
+	font-weight:bold;
+	text-align:right;
+}
+
+.Text_Cut {
+	overflow:hidden;
+	white-space:nowrap;
+	text-overflow:ellipsis;
+}
+
+/*	버튼	*/
+.button, .button a, .button button, .button input {
+	/*position : relative;*/
+	margin : 0;
+	display : inline-block;
+	border : 0;
+	white-space : nowrap;
+	vertical-align : middle;
+	overflow : visible;
+	font-size: 8pt; color: #ffffff;
+}
+
+.button {
+	height : 20px;
+	padding : 0;
+	margin-right : 2px;
+	background-position : left top;
+}
+
+.button a, .button button, .button input {
+	left : 2px;
+	cursor : pointer;
+}
+
+.button a, .button button, .button input {
+	height : 20px;
+	padding : 0 8px 0 8px;
+	line-height : 20px;
+	background-position : right top;
+}
+
+.button *:hover, .button *:active, .button *:focus {
+	color : red;
+}
+
+.button a {
+	padding : 0 10px 0 10px;
+}
+
+.btn_Blue, .btn_Blue a, .btn_Blue button, .btn_Blue input {
+	background-image: url(/PASS/images/sp/CSS/button_blue.gif);
+}
+
+.btn_Orange, .btn_Orange a, .btn_Orange button, .btn_Orange input {
+	background-image: url(/PASS/images/sp/CSS/button_orange.gif);
+}
+
+.btn_Gray, .btn_Gray a, .btn_Gray button, .btn_Gray input {
+	background-image: url(/PASS/images/sp/CSS/button_gray.gif);
+	font-weight:normal; color:#000000;
+}
+
+.btn_Violet, .btn_Violet a, .btn_Violet button, .btn_Violet input {
+	background-image: url(/PASS/images/sp/CSS/button_violet.gif);
+}
+
+.btn_Green, .btn_Green a, .btn_Green button, .btn_Green input {
+	background-image: url(/PASS/images/sp/CSS/button_green.gif);
+}
+
+.btn_Yellow, .btn_Yellow a, .btn_Yellow button, .btn_Yellow input {
+	background-image: url(/PASS/images/sp/CSS/button_yellow.gif);
+}
+
+.btn_BlueGreen, .btn_BlueGreen a, .btn_BlueGreen button, .btn_BlueGreen input {
+	background-image: url(/PASS/images/sp/CSS/button_bluegreen.gif);
+}

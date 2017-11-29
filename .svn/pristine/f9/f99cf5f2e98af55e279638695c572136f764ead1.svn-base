@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="card">
+
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="carVO" type="ib.car.service.CarVO"/>
+
+
+	<select id="carDAO.selectCarUsedList" parameterClass="carVO" resultClass="carVO">
+		<![CDATA[
+			SELECT
+					  S_NB              AS sNb
+					, TM_DT             AS tmDt
+					, CAR_NUM           AS carNum
+					, PRIVATE_USE       AS privateUse
+					, DEPARTURE_POINT   AS departurePoint
+					, DESTINATION       AS destination
+					, DEPARTURE_TIME    AS departureTime
+					, ARRIVE_TIME       AS arriveTime
+					, MILEAGE           AS mileage
+					, TOTAL_DISTANCE    AS totalDistance
+					, FLOOR             AS floor
+					, PRICE             AS price
+					, NOTE              AS note
+					, RG_DT             AS rgDt
+					, UP_DT             AS upDt
+					, RG_ID             AS rgId
+					, UP_ID             AS upId
+					, (SELECT NAME FROM BS_USER_MASTER WHERE LOGIN_ID = IB_CAR_LOG.RG_ID)      as  staffNm
+			  FROM  IB_CAR_LOG
+
+		]]>
+		<dynamic prepend="WHERE">
+            <isNotEmpty prepend="AND" property="choiceMonth">
+				<![CDATA[	IB_CAR_LOG.TM_DT between CONCAT (#choiceYear#, #choiceMonthS#, '01') and CONCAT (#choiceYear#, #choiceMonth#, '31235959') 		]]>
+			</isNotEmpty>
+            <isNotEmpty prepend="AND" property="carNum">
+				<![CDATA[	IB_CAR_LOG.CAR_NUM = #carNum# 		]]>
+			</isNotEmpty>
+		</dynamic>
+
+		<dynamic prepend="ORDER BY">
+            <isEqual prepend="" property="sorting" compareValue="" >
+				<![CDATA[	TM_DT DESC , RG_DT DESC		]]>
+			</isEqual>
+            <isEqual prepend="" property="sorting" compareValue="1" >
+				<![CDATA[	staffNm ASC, TM_DT DESC , RG_DT DESC		]]>
+			</isEqual>
+		</dynamic>
+	</select>
+
+	<insert id="carDAO.insertCarUsedList">
+		<![CDATA[
+			INSERT INTO IB_CAR_LOG
+				  (
+				    TM_DT
+				  , CAR_NUM
+				  , PRIVATE_USE
+				  , DEPARTURE_POINT
+				  , DESTINATION
+				  , DEPARTURE_TIME
+				  , ARRIVE_TIME
+				  , MILEAGE
+				  , TOTAL_DISTANCE
+				  , FLOOR
+				  , PRICE
+				  , NOTE
+				  , OIL
+				  , ORG_ID
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+		 ) VALUES (
+				    #tmDt#
+				  , #carNum#
+				  , #privateUse#
+				  , #departurePoint#
+				  , #destination#
+				  , #departureTime#
+				  , #arriveTime#
+				  , #totalDistance# - (SELECT a.TOTAL_DISTANCE FROM (select TOTAL_DISTANCE from IB_CAR_LOG WHERE CAR_NUM = #carNum# and TM_DT <= #tmDt# AND TOTAL_DISTANCE <= #totalDistance#  ORDER BY RG_DT DESC LIMIT 1) a)
+				  , #totalDistance#
+				  , #floor#
+				  , #price#
+				  , #note#
+				  , #oil#
+				  , #orgId#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  )
+		]]>
+	</insert>
+
+	<select id="carDAO.selectTotalDistance" parameterClass="carVO" resultClass="carVO">
+		<![CDATA[
+			SELECT
+					  MAX(TOTAL_DISTANCE)       as totalDistance
+		    FROM	  IB_CAR_LOG
+		    WHERE	  CAR_NUM = #carNum#
+		]]>
+	</select>
+
+	<select id="carDAO.selectCarParkingFloorList" parameterClass="carVO" resultClass="carVO">
+		<![CDATA[
+			SELECT
+					 A.S_NB				as sNb
+			      ,  A.CAR_NUM			as carNum
+			      ,  A.FLOOR			as floor
+				  ,  A.POSSESS			as tmpNum1
+				  ,  date(A.tm_dt)			as tmDt
+				  ,  A.tmpNum1			as tmpNum2
+			   FROM (
+					SELECT a.S_NB, a.CAR_NUM, a.FLOOR, a.possess
+							,case when a.oil='Y' then lj.max - TOTAL_DISTANCE end tmpNum1
+							,case when a.oil='Y' then lj2.tm_dt end tm_dt
+					FROM IB_CAR_LOG a
+					left join (select  *  from (select car_num, TOTAL_DISTANCE max from ib_car_log  order by s_nb desc) s group by s.car_num) lj ON lj.car_num = a.car_num
+					left join (select  *  from (select tm_dt, car_num from ib_car_log where oil = 'Y' order by s_nb desc) s2 group by s2.car_num) lj2 ON lj2.car_num = a.car_num
+    ORDER BY TM_DT DESC, RG_DT DESC
+			   ) A
+		   GROUP BY  A.CAR_NUM
+		]]>
+	</select>
+
+	<delete id="carDAO.deleteCarUsedList">
+		<![CDATA[
+			DELETE FROM IB_CAR_LOG
+			 WHERE S_NB = #sNb#
+		]]>
+	</delete>
+
+	<update id="carDAO.updateFloor">
+		<![CDATA[
+		UPDATE IB_CAR_LOG A,
+			(SELECT * FROM(
+				SELECT
+					  A.SCHESDATE			as tmDt
+					, B.NAME                as  name
+					, CASE WHEN A.ScheGubun = 'All' THEN 2 ELSE 1 END             as  bsnsRecPrivate
+					, A.ScheSTime as viewTime
+					, CONCAT(
+						A.ScheSTime
+						, ' ', IFNULL(A.SCHETITLE,"-"))   as  title
+				FROM ERP_SCHEDULE A
+				LEFT JOIN BS_USER_MASTER B ON B.EMP_NO = A.PERSABUN
+				where a.DEL_FLAG = 'n'
+				and A.SCHE_PUBLIC_FLAG = 'Y'
+
+			UNION
+					SELECT
+						  C.SCHESDATE			as tmDt
+						, B.NAME                as  name
+						, CASE WHEN C.ScheGubun = 'All' THEN 2 ELSE 1 END             as  bsnsRecPrivate
+						, C.ScheSTime as viewTime
+						, CONCAT(
+							C.ScheSTime
+							, ' ', IFNULL(C.SCHETITLE,"-"))   as  title
+				FROM ERP_SCHEDULE_ENTRY A
+				LEFT JOIN BS_USER_MASTER B ON B.EMP_NO = A.PERSABUN
+				LEFT JOIN ERP_SCHEDULE C ON C.SCHESEQ = A.SCHESEQ
+				where a.DEL_FLAG = 'n'
+				  and c.DEL_FLAG = 'n'
+
+			union
+					select
+						  date(now())	as tmDt
+						, NAME		    as name
+						, ''			as bsnsRecPrivate
+						, STR_TO_DATE('00:00:00','%T')		as viewTime
+						, ''			as title
+					 from BS_USER_MASTER
+					where LOGIN_ID = #rgId#
+			) uo
+
+			WHERE uo.name = (select NAME from BS_USER_MASTER where LOGIN_ID = #rgId#)
+			  and uo.tmDt = date(now())
+			  and STR_TO_DATE(uo.viewTime,'%T') < STR_TO_DATE(time(now()),'%T')
+			ORDER BY STR_TO_DATE(uo.viewTime,'%T') DESC
+			limit 1) B
+
+		SET  A.FLOOR = 		case when char_length(a.floor)<3 then B.NAME else '타워' end
+			,A.POSSESS = 	case when char_length(a.floor)<3 then B.TITLE else '' end
+		WHERE A.S_NB = #sNb#
+		]]>
+	</update>
+
+</sqlMap>

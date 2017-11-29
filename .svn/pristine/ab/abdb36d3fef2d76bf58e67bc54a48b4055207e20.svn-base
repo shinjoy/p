@@ -1,0 +1,7 @@
+package ib.reply.service;
+
+import java.util.Map;
+
+public interface ReplyService {
+	public void saveDisposalByIbSystem(ReplyVO vo, Map baseUserLoginInfo) throws Exception;
+}

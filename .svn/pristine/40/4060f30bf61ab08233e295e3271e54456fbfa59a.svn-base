@@ -1,0 +1,563 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="notice">
+
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="nVO" type="ib.notice.service.NoticeVO"/>
+	<typeAlias  alias="noticeShVO" type="ib.notice.service.NoticeShVO"/>
+
+	<insert id="noticeDAO.insertNotice">
+		<![CDATA[
+			INSERT INTO IB_PUBLIC_NOTICE
+				  (
+				    TM_DT
+				  , WAY
+				  , CATEGORY_CD
+				  , CPN_ID
+				  , RANK
+				  , PRICE
+				  , COUPON
+				  , YTM
+				  , YTP
+				  , PAYUP_DT
+				  , DUE_DT
+				  , PUT
+				  , EVENT_PRICE
+				  , WRT_DUE_DT
+				  , REFIX_SALE
+				  , SUPER_CPN
+				  , UNDER_WRITER
+				  , BUYBACK
+				  , PREMIUM
+				  , TARGET
+				  , RELATION
+				  , ASSIGNMENT_DT
+				  , SUBSCRIPTION_DT
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+		 ) VALUES (
+				    #tmDt#
+				  , #way#
+				  , #categoryCd#
+				  , trim(#cpnId#)
+				  , CASE WHEN #rank# = '' THEN NULL when #rank# = '-' then null else #rank# END
+				  , #price#
+				  , #coupon#
+				  , #ytm#
+				  , #ytp#
+				  , CASE WHEN #payupDt# = '' THEN NULL when #payupDt# = '-' then null else #payupDt# END
+				  , CASE WHEN #dueDt# = '' THEN NULL when #dueDt# = '-' then null else #dueDt# END
+				  , #put#
+				  , #eventPrice#
+				  , CASE WHEN #wrtDueDt# = '' THEN NULL when #wrtDueDt# = '-' then null else #wrtDueDt# END
+				  , #refixSale#
+				  , #superCpn#
+				  , #underWriter#
+				  , #buyback#
+				  , #premium#
+				  , #target#
+				  , #relation#
+				  , CASE WHEN #assignmentDt# = '' THEN NULL ELSE #assignmentDt# END
+				  , CASE WHEN #subscriptionDt# = '' THEN NULL ELSE #subscriptionDt# END
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  )
+		]]>
+	</insert>
+
+	<select id="noticeDAO.selectNoticeMezzaineList" parameterClass="nVO" resultClass="nVO">
+				SELECT
+					A.S_NB					  as sNb
+					, DATE(A.TM_DT)			  as tmDt
+					, A.WAY                   as way
+					, A.CATEGORY_CD           as categoryCd
+					, D1.CPN_NM               as cpnNm
+					, D1.S_NB				  as cpnSnb
+					, A.CPN_ID                as cpnId
+					, A.RANK                  as rank
+					, A.PRICE                 as price
+					, ROUND(A.COUPON*100,1)                 as coupon
+					, ROUND(A.YTM*100,1)                    as ytm
+					, ROUND(A.YTP*100,1)                    as ytp
+					, DATE(A.PAYUP_DT)        as payupDt
+					, DATEDIFF(now(),DATE(DATE(A.PAYUP_DT)))		as btPayUpTmDt
+					, DATE(A.DUE_DT)          as dueDt
+					, A.PUT                   as put
+					, REPLACE( REPLACE(A.EVENT_PRICE,',',''),'-','')           as eventPrice
+					, DATE(A.WRT_DUE_DT)      as wrtDueDt
+					, DATEDIFF(DATE(A.WRT_DUE_DT), DATE(now()))		as btWrtTmDt
+					, case when (A.REFIX_SALE*100 &gt; 1 and A.REFIX_SALE*100 &lt; 100) then CONCAT(FLOOR(A.REFIX_SALE*100),'%') else A.REFIX_SALE end          as refixSale
+					, A.SUPER_CPN             as superCpn
+					, A.UNDER_WRITER          as underWriter
+					, A.BUYBACK               as buyback
+					, A.PREMIUM               as premium
+					, A.TARGET                as target
+					, A.RELATION              as relation
+					, DATE(A.RG_DT)       as rgDt
+					, round( ((((SELECT UNIT_PRICE FROM CS_CATE_PRICE WHERE CATE_CD = A.CPN_ID ORDER BY PRICE_DATE DESC LIMIT 1) - REPLACE(A.EVENT_PRICE,',','')) *100) / REPLACE(A.EVENT_PRICE,',','')), 2)	    as ratio
+					, (SELECT UNIT_PRICE FROM CS_CATE_PRICE WHERE CATE_CD = A.CPN_ID ORDER BY PRICE_DATE DESC LIMIT 1) as curPrice
+				  FROM  IB_PUBLIC_NOTICE A
+		     LEFT JOIN  IB_COMPANY D1 ON D1.CPN_ID = A.CPN_ID
+				 WHERE  1=1
+
+				<isEmpty prepend="and" property="cpnNm">
+					A.RANK IS NOT NULL
+				</isEmpty>
+
+
+			<isNotEmpty prepend="and" property="cpnNm">
+				<![CDATA[	D1.CPN_NM like concat(#cpnNm#, '%')	]]>
+			</isNotEmpty>
+			<isEmpty prepend="and" property="cpnNm">
+				DATEDIFF(DATE(A.WRT_DUE_DT), DATE(now())) &gt;= 0
+			</isEmpty>
+
+			<isNotEmpty prepend="and" property="total">
+				<![CDATA[	A.CATEGORY_CD = '$total$'	]]>
+			</isNotEmpty>
+
+			  ORDER BY
+			<isEqual prepend="" property="sorting" compareValue="5">
+				<![CDATA[	A.WRT_DUE_DT DESC	]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="2">
+				<![CDATA[	A.WAY DESC		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="3">
+				<![CDATA[	A.CATEGORY_CD DESC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="4">
+				<![CDATA[	D1.CPN_NM DESC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="6">
+				<![CDATA[	ratio DESC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="7">
+				<![CDATA[	curPrice DESC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="1">
+				<![CDATA[	A.TM_DT DESC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-5">
+				<![CDATA[	A.WRT_DUE_DT ASC	]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-2">
+				<![CDATA[	A.WAY ASC		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-3">
+				<![CDATA[	A.CATEGORY_CD ASC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-4">
+				<![CDATA[	D1.CPN_NM ASC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-6">
+				<![CDATA[	ratio ASC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-7">
+				<![CDATA[	curPrice ASC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-1">
+				<![CDATA[	A.TM_DT ASC 		]]>
+			</isEqual>
+			<isNotEqual property="tmpNum1" compareValue="excel">
+				limit 300
+			</isNotEqual>
+	</select>
+
+	<select id="noticeDAO.selectNoticeMezzaineCategoryList" parameterClass="nVO" resultClass="nVO">
+				select replace(category_cd,' ','') as categoryCd
+				  from ib_public_notice
+					where rank is not null
+					group by category_Cd
+	</select>
+
+	<select id="noticeDAO.selectNoticeIncCapList" parameterClass="nVO" resultClass="nVO">
+		<![CDATA[
+				SELECT
+					A.S_NB					  as sNb
+					, DATE(A.TM_DT)			  as tmDt
+					, A.CATEGORY_CD           as categoryCd
+					, D1.CPN_NM               as cpnNm
+					, D1.S_NB				  as cpnSnb
+					, A.CPN_ID                as cpnId
+					, A.WAY                   as way
+					, FORMAT(A.PRICE,0)                 as price
+					, DATE(A.ASSIGNMENT_DT)         as assignmentDt
+					, DATE(A.PAYUP_DT)        		as payupDt
+					, DATE(A.SUBSCRIPTION_DT)       as subscriptionDt
+					, FLOOR(A.REFIX_SALE*100)           as refixSale
+					, A.SUPER_CPN             as superCpn
+					, a.UNDER_WRITER 		  as underWriter
+					, (SELECT COUNT(1) FROM IB_OFFER WHERE MIDDLE_OFFER_CD = '00003' AND CATEGORY_CD = '00004' AND A.CPN_ID = CPN_ID) as tmpNum1
+					, DATE(A.RG_DT)       as rgDt
+
+				  FROM  IB_PUBLIC_NOTICE A
+		     LEFT JOIN  IB_COMPANY D1 ON D1.CPN_ID = A.CPN_ID
+				 WHERE  A.RANK IS NULL
+		]]>
+			  ORDER BY
+			<isEqual prepend="" property="sorting" compareValue="1">
+				<![CDATA[	tmDt DESC		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="2">
+				<![CDATA[	categoryCd DESC		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="3">
+				<![CDATA[	cpnNm DESC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="4">
+				<![CDATA[	way DESC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="5">
+				<![CDATA[	subscriptionDt DESC 		]]>
+			</isEqual>
+
+			<isEqual prepend="" property="sorting" compareValue="-1">
+				<![CDATA[	tmDt ASC		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-2">
+				<![CDATA[	categoryCd ASC		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-3">
+				<![CDATA[	cpnNm ASC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-4">
+				<![CDATA[	way ASC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-5">
+				<![CDATA[	subscriptionDt ASC 		]]>
+			</isEqual>
+	</select>
+
+	<select id="noticeDAO.selectNoticeMezzaine" parameterClass="nVO" resultClass="nVO">
+		<![CDATA[
+			SELECT
+				A.S_NB					  as sNb
+				, DATE(A.TM_DT)			  as tmDt
+				, A.WAY                   as way
+				, A.CATEGORY_CD           as categoryCd
+				, D1.CPN_NM               as cpnNm
+				, A.CPN_ID                as cpnId
+				, A.RANK                  as rank
+				, FORMAT(A.PRICE,0)                 as price
+				, ROUND(A.COUPON*100,1)                 as coupon
+				, ROUND(A.YTM*100,1)                    as ytm
+				, ROUND(A.YTP*100,1)                    as ytp
+				, DATE(A.PAYUP_DT)        as payupDt
+				, DATE(A.DUE_DT)          as dueDt
+				, A.PUT                   as put
+				, FORMAT(REPLACE(A.EVENT_PRICE,',',''),0)           as eventPrice
+				, DATE(A.WRT_DUE_DT)      as wrtDueDt
+				, DATEDIFF(DATE(A.WRT_DUE_DT), DATE(now()))		as btWrtTmDt
+				, case when (A.REFIX_SALE*100 > 1 and A.REFIX_SALE*100 <100) then CONCAT(FLOOR(A.REFIX_SALE*100),'%') else A.REFIX_SALE end          as refixSale
+				, A.SUPER_CPN             as superCpn
+				, A.UNDER_WRITER          as underWriter
+				, A.BUYBACK               as buyback
+				, A.PREMIUM               as premium
+				, A.TARGET                as target
+				, A.RELATION              as relation
+				, DATE(A.ASSIGNMENT_DT)         as assignmentDt
+				, DATE(A.SUBSCRIPTION_DT)       as subscriptionDt
+
+			  FROM  IB_PUBLIC_NOTICE A
+		 LEFT JOIN  IB_COMPANY D1 ON D1.CPN_ID = A.CPN_ID
+			 WHERE  a.cpn_id = #cpnId#
+		  ORDER BY  tmDt DESC
+		]]>
+	</select>
+
+
+	<select id="noticeDAO.selectNoticeSh" resultClass="noticeShVO">
+		<![CDATA[
+				SELECT
+					A.S_NB					  as sNb
+					, DATE(A.TM_DT)			  as tmDt
+					, A.DEBTOR				  as debtor
+					, D1.CPN_NM               as cpnNm
+					, D1.S_NB				  as cpnSnb
+					, A.CPN_ID                as cpnId
+					, A.MAJOR_SHARE_HOLDER    as majorSh
+					, A.TOTAL_COUNT           as totalCount
+					, A.CREDITOR			  as creditor
+					, A.SECURITY_AMOUNT       as securityAmount
+					, A.SECURITY_TYPE	      as securityType
+					, A.SECURITY_SHARE_COUNT  as securityShareCnt
+					, A.KEEP_YN	      		  as keepYn
+					, A.SECURITY_DT     as securityDt
+					, A.COMMENT	      		  as comment
+					, DATE(A.RG_DT)       as rgDt
+				  FROM  IB_PUBLIC_NOTICE_SH A
+		     LEFT JOIN  IB_COMPANY D1
+		     ON D1.CPN_ID = A.CPN_ID AND A.DEL_FLAG='N'
+		     	WHERE A.S_NB = #sNb#
+		]]>
+	</select>
+
+
+	<select id="noticeDAO.selectNoticeShList" parameterClass="nVO" resultClass="noticeShVO">
+		<![CDATA[
+				SELECT * from
+				(SELECT      A.S_NB       as sNb
+						, DATE(A.TM_DT)     as tmDt
+						, A.DEBTOR      as debtor
+						, D1.CPN_NM               as cpnNm
+						, D1.S_NB      as cpnSnb
+						, A.CPN_ID                as cpnId
+						, A.MAJOR_SHARE_HOLDER    as majorSh
+						, A.TOTAL_COUNT           as totalCount
+						, A.CREDITOR     as creditor
+						, A.SECURITY_AMOUNT       as securityAmount
+						, A.SECURITY_TYPE       as securityType
+						, A.SECURITY_SHARE_COUNT  as securityShareCnt
+						, A.KEEP_YN           as keepYn
+						, A.SECURITY_DT     as securityDt
+						, A.COMMENT           as comment
+						, DATE(A.RG_DT)       as rgDt
+						FROM  IB_PUBLIC_NOTICE_SH A
+						LEFT JOIN  IB_COMPANY D1 ON D1.CPN_ID = A.CPN_ID AND A.DEL_FLAG='N'
+						ORDER BY          tmDt DESC , sNb Desc
+						) AA
+						GROUP BY AA.cpnId
+						ORDER BY AA.tmDt DESC , AA.sNb Desc
+		]]>
+
+	</select>
+
+
+<insert id="noticeDAO.insertNoticeSh">
+		<![CDATA[
+			INSERT INTO IB_PUBLIC_NOTICE_SH
+				  (
+					TM_DT,
+					CPN_ID,
+					DEBTOR,
+					MAJOR_SHARE_HOLDER,
+					TOTAL_COUNT,
+					CREDITOR,
+					SECURITY_AMOUNT,
+					SECURITY_TYPE,
+					SECURITY_SHARE_COUNT,
+					KEEP_YN,
+					SECURITY_DT,
+					COMMENT,
+					RG_DT,
+					RG_ID,
+				  	UP_DT,
+				  	UP_ID
+		 ) VALUES (
+
+					#tmDt#
+					,#cpnId#
+					,#debtor#
+					,#majorSh#
+					,#totalCount#
+					,#creditor#
+					,#securityAmount#
+					,#securityType#
+					,#securityShareCnt#
+					,#keepYn#
+					,#securityDt#
+					,#comment#
+					,now()
+					,#rgId#
+					,now()
+					,#rgId#
+				  )
+		]]>
+	</insert>
+
+
+	<update id="noticeDAO.modifyNoticeSh">
+		<![CDATA[
+			UPDATE IB_PUBLIC_NOTICE_SH
+			SET
+
+				TM_DT				  = #tmDt#
+				, CPN_ID				= #cpnId#
+				, DEBTOR				  = #debtor#
+				, MAJOR_SHARE_HOLDER    = #majorSh#
+				, TOTAL_COUNT           = #totalCount#
+				, CREDITOR			  	= #creditor#
+				, SECURITY_AMOUNT       	= #securityAmount#
+				, SECURITY_TYPE	      	= #securityType#
+				, SECURITY_SHARE_COUNT	= #securityShareCnt#
+				, KEEP_YN	      			= #keepYn#
+				, SECURITY_DT		   	= #securityDt#
+				, COMMENT	      			= #comment#
+			WHERE S_NB= #sNb#
+		]]>
+	</update>
+
+	<update id="noticeDAO.modifyPublicNoticeIncCap">
+		<![CDATA[
+			UPDATE IB_PUBLIC_NOTICE
+			SET
+				  UP_ID         =  #rgId#
+				, UP_DT         =  now()
+				, CATEGORY_CD   =  #categoryCd#
+				, WAY 			=  #way#
+				, PRICE 		=  #price#
+				, ASSIGNMENT_DT 	=  CASE WHEN #assignmentDt# is null or #assignmentDt# = '' THEN NULL ELSE #assignmentDt# END
+				, PAYUP_DT 			=  CASE WHEN #payupDt# is null or #payupDt# = '' THEN NULL ELSE #payupDt# END
+				, SUBSCRIPTION_DT   =  #subscriptionDt#
+				, REFIX_SALE   		=  #refixSale#
+				, SUPER_CPN   		=  #superCpn#
+				, UNDER_WRITER 		=  #underWriter#
+			WHERE S_NB = #sNb#
+		]]>
+	</update>
+
+	<update id="noticeDAO.modifyPublicNoticeMezzanine">
+		<![CDATA[
+			UPDATE IB_PUBLIC_NOTICE
+			SET
+				  UP_ID         =  #rgId#
+				, UP_DT         =  now()
+				, WAY 			=  #way#
+				, CATEGORY_CD   =  #categoryCd#
+				, RANK 			=  #rank#
+				, PRICE 		=  #price#
+				, COUPON 		=  #coupon#
+				, YTM 			=  #ytm#
+				, YTP 			=  #ytp#		]]><isNotEmpty property="payupDt"><![CDATA[
+				, PAYUP_DT 		=  #payupDt#	]]></isNotEmpty><isNotEmpty property="dueDt"><![CDATA[
+				, DUE_DT 		=  #dueDt#		]]></isNotEmpty><isNotEmpty property="put"><![CDATA[
+				, PUT 			=  #put#		]]></isNotEmpty><![CDATA[
+				, EVENT_PRICE 		=  #eventPrice#
+				, WRT_DUE_DT 		=  #wrtDueDt#
+				, REFIX_SALE 		=  #refixSale#
+				, SUPER_CPN   		=  #superCpn#
+				, UNDER_WRITER 		=  #underWriter#
+				, BUYBACK 			=  #buyback#
+				, PREMIUM   		=  #premium#
+				, TARGET   			=  #target#
+				, RELATION   		=  #relation#
+
+				, CPN_ID		= trim(#cpnId#)
+
+			WHERE S_NB = #sNb#
+		]]>
+	</update>
+
+	<delete id="noticeDAO.deletePublicNotice">
+		<![CDATA[
+			DELETE FROM IB_PUBLIC_NOTICE
+			 WHERE S_NB = #sNb#
+		]]>
+	</delete>
+
+<!-- @@@@@ -->
+	<select id="noticeDAO.selectEventNoticeList" parameterClass="nVO" resultClass="nVO">
+		<![CDATA[
+				SELECT *
+				  FROM
+				(SELECT
+					A.S_NB                      as sNb
+					, A.CPN_ID                  as cpnId
+					, D1.CPN_NM                 as cpnNm
+					, DATE(A.TM_DT)             as tmDt
+					, A.CATEGORY_CD             as categoryCd
+					, CMCD.VALUE_MEAN_KOR       as categoryNm
+					, A.EVENT_STOCK           	as eventStock
+					, A.EVENT_PRICE           	as eventPrice
+					, DATE(A.IPO_DT)			as ipoDt
+					, A.UNCHANGE_STOCK        	as unchangeStock
+					, A.OUTSTANDING_STOCK     	as outstandingStock
+					, A.RANK                  	as rank
+					, A.EVENT_USER            	as eventUser
+					, A.COMMENT               	as comment
+					, DATE(A.RG_DT)       as rgDt
+					, (SELECT UNIT_PRICE FROM CS_CATE_PRICE WHERE CATE_CD = A.CPN_ID ORDER BY PRICE_DATE DESC LIMIT 1)	    as curPrice
+
+				  FROM  IB_EVENT_PUBLIC_NOTICE A
+		     LEFT JOIN  IB_COMPANY D1 ON D1.CPN_ID = A.CPN_ID
+			 LEFT JOIN  (SELECT CODE_VALUE, VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = '00022') CMCD ON CMCD.CODE_VALUE = A.CATEGORY_CD
+				) SUB
+			]]>
+			  ORDER BY
+			<isEqual prepend="" property="sorting" compareValue="2">
+				<![CDATA[	cpnNm DESC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="1">
+				<![CDATA[	tmDt DESC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-2">
+				<![CDATA[	cpnNm ASC 		]]>
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="-1">
+				<![CDATA[	tmDt ASC 		]]>
+			</isEqual>
+	</select>
+
+
+	<insert id="noticeDAO.insertEventPublicNotice">
+		<![CDATA[
+			INSERT INTO IB_Event_PUBLIC_NOTICE
+				  (
+				    TM_DT
+				  , CPN_ID
+				  , CATEGORY_CD
+				  , EVENT_STOCK
+				  , EVENT_PRICE
+				  , IPO_DT
+				  , UNCHANGE_STOCK
+				  , OUTSTANDING_STOCK
+				  , RANK
+				  , EVENT_USER
+				  , COMMENT
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+		 ) VALUES (
+				    #tmDt#
+				  , trim(#cpnId#)
+				  , #categoryCd#
+				  , #eventStock#
+				  , #eventPrice#
+				  , CASE WHEN #ipoDt# = '' THEN NULL when #ipoDt# = '-' then null else #ipoDt# END
+				  , #unchangeStock#
+				  , #outstandingStock#
+				  , CASE WHEN #rank# = '' THEN NULL when #rank# = '-' then null else #rank# END
+				  , #eventUser#
+				  , #comment#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  )
+		]]>
+	</insert>
+
+	<update id="noticeDAO.modifyEventPublicNotice">
+		<![CDATA[
+			UPDATE IB_Event_PUBLIC_NOTICE
+			SET
+				  UP_ID         =  #rgId#
+				, UP_DT         =  now()
+				, TM_DT 			=  #tmDt#
+				, CATEGORY_CD   	=  #categoryCd#
+				, EVENT_STOCK		=  #eventStock#
+				, EVENT_PRICE		=  #eventPrice#
+				, IPO_DT 			=  CASE WHEN #ipoDt# = '' THEN NULL ELSE #ipoDt# END
+				, UNCHANGE_STOCK 	=  #unchangeStock#
+				, OUTSTANDING_STOCK =  #outstandingStock#
+				, RANK   			=  #rank#
+				, EVENT_USER   		=  #eventUser#
+				, COMMENT   		=  #comment#
+			WHERE S_NB = #sNb#
+		]]>
+	</update>
+
+	<delete id="noticeDAO.deleteEventPublicNotice">
+		<![CDATA[
+			DELETE FROM IB_Event_PUBLIC_NOTICE
+			 WHERE S_NB = #sNb#
+		]]>
+	</delete>
+</sqlMap>

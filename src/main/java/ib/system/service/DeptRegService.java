@@ -1,0 +1,58 @@
+package ib.system.service;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * <pre>
+ * package	: ibiss.system.service
+ * filename	: DeptRegService.java
+ * </pre>
+ *
+ *
+ *
+ * @author	: SangHyun Park
+ * @date	: 2015. 9. 14.
+ * @version :
+ *
+ */
+public interface DeptRegService {
+
+
+	//부서리스트
+	List<Map> getDeptList(Map<String, String> map) throws Exception;
+
+	//부서
+	List<Map> getDept(String deptId) throws Exception;
+
+	//부서리스트(콤보)
+	List<Map> getDeptListCombo(Map<String, String> map) throws Exception;
+
+	//권한등록(신규)
+	int insertDept(Map<String, Object> map) throws Exception;
+
+	//권한등록(수정)
+	int updateDept(Map<String, Object> map) throws Exception;
+
+	//권한삭제
+	int deleteDept(Map<String, Object> param) throws Exception;
+
+	// 부서 사용자 리스트
+	List<Map> getUserListOfDept(Map<String, String> map) throws Exception;
+
+	// 부서 사용자 리스트
+	int doSaveManager(Map<String, String> map) throws Exception;
+
+	//부서 사용자 리스트
+	int doSaveParentDept(Map<String, String> map) throws Exception;
+
+	//부서트리정보 저장
+	int doSaveMoveDeptInfo(Map<String, String> map) throws Exception;
+
+	//관계사  그룹카운트
+	int getBusinessGroupCnt(Map<String, Object> map) throws Exception;
+
+	// 부서원 이동
+	int updateUserDepartmentForMove(Map<String, Object> map) throws Exception;
+
+}

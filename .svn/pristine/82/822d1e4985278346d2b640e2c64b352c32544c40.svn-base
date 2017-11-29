@@ -1,0 +1,548 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="approveSet">
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="approveVo" type="ib.approve.service.ApproveVo"/>
+
+	<!-- 필수수신참조자설정 리스트 -->
+    <select id = "approveSet.getAppvReceiverSetupList" parameterClass = "HashMap" resultClass = "egovMap">
+        /* approveSet.getAppvReceiverSetupList */
+        SELECT  A.ORG_ID
+               , A.APPV_DOC_CLASS
+               , A.APPV_DOC_CLASS_NAME
+               , A.APPV_DOC_TYPE
+               , A.APPV_DOC_TYPE_NAME
+               , B.APPV_COMPANY_FORM_ID
+               , IFNULL(B.USE_YN, 'Y') USE_YN
+               , B.CREATED_BY
+               , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = B.CREATED_BY) AS CREATED_NAME
+               , B.CREATE_DATE
+               , B.UPDATED_BY
+               , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = B.UPDATED_BY) AS UPDATED_NAME
+               , B.UPDATE_DATE
+               , A.SORT1
+               , A.SORT2
+               , B.RECEIVER_NAMES
+               , B.CC_NAMES
+               , (CASE WHEN A.APPV_DOC_CLASS = 'COMPANY' THEN CONCAT(A.APPV_DOC_CLASS, '|', A.APPV_COMPANY_FORM_ID)
+                          ELSE CONCAT(A.APPV_DOC_CLASS, '|', A.APPV_DOC_TYPE)
+                 END) AS APPV_KEY
+               , (CASE WHEN A.APPV_DOC_CLASS = 'COMPANY' THEN CONCAT(A.APPV_DOC_CLASS, '_', A.APPV_COMPANY_FORM_ID)
+                          ELSE CONCAT(A.APPV_DOC_CLASS, '_', A.APPV_DOC_TYPE)
+                 END) AS SPAN_KEY
+        FROM
+            (
+                SELECT  A.ORG_ID
+                       ,B.VALUE          AS  APPV_DOC_CLASS
+                       ,B.MEANING_KOR    AS  APPV_DOC_CLASS_NAME
+                       ,D.VALUE          AS  APPV_DOC_TYPE
+                       ,D.MEANING_KOR    AS  APPV_DOC_TYPE_NAME
+                       ,B.SORT           AS  SORT1
+                       ,D.SORT           AS  SORT2
+                       , 0 AS APPV_COMPANY_FORM_ID
+                FROM    BS_CODE_SET  A
+                        INNER JOIN BS_CODE_LIST B   ON A.CODE_SET_ID = B.CODE_SET_ID
+                        INNER JOIN BS_CODE_SET  C   ON B.SON_SET_ID  = C.CODE_SET_ID
+                        INNER JOIN BS_CODE_LIST D   ON C.CODE_SET_ID = D.CODE_SET_ID
+                WHERE   A.ORG_ID = #applyOrgId#  /* 각 관계사 코드 */
+                AND A.CODE_SET_NAME = 'APPV_DOC_CLASS'
+                AND     A.DELETE_FLAG = 'N'
+                AND     B.DELETE_FLAG = 'N'
+                AND     C.DELETE_FLAG = 'N'
+                AND     D.DELETE_FLAG = 'N'
+                UNION ALL
+                SELECT  A.ORG_ID
+                       ,A.APPV_DOC_CLASS
+                       ,'사내서식'    AS  APPV_DOC_CLASS_NAME
+                       ,''  AS  APPV_DOC_TYPE
+                       ,A.APPV_DOC_TYPE_NAME
+                       ,99999999           AS  SORT1
+                       ,99999999           AS  SORT2
+                       , A.APPV_COMPANY_FORM_ID
+                FROM    BS_APPV_COMPANY_FORM  A
+                WHERE   A.ORG_ID = #applyOrgId#  /* 각 관계사 코드 */
+                AND     A.DELETE_FLAG = 'N'
+                ) A
+                LEFT JOIN(
+                SELECT  APPV_RECEIVER_SETUP_ID
+                       ,ORG_ID
+                       ,APPV_DOC_CLASS
+                       ,APPV_DOC_TYPE
+                       ,APPV_COMPANY_FORM_ID
+                       ,USE_YN
+                       ,CREATED_BY
+                       ,CREATE_DATE
+                       ,UPDATED_BY
+                       ,UPDATE_DATE
+                      ,(SELECT GROUP_CONCAT(CONCAT(Y.USER_ID, '||-||', Y.NAME) SEPARATOR ':::::') SCHE_CONTENTS
+                        FROM BS_APPV_RECEIVER_USER X
+                            INNER JOIN BS_USER_MASTER Y ON X.USER_ID = Y.USER_ID
+                        WHERE X.APPV_RECEIVER_SETUP_ID = B.APPV_RECEIVER_SETUP_ID
+                        AND X.USER_ROLE_TYPE = 'RECEIVER'
+                        GROUP BY X.APPV_RECEIVER_SETUP_ID
+                        ) AS RECEIVER_NAMES
+                     ,(SELECT GROUP_CONCAT(CONCAT(Y.USER_ID, '||-||', Y.NAME) SEPARATOR ':::::') SCHE_CONTENTS
+                        FROM BS_APPV_RECEIVER_USER X
+                            INNER JOIN BS_USER_MASTER Y ON X.USER_ID = Y.USER_ID
+                        WHERE X.APPV_RECEIVER_SETUP_ID = B.APPV_RECEIVER_SETUP_ID
+                        AND X.USER_ROLE_TYPE = 'CC'
+                        GROUP BY X.APPV_RECEIVER_SETUP_ID
+                        ) AS CC_NAMES
+                FROM    BS_APPV_RECEIVER_SETUP B
+                WHERE   ORG_ID = #applyOrgId#
+                <isNotEmpty property="useYn">
+                    AND USE_YN = #useYn#
+                </isNotEmpty>
+            ) B ON A.ORG_ID = B.ORG_ID
+                 AND A.APPV_DOC_CLASS = B.APPV_DOC_CLASS
+                 AND (CASE WHEN A.APPV_DOC_CLASS = 'COMPANY' THEN A.APPV_COMPANY_FORM_ID = B.APPV_COMPANY_FORM_ID
+                                  ELSE A.APPV_DOC_TYPE = B.APPV_DOC_TYPE
+                         END)
+            WHERE 1=1
+            <isNotEmpty property="appvDocClass">
+            AND A.APPV_DOC_CLASS = #appvDocClass#
+            </isNotEmpty>
+            <isNotEmpty property="appvDocType">
+            AND A.APPV_DOC_TYPE = #appvDocType#
+            </isNotEmpty>
+            ORDER BY SORT1, SORT2,APPV_COMPANY_FORM_ID
+    </select>
+
+    <!-- 필수수신참조자설정 삭제 -->
+    <delete id = "approveSet.deleteAppvReceiverSetup"  parameterClass = "HashMap">
+        /* approveSet.deleteAppvReceiverSetup */
+        DELETE FROM BS_APPV_RECEIVER_SETUP
+        WHERE ORG_ID = #applyOrgId#
+    </delete>
+
+    <!-- 필수수신참조자설정 저장 -->
+    <insert id = "approveSet.insertAppvReceiverSetup" parameterClass = "HashMap">
+        /* approveSet.insertAppvReceiverSetup */
+        INSERT INTO BS_APPV_RECEIVER_SETUP (
+                                          ORG_ID
+										, APPV_DOC_CLASS
+										, APPV_DOC_TYPE
+										, APPV_COMPANY_FORM_ID
+										, USE_YN
+										, CREATED_BY
+										, CREATE_DATE
+										, UPDATED_BY
+										, UPDATE_DATE
+                                    ) VALUES (
+                                         #applyOrgId#
+                                        ,#appvDocClass#
+                                        ,#appvDocType#
+                                        ,#appvCompanyFormId#
+                                        ,#useYn#
+                                        ,IF(#createdBy#='',#sessionUserId#,#createdBy#)
+                                        ,IF(#createDate#='',NOW(),#createDate#)
+                                        ,#sessionUserId#
+                                        ,now()
+                                    )
+    </insert>
+
+    <!-- 필수수신참조자설정 키값가져오기 -->
+    <select id = "approveSet.getAppvReceiverSetupKey" parameterClass = "HashMap" resultClass = "egovMap">
+        /* approveSet.getAppvReceiverSetupKey */
+        SELECT
+             APPV_RECEIVER_SETUP_ID
+        FROM BS_APPV_RECEIVER_SETUP
+        WHERE ORG_ID = #applyOrgId#
+        AND APPV_DOC_CLASS = #appvDocClass#
+        <isNotEmpty property="appvDocType">
+            AND APPV_DOC_TYPE = #appvDocType#
+        </isNotEmpty>
+        <isNotEmpty property="appvCompanyFormId">
+            AND APPV_COMPANY_FORM_ID = #appvCompanyFormId#
+        </isNotEmpty>
+   </select>
+
+    <!-- 필수수신참조자 삭제 -->
+    <delete id = "approveSet.deleteAppvReceiverUser"  parameterClass = "HashMap">
+        /* approveSet.deleteAppvReceiverUser */
+        DELETE FROM BS_APPV_RECEIVER_USER
+        WHERE APPV_RECEIVER_SETUP_ID IN (
+                   SELECT APPV_RECEIVER_SETUP_ID FROM BS_APPV_RECEIVER_SETUP
+                   WHERE ORG_ID = #applyOrgId#)
+    </delete>
+
+    <!-- 필수수신참조자 저장 -->
+    <insert id = "approveSet.insertAppvReceiverUser" parameterClass = "HashMap">
+        /* approveSet.insertAppvReceiverUser */
+        INSERT INTO BS_APPV_RECEIVER_USER (
+                                          APPV_RECEIVER_SETUP_ID
+                                        , USER_ROLE_TYPE
+                                        , USER_ID
+                                        , CREATED_BY
+                                        , CREATE_DATE
+                                        , UPDATED_BY
+                                        , UPDATE_DATE
+                                    ) VALUES (
+                                        #appvReceiverSetupId#
+                                        ,#userRoleType#
+                                        ,#userId#
+                                        ,#sessionUserId#
+                                        ,now()
+                                        ,#sessionUserId#
+                                        ,now()
+                                    )
+    </insert>
+
+    <!-- 종결전 문서열람 세팅 -->
+    <select id = "approveSet.getAppvReadSetupList" parameterClass = "HashMap" resultClass = "egovMap">
+        /* approveSet.getAppvReadSetupList */
+        SELECT  A.ORG_ID
+               , A.APPV_DOC_CLASS
+               , A.APPV_DOC_CLASS_NAME
+               , A.APPV_DOC_TYPE
+               , A.APPV_DOC_TYPE_NAME
+               , B.APPV_COMPANY_FORM_ID
+               , IFNULL(B.APPROVE_YN, 'N') APPROVE_YN
+               , IFNULL(B.RECEIVE_YN, 'N') RECEIVE_YN
+               , IFNULL(B.CC_YN, 'N') CC_YN
+               , B.CREATED_BY
+               , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = B.CREATED_BY) AS CREATED_NAME
+               , B.CREATE_DATE
+               , B.UPDATED_BY
+               , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = B.UPDATED_BY) AS UPDATED_NAME
+               , B.UPDATE_DATE
+               , A.SORT1
+               , A.SORT2
+               , (CASE WHEN A.APPV_DOC_CLASS = 'COMPANY' THEN CONCAT(A.APPV_DOC_CLASS, '|', A.APPV_COMPANY_FORM_ID)
+                          ELSE CONCAT(A.APPV_DOC_CLASS, '|', A.APPV_DOC_TYPE)
+                 END) AS APPV_KEY
+               , (CASE WHEN A.APPV_DOC_CLASS = 'COMPANY' THEN CONCAT(A.APPV_DOC_CLASS, '_', A.APPV_COMPANY_FORM_ID)
+                          ELSE CONCAT(A.APPV_DOC_CLASS, '_', A.APPV_DOC_TYPE)
+                 END) AS SPAN_KEY
+        FROM
+            (
+                SELECT  A.ORG_ID
+                       ,B.VALUE          AS  APPV_DOC_CLASS
+                       ,B.MEANING_KOR    AS  APPV_DOC_CLASS_NAME
+                       ,D.VALUE          AS  APPV_DOC_TYPE
+                       ,D.MEANING_KOR    AS  APPV_DOC_TYPE_NAME
+                       ,B.SORT           AS  SORT1
+                       ,D.SORT           AS  SORT2
+                       , 0 AS APPV_COMPANY_FORM_ID
+                FROM    BS_CODE_SET  A
+                        INNER JOIN BS_CODE_LIST B   ON A.CODE_SET_ID = B.CODE_SET_ID
+                        INNER JOIN BS_CODE_SET  C   ON B.SON_SET_ID  = C.CODE_SET_ID
+                        INNER JOIN BS_CODE_LIST D   ON C.CODE_SET_ID = D.CODE_SET_ID
+                WHERE   A.ORG_ID = #applyOrgId#  /* 각 관계사 코드 */
+                AND A.CODE_SET_NAME = 'APPV_DOC_CLASS'
+                AND     A.DELETE_FLAG = 'N'
+                AND     B.DELETE_FLAG = 'N'
+                AND     C.DELETE_FLAG = 'N'
+                AND     D.DELETE_FLAG = 'N'
+                UNION ALL
+                SELECT  A.ORG_ID
+                       ,A.APPV_DOC_CLASS
+                       ,'사내서식'    AS  APPV_DOC_CLASS_NAME
+                       ,''  AS  APPV_DOC_TYPE
+                       ,A.APPV_DOC_TYPE_NAME
+                       ,99999999           AS  SORT1
+                       ,99999999           AS  SORT2
+                       , A.APPV_COMPANY_FORM_ID
+                FROM    BS_APPV_COMPANY_FORM  A
+                WHERE   A.ORG_ID = #applyOrgId#  /* 각 관계사 코드 */
+                AND     A.DELETE_FLAG = 'N'
+                ) A
+                LEFT JOIN(
+                SELECT  APPV_READ_DOC_SETUP_ID
+                       ,ORG_ID
+                       ,APPV_DOC_CLASS
+                       ,APPV_DOC_TYPE
+                       ,APPV_COMPANY_FORM_ID
+                       ,APPROVE_YN
+                       ,RECEIVE_YN
+                       ,CC_YN
+                       ,CREATED_BY
+                       ,CREATE_DATE
+                       ,UPDATED_BY
+                       ,UPDATE_DATE
+                FROM    BS_APPV_READ_DOC_SETUP B
+                WHERE   ORG_ID = #applyOrgId#
+                <isNotEmpty property="useYn">
+                    AND USE_YN = #useYn#
+                </isNotEmpty>
+            ) B ON A.ORG_ID = B.ORG_ID
+                 AND A.APPV_DOC_CLASS = B.APPV_DOC_CLASS
+                 AND (CASE WHEN A.APPV_DOC_CLASS = 'COMPANY' THEN A.APPV_COMPANY_FORM_ID = B.APPV_COMPANY_FORM_ID
+                                  ELSE A.APPV_DOC_TYPE = B.APPV_DOC_TYPE
+                         END)
+            WHERE 1=1
+            <isNotEmpty property="appvDocClass">
+            AND A.APPV_DOC_CLASS = #appvDocClass#
+            </isNotEmpty>
+            <isNotEmpty property="appvDocType">
+            AND A.APPV_DOC_TYPE = #appvDocType#
+            </isNotEmpty>
+            ORDER BY SORT1, SORT2
+    </select>
+
+    <!-- 종결전 문서열람설정 삭제 -->
+    <delete id = "approveSet.deleteAppvReadSetup"  parameterClass = "HashMap">
+        /* approveSet.deleteAppvReadSetup */
+        DELETE FROM BS_APPV_READ_DOC_SETUP
+        WHERE ORG_ID = #applyOrgId#
+    </delete>
+
+    <!-- 필수수신참조자설정 저장 -->
+    <insert id = "approveSet.insertAppvReadSetup" parameterClass = "HashMap">
+        /* approveSet.insertAppvReadSetup */
+        INSERT INTO BS_APPV_READ_DOC_SETUP (
+                                          ORG_ID
+                                        , APPV_DOC_CLASS
+                                        , APPV_DOC_TYPE
+                                        , APPV_COMPANY_FORM_ID
+                                        , APPROVE_YN
+                                        , RECEIVE_YN
+                                        , CC_YN
+                                        , CREATED_BY
+                                        , CREATE_DATE
+                                        , UPDATED_BY
+                                        , UPDATE_DATE
+                                    ) VALUES (
+                                         #applyOrgId#
+                                        ,#appvDocClass#
+                                        ,#appvDocType#
+                                        ,#appvCompanyFormId#
+                                        ,#approveYn#
+                                        ,#receiveYn#
+                                        ,#ccYn#
+                                        ,IF(#createdBy#='',#sessionUserId#,#createdBy#)
+                                        ,IF(#createDate#='',NOW(),#createDate#)
+                                        ,#sessionUserId#
+                                        ,now()
+                                    )
+    </insert>
+
+    <!--  -->
+
+    <!-- 지출결의서설정 정보  -->
+    <select id = "approveSet.getAppvExpenseSetupDetail" parameterClass = "HashMap" resultClass = "egovMap">
+        /* approveSet.getAppvExpenseSetupDetail */
+        SELECT
+                A.APPV_EXPENSE_SETUP_ID
+               , A.ORG_ID
+               , A.MEMO
+               , A.CREATED_BY
+               , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY) AS CREATED_NAME
+               , A.CREATE_DATE
+               , A.UPDATED_BY
+               , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.UPDATED_BY) AS UPDATED_NAME
+               , A.UPDATE_DATE
+        FROM BS_APPV_EXPENSE_SETUP A
+        WHERE A.ORG_ID = #applyOrgId#
+    </select>
+
+    <!-- 지출결의서설정 삭제 -->
+    <delete id = "approveSet.deleteAppvExpenseSetup"  parameterClass = "HashMap">
+        /* approveSet.deleteAppvExpenseSetup */
+        DELETE FROM BS_APPV_EXPENSE_SETUP
+        WHERE ORG_ID = #applyOrgId#
+    </delete>
+
+    <!-- 지출결의서설정 저장 -->
+    <insert id = "approveSet.insertAppvExpenseSetup" parameterClass = "HashMap">
+        /* approveSet.insertAppvExpenseSetup */
+        INSERT INTO BS_APPV_EXPENSE_SETUP (
+                                          ORG_ID
+                                        , MEMO
+                                        , CREATED_BY
+                                        , CREATE_DATE
+                                        , UPDATED_BY
+                                        , UPDATE_DATE
+                                    ) VALUES (
+                                         #applyOrgId#
+                                        ,#memo#
+                                        ,IF(#createdBy#='',#sessionUserId#,#createdBy#)
+                                        ,IF(#createDate#='',NOW(),#createDate#)
+                                        ,#sessionUserId#
+                                        ,now()
+                                    )
+    </insert>
+
+     <!-- 지출담당자설정 목록  -->
+    <select id = "approveSet.getAppvManagerSetupList" parameterClass = "HashMap" resultClass = "egovMap">
+        /* approveSet.getAppvManagerSetupList */
+        SELECT
+                A.APPV_EXPENSE_MANAGER_SETUP_ID
+               , A.ORG_ID
+               , A.USER_ID
+               , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.USER_ID) AS USER_NAME
+               , (SELECT G.VALUE_MEAN_KOR
+                 FROM   BS_CODE_GV G
+                 WHERE  G.ORG_ID = #applyOrgId#
+                 AND    G.CODE_NAME = 'RANK'
+                 AND    G.CODE_VALUE = (SELECT X.RANK FROM BS_USER_MASTER X WHERE X.USER_ID = A.USER_ID)) AS RANK_NM
+               , A.CREATED_BY
+               , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY) AS CREATED_NAME
+               , A.CREATE_DATE
+               , A.UPDATED_BY
+               , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.UPDATED_BY) AS UPDATED_NAME
+               , A.UPDATE_DATE
+        FROM BS_APPV_EXPENSE_MANAGER_SETUP A
+        WHERE A.ORG_ID = #applyOrgId#
+       ORDER BY UPDATE_DATE
+    </select>
+
+    <!-- 지출담당자설정 삭제 -->
+    <delete id = "approveSet.deleteAppvManagerSetup"  parameterClass = "HashMap">
+        /* approveSet.deleteAppvManagerSetup */
+        DELETE FROM BS_APPV_EXPENSE_MANAGER_SETUP
+        WHERE ORG_ID = #applyOrgId#
+    </delete>
+
+    <!-- 지출담당자설정 저장 -->
+    <insert id = "approveSet.insertAppvManagerSetup" parameterClass = "HashMap">
+        /* approveSet.insertAppvManagerSetup */
+        INSERT INTO BS_APPV_EXPENSE_MANAGER_SETUP (
+                                          ORG_ID
+                                        , USER_ID
+                                        , CREATED_BY
+                                        , CREATE_DATE
+                                        , UPDATED_BY
+                                        , UPDATE_DATE
+                                    ) VALUES (
+                                         #applyOrgId#
+                                        ,#userId#
+                                        ,IF(#createdBy#='',#sessionUserId#,#createdBy#)
+                                        ,IF(#createDate#='',NOW(),#createDate#)
+                                        ,#sessionUserId#
+                                        ,now()
+                                    )
+    </insert>
+
+
+     <!-- 지출담당자설정 목록  -->
+    <select id = "approveSet.getAppvDaySetupList" parameterClass = "HashMap" resultClass = "egovMap">
+        /* approveSet.getAppvDaySetupList */
+        SELECT
+                A.APPV_EXPENSE_DAY_SETUP_ID
+               , A.ORG_ID
+               , A.EXPENSE_DAY
+               , A.CREATED_BY
+               , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.CREATED_BY) AS CREATED_NAME
+               , A.CREATE_DATE
+               , A.UPDATED_BY
+               , (SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.UPDATED_BY) AS UPDATED_NAME
+               , A.UPDATE_DATE
+        FROM BS_APPV_EXPENSE_DAY_SETUP A
+        WHERE A.ORG_ID = #applyOrgId#
+       ORDER BY EXPENSE_DAY
+    </select>
+
+    <!-- 지출담당자설정 삭제 -->
+    <delete id = "approveSet.deleteAppvDaySetup"  parameterClass = "HashMap">
+        /* approveSet.deleteAppvDaySetup */
+        DELETE FROM BS_APPV_EXPENSE_DAY_SETUP
+        WHERE ORG_ID = #applyOrgId#
+    </delete>
+
+    <!-- 지출담당자설정 저장 -->
+    <insert id = "approveSet.insertAppvDaySetup" parameterClass = "HashMap">
+        /* approveSet.insertAppvDaySetup */
+        INSERT INTO BS_APPV_EXPENSE_DAY_SETUP (
+                                          ORG_ID
+                                        , EXPENSE_DAY
+                                        , CREATED_BY
+                                        , CREATE_DATE
+                                        , UPDATED_BY
+                                        , UPDATE_DATE
+                                    ) VALUES (
+                                         #applyOrgId#
+                                        ,#expenseDay#
+                                        ,IF(#createdBy#='',#sessionUserId#,#createdBy#)
+                                        ,IF(#createDate#='',NOW(),#createDate#)
+                                        ,#sessionUserId#
+                                        ,now()
+                                    )
+    </insert>
+
+	<!-- 필수수신참조자설정 리스트 -->
+    <select id = "approveSet.getOrgReceiverSetupList" parameterClass = "HashMap" resultClass = "egovMap">
+    	SELECT A.APPV_RECEIVER_SETUP_ID
+    		  ,A.USER_ROLE_TYPE
+    		  ,A.USER_ID
+    		  ,(SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = A.USER_ID) AS USER_NM
+    		  ,(SELECT G.VALUE_MEAN_KOR
+                 FROM   BS_CODE_GV G
+                 WHERE  G.ORG_ID = #applyOrgId#
+                 AND    G.CODE_NAME = 'RANK'
+                 AND    G.CODE_VALUE = (SELECT X.RANK FROM BS_USER_MASTER X WHERE X.USER_ID = A.USER_ID)) AS USER_RANK_NM
+    	  FROM  BS_APPV_RECEIVER_USER A
+    	INNER JOIN BS_APPV_RECEIVER_SETUP B ON A.APPV_RECEIVER_SETUP_ID = B.APPV_RECEIVER_SETUP_ID
+    	 /*사내서식은 APPV_COMPANY_FORM_ID , 기본서식은 APPV_DOC_TYPE 으로찾는다*/
+    	WHERE IF(B.APPV_DOC_CLASS = 'COMPANY' , B.APPV_COMPANY_FORM_ID = #appvCompanyFormId# , B.APPV_DOC_TYPE = #appvDocType#)
+    	  AND B.ORG_ID = #applyOrgId#
+    	  AND B.USE_YN = 'Y'
+    	  AND A.USER_ROLE_TYPE = #userRoleType#
+    </select>
+
+    <!-- 미결알림 셋팅 리스트 -->
+    <select id = "approveSet.appvAlarmSetupList" parameterClass = "HashMap" resultClass = "egovMap">
+        /* approveSet.appvAlarmSetupList */
+        SELECT A.ORG_ID
+        	  ,A.CODE_VALUE AS APPV_ALARM_SETUP_TYPE
+        	  ,A.VALUE_MEAN_KOR AS NAME
+        	  ,IFNULL(B.BASE_SETUP_TYPE,'IMMEDIATELY') AS BASE_SETUP_TYPE
+			  ,B.BASE_SETUP_PERIOD
+			  ,IFNULL(B.USE_YN,'N') AS USE_YN
+			  ,B.CREATE_DATE
+			  ,B.CREATED_BY
+			  ,(SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = B.CREATED_BY) AS CREATED_NM
+			  ,B.UPDATE_DATE
+			  ,B.UPDATED_BY
+			  ,(SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = B.UPDATED_BY) AS UPDATED_NM
+          FROM (
+          		SELECT G.CODE_VALUE
+          			  ,G.VALUE_MEAN_KOR
+		        	  ,G.SORT
+		        	  ,G.ORG_ID
+		          FROM BS_CODE_GV G
+		         WHERE G.ORG_ID = #applyOrgId#
+		         AND    G.CODE_NAME = 'APPV_ALARM_SETUP_TYPE'
+		         AND    G.DELETE_FLAG = 'N'
+          		) AS A
+         LEFT OUTER JOIN BS_APPV_ALARM_SETUP B ON A.CODE_VALUE = B.APPV_ALARM_SETUP_TYPE AND B.ORG_ID = A.ORG_ID
+    </select>
+
+    <!-- 지출담당자설정 저장 -->
+    <insert id = "approveSet.insertAppvAlarmSetup" parameterClass = "HashMap">
+    	/* approveSet.appvAlarmSetupList */
+    	INSERT INTO BS_APPV_ALARM_SETUP (    ORG_ID
+											,APPV_ALARM_SETUP_TYPE
+											,BASE_SETUP_TYPE
+											,BASE_SETUP_PERIOD
+											,USE_YN
+											,CREATE_DATE
+											,CREATED_BY
+											,UPDATE_DATE
+											,UPDATED_BY
+    									) VALUES (
+    											 	 #applyOrgId#
+													,#appvAlarmSetupType#
+													,#baseSetupType#
+													,#baseSetupPeriod#
+													,#useYn#
+													,NOW()
+													,#userId#
+													,NOW()
+													,#userId#
+    									)
+    </insert>
+
+    <!-- 지출담당자설정 수정 -->
+	<update id = "approveSet.updateAppvAlarmSetup" parameterClass = "HashMap">
+		/* approveSet.updateAppvAlarmSetup */
+		UPDATE BS_APPV_ALARM_SETUP SET   BASE_SETUP_TYPE   = #baseSetupType#
+		                                ,BASE_SETUP_PERIOD = #baseSetupPeriod#
+		                                ,USE_YN            = #useYn#
+		                                ,UPDATE_DATE       = NOW()
+										,UPDATED_BY        = #userId#
+								 WHERE ORG_ID = #applyOrgId#
+								   AND APPV_ALARM_SETUP_TYPE = #appvAlarmSetupType#
+	</update>
+</sqlMap>

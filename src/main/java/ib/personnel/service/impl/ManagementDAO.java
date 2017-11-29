@@ -1,0 +1,303 @@
+package ib.personnel.service.impl;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+import ib.cmm.service.impl.ComAbstractDAO;
+
+
+/**
+ * <pre>
+ * package  : ib.personnel.service.impl
+ * filename : ManagementDAO.java
+ * </pre>
+ *
+ * @author  : ChanWoo Lee
+ * @since   : 2013. 1. 10.
+ * @version : 1.0.0
+ */
+@Repository("managementDAO")
+public class ManagementDAO extends ComAbstractDAO{
+
+	////////////park add method :S////////////////////////////////////
+
+	//인사정보 리스트
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> getAccessOrgUserList(Map<String, Object> paramMap) throws Exception {
+		return list("managementDAO.getAccessOrgUserList", paramMap);
+	}
+	//인사정보 리스트 총개수
+	public int getAccessOrgUserListTotalCnt(Map<String, Object> paramMap) throws Exception {
+		return (Integer)getSqlMapClientTemplate().queryForObject("managementDAO.getAccessOrgUserListTotalCnt", paramMap);
+	}
+	//선택가능한 부서 가져오기
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> getAccessOrgDeptUserList(Map<String, Object> paramMap) throws Exception {
+		return list("managementDAO.getAccessOrgDeptUserList", paramMap);
+	}
+	//사용자의 상세정보를 조회한다
+	public EgovMap getPersonnelDetail(Map<String,Object> paramMap) throws Exception{
+		return (EgovMap)getSqlMapClientTemplate().queryForObject("managementDAO.getPersonnelDetail", paramMap);
+	}
+	//사용자의 퇴직/해고 정보를 가져온다.
+	public EgovMap getUserSttsHistFireInfo(Map<String,Object> paramMap) throws Exception{
+		return(EgovMap)getSqlMapClientTemplate().queryForObject("managementDAO.getUserSttsHistFireInfo", paramMap);
+	}
+	//사용자의 직급사항을 조회한다
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> getuserInsideCareer(Map<String,Object> paramMap) throws Exception{
+		return list("managementDAO.getuserInsideCareer", paramMap);
+	}
+	//사용자의 가족관계를 조회한다.
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> getUserFamily(Map<String,Object> paramMap) throws Exception{
+		return list("managementDAO.getUserFamily", paramMap);
+	}
+	//사용자의 학력사항을 조회한다
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> getUserAcademic(Map<String,Object> paramMap) throws Exception{
+		return list("managementDAO.getUserAcademic", paramMap);
+	}
+	//사용자의경력사항을 조회한다
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> getUserCareer(Map<String,Object> paramMap) throws Exception{
+		return list("managementDAO.getUserCareer", paramMap);
+	}
+	//사용자의 자격증을 조회한다
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> getUserLicense(Map<String,Object> paramMap) throws Exception{
+		return list("managementDAO.getUserLicense", paramMap);
+	}
+	//사용자의 부서리스트를
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> getUserDeptList(Map<String,Object> paramMap) throws Exception{
+		return list("managementDAO.getUserDeptList", paramMap);
+	}
+	//사용자 기본정보 수정
+	public Integer updatePersonnelInfo(Map<String,Object> paramMap) throws Exception{
+		return (Integer)update("managementDAO.updatePersonnelInfo", paramMap);
+	}
+
+	//사용자  부서 플레그 삭제로 업데이트
+	public Integer updateDeptdeleteFlag(Map<String,Object> paramMap) throws Exception{
+		return (Integer)update("managementDAO.updateDeptdeleteFlag", paramMap);
+	}
+	//사용자 부서 insert
+	public Integer insertUserDept(Map<String,Object> paramMap) throws Exception{
+		return (Integer)insert("managementDAO.insertUserDept", paramMap);
+	}
+
+	//사용자  메인부서 업데이트
+	public Integer updateMainDept(Map<String,Object> paramMap) throws Exception{
+		return (Integer)update("managementDAO.updateMainDept", paramMap);
+	}
+	//사용자 직급 사항 삭제
+	public Integer deleteUserInsideCareer(Map<String,Object> paramMap) throws Exception{
+		return (Integer)delete("managementDAO.deleteUserInsideCareer", paramMap);
+	}
+	//사용자 직급 사항 저장
+	public Integer insertUserInsideCareer(Map<String,Object> paramMap) throws Exception{
+		return (Integer)insert("managementDAO.insertUserInsideCareer", paramMap);
+	}
+	//사용자 직급 사항 저장
+	public Integer updateUserRank(Map<String,Object> paramMap) throws Exception{
+		return (Integer)update("managementDAO.updateUserRank", paramMap);
+	}
+	//가족 삭제
+	public Integer deleteUserFamily(Map<String,Object> paramMap) throws Exception{
+		return (Integer)delete("managementDAO.deleteUserFamily", paramMap);
+	}
+	//가족  저장
+	public Integer insertUserFamily(Map<String,Object> paramMap) throws Exception{
+		return (Integer)insert("managementDAO.insertUserFamily", paramMap);
+	}
+	//학력 삭제
+	public Integer deleteUserAcademic(Map<String,Object> paramMap) throws Exception{
+		return (Integer)delete("managementDAO.deleteUserAcademic", paramMap);
+	}
+	//학력  저장
+	public Integer insertUserAcademic(Map<String,Object> paramMap) throws Exception{
+		return (Integer)insert("managementDAO.insertUserAcademic", paramMap);
+	}
+	//경력삭제
+	public Integer deleteUserCareer(Map<String,Object> paramMap) throws Exception{
+		return (Integer)delete("managementDAO.deleteUserCareer", paramMap);
+	}
+	//경력  저장
+	public Integer insertUserCareer(Map<String,Object> paramMap) throws Exception{
+		return (Integer)insert("managementDAO.insertUserCareer", paramMap);
+	}
+	//자격증삭제
+	public Integer deleteUserLicense(Map<String,Object> paramMap) throws Exception{
+		return (Integer)delete("managementDAO.deleteUserLicense", paramMap);
+	}
+	//자격증  저장
+	public Integer insertUserLicense(Map<String,Object> paramMap) throws Exception{
+		return (Integer)insert("managementDAO.insertUserLicense", paramMap);
+	}
+	//자격증삭제
+	public Integer deleteUserSttsHist(Map<String,Object> paramMap) throws Exception{
+		return (Integer)delete("managementDAO.deleteUserSttsHist", paramMap);
+	}
+	//재직상태  저장
+	public Integer insertUserSttsHist(Map<String,Object> paramMap) throws Exception{
+
+		int key = -1;
+		Object rslt = (Integer)insert("managementDAO.insertUserSttsHist", paramMap);
+		if(rslt != null)
+			key = Integer.parseInt(rslt.toString());
+		return key;
+	}
+
+	//사용자 상태 수정
+	public Integer updateUserStatus(Map<String,Object> paramMap) throws Exception{
+		return (Integer)update("managementDAO.updateUserStatus", paramMap);
+	}
+	//사용자의 재직상태 히스토리 검색
+	public List<EgovMap> getUserSttsHist(Map<String,Object> paramMap) throws Exception{
+		return list("managementDAO.getUserSttsHist", paramMap);
+	}
+	//뱅가나 휴가인 유저를 재직으로 업데이트한다.
+	public Integer updateUserStatusBeforeBatch() throws Exception{
+		return (Integer)update("managementDAO.updateUserStatusBeforeBatch", null);
+	}
+	//퇴사인 유저의 cpn_id를 null 로 업데이트
+	public Integer updateFireUserCpnId(Map<String,Object> paramMap) throws Exception{
+		return (Integer)update("managementDAO.updateFireUserCpnId", null);
+	}
+	//연차관리 목록
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> getAnnualUserList(Map<String, Object> paramMap) throws Exception {
+		return list("managementDAO.getAnnualUserList", paramMap);
+	}
+	//연차관리 목록 총개수
+	public int getAnnualUserListTotalCnt(Map<String, Object> paramMap) throws Exception {
+		return (Integer)getSqlMapClientTemplate().queryForObject("managementDAO.getAnnualUserListTotalCnt", paramMap);
+	}
+
+	//연차등록
+	public Integer insertUserLeaveH(Map<String,Object> paramMap) throws Exception{
+
+		int key = 1;
+		Object rslt = (Integer)insert("managementDAO.insertUserLeaveH", paramMap);
+		if(rslt != null)
+			key = Integer.parseInt(rslt.toString());
+		return key;
+	}
+
+	//연차수정
+	public Integer updateUserLeaveH(Map<String,Object> paramMap) throws Exception{
+		return (Integer)update("managementDAO.updateUserLeaveH", paramMap);
+	}
+	//사용자 해고/퇴직 정보 삭제
+	public Integer deleteUserSttsHistFireInfo(Map<String,Object> paramMap) throws Exception{
+		return (Integer)delete("managementDAO.deleteUserSttsHistFireInfo", paramMap);
+	}
+
+	//스케줄에서 삭제
+	public Integer deleteUserSttsHistSche(Map<String,Object> paramMap) throws Exception{
+		return (Integer)delete("managementDAO.deleteUserSttsHistSche", paramMap);
+	}
+
+	//퇴사시 퇴사일 이후 출근부 삭제
+	public Integer deleteWorktimeForFire(Map<String,Object> paramMap) throws Exception{
+		return (Integer)delete("managementDAO.deleteWorktimeForFire", paramMap);
+	}
+
+	//퇴사시 퇴사일 이후 출근이력 삭제
+	public Integer deleteLoginHistForFire(Map<String,Object> paramMap) throws Exception{
+		return (Integer)delete("managementDAO.deleteLoginHistForFire", paramMap);
+	}
+
+	//출근부생성:batch
+	public Integer insertWorkTime(Map<String,Object> paramMap) throws Exception{
+		return (Integer)insert("managementDAO.insertWorkTime", paramMap);
+	}
+
+	//출근부생성2:batch
+	public Integer insertWorkTimeEnd(Map<String,Object> paramMap) throws Exception{
+		return (Integer)insert("managementDAO.insertWorkTimeEnd", paramMap);
+	}
+
+	//출근부 퇴근시간 업데이트
+	public Integer updateWorkTimeEnd(Map<String,Object> paramMap) throws Exception{
+		return (Integer)insert("managementDAO.updateWorkTimeEnd", paramMap);
+	}
+
+	//현재시간조회
+	public Date getCurTimeInfo() throws Exception{
+		return (Date)getSqlMapClientTemplate().queryForObject("managementDAO.getCurTimeInfo");
+	}
+
+	//오늘의 출근정보 조회
+	public EgovMap getTodayWorkInfo(Map<String,Object> paramMap) throws Exception{
+		return (EgovMap)getSqlMapClientTemplate().queryForObject("managementDAO.getTodayWorkInfo",paramMap);
+	}
+
+	//출근부 출근시간 업데이트
+	public Integer updateWorkIntime(Map<String,Object> paramMap) throws Exception{
+		return (Integer)update("managementDAO.updateWorkIntime", paramMap);
+	}
+	//출근부 퇴근시간 업데이트
+	public Integer processWorcEndAjax(Map<String,Object> paramMap) throws Exception{
+		return (Integer)update("managementDAO.processWorcEndAjax", paramMap);
+	}
+	//로그인 이력 저장
+	public Integer processLoginHist(Map<String,Object> paramMap) throws Exception{
+		return (Integer)update("managementDAO.processLoginHist", paramMap);
+	}
+	//로그인 이력 총개수
+	public int getLoginHistListTotalCnt(Map<String, Object> paramMap) throws Exception {
+		return (Integer)getSqlMapClientTemplate().queryForObject("managementDAO.getLoginHistListTotalCnt", paramMap);
+	}
+	//로그인 이력 리스트
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> getLoginHistList(Map<String, Object> paramMap) throws Exception {
+		return list("managementDAO.getLoginHistList", paramMap);
+	}
+
+	//인사정보 수정시 고객 테이블 update
+	public Integer updateCustomerInfoByPersonnelInfo(Map<String, Object> paramMap) throws Exception {
+		return (Integer)update("managementDAO.updateCustomerInfoByPersonnelInfo", paramMap);
+	}
+
+	//새글알림설정 리스트
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> markRuleListList(Map<String, Object> paramMap) throws Exception {
+		return list("managementDAO.markRuleListList", paramMap);
+	}
+	//새글알림설정삭제
+  	public Integer deleteMarkRule(Map<String,Object> paramMap) throws Exception{
+  		return (Integer)delete("managementDAO.deleteMarkRule", paramMap);
+  	}
+  	//새글알림설정저장
+  	public Integer insertMarkRule(Map<String,Object> paramMap) throws Exception{
+  		return (Integer)insert("managementDAO.insertMarkRule", paramMap);
+  	}
+  	//퀵링크 저장
+  	public Integer insertQuickLink(Map<String,Object> paramMap) throws Exception{
+  		return (Integer)insert("managementDAO.insertQuickLink", paramMap);
+  	}
+
+  	//퀵링크 저장 수정
+  	public Integer updateQuickLink(Map<String, Object> paramMap) throws Exception {
+  		return (Integer)update("managementDAO.updateQuickLink", paramMap);
+  	}
+
+  	//퀵링크 삭제
+  	public Integer deleteQuickLink(Map<String, Object> paramMap) throws Exception {
+  		return (Integer)update("managementDAO.deleteQuickLink", paramMap);
+  	}
+  	 //org별 퀵링크 조회
+    public List<EgovMap> getQuickLinkList(Map<String,Object> map) throws Exception{
+    	return list("managementDAO.getQuickLinkList", map);
+    }
+    //배치에서 퇴사자의 부서장 정보를삭제한다.
+  	public Integer deleteDeptManageForBatch(Map<String,Object> paramMap) throws Exception{
+  		return (Integer)delete("managementDAO.deleteDeptManageForBatch", paramMap);
+  	}
+}

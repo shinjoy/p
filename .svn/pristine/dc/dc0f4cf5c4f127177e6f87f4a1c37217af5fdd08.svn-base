@@ -1,0 +1,1331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Board">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="boardVO" type="ib.board.service.impl.BoardVO"/>
+	<typeAlias alias="spCmmVO" type="ib.schedule.service.SpCmmVO"/>
+
+																		<!-- 관리자 -->
+	<!-- 게시판 그룹&카테고리 리스트 받아오기 -->
+	<select id="boardDAO.getGrpCateList" resultClass="egovMap">
+		SELECT PC_FLAG
+			 , GRP_CD
+			 , CNT
+			 , CATE_CD
+			 , GRP_NM
+			 , GRP_INFO
+			 , GRP_ORDER
+			 , CATE_ORDER
+			 , CONFIRM_PROC_FLAG
+			 , CASE WHEN CONFIRM_PER_SABUN != '' THEN '사용' ELSE '사용안함' END CONFIRM_PROC_NM
+			 , CONFIRM_PER_SABUN
+			 , (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = CONFIRM_PER_SABUN) CONFIRM_PER_NM
+			 , HOLI_DOC_FLAG
+			 , CASE HOLI_DOC_FLAG WHEN 'Y' THEN '사용' ELSE '사용안함' END HOLI_DOC_FLAG_NM
+			 , DEL_FLAG
+		FROM (
+				SELECT 'P' PC_FLAG
+					  , GRP_CD
+					  , (SELECT COUNT(*) FROM ERP_BOARD_CATE WHERE GRP_CD = GRP.GrpCd AND DelFlag = 'N') CNT
+					  , '' CATE_CD
+					  , GRP_NM
+					  , GRP_INFO
+					  , GRP_ORDER
+					  , 0 CATE_ORDER
+					  , CONFIRM_PROC_FLAG
+					  , '' CONFIRM_PER_SABUN
+					  , '' HOLI_DOC_FLAG
+				    , DEL_FLAG
+				FROM ERP_BOARD_GRP GRP
+				WHERE DEL_FLAG = 'N'
+		UNION ALL
+				SELECT 'C' PC_FLAG
+					  , GRP_CD
+					  , 0
+					  , CATE_CD
+					  , CATE_NM
+					  , CATE_INFO
+					  , (SELECT GRP_ORDER FROM ERP_BOARD_GRP WHERE GRP_CD = CATE.GRP_CD)
+					  , CATE_ORDER
+					  , (SELECT CONFIRM_PROC_FLAG FROM ERP_BOARD_GRP WHERE GRP_CD = CATE.GRP_CD)
+					  , CONFIRM_PER_SABUN
+					  , HOLI_DOC_FLAG
+					  , DEL_FLAG
+				FROM ERP_BOARD_CATE CATE
+				WHERE DEL_FLAG = 'N'
+			) a
+		ORDER BY GRP_ORDER, CATE_ORDER
+	</select>
+
+<!-- 그룹관련 -->
+	<!-- 게시판 그룹 등록을 위한 그룹코드 받아오기 -->
+	<select id="boardDAO.getGrpCd" resultClass="String">
+		SELECT IFNULL(MAX(GRP_CD) + 1, '1') GRP_CD FROM ERP_BOARD_GRP
+	</select>
+
+	<!-- 게시판 그룹 등록/수정/삭제 완료 -->
+	<insert id="boardDAO.grpProcEnd">
+		INSERT INTO ERP_BOARD_GRP (
+										GRP_CD
+									  , GRP_NM
+									  , GRP_INFO
+									  , GRP_ORDER
+									  , CONFIRM_PROC_FLAG
+									  , REG_PER_SABUN
+									  , ORG_ID
+									  , REG_DATE
+									  , EDIT_PER_SABUN
+									  , EDIT_DATE
+									  , DEL_PER_SABUN
+									  , DEL_DATE
+									  , DEL_FLAG
+									  ) VALUES (#grpCd#
+									  		  , #grpNm#
+									  		  , #grpInfo#
+									  		  , #grpOrder#
+									  		  , #confirmProcFlag#
+									  		  , #regPerSabun#
+									  		  , #orgId#
+									  		  , NOW()
+									  		  , NULL
+									  		  , NULL
+									  		  , NULL
+									  		  , NULL
+									  		  , 'N'
+									  		    )
+		<isNotEqual property="cmd" compareValue="Add">ON DUPLICATE KEY UPDATE</isNotEqual>
+		<isEqual property="cmd" compareValue="Edit">
+			  GRP_NM = VALUES(GRP_NM)
+			, GRP_INFO = VALUES(GRP_INFO)
+			, GRP_ORDER = VALUES(GRP_ORDER)
+			, CONFIRM_PROC_FLAG = VALUES(CONFIRM_PROC_FLAG)
+			, EDIT_PER_SABUN = VALUES(REG_PER_SABUN)
+			, EDIT_DATE = NOW()
+		</isEqual>
+		<isEqual property="cmd" compareValue="Del">
+			  GRP_ORDER = NULL
+			, DEL_PER_SABUN = VALUES(REG_PER_SABUN)
+			, DEL_DATE = NOW()
+			, DelFlag = 'Y'
+		</isEqual>
+	</insert>
+
+	<!-- 게시판 그룹 등록/수정에 따른 순서 업데이트 (기존값 > 변경값) -->
+	<update id="boardDAO.grpOrderUpEditEnd">
+		UPDATE ERP_BOARD_GRP
+		   SET GRP_ORDER = (GRP_ORDER + 1)
+		WHERE GRP_CD IN (SELECT GRP_CD FROM (SELECT GRP_CD FROM ERP_BOARD_GRP WHERE GRP_CD != #grpCd# AND GRP_ORDER BETWEEN #grpOrder# AND #grpOrderLog# AND DEL_FLAG = 'N') a)
+	</update>
+
+	<!-- 게시판 그룹 등록/수정에 따른 순서 업데이트 (기존값 < 변경값) -->
+	<update id="boardDAO.grpOrderDownEditEnd">
+		UPDATE ERP_BOARD_GRP
+		   SET GRP_ORDER = (GRP_ORDER - 1)
+		WHERE GRP_CD IN (SELECT GRP_CD FROM (SELECT GRP_CD FROM ERP_BOARD_GRP WHERE GRP_CD != #grpCd# AND GRP_ORDER BETWEEN #grpOrderLog# AND #grpOrder# AND DEL_FLAG = 'N') a)
+	</update>
+
+	<!-- 게시판 그룹 삭제에 따른 순서 업데이트 -->
+	<update id="boardDAO.grpOrderEditEnd">
+		UPDATE ERP_BOARD_GRP
+		   SET GRP_ORDER = (GRP_ORDER - 1) WHERE GRP_ORDER > (SELECT GRP_ORDER FROM (SELECT GRP_ORDER FROM ERP_BOARD_GRP WHERE GRP_CD = #grpCd#) a)
+	</update>
+
+	<!-- 게시판 그룹 삭제에 따른 카테고리 삭제 -->
+	<update id="boardDAO.grpCateDelEnd">
+		UPDATE ERP_BOARD_CATE
+		   SET DEL_PER_SABUN = #grpCd#
+		     , DEL_DATE = NOW()
+		     , DEL_FLAG = 'Y'
+		WHERE GRP_CD = #grpCd#
+		  AND CATE_CD IN (SELECT CATE_CD FROM (SELECT CATE_CD FROM ERP_BOARD_CATE WHERE GRP_CD = #grpCd#) a)
+	</update>
+<!-- 그룹관련 -->
+
+<!-- 카테고리관련 -->
+	<!-- 게시판 공개자&수신자 리스트 받아오기 -->
+	<select id="boardDAO.getCateOptPerList" resultClass="egovMap">
+		SELECT (SELECT GRP_ORDER FROM ERP_BOARD_GRP WHERE GRP_CD = OPT.GRP_CD) GRP_ORDER
+			 , (SELECT CATE_ORDER FROM ERP_BOARD_CATE WHERE GRP_CD = OPT.GRP_CD AND CATE_CD = OPT.CATE_CD) CATE_ORDER
+			 , GRP_CD
+			 , CATE_CD
+			 , PER_SABUN
+			 , (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = OPT.PER_SABUN) PER_NM
+			 , OPT_FLAG
+			 , DEL_FLAG
+		FROM ERP_BOARD_CATE_OPT OPT
+		ORDER BY GRP_ORDER, CATE_ORDER, OPT_FLAG, PER_NM
+	</select>
+
+	<!-- 게시판 카테고리 등록을 위한 카테고리코드 받아오기 -->
+	<select id="boardDAO.getCateCd" parameterClass="boardVO" resultClass="String">
+		SELECT IFNULL(MAX(CATE_CD) + 1, '1') CATE_CD FROM ERP_BOARD_CATE WHERE GRP_CD = #grpCd#
+	</select>
+
+	<!-- 게시판 카테고리 등록/수정/삭제 완료 -->
+	<insert id="boardDAO.cateProcEnd">
+		INSERT INTO ERP_BOARD_CATE (
+										GRP_CD
+									  , CATE_CD
+									  , CATE_NM
+									  , CATE_INFO
+									  , CATE_ORDER
+									  , CONFIRM_PER_SABUN
+									  , HOLI_DOC_FLAG
+									  , REG_PER_SABUN
+									  , ORG_ID
+									  , REG_DATE
+									  , EDIT_PER_SABUN
+									  , EDIT_DATE
+									  , DEL_PER_SABUN
+									  , DEL_DATE
+									  , DEL_FLAG
+									    ) VALUES (
+									    		  #grpCd#
+									    		, #cateCd#
+									    		, #cateNm#
+									    		, #cateInfo#
+									    		, #cateOrder#
+									    		, #confirmPerSabun#
+									    		, #holiDocFlag#
+									    		, #regPerSabun#
+									    		, #orgId#
+									    		, NOW()
+									    		, NULL
+									    		, NULL
+									    		, NULL
+									    		, NULL
+									    		, 'N'
+									    		  )
+		<isNotEqual property="cmd" compareValue="Add">ON DUPLICATE KEY UPDATE</isNotEqual>
+		<isEqual property="cmd" compareValue="Edit">
+			  CATE_NM = VALUES(CATE_NM)
+			, CATE_INFO = VALUES(CATE_INFO)
+			, CATE_ORDER = VALUES(CATE_ORDER)
+			, CONFIRM_PER_SABUN = VALUES(CONFIRM_PER_SABUN)
+			, HOLI_DOC_FLAG = VALUES(HOLI_DOC_FLAG)
+			, EDIT_PER_SABUN = VALUES(REG_PER_SABUN)
+			, EDIT_DATE = NOW()
+		</isEqual>
+		<isEqual property="cmd" compareValue="Del">
+			  CATE_ORDER = NULL
+			, DEL_PER_SABUN = VALUES(REG_PER_SABUN)
+			, DEL_DATE = NOW()
+			, DEL_FLAG = 'Y'
+		</isEqual>
+	</insert>
+
+	<!-- 게시판 공개자&수신자 등록/수정 완료 -->
+	<insert id="boardDAO.cateOptProcEnd" parameterClass="java.util.List">
+		INSERT INTO ERP_BOARD_CATE_OPT (
+											GRP_CD
+										  , CATE_CD
+										  , PER_SABUN
+										  , OPT_FLAG
+										  , REG_PER_SABUN
+										  , ORG_ID
+										  , REG_DATE
+										  , EDIT_PER_SABUN
+										  , EDIT_DATE
+										  , DEL_FLAG
+										    ) VALUES
+        <dynamic>
+		<iterate conjunction=",">
+			(#[].grpCd#, #[].cateCd#, #[].perSabun#, #[].optFlag#, #[].regPerSabun#, #[].orgId#, NOW(), NULL, NULL, #[].delFlag#)
+		</iterate>
+		</dynamic>
+		ON DUPLICATE KEY UPDATE
+							EDIT_PER_SABUN = VALUES(REG_PER_SABUN)
+						  , EDIT_DATE = NOW()
+						  , DEL_FLAG = VALUES(DEL_FLAG)
+	</insert>
+
+	<!-- 게시판 등록/수정에 따른 순서 업데이트 (기존값 > 변경값) -->
+	<update id="boardDAO.cateOrderUpEditEnd">
+		UPDATE ERP_BOARD_CATE
+		   SET CATE_ORDER = (CATE_ORDER + 1)
+		 WHERE GRP_CD = #grpCd#
+		   AND CATE_CD IN (SELECT CATE_CD FROM (SELECT CATE_CD FROM ERP_BOARD_CATE WHERE GRP_CD = #grpCd# AND CATE_CD != #cateCd# AND CATE_ORDER BETWEEN #cateOrder# AND #cateOrderLog# AND DEL_FLAG = 'N') a)
+	</update>
+
+	<!-- 게시판 등록/수정에 따른 순서 업데이트 (기존값 < 변경값) -->
+	<update id="boardDAO.cateOrderDownEditEnd">
+		UPDATE ERP_BOARD_CATE
+		   SET CATE_ORDER = (CATE_ORDER - 1)
+		 WHERE GRP_CD = #grpCd#
+		   AND CATE_CD IN (SELECT CATE_CD FROM (SELECT CATE_CD FROM ERP_BOARD_CATE WHERE GRP_CD = #grpCd# AND CATE_CD != #cateCd# AND CATE_ORDER BETWEEN #cateOrderLog# AND #cateOrder# AND DEL_FLAG = 'N') a)
+	</update>
+
+	<!-- 게시판 삭제에 따른 순서 업데이트 -->
+	<update id="boardDAO.cateOrderEditEnd">
+		UPDATE ERP_BOARD_CATE
+		   SET CATE_ORDER = (CATE_ORDER - 1)
+		 WHERE GRP_CD = #grpCd#
+		   AND CATE_ORDER > (SELECT CATE_ORDER FROM (SELECT CATE_ORDER FROM ERP_BOARD_CATE WHERE GRP_CD = #grpCd# AND CATE_CD = #cateCd#) a)
+	</update>
+	<!-- 카테고리관련 -->
+	<!-- 관리자 -->
+
+	<!-- 타이틀 -->
+
+	<!-- 게시판 리스트 불러오기(카테고리) -->
+	<select id="boardDAO.getBoardCateList" parameterClass="boardVO" resultClass="egovMap">
+		SELECT A.GRP_CD
+		     , GRP_NM
+		     , GRP_INFO
+		     , CONFIRM_PROC_FLAG
+		     , HOLI_DOC_FLAG
+		     , A.CATE_CD
+		     , CATE_NM
+		     , CATE_INFO
+		     , CATE_ORDER
+		     , DIVISION
+		     , ENABLE
+		     , SABUN AS CONFIRM_PER_SABUN
+		     , IFNULL((SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = SABUN),'') CONFIRM_PER_NM
+		     , VIEW_BOARD_CNT
+		     , BOARD_CNT
+		     , IFNULL(READ_CNT, 0) READ_CNT
+		FROM
+		    (SELECT GRP.GRP_CD
+		    	  , GRP_NM
+		    	  , GRP_INFO
+		    	  , CONFIRM_PROC_FLAG
+		    	  , HOLI_DOC_FLAG
+		    	  , CONFIRM.SABUN
+		    	  , CONFIRM.DIVISION
+		    	  , CONFIRM.ENABLE
+		    	  , CATE.CATE_CD
+		    	  , CATE_NM
+		    	  , CATE_INFO
+		    	  , CATE_ORDER
+		    	  ,
+		        <isEqual property="grpCd" compareValue="1">
+		        	(SELECT COUNT(1)
+		        	   FROM ERP_BOARD a
+		        	      , ERP_BOARD_CONFIRM_OPT b
+						WHERE a.GRP_CD = CATE.GRP_CD
+						  AND a.CATE_CD = CATE.CATE_CD
+						  AND a.DEL_FLAG = 'N'
+					      AND a.GRP_CD = b.GRP_CD
+					      AND a.CATE_CD = b.CATE_CD
+					      AND a.WRITE_CD = b.WRITE_CD
+					      AND b.PER_SABUN = #regPerSabun#
+					      AND b.OPT_FLAG = 'consult'
+						  AND b.DEL_FLAG = 'N'
+						  AND a.WRITE_STATUS != 'write') VIEW_BOARD_CNT,
+					(SELECT COUNT(1)
+					   FROM ERP_BOARD a, ERP_BOARD_CONFIRM_OPT b
+					  WHERE a.GRP_CD = CATE.GRP_CD
+					    AND a.CATE_CD = CATE.CATE_CD
+					    AND a.DEL_FLAG = 'N'
+					    AND IFNULL(a.EDIT_DATE, a.REG_DATE) > '2014-05-01'
+						AND a.GRP_CD = b.GRP_CD
+						AND a.CATE_CD = b.CATE_CD
+						AND a.WRITE_CD = b.WRITE_CD
+						AND b.PER_SABUN = #regPerSabun#
+						AND b.OPT_FLAG = 'consult'
+						AND b.DEL_FLAG = 'N'
+						AND a.WRITE_STATUS !='write') BOARD_CNT
+		        </isEqual>
+		        <isNotEqual property="grpCd" compareValue="1">
+		        	(SELECT COUNT(1) FROM ERP_BOARD a
+
+		        		LEFT OUTER JOIN  ERP_BOARD_CONFIRMER AS CONFIRMER
+		        					 ON  CONFIRMER.GRP_CD = a.GRP_CD
+		        					AND  CONFIRMER.CATE_CD=a.CATE_CD
+		        					AND  CONFIRMER.DIVISION=#division#
+		        		LEFT OUTER JOIN  BS_USER_MASTER AS STAFF
+		        				     ON  STAFF.EMP_NO = a.REGPERSABUN
+		        				  WHERE  a.GRP_CD = CATE.GRP_CD
+		        				    AND  a.CATE_CD = CATE.CATE_CD
+		        				    AND a.DEL_FLAG = 'N'
+
+								    AND  STAFF.ORG_ID=#division#
+									AND a.WRITE_STATUS != 'write'
+					) VIEW_BOARD_CNT,
+					(SELECT COUNT(1)
+					   FROM ERP_BOARD a
+					  WHERE a.GRP_CD = CATE.GRP_CD
+					    AND a.CATE_CD = CATE.CATE_CD
+					    AND a.DEL_FLAG = 'N'
+					    AND IFNULL(a.EDIT_DATE, a.REG_DATE) > '2014-05-01') BOARD_CNT
+		        </isNotEqual>
+		    FROM ERP_BOARD_GRP GRP, ERP_BOARD_CATE CATE
+			     LEFT OUTER JOIN ERP_BOARD_CONFIRMER AS CONFIRM
+			    			  ON  CATE.CATE_CD= CONFIRM.CATE_CD
+			    			 AND CATE.GRP_CD= CONFIRM.GRP_CD
+		    WHERE GRP.GRP_CD = #grpCd# AND GRP.GRP_CD = CATE.GRP_CD AND CATE.DEL_FLAG = 'N') a
+		        LEFT OUTER JOIN ( SELECT a.GRP_CD, a.CATE_CD, COUNT(1) READ_CNT
+								    FROM
+								        <isEqual property="grpCd" compareValue="1">
+									        (SELECT a.GRP_CD
+									        	  , a.CATE_CD
+									        	  , a.WRITE_CD
+									        	  , a.REG_DATE
+									        	  , a.EDIT_DATE
+									           FROM ERP_BOARD a
+									           	  , ERP_BOARD_CONFIRM_OPT b
+											  WHERE a.GRP_CD = #grpCd#
+											    AND a.DEL_FLAG = 'N'
+											    AND IFNULL(a.EDIT_DATE, a.REG_DATE) > '2014-05-01'
+												AND a.GRP_CD = b.GRP_CD AND a.CATE_CD = b.CATE_CD
+												AND a.WRITE_CD = b.WRITE_CD
+												AND b.PER_SABUN = #regPerSabun#
+												AND b.OPT_FLAG = 'consult'
+												AND b.DEL_FLAG = 'N') a
+										  , ERP_BOARD_READ_LOG b
+										</isEqual>
+										<isNotEqual property="grpCd" compareValue="1">
+											(SELECT a.GRP_CD
+												  , a.CATE_CD
+												  , a.WRITE_CD
+												  , a.REG_DATE
+												  , a.EDIT_DATE
+											   FROM ERP_BOARD a
+											  WHERE a.GRP_CD = #grpCd#
+											    AND a.DEL_FLAG = 'N'
+											    AND IFNULL(a.EDIT_DATE, a.REG_DATE) > '2014-05-01') a
+										  , ERP_BOARD_READ_LOG b
+										</isNotEqual>
+
+								    WHERE a.GRP_CD = b.GRP_CD AND a.CATE_CD = b.CATE_CD
+								      AND a.WRITE_CD = b.WRITE_CD
+								      AND b.PER_SABUN = #regPerSabun#
+								      AND READ_DATE > IFNULL(EDIT_DATE, REG_DATE)
+								    GROUP BY a.GRP_CD , a.CATE_CD) c
+			ON a.GRP_CD = c.GRP_CD
+		   AND a.CATE_CD = c.CATE_CD
+		WHERE   DIVISION=#division#
+		  AND   ENABLE ='Y'
+		ORDER BY CATE_ORDER
+	</select>
+
+	<!-- 선택된 게시판 그룹 및 게시판 정보 받아오기 -->
+	<select id="boardDAO.getGrpInfo" resultClass="boardVO">
+		SELECT GRP_CD AS grpCd
+		  	 , GRP_NM AS grpNm
+		  	 , GRP_INFO AS grpInfo
+		  	 , CONFIRM_PROC_FLAG AS confirmProcFlag
+		  	 ,
+			<isNotEmpty property="cateCd">
+				  #cateCd# AS cateCd
+				, (SELECT CATE_NM
+					 FROM ERP_BOARD_CATE
+					WHERE GRP_CD = #grpCd#
+					  AND CATE_CD = #cateCd#) AS cateNm
+				, (SELECT CATE_INFO
+					 FROM ERP_BOARD_CATE
+					WHERE GRP_CD = #grpCd#
+					  AND CATE_CD = #cateCd#) AS cateInfo
+			</isNotEmpty>
+		<isEmpty property="cateCd">
+				  '' CATE_CD AS cateCd
+				, '' CATE_NM AS cateNm
+				, '' CATE_INFO AS cateInfo
+		</isEmpty>
+		FROM ERP_BOARD_GRP
+	   WHERE GRP_CD = #grpCd#
+	</select>
+																		<!-- 타이틀 -->
+
+																		<!-- 게시물 -->
+	<!-- 결재진행중 문서 리스트 받아오기 -->
+	<select id="boardDAO.getConfirmIngList" resultClass="egovMap">
+		SELECT *
+		  FROM (
+
+		  		(
+		  			SELECT  '1' AS KND,
+				            GRP_CD,
+				            CATE_CD,
+				            '' CATE_NM,
+				            WRITE_CD,
+				            WRITE_TITLE,
+				            HIT,
+				            DATE_FORMAT(REG_DATE, '%Y-%m-%d') REG_DATE,
+				            (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = a.REG_PER_SABUN) REG_PER_NM,
+				            '' DATE_NM,
+				            0 FILE_CNT,
+				            0 REPLY_CNT,
+				            0 REPLY_FILE_CNT,
+				            0 REPLY_READ_CNT,
+				            0 BOARD_READ_FLAG,
+				            IFNULL(EDIT_DATE, REG_DATE) AS ORI_REG_DATE
+					  FROM ERP_BOARD a
+					 WHERE GRP_CD IN (SELECT GRP_CD FROM ERP_BOARD_GRP WHERE CONFIRM_PROC_FLAG = 'Y' AND DEL_FLAG = 'N')
+					   AND WRITE_STATUS = 'ing'
+					   AND DEL_FLAG = 'N'
+					   AND REG_PER_SABUN = #perSabun#
+		  		)
+
+		  		UNION ALL
+
+				(	<!-- 최종승인자 -->
+					SELECT '2' AS KND
+						 , GRP_CD
+						 , CATE_CD
+						 , (SELECT CATE_NM FROM ERP_BOARD_CATE WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD) CATE_NM
+						 , WRITE_CD
+						 , WRITE_TITLE
+						 , HIT
+						 , DATE_FORMAT(REG_DATE, '%Y-%m-%d') REG_DATE
+						 , (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = a.REG_PER_SABUN) REG_PER_NM
+						 , <!--  (SELECT COUNT(*) FROM ERP_BoardFile WHERE GrpCd = a.GrpCd AND CateCd = a.CateCd AND WriteCd = a.WriteCd) FileCnt, -->
+					       CASE DAYOFWEEK(IFNULL(EDIT_DATE, REG_DATE)) WHEN 1 THEN '일' WHEN 2 THEN '월' WHEN 3 THEN '화' WHEN 4 THEN '수' WHEN 5 THEN '목' WHEN 6 THEN '금' ELSE '토' END DATE_NM
+					     , (SELECT COUNT(*) FROM ERP_BOARD_FILE WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND DEL_FLAG = 'N') FILE_CNT
+					     , (SELECT COUNT(*) FROM ERP_REPLY WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND DEL_FLAG = 'N') REPLY_CNT
+					     , (SELECT COUNT(*) FROM ERP_REPLY_FILE WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND DEL_FLAG = 'N') REPLY_FILE_CNT
+					     , (SELECT COUNT(*) FROM ERP_REPLY_READ_LOG WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND PER_SABUN = #perSabun#) REPLY_READ_CNT
+					     , (SELECT COUNT(*) FROM ERP_BOARD_READ_LOG WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND PER_SABUN = #perSabun#) BOARD_READ_FLAG
+					     , IFNULL(EDIT_DATE, REG_DATE) as ORI_REG_DATE
+					FROM ERP_BOARD a
+					WHERE
+					    GRP_CD IN (SELECT GRP_CD FROM ERP_BOARD_GRP WHERE CONFIRM_PROC_FLAG = 'Y' AND DEL_FLAG = 'N')
+					        AND WRITE_STATUS = 'ing' AND CONFIRM_PER_SABUN = #perSabun# AND DEL_FLAG = 'N'
+					        AND
+					        (SELECT COUNT(*) FROM ERP_BOARD_CONFIRM_OPT
+					        WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND OPT_FLAG = 'middle' AND DEL_FLAG = 'N' AND PER_SABUN != a.CONFIRM_PER_SABUN)
+							 = (SELECT COUNT(*) FROM ERP_BOARD_CONFIRM_INFO
+					        WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND CONFIRM_PER_SABUN != a.CONFIRM_PER_SABUN AND CONFIRM_STATUS = 'end')
+
+				)
+
+				UNION ALL
+
+				(	<!-- 중간승인자 -->
+					SELECT '2' AS KND
+						  , b.GRP_CD
+						  , b.CATE_CD
+						  , (SELECT CATE_NM FROM ERP_BOARD_CATE WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD) CATE_NM
+						  , b.WRITE_CD
+						  , WRITE_TITLE
+						  , 0 HIT
+						  , DATE_FORMAT(b.REG_DATE, '%Y-%m-%d') REG_DATE
+						  , (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = a.REG_PER_SABUN) REG_PER_NM
+						  , (SELECT COUNT(*) FROM ERP_BOARD_FILE WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD) FILE_CNT
+						  , CASE DAYOFWEEK(IFNULL(b.EDIT_DATE, b.REG_DATE)) WHEN 1 THEN '일' WHEN 2 THEN '월' WHEN 3 THEN '화' WHEN 4 THEN '수' WHEN 5 THEN '목' WHEN 6 THEN '금' ELSE '토' END DATE_NM
+						  , <!-- 0 FileCnt, --> 0 REPLY_CNT, 0 REPLY_FILE_CNT, 0 REPLY_READ_CNT, 0 BOARD_READ_FLAG,
+					    	IFNULL(b.EDIT_DATE, b.REG_DATE) as ORI_REG_DATE
+					  FROM ERP_BOARD_CONFIRM_OPT a
+					  	, (SELECT GRP_CD
+					  			, CATE_CD
+					  			, WRITE_CD
+					  			, WRITE_TITLE
+					  			, REG_DATE
+					  			, REG_PER_SABUN
+					  			, EDIT_DATE
+					  		 FROM ERP_BOARD
+							WHERE GRP_CD IN (SELECT GRP_CD FROM ERP_BOARD_GRP WHERE CONFIRM_PROC_FLAG = 'Y' AND DEL_FLAG = 'N')
+							  AND WRITE_STATUS = 'ing'
+							  AND CONFIRM_PER_SABUN != #perSabun#
+							  AND DEL_FLAG = 'N'
+						   ) b
+					WHERE a.GRP_CD = b.GRP_CD
+					  AND a.CATE_CD = b.CATE_CD
+					  AND a.WRITE_CD = b.WRITE_CD
+					  AND OPT_FLAG = 'middle'
+					  AND PER_SABUN = #perSabun#
+					  AND a.DEL_FLAG = 'N'
+					  AND (SELECT COUNT(*)
+					  	 	 FROM ERP_BOARD_CONFIRM_INFO
+					        WHERE GRP_CD = a.GRP_CD
+					          AND CATE_CD = a.CATE_CD
+					          AND WRITE_CD = a.WRITE_CD
+					          AND CONFIRM_PER_SABUN = a.PER_SABUN
+					          AND CONFIRM_STATUS = 'end') != 1
+				)
+			) AS K
+		ORDER BY KND DESC, ORI_REG_DATE DESC
+		/* boardDAO.getConfirmIngList */
+	</select>
+
+	<!-- 반송된 문서 리스트 받아오기 -->
+	<select id="boardDAO.getReturnList" resultClass="egovMap">
+		SELECT GRP_CD
+			 , CATE_CD
+			 , (SELECT CATE_NM FROM ERP_BOARD_CATE WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD) CATE_NM
+			 , WRITE_CD
+			 , WRITE_TITLE
+			 , DATE_FORMAT(REG_DATE, '%Y-%m-%d') REG_DATE
+			 , (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = a.REG_PER_SABUN) PER_NM
+			 , (SELECT COUNT(*) FROM ERP_BOARD_FILE WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD) FILE_CNT
+			 , CASE DAYOFWEEK(IFNULL(EDIT_DATE, REG_DATE)) WHEN 1 THEN '일' WHEN 2 THEN '월' WHEN 3 THEN '화' WHEN 4 THEN '수' WHEN 5 THEN '목' WHEN 6 THEN '금' ELSE '토' END DATE_NM
+		  FROM ERP_BOARD a
+		 WHERE REG_PER_SABUN = #perSabun#
+		   AND WRITE_STATUS = 'return'
+		   AND DEL_FLAG = 'N'
+	</select>
+
+	<!-- 기간 휴가 등록시 일정시퀀스 프로시저 -->
+	<procedure id="boardDAO.setScheSeq">
+		{CALL SetScheSeq()}
+	</procedure>
+
+	<!-- 게시물 총 건수 받아오기 -->
+	<select id="boardDAO.selectBoardListTotalCount"  parameterClass="boardVO" resultClass="Integer">
+		SELECT  count(*)
+		  FROM ERP_BOARD a
+		  LEFT OUTER JOIN BS_USER_MASTER AS STAFF ON a.REG_PER_SABUN=STAFF.EMP_NO
+			<!--  해당 회사의 카테고리 enable Y 인 글만 가져오기 -->
+		  LEFT OUTER JOIN ERP_BOARD_CONFIRMER AS CONFIRMER ON a.GRP_CD=CONFIRMER.GRP_CD
+		  				 AND a.CATE_CD =CONFIRMER.CATE_CD AND CONFIRMER.DIVISION=#division#
+		  WHERE a.GRP_CD = #grpCd# AND a.DEL_FLAG = 'N'
+		  	AND CASE WHEN WRITE_STATUS = 'write' THEN REG_PER_SABUN = #regPerSabun# ELSE 1 = 1 END
+		  	AND CONFIRMER.ENABLE='Y'
+			<isNotEmpty property="cateCd">AND a.CATE_CD = #cateCd#</isNotEmpty>
+			<!-- 키워드검색시 연도 및 월 제외하고 검색 2015.02.09 -->
+			<isEmpty prepend="" property="keyWord">
+				<isNotEmpty prepend="AND" property="regYear">
+				(DATE_FORMAT(IFNULL(EDIT_DATE, REG_DATE), '%Y') = #regYear# OR NOTICE_FLAG != '' AND NOTICE_E_DATE > NOW())
+				</isNotEmpty>
+			</isEmpty>
+			<isNotEmpty prepend="AND" property="keyWord">
+				(WRITE_TITLE LIKE '%$keyWord$%' OR WRITE_CON LIKE '%$keyWord$%'
+			 OR (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = a.REG_PER_SABUN) LIKE '%$keyWord$%')
+			</isNotEmpty>
+			<isNotEqual property="regMonth" compareValue="All">AND DATE_FORMAT(IFNULL(EDIT_DATE, REG_DATE), '%m') = #regMonth#</isNotEqual>
+			<isNotEmpty property="division">
+				<isNotEqual property="sabun" compareValue="200402001">
+						AND ( 	STAFF.ORG_ID =#division# OR
+								EXISTS (
+										SELECT 1
+										FROM ERP_BOARD_CONFIRM_OPT
+										WHERE GRP_CD = a.GRP_CD
+										  and PER_SABUN = #sabun#
+								          and CATE_CD = a.CATE_CD
+								          and WRITE_CD = a.WRITE_CD
+										)
+							)
+				</isNotEqual>
+			</isNotEmpty>
+		/* boardDAO.selectBoardListTotalCount */
+	</select>
+
+	<!-- 게시물 받아오기 -->
+	<select id="boardDAO.getBoardList" parameterClass="boardVO" resultClass="egovMap">
+		SELECT *
+			  ,STAFF.ORG_ID		AS DIVISION
+			  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = DIVT.COMPANY_SNB)	AS DIV_NAME
+		  FROM (
+	        SELECT  a.GRP_CD
+	        	  , a.CATE_CD
+	        	  , a.WRITE_CD
+	        	  , WRITE_TITLE
+	        	  , WRITE_CON
+	        	  , CASE WHEN NOTICE_FLAG IN ('Board', 'Home', 'Home,Board') THEN
+						CASE WHEN NOTICEE_DATE >= DATE_FORMAT(NOW(), '%Y-%m-%d') THEN 0 ELSE 1 END
+					ELSE 1 END NOTICE_ORDER, NOTIC_E_FLAG, NOTICE_S_DATE, NOTICE_E_DATE, CONFIRM_PER_SABUN
+				  , (SELECT COUNT(*)
+				  	   FROM ERP_BOARD_FILE
+				  	  WHERE GRP_CD = a.GRP_CD
+				  	    AND CATE_CD = a.CATE_CD
+				  	    AND WRITE_CD = a.WRITE_CD
+				  	    AND DEL_FLAG = 'N') FILE_CNT
+				  , HIT
+				  , WRITE_STATUS
+				  , BOARD_VER
+				  , REG_PER_SABUN
+				  , (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = a.REG_PER_SABUN) REG_PER_NM
+				  , CASE WHEN CONFIRM_PER_SABUN IS NOT NULL
+				  					THEN CASE WRITE_STATUS
+				  		 WHEN 'write' THEN '작성중'
+				  		 WHEN 'ing' THEN CASE BOARD_VER WHEN 1 THEN '진행중'
+				  		 							   ELSE '재기안' END
+						 WHEN 'return' THEN '반송'
+						 ELSE '완료' END
+				    END WRITE_STATUS_NM
+				  , CASE DAYOFWEEK(IFNULL(EDIT_DATE, REG_DATE)) WHEN 1 THEN '일'
+				  											  WHEN 2 THEN '월'
+				  											  WHEN 3 THEN '화'
+				  											  WHEN 4 THEN '수'
+				  											  WHEN 5 THEN '목'
+				  											  WHEN 6 THEN '금'
+				  											  ELSE '토'
+				  	END DATE_NM
+				  , (SELECT CATE_NM FROM ERP_BOARD_CATE WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD) CATE_NM
+				  , (SELECT COUNT(*) FROM ERP_REPLY WHERE GRP_CD = a.GRP_CD And CATE_CD = a.CATE_CD And WRITE_CD = a.WRITE_CD And DEL_FLAG = 'N') REPLY_CNT
+				  , (Select Count(*) FROM ERP_REPLY_FILE WHERE GRP_CD = a.GRP_CD And CATE_CD = a.CATE_CD And WRITE_CD = a.WRITE_CD And DEL_FLAG = 'N') REPLY_FILE_CNT
+				  , (Select Count(*) FROM ERP_REPLY_READ_LOG WHERE GRP_CD = a.GRP_CD And CATE_CD = a.CATE_CD And WRITE_CD = a.WRITE_CD And PER_SABUN = #regpersabun# And Readdate > Ifnull(EDIT_DATE, REG_DATE)) REPLY_READ_CNT
+				  , (Select Count(*) FROM ERP_BOARD_READ_LOG WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND PER_SABUN = #regPerSabun# AND ReadDate > IFNULL(EDIT_DATE, REG_DATE)) BOARD_READ_FLAG
+				  , DATE_FORMAT(IFNULL(EDIT_DATE, REG_DATE), '%Y-%m-%d') REG_DATE
+				  , IFNULL(EDIT_DATE, REG_DATE) ORG_REG_DATE
+				  , EDIT_DATE
+				  , DEL_DATE
+				  , DEL_FLAG
+			FROM ERP_BOARD a
+			<!--  해당 회사의 카테고리 enable Y 인 글만 가져오기 -->
+			LEFT OUTER JOIN ERP_BOARD_CONFIRMER AS CONFIRMER
+				 		 ON a.GRP_CD=CONFIRMER.GRP_CD
+				 		AND a.CATE_CD =CONFIRMER.CATECD
+				 		AND CONFIRMER.DIVISION=#division#
+			WHERE a.GRP_CD = #grpCd#
+			  AND a.DEL_FLAG = 'N'
+			  AND CASE WHEN WRITE_STATUS = 'write' THEN REG_PER_SABUN = #regPerSabun# ELSE 1 = 1 END
+			  AND CONFIRMER.ENABLE='Y'	<!--  해당 회사의 카테고리 enable Y 인 글만 가져오기 -->
+				<isNotEmpty property="cateCd">AND a.CATE_CD = #cateCd#</isNotEmpty>
+				<!-- 키워드검색시 연도 및 월 제외하고 검색 2015.02.09 -->
+				<isEmpty prepend="" property="keyWord">
+					<!-- <isEmpty property="RegYear">
+					DATE_FORMAT(IFNULL(EditDate, RegDate), '%Y') BETWEEN DATE_FORMAT(DATE_ADD(NOW(), INTERVAL -1 YEAR), '%Y') AND DATE_FORMAT(NOW(), '%Y')
+					</isEmpty> -->
+					<isNotEmpty prepend="AND" property="regYear">
+						(DATE_FORMAT(IFNULL(EDIT_DATE, REG_DATE), '%Y') = #regYear# OR NOTICE_FLAG != ''
+					  	 AND NOTICE_E_DATE > NOW())
+					</isNotEmpty>
+				</isEmpty>
+				<isNotEmpty prepend="AND" property="keyWord"> (WRITE_TITLE LIKE '%$keyWord$%' OR WRITE_CON LIKE '%$keyWord$%' OR (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = a.REG_PER_SABUN) LIKE '%$keyWord$%')</isNotEmpty>
+				<isNotEqual property="regMonth" compareValue="All">AND DATE_FORMAT(IFNULL(EDIT_DATE, REG_DATE), '%m') = #regMonth#</isNotEqual>
+		) LIST
+
+		LEFT OUTER JOIN BS_USER_MASTER AS STAFF on LIST.REG_PER_SABUN = STAFF.EMP_NO
+		LEFT OUTER JOIN BS_ORG AS DIVT ON DIVT.ORG_ID = STAFF.ORG_ID
+
+		<isNotEmpty property="division">
+			<isNotEqual property="sabun" compareValue="200402001">
+					WHERE DIVT.ORG_ID = #orgId# OR
+					EXISTS (
+							SELECT 1
+							FROM ERP_BOARD_CONFIRM_OPT
+							WHERE GRP_CD = LIST.GRP_CD
+							  AND PER_SABUN = #sabun#
+					          AND CATE_CD = LIST.CATE_CD
+					          AND WRITE_CD = LIST.WRITE_CD
+					       )
+			</isNotEqual>
+		</isNotEmpty>
+		<isEmpty property="orderKey"> ORDER BY NOTICE_ORDER, ORG_REG_DATE DESC</isEmpty>
+		<isNotEmpty property="orderKey">
+			<isEqual property="orderFlag" compareValue="S">ORDER BY NOTICE_ORDER, $orderKey$ $orderType$</isEqual>
+			<isNotEqual property="orderFlag" compareValue="S">ORDER BY NOTICE_ORDER, $orderKey$+0 $orderType$</isNotEqual>
+		</isNotEmpty>
+		<isNotEqual property="cmd" compareValue="CNT">limit #firstRecordIndex#, #recordCountPerPage#</isNotEqual>
+		/*boardDAO.getBoardList*/
+
+	</select>
+
+	<!-- 게시물 등록을 위한 게시물 코드 받아오기 -->
+	<select id="boardDAO.getWriteCd" parameterClass="boardVO" resultClass="String">
+		<!-- SELECT IFNULL(LPAD(MAX(WriteCd) + 1, 12, 0), '000000000001') WriteCd FROM ERP_Board WHERE GrpCd = #GrpCd# AND CateCd = #CateCd# -->
+		SELECT IFNULL(MAX(WRITE_CD) + 1, '1') WRITE_CD FROM ERP_BOARD WHERE GRP_CD = #grpCd# AND CATE_CD = #cateCd#
+	</select>
+
+	<!-- 게시물 등록/수정/삭제 완료 -->
+	<insert id="boardDAO.boardProcEnd">
+		INSERT INTO ERP_BOARD (
+									GRP_CD
+								  , CATE_CD
+								  , WRITE_CD
+								  , WRITE_TITLE
+								  , WRITE_CON
+								  , NOTICE_FLAG
+								  , NOTICE_S_DATE
+								  , NOTICE_E_DATE
+								  , HIT
+								  , CONFIRM_PER_SABUN
+								  , WRITE_STATUS
+								  , BOARD_VER
+								  , REG_PER_SABUN
+								  , ORG_ID
+								  , REG_DATE
+								  , EDIT_DATE
+								  , DEL_DATE
+								  , DEL_FLAG
+								  , EVENT_SEL_CD1
+								  , EVENT_SEL_CD2
+								  , EVENT_DAY
+								  , EVENT_DOC
+								  , HOLI_DOC_FLAG
+								  , HOLI_FLAG
+								  , HALF_FLAG
+								  , HOLI_S_DATE
+								  , HOLI_E_DATE
+								  , HOLI_USE_DAY
+								  , HOLI_CANCEL_CD
+								  ) VALUES (
+								  			#grpCd#
+								  		  , #cateCd#
+								  		  , #writeCd#
+								  		  , #writeTitle#
+								  		  , #writeCon#
+								  		  , #noticeFlag#
+								  		  , #noticeSDate#
+								  		  , #noticeEDate#
+								  		  , 0
+								  		  , #confirmPerSabun#
+								  		  , #writeStatus#
+								  		  , #boardVer#
+								  		  , #regPerSabun#
+								  		  , #orgId#
+								  		  , NOW()
+								  		  , NULL
+								  		  , NULL
+								  		  , 'N'
+								  		  , #eventSelCd1#
+								  		  , #eventSelCd2#
+								  		  , #eventDay#
+								  		  , #eventDoc#
+								  		  , #holiDocFlag#
+								  		  , #holiFlag#
+								  		  , #halfFlag#
+								  		  , #holiSDate#
+								  		  , #holiEDate#
+								  		  , #holiUseDay#
+								  		  , #holiCancelCd#
+								  		  )
+		<isNotEqual property="cmd" compareValue="Add">ON DUPLICATE KEY UPDATE</isNotEqual>
+		<isEqual property="cmd" compareValue="Edit">
+			  WRITE_TITLE = VALUES(WRITE_TITLE)
+			, WRITE_CON = VALUES(WRITE_CON)
+			, NOTICE_FLAG = VALUES(NOTICE_FLAG)
+			, NOTICE_S_DATE = VALUES(NOTICE_S_DATE)
+			, NOTICE_E_DATE = VALUES(NOTICE_E_DATE)
+			, CONFIRM_PER_SABUN = VALUES(CONFIRM_PER_SABUN)
+			, WRITE_STATUS = VALUES(WRITE_STATUS)
+			, BOARD_VER = VALUES(BOARD_VER)
+			, EDIT_DATE = NOW()
+			, EVENT_SEL_CD1 = VALUES(EVENT_SEL_CD1)
+			, EVENT_SEL_CD2 = VALUES(EVENT_SEL_CD2)
+			, EVENT_DAY = VALUES(EVENT_DAY)
+			, EVENT_DOC = VALUES(EVENT_DOC)
+			, HOLI_DOC_FLAG = VALUES(HOLI_DOC_FLAG)
+			, HOLI_FLAG = VALUES(HOLI_FLAG)
+			, HALF_FLAG = VALUES(HALF_FLAG)
+			, HOLI_S_DATE = VALUES(HOLI_S_DATE)
+			, HOLI_E_DATE = VALUES(HOLI_E_DATE)
+			, HOLI_USE_DAY = VALUES(HOLI_USE_DAY)
+			, HOLI_CANCEL_CD = VALUES(HOLI_CANCEL_CD)
+		</isEqual>
+		<isEqual property="cmd" compareValue="Del">DEL_DATE = NOW(), DEL_FLAG = 'Y'</isEqual>
+	</insert>
+
+	<!-- 게시물 요청관련 담당자&참조인 등록/수정 완료 -->
+	<insert id="boardDAO.boardConfirmOptProcEnd" parameterClass="java.util.List">
+		INSERT INTO ERP_BOARD_CONFIRM_OPT (
+												GRP_CD
+											  , CATE_CD
+											  , WRITE_CD
+											  , PER_SABUN
+											  , OPT_FLAG
+											  , REG_PER_SABUN
+											  , ORG_ID
+											  , REG_DATE
+											  , EDIT_PER_SABUN
+											  , EDIT_DATE
+											  , DEL_FLAG
+											  ) VALUES
+        <dynamic>
+		<iterate conjunction=",">
+			( #[].grpCd#
+			, #[].cateCd#
+			, #[].writeCd#
+			, #[].perSabun#
+			, #[].optFlag#
+			, #[].regPerSabun#
+			, #[].orgId#
+			, NOW()
+			, NULL
+			, NULL
+			, #[].delFlag#
+			)
+		</iterate>
+		</dynamic>
+		ON DUPLICATE KEY UPDATE EDIT_PER_SABUN = VALUES(REG_PER_SABUN), EDIT_DATE = NOW(), DEL_FLAG = VALUES(DEL_FLAG)
+	</insert>
+
+	<!-- 게시물 요청관련 담당자&참조인 삭제 완료 -->
+	<delete id="boardDAO.boardConfirmOptDelEnd" parameterClass="boardVO">
+		DELETE FROM ERP_BOARD_CONFIRM_OPT WHERE GRP_CD = #grpCd# AND CATE_CD = #cateCd# AND WRITE_CD = #writeCd#
+	</delete>
+
+	<!-- 게시물 파일코드 받아오기 -->
+	<select id="boardDAO.getBoardFileSeq"  parameterClass="boardVO" resultClass="int">
+		SELECT IFNULL(MAX(FILE_SEQ) + 1, '1') FILE_SEQ FROM ERP_BOARD_FILE WHERE GRP_CD = #grpCd# AND CATE_CD = #cateCd# AND WRITE_CD = #writeCd#
+	</select>
+
+	<!-- 게시물 파일 등록 완료 -->
+	<insert id="boardDAO.boardFileAddEnd" parameterClass="java.util.List">
+		INSERT INTO ERP_BOARD_FILE (
+										GRP_CD
+									  , CATE_CD
+									  , WRITE_CD
+									  , FILE_SEQ
+									  , FILE_NM
+									  , FILE_UP_NM
+									  , FILE_PATH
+									  , FILE_SIZE
+									  , FILE_ORDER
+									  , ORG_ID
+									  , REG_DATE
+									  , DEL_DATE
+									  , DEL_FLAG
+									  ) VALUES
+		<dynamic>
+		<iterate conjunction=","  >
+			( #[].grpCd#
+			, #[].cateCd#
+			, #[].writeCd#
+			, #[].fileSeq#
+			, #[].fileNm#
+			, #[].fileUpNm#
+			, #[].filePath#
+			, #[].fileSize#
+			, #[].fileOrder#
+			, #[].orgId#
+			, NOW()
+			, NULL
+			, 'N'
+			)
+		</iterate>
+		</dynamic>
+	</insert>
+
+	<!-- 게시물 보고완료처리 완료 -->
+	<update id="boardDAO.boardWriteEnd">
+		UPDATE ERP_BOARD SET WRITE_STATUS = 'ing' WHERE GRP_CD = #grpCd# AND CATE_CD = #cateCd# AND WRITE_CD = #writeCd#
+	</update>
+
+	<!-- 보고서 승인/반송 처리 완료 -->
+	<update id="boardDAO.boardConfirmEnd">
+		UPDATE ERP_BOARD SET WRITE_STATUS = #writeStatus# WHERE GRP_CD = #grpCd# AND CATE_CD = #cateCd# AND WRITE_CD = #writeCd#
+	</update>
+
+	<!-- 보고서 승인/반송 처리 정보 등록 완료 -->
+	<insert id="boardDAO.boardConfirmInfoAddEnd">
+		INSERT INTO ERP_BOARD_CONFIRM_INFO (
+												GRP_CD
+											  , CATE_CD
+											  , WRITE_CD
+											  , CONFIRM_STATUS
+											  , CONFIRM_CON
+											  , CONFIRM_PER_SABUN
+											  , CONFIRM_DATE
+											  , ORG_ID
+											  ) VALUES (
+											  		  #grpCd#
+											  		, #cateCd#
+											  		, #writeCd#
+											  		, #writeStatus#
+											  		, #confirmCon#
+											  		, #regPerSabun#
+											  		, NOW()
+											  		, #orgId#
+											  		)
+	</insert>
+
+	<!-- 게시물 정보 받아오기 -->
+	<select id="boardDAO.getBoardInfo" resultClass="boardVO">
+		SELECT a.GRP_CD AS grpCd
+			 , GRP_NM AS grpNm
+			 , CONFIRM_PROC_FLAG AS confirmProcFlag
+			 , CATE_CD AS cateCd
+			 , (SELECT CATE_NM FROM ERP_BOARD_CATE WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD) AS cateNm
+			 , WRITE_CD AS writeCd
+			 , WRITE_TITLE AS writeTitle
+			 , CASE WHEN #regPerSabun# = '200402001' THEN REPLACE(WRITE_CON, 'font-size: 10pt;', 'font-size: 11pt;')
+		    		ELSE WRITE_CON END  AS writeCon
+		     , NOTICE_FLAG AS noticeFlag
+		     , NOTICE_S_DATE AS noticeSDate
+		     , NOTICE_E_DATE AS noticeEDate
+		     , CONFIRM_PER_SABUN AS confirmPerSabun
+		     , (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = CONFIRM_PER_SABUN) AS confirmPerNm
+		     , HIT AS hit
+		     , WRITE_STATUS AS writeStatus
+		     , BOARD_VER AS boardVer
+		     , HOLI_DOC_FLAG AS holiDocFlag
+		     , HOLI_FLAG AS holiFlag
+		     , HALF_FLAG AS halfFlag
+		     , HOLI_S_DATE AS holiSDate
+		     , HOLI_E_DATE AS holiEDate
+		     , HOLI_USE_DAY AS holiUseDay
+		     , HOLI_CANCEL_CD AS holiCancelCd
+		     , CASE HOLI_FLAG WHEN 'half' THEN '반차' ELSE '종일' END  AS holiFlagNm
+		     , CASE HALF_FLAG WHEN 'am' THEN '오전' WHEN 'pm' THEN '오후' ELSE '' END  AS halfFlagNm
+		     , CASE DAYOFWEEK(HOLI_S_DATE) WHEN 1 THEN '일' WHEN 2 THEN '월' WHEN 3 THEN '화' WHEN 4 THEN '수' WHEN 5 THEN '목' WHEN 6 THEN '금' ELSE '토' END  AS holiSDateNm
+		     , CASE DAYOFWEEK(HOLI_E_DATE) WHEN 1 THEN '일' WHEN 2 THEN '월' WHEN 3 THEN '화' WHEN 4 THEN '수' WHEN 5 THEN '목' WHEN 6 THEN '금' ELSE '토' END  AS holiEDateNm
+		     , EVENT_SEL_CD1 AS eventSelCd1
+		     , EVENT_SEL_CD2 AS eventSelCd2
+		     , EVENT_DAY AS eventDay
+		     , EVENT_DOC AS eventDoc
+		     , REPLACE(REPLACE(DATE_FORMAT(IFNULL(a.EDIT_DATE, a.REG_DATE), '%Y-%m-%d %p %h:%i'), 'AM', '오전'), 'PM', '오후')  AS regDate
+		     , a.REG_PER_SABUN AS regPerSabun
+		     , B.NAME  AS regPerNm
+		     , (SELECT COUNT(*) FROM ERP_BOARD_CONFIRM_OPT WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND OPT_FLAG = 'middle' AND DEL_FLAG = 'N')  AS middleCnt
+		     , (SELECT COUNT(*) FROM ERP_BOARD_CONFIRM_INFO WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND CONFIRM_STATUS = 'end')  AS endCnt
+			 , (SELECT COUNT(*) FROM ERP_BOARD_CONFIRM_INFO WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND CONFIRM_STATUS = 'return') returnCnt
+			 , PER_POSITION_NM AS perPositionNm
+			 , PER_DEPT AS perDept
+			 , PER_JOIN_COM AS perJoinCom
+			 , (CASE WHEN B.USER_STATUS = 'R' OR B.USER_STATUS = 'F' OR B.DELETE_FLAG = 'Y' THEN 'Y' ELSE 'N' END) AS delFlag
+
+		FROM ERP_BOARD a, BS_USER_MASTER b, ERP_BOARD_GRP c
+		WHERE 1=1
+		  AND a.GRP_CD = #grpCd#
+		  AND a.CATE_CD = #cateCd#
+		  AND a.WRITE_CD = #writeCd#
+		  AND a.DEL_FLAG = 'N'
+		  AND a.REG_PER_SABUN = b.EMP_NO
+		  AND a.GRP_CD = c.GRP_CD
+	</select>
+
+	<!-- 게시물 요청관련 중간승인자&참조인 리스트 받아오기 -->
+	<select id="boardDAO.getBoardConfirmOptPerList" resultClass="egovMap">
+		SELECT OPT.GRP_CD
+			 , OPT.CATE_CD
+			 , OPT.WRITE_CD
+			 , PER_SABUN
+			 , (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = OPT.PER_SABUN) PER_NM
+			 , OPT_FLAG
+			 , DEL_FLAG
+			 , CONFIRM_STATUS
+			 , CONFIRM_CON
+			 , DATE_FORMAT(CONFIRM_DATE, '%Y-%m-%d %H:%i') CONFIRM_DATE
+			 , CASE CONFIRM_STATUS WHEN 'return' THEN '반송' WHEN 'end' THEN '완료' END CONFIRM_STATUS_NM
+			 , (SELECT COUNT(1) FROM ERP_BOARD_CONFIRM_INFO WHERE GRP_CD = OPT.GRP_CD AND CATE_CD = OPT.CATE_CD AND WRITE_CD = OPT.WRITE_CD AND CONFIRM_PER_SABUN = PER_SABUN AND CONFIRM_STATUS = 'end') END_FLAG
+			 , (SELECT COUNT(1) FROM ERP_BOARD_CONFIRM_INFO WHERE GRP_CD = OPT.GRP_CD AND CATE_CD = OPT.CATE_CD AND WRITE_CD = OPT.WRITE_CD) CONFIRM_CNT
+		FROM ERP_BOARD_CONFIRM_OPT OPT
+		LEFT OUTER JOIN ERP_BOARD_CONFIRM_INFO INFO
+					 ON OPT.GRP_CD = INFO.GRP_CD
+					AND OPT.CATE_CD = INFO.CATE_CD
+					AND OPT.WRITE_CD = INFO.WRITE_CD
+					AND PER_SABUN = CONFIRM_PER_SABUN
+					AND OPT_FLAG = 'middle'
+		WHERE opt.GRP_CD = #grpCd#
+		  AND opt.CATE_CD = #cateCd#
+		  AND opt.WRITE_CD = #writeCd#
+		  AND DEL_FLAG = 'N'
+		ORDER BY OPT_FLAG, CASE OPT_FLAG WHEN 'Consult' THEN PER_NM END, CONFIRM_DATE DESC
+	</select>
+
+	<!-- 게시물 파일리스트 받아오기 09.21 -->
+	<select id="boardDAO.getBoardFileList" parameterClass="boardVO" resultClass="egovMap">
+		SELECT GRP_CD
+			 , CATE_CD
+			 , WRITE_CD
+			 , FILE_SEQ
+			 , FILE_NM
+			 , FILE_UP_NM
+			 , REPLACE(FILE_PATH, '\\', '\\\\') FILE_PATH
+			 , CASE WHEN FILE_SIZE / 1024 > 1024 THEN  CONCAT(ROUND(FILE_SIZE / 1024 / 1024, 1), 'MB') ELSE CONCAT(ROUND(FILE_SIZE / 1024, 1), 'KB') END FILE_SIZE
+			 , FILE_ORDER
+			 , REG_DATE
+			 , CASE WHEN FILE_NM LIKE '%doc%' THEN '/images/sp/ext_ico/ico_doc.gif'
+					WHEN FILE_NM LIKE '%xls%' THEN '/images/sp/ext_ico/ico_excel.gif'
+					WHEN FILE_NM LIKE '%hwp%' THEN '/images/sp/ext_ico/ico_hwp.gif'
+					WHEN FILE_NM LIKE '%jpg%' OR FILE_NM LIKE '%jpeg%' THEN '/images/sp/ext_ico/ico_jpg.gif'
+					WHEN FILE_NM LIKE '%pdf%' THEN '/images/sp/ext_ico/ico_pdf.gif'
+					WHEN FILE_NM LIKE '%txt%' THEN '/images/sp/ext_ico/ico_txt.gif'
+					ELSE '/images/sp/file.gif' END FILE_ICO
+		   FROM ERP_BOARD_FILE
+		  WHERE GRP_CD = #grpCd#
+		    AND CATE_CD = #cateCd#
+		    AND WRITE_CD = #writeCd#
+		    AND DEL_FLAG = 'N'
+		 ORDER BY REG_DATE, FILE_ORDER
+	</select>
+
+	<!-- 게시물 파일 정보 받아오기 -->
+	<select id="boardDAO.getBoardFileInfo" resultClass="boardVO">
+		SELECT GRP_CD AS grpCd
+			 , CATE_CD AS CATE_CD
+			 , WRITE_CD AS writeCd
+			 , FILE_SEQ AS fileSeq
+			 , FILE_NM AS fileNm
+			 , FILE_UP_NM AS FILE_UP_NM
+			 , REPLACE(FILE_PATH, '\\', '\\\\') AS filePath
+			 , FILE_SIZE AS fileSize
+			 , FILE_ORDER AS fileOrder
+		  FROM ERP_BOARD_FILE
+		 WHERE GRP_CD = #grpCd#
+		   AND CATE_CD = #cateCd#
+		   AND WRITE_CD = #writeCd#
+		   AND FILE_SEQ = #fileSeq#
+		   AND DEL_FLAG = 'N'
+		 ORDER BY REG_DATE, FILE_ORDER
+	</select>
+
+	<!-- 게시물 파일 삭제 완료 -->
+	<update id="boardDAO.boardFileDelEnd">
+		UPDATE ERP_BOARD_FILE
+		   SET DEL_DATE = NOW()
+		     , DEL_FLAG = 'Y'
+		 WHERE GRP_CD = #grpCd#
+		   AND CATE_CD = #cateCd#
+		   AND WRITE_CD = #writeCd#
+		<isNotEmpty property="FileSeq">AND FILE_SEQ = #fileSeq#</isNotEmpty>
+	</update>
+
+	<!-- 게시물 조회 정보 등록 완료 -->
+	<insert id="boardDAO.boardReadAddEnd">
+		INSERT INTO ERP_BoardReadLog (
+										  GRP_CD
+										, CATE_CD
+										, WRITE_CD
+										, PER_SABUN
+										, READ_DATE
+										) VALUES (
+												#grpCd#
+											  , #cateCd#
+											  , #writeCd#
+											  , #regPerSabun#
+											  , NOW()
+											  	  )
+		ON DUPLICATE KEY UPDATE READ_DATE = NOW()
+	</insert>
+
+	<!-- 게시물 조회수 업데이트 완료 -->
+	<update id="boardDAO.boardHitEditEnd">
+		UPDATE ERP_BOARD
+		   SET HIT = HIT + 1
+		 WHERE GRP_CD = #grpCd#
+		   AND CATE_CD = #cateCd#
+		   AND WRITE_CD = #writeCd#
+	</update>
+
+	<!-- 게시물 조회 로그 리스트 불러오기 -->
+	<select id="boardDAO.getBoardReadLogList" resultClass="egovMap">
+		SELECT PER_SABUN
+			, (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = a.PER_SABUN) PER_NM
+			, DATE_FORMAT(READ_DATE, '%Y-%m-%d %H:%i') READ_DATE
+		FROM ERP_BOARD_READ_LOG a
+	    WHERE GRP_CD = #grpCd#
+		  AND CATE_CD = #cateCd#
+		  AND WRITE_CD = #writeCd#
+		ORDER BY READ_DATE DESC
+	</select>
+
+	<!-- 게시물 이동 완료 -->
+	<update id="boardDAO.boardMoveEnd" parameterClass="boardVO">
+		UPDATE ERP_BOARD
+			SET CATE_CD = #cateCd#
+			  , WRITE_CD = #writeCd#
+		WHERE GRP_CD = #grpCd#
+		  AND CATE_CD = #oldCateCd#
+		  AND WRITE_CD = #oldWriteCd#
+	</update>
+
+	<!-- 게시물 이동에 따른 파일 이동 완료 -->
+	<update id="boardDAO.boardFileMoveEnd" parameterClass="boardVO">
+		UPDATE ERP_BOARD_FILE
+			SET CATE_CD = #cateCd#
+			  , WRITE_CD = #writeCd#
+		WHERE GRP_CD = #grpCd#
+		  AND CATE_CD = #oldCateCd#
+		  AND WRITE_CD = #oldWriteCd#;
+	</update>
+
+	<!-- 게시물 이동에 따른 댓글 이동 완료 -->
+	<update id="boardDAO.replyMoveEnd" parameterClass="boardVO">
+		UPDATE ERP_REPLY
+			SET CATE_CD = #cateCd#
+			  , WRITE_CD = #writeCd#
+		WHERE GRP_CD = #grpCd#
+		  AND CATE_CD = #oldCateCd#
+		  AND WRITE_CD = #oldWriteCd#;
+	</update>
+
+	<!-- 게시물 이동에 따른 댓글 파일 이동 완료 -->
+	<update id="boardDAO.replyFileMoveEnd" parameterClass="boardVO">
+		UPDATE ERP_REPLY_FILE
+			SET CATE_CD = #cateCd#
+			  , WRITE_CD = #writeCd#
+		WHERE GRP_CD = #grpCd#
+		  AND CATE_CD = #oldCateCd#
+		  AND WRITE_CD = #oldWriteCd#;
+	</update>
+
+	<!-- 게시물 이동에 따른 조회로그 이동 완료 -->
+	<update id="boardDAO.readLogMoveEnd" parameterClass="boardVO">
+		UPDATE ERP_BOARD_READ_LOG
+			SET CATE_CD = #cateCd#
+			  , WRITE_CD = #writeCd#
+		WHERE GRP_CD = #grpCd#
+		  AND CATE_CD = #oldCateCd#
+		  AND WRITE_CD = #oldWriteCd#
+	</update>
+
+	<!-- 게시물 이동에 따른 댓글 조회로그 이동 완료 -->
+	<update id="boardDAO.replyReadLogMoveEnd" parameterClass="boardVO">
+		UPDATE ERP_REPLY_READ_LOG
+			SET CATE_CD = #cateCd#
+			  , WRITE_CD = #writeCd#
+		WHERE GRP_CD = #grpCd#
+		  AND CATE_CD = #oldCateCd#
+		  AND WRITE_CD = #oldWriteCd#;
+	</update>
+
+	<!-- 게시물 이동에 따른 참조인 이동 완료 -->
+	<update id="boardDAO.confirmMoveEnd" parameterClass="boardVO">
+		UPDATE ERP_BOARD_CONFIRM_OPT
+			SET CATE_CD = #cateCd#
+			  , WRITE_CD = #writeCd#
+		WHERE GRP_CD = #grpCd#
+		  AND CATE_CD = #oldCateCd#
+		  AND WRITE_CD = #oldWriteCd#
+	</update>
+
+	<!-- 게시물 이동에 따른 승인정보 이동 완료 -->
+	<update id="boardDAO.confirmInfoMoveEnd" parameterClass="boardVO">
+		UPDATE ERP_BOARD_CONFIRM_INFO
+			SET CATE_CD = #cateCd#
+			  , WRITE_CD = #writeCd#
+		WHERE GRP_CD = #grpCd#
+		  AND CATE_CD = #oldCateCd#
+		  AND WRITE_CD = #oldWriteCd#
+	</update>
+
+	<!-- 휴가 취소 보고를 위한 신청한 휴가내역 불러오기 -->
+	<select id="boardDAO.getHoliList" parameterClass="boardVO" resultClass="egovMap">
+		SELECT WRITE_CD
+			 , SUBSTRING(SUBSTRING(WRITE_CON, 1, POSITION(']' IN WRITE_CON)), 6) HOLI_PERIOD
+		  FROM ERP_BOARD
+		 WHERE GRP_CD = '1'
+		   AND CATE_CD = '2'
+		   AND REG_PER_SABUN = #regPerSabun#
+		   AND WRITE_STATUS = 'end'
+		   AND DEL_FLAG = 'N'
+		   AND HOLI_S_DATE >= DATE_FORMAT(NOW(), '%Y-%m-%d')
+		<isEqual property="cmd" compareValue="Add">
+			AND WRITE_CD NOT IN (SELECT IFNULL(HOLI_CANCEL_CD, '') FROM ERP_BOARD WHERE GRP_CD = '1' AND CATE_CD = '3' AND REG_PER_SABUN = #regPerSabun# AND DEL_FLAG = 'N')
+		</isEqual>
+	</select>
+
+																		<!-- 게시물 -->
+
+																		<!-- 댓글 -->
+	<!-- 댓글 리스트 -->
+	<select id="boardDAO.getReplyList" parameterClass="boardVO" resultClass="egovMap">
+		SELECT GRP_CD
+		     , CATE_CD
+		     , WRITE_CD
+		     , REPLY_CD
+		     , REPLY_CON
+		     , REPLY_PER_SABUN
+		     , (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = REPLY_PER_SABUN) REPLY_PER_NM
+		     , REPLACE(REPLACE(DATE_FORMAT(REG_DATE, '%Y-%m-%d<![CDATA[<br>]]>%p %h:%i'), 'AM','오전'), 'PM', '오후') REG_DATE
+		     , DEL_FLAG
+		     , REG_DATE REG_DATE2
+		     , (SELECT COUNT(*) CNT FROM ERP_REPLY_FILE WHERE GRP_CD = a.GRP_CD AND CATE_CD = a.CATE_CD AND WRITE_CD = a.WRITE_CD AND REPLY_CD = a.REPLY_CD AND DEL_FLAG = 'N') CNT
+		 FROM ERP_REPLY a
+		WHERE GRP_CD = #grpCd#
+		  AND CATE_CD = #cateCd#
+		  AND WRITE_CD = #writeCd#
+		  AND DEL_FLAG = 'N'
+		ORDER BY REG_DATE2
+	</select>
+
+	<!-- 댓글 파일 리스트 -->
+	<select id="boardDAO.getReplyFileList" parameterClass="boardVO" resultClass="egovMap">
+		SELECT GRP_CD
+		     , CATE_CD
+		     , WRIT_E_CD
+		     , REPLY_CD
+		     , FILE_SEQ
+		     , FILE_NM
+		     , FILE_UP_NM
+		     , REPLACE(FILE_PATH, '\\', '\\\\') FILE_PATH
+		     , FILE_SIZE
+		     , FILE_ORDER
+		FROM ERP_REPLY_FILE
+	   WHERE GRP_CD = #grpCd#
+	     AND CATE_CD = #cateCd#
+	     AND WRITE_CD = #writeCd#
+	     AND DEL_FLAG = 'N'
+	   ORDER BY REG_DATE, FILE_ORDER
+	</select>
+
+	<!-- 댓글 코드 받아오기 -->
+	<select id="boardDAO.getReplyCd"  parameterClass="boardVO" resultClass="String">
+		<!-- SELECT IFNULL(LPAD(MAX(ReplyCd) + 1, 12, 0), '000000000001') ReplyCd FROM ERP_Reply WHERE GrpCd = #GrpCd# AND CateCd = #CateCd# AND WriteCd = #WriteCd# -->
+		SELECT IFNULL(MAX(REPLY_CD) + 1, '1') REPLY_CD FROM ERP_REPLY WHERE GRP_CD = #grpCd# AND CATE_CD = #cateCd# AND WRITE_CD = #writeCd#
+	</select>
+
+	<!-- 댓글 등록/수정/삭제 완료 -->
+	<insert id="boardDAO.replyProcEnd">
+		INSERT INTO ERP_REPLY (
+									GRP_CD
+								  , CATE_CD
+								  , WRIT_E_CD
+								  , REPLY_CD
+								  , REPLY_CON
+								  , REPLY_PER_SABUN
+								  , ORG_ID
+								  , REG_DATE
+								  , EDIT_DATE
+								  , DEL_DATE
+								  , DEL_FLAG
+								  ) VALUES (
+								  			#grpCd#
+								  		  , #cateCd#
+								  		  , #writeCd#
+								  		  , #replyCd#
+								  		  , #replyCon#
+								  		  , #replyPerSabun#
+								  		  , #orgId#
+								  		  , NOW()
+								  		  , NULL
+								  		  , NULL
+								  		  , 'N'
+								  		  )
+		<isNotEqual property="CMD" compareValue="Add">ON DUPLICATE KEY UPDATE</isNotEqual>
+		<isEqual property="CMD" compareValue="Edit">REPLY_CON = VALUES(REPLY_CON), EDIT_DATE = NOW()</isEqual>
+		<isEqual property="CMD" compareValue="Del">DEL_DATE = NOW(), DEL_FLAG = 'Y'</isEqual>
+	</insert>
+
+	<!-- 댓글 파일코드 받아오기 -->
+	<select id="boardDAO.getReplyFileSeq"  parameterClass="boardVO" resultClass="int">
+		SELECT IFNULL(MAX(FILE_SEQ) + 1, '1') FILE_SEQ FROM ERP_REPLY_FILE WHERE GRP_CD = #grpCd# AND CATE_CD = #cateCd# AND WRITE_CD = #writeCd# AND REPLY_CD = #replyCd#
+	</select>
+
+	<!-- 댓글 파일 등록 완료 -->
+	<insert id="boardDAO.replyFileAddEnd" parameterClass="java.util.List">
+		INSERT INTO ERP_REPLY_FILE (
+										GRP_CD
+									  , CATE_CD
+									  , WRITE_CD
+									  , REPLY_CD
+									  , FILE_SEQ
+									  , FILE_NM
+									  , FILE_UP_NM
+									  , FILE_PATH
+									  , FILE_SIZE
+									  , FILE_ORDER
+									  , ORG_ID
+									  , REG_DATE
+									  , DEL_DATE
+									  , DEL_FLAG
+									  ) VALUES
+		<dynamic>
+		<iterate conjunction=","  >
+		<!-- (#[].GrpCd#, #[].CateCd#, #[].WriteCd#, #[].ReplyCd#, LPAD(#[].FileSeq#, 12, 0), #[].FileNm#, #[].FileUpNm#, #[].FilePath#, #[].FileSize#, #[].FileOrder#, NOW(), NULL, 'N') -->
+		(#[].grpCd#, #[].cateCd#, #[].writeCd#, #[].replyCd#, #[].fileSeq#, #[].fileNm#, #[].fileUpNm#, #[].filePath#, #[].fileSize#, #[].fileOrder#, #[].orgId#, NOW(), NULL, 'N')
+		</iterate>
+		</dynamic>
+	</insert>
+
+	<!-- 댓글 파일 삭제 완료 -->
+	<update id="boardDAO.replyFileDelEnd">
+		UPDATE ERP_REPLY_FILE SET DEL_DATE = NOW(), DEL_FLAG = 'Y' WHERE GRP_CD = #grpCd# AND CATE_CD = #cateCd# AND WRITE_CD = #writeCd# AND REPLY_CD = #replyCd#
+	</update>
+
+	<!-- 댓글 조회 정보 등록 완료 -->
+	<insert id="boardDAO.replyReadAddEnd" parameterClass="java.util.List">
+		INSERT INTO ERP_REPLY_READ_LOG (
+											GRP_CD
+										  , CATE_CD
+										  , WRITE_CD
+										  , REPLY_CD
+										  , PER_SABUN
+										  , ORG_ID
+										  , READ_DATE
+										  ) VALUES
+		<dynamic>
+		<iterate conjunction=","  >
+		(#[].grpCd#, #[].cateCd#, #[].writeCd#, #[].replyCd#, #[].perSabun#,#[].orgId#, NOW())
+		</iterate>
+		</dynamic>
+		ON DUPLICATE KEY UPDATE READ_DATE = NOW()
+	</insert>
+																		<!-- 댓글 -->
+</sqlMap>

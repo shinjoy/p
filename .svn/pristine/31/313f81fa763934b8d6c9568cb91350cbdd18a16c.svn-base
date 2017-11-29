@@ -1,0 +1,425 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+
+<style>
+.wrap-loading{ /*화면 전체를 어둡게 합니다.*/
+    position: fixed;
+    left:0;
+    right:0;
+    top:0;
+    bottom:0;
+    background: rgba(0,0,0,0.2); /*not in ie */
+    filter: progid:DXImageTransform.Microsoft.Gradient(startColorstr='#20000000', endColorstr='#20000000');    /* ie */
+    z-index: 1000000;
+}
+.wrap-loading div{ /*로딩 이미지*/
+    position: fixed;
+    top:50%;
+    left:50%;
+    margin-left: -21px;
+    margin-top: -21px;
+    z-index: 1000000;
+}
+.display-none{ /*감추기*/
+    display:none;
+}
+
+</style>
+
+<script type="text/javascript">
+
+var g_org_id = "${baseUserLoginInfo.orgId}";
+
+var g_auth = "${baseUserLoginInfo.orgBasicAuth}";
+
+//화면 사이즈 설정(세션 스토리지에 저장해두고 화면전환시에도 유지)
+function setBodySize(s){    //1000, 1280, 1600, FULL
+    var b = $('body');
+
+    //세션설정
+    if(s==undefined || s==null){    //FULL
+        window.sessionStorage['setBodySize'] = null;
+        window.sessionStorage['bodySize'] = null;
+
+    }else{          //특정 사이즈(1000, 1280, 1600, ...)
+        window.sessionStorage['setBodySize'] = s;
+
+        if($(window).width() < window.sessionStorage['setBodySize']){
+            window.sessionStorage['bodySize'] = null;
+        }else{
+            window.sessionStorage['bodySize'] = s;
+        }
+    }
+
+    //사이즈 변경
+    if(window.sessionStorage['bodySize']=='null' || window.sessionStorage['bodySize']==null || window.sessionStorage['bodySize']==undefined){
+        b.width('100%');
+    }else{
+        b.width(s);
+    }
+
+}
+//화면로딩후
+var resizeId;
+$(function(){
+    if(window.sessionStorage['bodySize'] != undefined && window.sessionStorage['bodySize'] != null && window.sessionStorage['bodySize'] != 'null'){
+        setBodySize(window.sessionStorage['bodySize']);
+    }
+
+    $(window).resize(function(){    //사이즈 변경 이벤트리스너 설정
+
+        clearTimeout(resizeId);
+        resizeId = setTimeout(doneResizing, 0);     //100 (ms)
+
+    });
+});
+
+function doneResizing(){
+
+    var b = $('body');
+    var bWidth = $('body').width();
+
+    if(bWidth >= $(window).width()){                    //윈도우 창이 내용보다 작거나 같으면
+
+        window.sessionStorage['bodySize'] = null;       //bodySize 를 null 로하여
+        b.width('100%');                                //width 100% 로 한다.
+
+    }else{                                              //크면
+        window.sessionStorage['bodySize'] = window.sessionStorage['setBodySize'];   //사용자 설정 사이즈(null일 수도 있다)로
+        b.width(window.sessionStorage['bodySize']);
+    }
+}
+
+
+function setdayFull(knd){
+    var h = '';
+    if(knd == 'week_allday')
+        h = '99px';
+    else
+        h = '274px';
+
+    if($('.'+knd).css('max-height') == h)
+        $('.'+knd).css('max-height','none');
+    else
+        $('.'+knd).css('max-height', h);
+}
+
+var BaseHeight;
+$(document).ready(function () {
+	$(window).load(function() {
+
+		var width_c = ((document.body.clientWidth - 50) / 7) - 50;
+
+		$('.ellipsis').css('width', width_c);
+		$('td[name=Caltitle]').css('width', width_c);
+		BaseHeight = $('body').height();
+	});
+});
+
+var schePopFlag = true;
+// 일정 등록
+function ScheAdd(SelDay) {
+	var selOrg = $("#treeOrg").val();
+
+	if(g_org_id!=selOrg) return;
+	else{
+		if(g_auth == "READ" ){
+			alert("일정 등록 권한이 없습니다.");
+			return;
+		}
+	}
+
+	// 로그인한 관계사와 선택한 관계사가 다른경우 일정등록 불가함
+	if('${baseUserLoginInfo.orgId}' == '${baseUserLoginInfo.applyOrgId}' || '${baseUserLoginInfo.vipAuthYn}' == 'Y'){
+		if(schePopFlag){
+	        Month = $('#SelMonth').val();
+            if(Month.length == 1) Month = "0" + Month;
+            if(SelDay.length == 1) SelDay = "0" + SelDay;
+            SelDate = $('#SelYear').val() + "-" + Month + "-" + SelDay;
+
+            var url = "<c:url value='/scheduleProc.do'/>" + "?EventType=Add&ParentPage=Cal&ScheSDate="+SelDate;
+            window.open(url, 'scheduleProc','resizable=no,width=700,height=700,scrollbars=yes');
+	    }
+	}
+	schePopFlag = true;
+}
+
+// 일정 상세보기
+function scheView(PerSabun, ScheSeq, projectId, Flag) {
+	schePopFlag = false;
+    var url = "<c:url value='/ScheduleView.do?ScheSeq="+ScheSeq+"&PerSabun="+PerSabun+"&projectId="+projectId+"&EventType=View&ParentPage=Cal'/>";
+    window.open(url, 'scheduleView','resizable=no,width=700,height=750,scrollbars=yes');
+    schePopFlag = true;
+}
+
+// 특정일자 일정 리스트 모두 보기
+function selDateScheduleList(SelYear, SelMonth, SelDay) {
+	if(SelMonth.length == 1) SelMonth = "0" + SelMonth;
+	if(SelDay.length == 1) SelDay = "0" + SelDay;
+	ScheSDate = SelYear + "-" + SelMonth + "-" + SelDay;
+
+	var tempSelYear = $('#SelYear').val();
+	var tempSelMonth = $('#SelMonth').val();
+	var tempSearchScheSDate = $('#searchScheSDate').val();
+
+	$('#SelYear').val(SelYear);
+	$('#SelMonth').val(SelMonth);
+	$('#searchScheSDate').val(ScheSDate);
+	window.open('', 'popScheduleMoreList', 'width=700, height=700, scrollbars=yes');
+
+	$('#scheduleCal').attr('target', 'popScheduleMoreList').attr('action', "<c:url value='/ScheduleMoreList.do'/>").submit();
+
+	$('#SelYear').val(tempSelYear);
+    $('#SelMonth').val(tempSelMonth);
+    $('#searchScheSDate').val(tempSearchScheSDate);
+}
+
+
+/****************************************** 왼쪽 메뉴 스크립트 :S  ******************************************************/
+
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+var fnObj = {
+	preloadCode: function(){
+		setProject();
+	},
+	pageStart: function(){
+
+	},
+
+
+	//------------------------------------------------- SYNERGY :S ----------------------------------------------------
+
+	//사용자 트리 생성
+    setUserTree: function(){
+
+        var myUserTree = new UserTree();            //UserTree 객체생성
+
+        /* 사용자트리 설정정보 */
+        var configObj = {
+                targetID : 'userListAreaTree',                          //대상 위치 id (div, span)
+                url : contextRoot + "/common/getOrgDeptUserList.do",    //데이터 URL
+                isCheckbox:true,
+                isOnlyOne : false,                                      //선택건수 1개 여부            (false: 복수,     그외,: 한명(default))
+                isAllOrg : false,                                       //전체 ORG 범위로의 여부        (true: 전체ORG,       그외,: 나의권한ORG (default))
+                oneOrg : '${baseUserLoginInfo.applyOrgId}',             //전달받은 한개의 ORG ID
+                defaultSelectList : ['${baseUserLoginInfo.empNo}'],    //기본 선택 id array            (로딩시점 초기 기본 선택 노드 id list)
+                isDeptSelectable : true,                                //부서선택 가능여부(= 하위 사용자 모두 선택)     (true: 해당부서하위모두선택,  그외,:부서선택불가 (default))
+                callbackFn : fnObj.selStaff,                            //콜백 function
+
+                rtnField : 'empNo',                                     // userId, cusId, empNo
+                useNameSortList : true,									//이름정렬선택 리스트 사용 여부 (true: 사용,		그외,: 미사용(default))
+                hasDeptTopLevel    : true,                                  //부서의 회장 부서 표시여부  (true: 포함,     그외,: 미포함(default))
+                openDeptId : ('${baseUserLoginInfo.deptMngrYn}' == 'Y' ?  '${baseUserLoginInfo.deptId}' : '0' ),
+				myUserId : '${baseUserLoginInfo.empNo}',				//로긴 유저아이디
+				myOrgId : '${baseUserLoginInfo.orgId}',					//로긴 유저orgId
+				deptManagerDeptId : '${baseUserLoginInfo.deptIdMngr}',
+				nodeOpenEnable : true,
+				authTree : true,
+				useAllCheck : true
+        };
+
+
+        myUserTree.setConfig(configObj);    //설정정보 세팅
+        myUserTree.drawTree();              //트리 생성
+    },
+  //LEFT 사원 선택
+    selStaff : function(userList,orgId){ //type : ALL 전체선택 , 빈값 : 개별선택 , 이외 : 부서SEQ
+    	$("#searchOrgId").val(orgId);
+    	$('#searchPerSabun').val(userList);
+        fnObj.doSearch();
+      },
+
+	doSearch :function() {
+		if($('#searchPerSabun').val() != $('#PerSabun').val()){
+            setProject();
+            setActivity();
+            isMoveCalendar = false;
+
+            $("#projectTag").hide();
+            $("#activityTag").hide();
+
+            /* $("#projectId").attr("disabled",true);
+            $("#activityId").attr("disabled",true); */
+        }else{
+        	$("#projectTag").show();
+            $("#activityTag").show();
+
+            /* $("#projectId").attr("disabled",false);
+            $("#activityId").attr("disabled",false); */
+        }
+
+		//달력이동시 업무구분, 활동구분 리셋함
+		if(isMoveCalendar){
+			$('#projectId option:selected').val("");
+			$('#activityId option:selected').val("");
+		}
+
+		//일정보기 ajax 호출
+		$('#scheduleCal').attr('action', contextRoot + "/scheduleCalAjax.do");
+        commonAjaxSubmit("POST", $("#scheduleCal"), scheduleCallback);
+	},
+
+};
+
+//2016.09.07 이인희 일정보기 Ajax 콜백
+function scheduleCallback(result){
+    $("#listArea").empty();
+    $("#listArea").html(result);
+    if(isMoveCalendar){
+        setProject();
+        setActivity();
+        isMoveCalendar = false;
+    }
+}
+
+//화면 리로딩
+function openPageReload(){
+	$("#searchScheSDate").val("");
+	fnObj.doSearch();
+}
+
+$(function(){
+	fnObj.preloadCode();		//선코딩
+	fnObj.pageStart();		//화면세팅
+	fnObj.setUserTree();
+
+	if('${baseUserLoginInfo.orgId}' != '${baseUserLoginInfo.applyOrgId}'){
+		fnObj.doSearch();     //검색
+	}
+});
+
+/****************************************** 왼쪽 메뉴 스크립트 :E  ******************************************************/
+var isMoveCalendar = false;
+// 달력이동
+function moveCalendar(per) {
+    var SelYear =  parseInt($('#SelYear').val());
+    var SelMonth =  parseInt($('#SelMonth').val())+per;
+    if(SelMonth == 13){
+        SelMonth=1;
+        SelYear = SelYear + 1;
+    }else if(SelMonth == 0){
+        SelMonth=12;
+        SelYear = SelYear - 1;
+    }
+
+    $("#Year").val(SelYear);
+    $("#Month").val(SelMonth);
+
+    $('#SelYear').val(SelYear);
+    $('#SelMonth').val(SelMonth);
+
+    /* setProject();
+    setActivity(); */
+    isMoveCalendar = true;
+
+    //일정보기 ajax 호출
+    fnObj.doSearch();
+}
+
+//TODAY 버튼 클릭시
+function moveToday() {
+    var nowYear =  parseInt($('#nowYear').val());
+    var nowMonth =  parseInt($('#nowMonth').val());
+
+    $("#Year").val(nowYear);
+    $("#Month").val(nowMonth);
+
+    $('#SelYear').val(nowYear);
+    $('#SelMonth').val(nowMonth);
+
+    isMoveCalendar = true;
+
+    //일정보기 ajax 호출
+    fnObj.doSearch();
+}
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////
+    /////////////// 추가된 스크립트 ////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////
+//업무구분 셋팅
+function setProject(){
+	var startMonth = $('#SelMonth').val();
+    if(startMonth.length == 1) startMonth = "0" + startMonth;
+    var startDate = $('#SelYear').val() + "-" + startMonth + "-01";
+
+    var endYear =  parseInt($('#SelYear').val());
+    var endMonth =  parseInt($('#SelMonth').val())+1;
+    var nextMonthEnd = $('#nextMonthEnd').val();
+    if(endMonth == 13){
+        endMonth = 1;
+        endYear = endYear + 1;
+    }else if(endYear == 0){
+        endMonth=12;
+        endYear = endYear - 1;
+    }
+    endMonth = endMonth +"";
+
+    if(endMonth.length == 1) endMonth = "0" + endMonth;
+    if(nextMonthEnd.length == 1) nextMonthEnd = "0" + nextMonthEnd;
+    var endDate = endYear + "-" + endMonth + "-" + nextMonthEnd;
+
+    var colorObj = {};
+    var comCodeProject = getCommonProject('CD', 'NM', '', '${baseUserLoginInfo.projectTitle } 선택', { orgId : "${baseUserLoginInfo.applyOrgId}",userId : "${baseUserLoginInfo.userId}",type:"PROJECT",incApproveActivity:"Y",startDate : startDate, endDate:endDate, isScheSearch:"Y" });
+    	//getCommonProject('CD', 'NM', '', '업무구분', { orgId : "${baseUserLoginInfo.applyOrgId}",userId : "${baseUserLoginInfo.userId}",type:"PROJECT",incApproveActivity:"N",startDate : startDate});
+    //getBaseCommonCode('PJT_CODE', null, 'CD', 'NM', '', '업무구분', null, { orgId : "${baseUserLoginInfo.applyOrgId}" });
+    var projectTag = createSelectTagForProject('projectId', comCodeProject, 'CD', 'NM', '${vo.projectId}', null, colorObj, null, 'select_b','PROJECT');
+    	//createSelectTag('projectId', comCodeProject, 'CD', 'NM', '${vo.projectId}', null, colorObj, null, 'select_b');   //'fnObj.clickRdBudget(this);');//radio tag creator 함수 호출 (common.js)
+    $("#projectTag").html(projectTag);
+
+   //업무구분 선택시
+    $("#projectId").change(function(){
+        setActivity($(this).val());
+        fnObj.doSearch();
+    });
+    $("#projectId").val('');
+    //if($("#projectId").val()!="") setActivity($(this).val());
+}
+
+//활동구분 셋팅
+function setActivity(projectId){
+	var startMonth = $('#SelMonth').val();
+    if(startMonth.length == 1) startMonth = "0" + startMonth;
+    var startDate = $('#SelYear').val() + "-" + startMonth + "-01";
+
+    var endYear =  parseInt($('#SelYear').val());
+    var endMonth =  parseInt($('#SelMonth').val())+1;
+    var nextMonthEnd = $('#nextMonthEnd').val();
+    if(endMonth == 13){
+        endMonth = 1;
+        endYear = endYear + 1;
+    }else if(endYear == 0){
+        endMonth=12;
+        endYear = endYear - 1;
+    }
+    endMonth = endMonth +"";
+
+    if(endMonth.length == 1) endMonth = "0" + endMonth;
+    if(nextMonthEnd.length == 1) nextMonthEnd = "0" + nextMonthEnd;
+    var endDate = endYear + "-" + endMonth + "-" + nextMonthEnd;
+
+	if(projectId == ""){
+		$("#activityId").html("<option value = ''>${baseUserLoginInfo.activityTitle}</option>");
+	}else{
+		var colorObj = {};
+        var comCodeActivity = getCommonProject('CD', 'NM', '', '${baseUserLoginInfo.activityTitle } 선택', { orgId : "${baseUserLoginInfo.applyOrgId}",projectId : projectId,userId : "${baseUserLoginInfo.userId}" ,type:"ACTIVITY",incApproveActivity:"Y",startDate : startDate, endDate:endDate, isScheSearch:"Y"});
+        var activityTag = createSelectTagForProject('activityId', comCodeActivity, 'CD', 'NM', '', null, colorObj, null, 'select_b mgl6','ACTIVITY');
+        $("#activityTag").html(activityTag);
+	}
+
+    //활동구분 선택시
+    $("#activityId").change(function(){
+    	fnObj.doSearch();
+    });
+    $("#activityId").val('');
+}
+
+
+</script>

@@ -1,0 +1,665 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+
+<style>
+
+    .bgno { background:none; }
+</style>
+<div class="mo_container">
+	<%-- <div class="mo_notiBox">
+    	<p><span class="username">${selectUserName}</span>님의 소속 관계사는 <span class="comname">${selectOrgName}</span> 입니다.</p>
+     	<p>관계사의 권한이 등록되어 있지 않으면 추가관계사로 설정 할 수 없습니다. </span><span class="subtxt">(소속관계사의 R/W권한 수정불가)</span></p>
+    </div> --%>
+    <table class="mo_notiBox_tb">
+    	<tr>
+     		<td class="bg_gray"><span class="username">${selectUserName}</span>님의 소속 관계사는 <span class="comname">${selectOrgName}</span> 입니다.</td>
+     		<td>
+     			<ul class="list_st_dot3">
+     				<li>관계사의 권한이 등록되어 있지 않으면 추가관계사로 설정 할 수 없습니다. <span class="subtxt">(소속관계사의 R/W권한 수정불가)</span></li>
+     				<li>특별권한 부여는 휴대폰 개인인증이 필요하며 슈퍼매니저에게 알림이 발송됩니다.</li>
+     			</ul>
+     		</td>
+    	</tr>
+    </table>
+
+
+
+        <div class="sys_halfWrap mgt20">
+        	<div class="fl_halfBox">
+        		<div  id="AXSearch" class="pop_title_bgBox">
+					<select id="searchType" class="select_b">
+	                	<option value="cpnNm">관계사명</option>
+	                	<option value="cpnId">관계사코드</option>
+	                </select>
+	                <input id="searchText" type="text" placeholder="검색어 입력" onkeypress="if(event.keyCode==13) fnObj.doSearchCom(1);" class="input_b2 mgl10" title="검색어 입력"><a href="#" onclick="fnObj.doSearchCom(1);" class="btn_g_black mgl10">검색</a>
+				</div>
+        		<div id="AXGridTarget" ></div>
+        	</div>
+        	<div class="fr_halfBox">
+        		<div class="pop_title_bgBox"><p class="nobu_tt">* 관계사 접근권한 설정</p></div>
+        		<div id="AXGridTarget2"></div>
+        	</div>
+        	<div class="btn_arrow_halbox">
+        		 <button type="button" class="AXButton graarrow" onclick="fnObj.moveRight();"><i class="axi axi-chevron-right2" style="font-size:12px;"></i></button><br>
+		         <button type="button" class="AXButton graarrow" onclick="fnObj.moveLeft();"><i class="axi axi-chevron-left2" style="font-size:12px;"></i></button>
+        	</div>
+		</div>
+		<div class="btnZoneBox" id="btn_save">
+         	<a href="javascript:fnObj.doSave();" class="p_blueblack_btn btn_auth">저장</a>
+         	<a href="javascript:fnObj.doClose();" class="p_withelin_btn">닫기</a>
+     	</div>
+
+
+
+     	<!--특별권한 본인확인--><!--470*340-->
+     	<div style="display: none;"><div id = "smsModal">
+			<div class="modalWrap2">
+				<h1>특별권한 관리 본인 확인</h1>
+				<div class="mo_container">
+					<h3 class="h3_title_basic">특별권한 관리 본인 확인</h3>
+					<div class="gray_notibox">
+						설정하신 내역 저장을 위해 SMS로 발송된 비밀번호(6자리)를 입력 후<br>본인확인을 해주세요.
+					</div>
+
+					<table class="tb_basic_left mgt20" summary="특별권한 관리 본인 확인(인증번호발송, 인증번호입력)">
+						<colgroup>
+							<col width="120" />
+							<col width="*" />
+						</colgroup>
+						<caption>특별권한 관리 본인 확인</caption>
+						<tr>
+							<th scope="row">휴대폰번호</th>
+							<td>
+								<span class="certi_phonetxt">${baseUserLoginInfo.mobile }</span>
+								<button id="btnInitPwd" type="button" class="btn_s_type_g mgl10" onclick="fnObj.sendAuthSms()">
+									<em>인증번호발송</em>
+								</button>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">인증번호 입력</th>
+							<td>
+								<input type="text" id = "authConfirmNo" class="input_b certi_input" title="인증번호를 입력하세요" />
+								<button id="btnInitPwd" type="button" class="btn_s_type_g mgl10" onclick="fnObj.chkAuthSms()">
+									<em>본인확인</em>
+								</button>
+							</td>
+						</tr>
+					</table>
+					<div class="btnZoneBox"><a href="javascript:fnObj.doSaveSpecialAuth()" class="p_blueblack_btn btn_auth"><strong><span id="regTxtSpan">등록</span></strong></a><a href="javascript:myModal.close('my-modal-div');" class="p_withelin_btn">닫기</a></div>
+				</div>
+
+				<a href="javascript:myModal.close('my-modal-div');" class="btn_modal_close"><em>창 닫기</em></a>
+			</div>
+		</div></div>
+		<!--//특별권한 본인확인//-->
+	</div>
+<script type="text/javascript">
+//Global variables :S ---------------
+//사용자언어
+var lang = '${baseUserLoginInfo.lang}';		//language (profile language... 'KOR' or 'ENG')
+var selectUserId = "${selectUserId}"; //선택된 사용자 아이디
+var selectOrgId = "${selectOrgId}";   //선택된 사용자 소속 관계사
+var selectOrgName = "${selectOrgName}";   //선택된 사용자 소속 관계사 이름
+var selectUserName = "${selectUserName}"; //선택된 사용자 이름
+var selectUserRankNm = "${selectUserRankNm}"; //선택된 사용자 직급
+var colorObj = {};
+//권한 관련 코드
+var comCodeAccessAuthType = getBaseCommonCode('ORG_ACCESS_AUTH_TYPE', null, 'CD', 'NM', null, null,'ALL', { orgId : "${selectOrgId}" });
+
+var myGrid = new AXGrid(); 		// instance
+var myGrid2 = new AXGrid(); 	// instance	(오른쪽)
+
+var myModal = new AXModal();	// instance
+
+//인증번호발송여부
+var isSendSms = false;
+//본인확인여부
+var isAuthConfirmNoChk = false;
+
+var isSmsConfirm = false;
+//Global variables :E ---------------
+
+
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+var fnObj = {
+
+	//################# init function :S #################
+
+	//선로딩코드
+	preloadCode: function(){
+		//-------------------------- 모달창 :S -------------------------
+		myModal.setConfig({
+			windowID:"myModalCT",
+
+			width:740,
+	        mediaQuery: {
+	            mx:{min:0, max:767}, dx:{min:767}
+	        },
+			displayLoading:true,
+	        scrollLock: false,
+			onclose: function(){
+				doSearch();
+			}
+	        ,contentDivClass: "popup_outline"
+
+		});
+		//-------------------------- 모달창 :E -------------------------
+
+	},
+
+
+	//화면세팅
+    pageStart: function(){
+
+    	//-------------------------- 그리드 설정 :S ----------------------------
+    	/* 왼쪽 그리드 설정정보 */
+    	myGrid.setConfig({
+            targetID : "AXGridTarget",
+            theme : "AXGrid",
+
+            fixedColSeq :2,	//컬럼고정 index
+            fitToWidth : true,	//true,	//넓이에맞게
+            colHeadAlign : "center",	//헤드의 기본 정렬. "left"|"center"|"right"
+            colHeadTool : false,	//컬럼 display 여부를 설정
+            height: 500,		//grid height
+
+            autoChangeGridView: { // autoChangeGridView by browser width
+                mobile:[0,600], grid:[600]
+            },
+
+            colGroup : [
+                {key:"chk", 	label:"<input type='checkbox' name='allChkLeft' readonly='true' onchange='fnObj.allCheck(\"left\");' />",  width:"40",	align:"center", sort: false
+                	,  formatter:function(){
+	                		var str = '권한없음';
+
+	        	    		if(this.item.roleObj !=null){ //관계사의 권한이 있을때만 체크박스 생성
+
+	        	    			str ="<input type='checkbox' name='mCheckLeft' id='mCheckLeft"+this.item.orgId+"' onclick='fnObj.clickCheckboxL(this, " + this.index + ");' " + ((this.value==1)?"checked":"") + " />";
+	        	    		}
+
+                			return str;
+                		}
+                },
+                {key:"cpnNm",			label:"관계사 명", 		width:"100",	align:"center", formatter:function(){return ("<b>" + (this.value) + "</b>");}},
+                {key:"cpnId", 			label:"관계사 코드", 		width:"80",		align:"left"},
+                {key:"businessGrpNm", 	label:"비즈니스 그룹", 		width:"100",	align:"center"}
+                ],
+
+            body : {
+                onclick: function(index){
+
+                },
+
+            },
+			page:{
+				paging:false,
+				status:{formatter: null}
+			}
+
+        });
+
+     	/* 오른쪽 그리드 설정정보 */
+    	myGrid2.setConfig({
+            targetID : "AXGridTarget2",
+            theme : "AXGrid",
+
+            fixedColSeq :2,	//컬럼고정 index
+            fitToWidth : true,	//true,	//넓이에맞게
+            colHeadAlign : "center",	//헤드의 기본 정렬. "left"|"center"|"right"
+            colHeadTool : false,	//컬럼 display 여부를 설정
+            height: 500,		//grid height
+            autoChangeGridView: { // autoChangeGridView by browser width
+                mobile:[0,600], grid:[800]
+            },
+
+            colGroup : [
+                {key:"chk", 	label:"<input type='checkbox'  name='allChkRight' readonly='true' onchange='fnObj.allCheck(\"right\");' />",  width:"40",	align:"center", sort: false
+                ,  formatter:function(){
+	                	var str = '<font color="#597ac4">소속</font>';
+
+	    	    		if(selectOrgId != this.item.orgId){ 		//소속이 아닐때만 체크박스 생성
+	    	    			str ="<input type='checkbox' name='mCheckRight' id='mCheckRight"+this.item.orgId+"' onclick='fnObj.clickCheckboxR(this, " + this.index + ");' " + ((this.value==1)?"checked":"") + " />";
+	    	    		}
+
+	        			return str;
+
+                	}
+                },
+
+                {key:"cpnNm",	label:"관계사 명", 	width:"100",	align:"center", formatter:function(){return ("<b>" + (selectOrgId == this.item.orgId?'<font color="#597ac4">':'') + (this.value) + "</b>");}},
+                {key:"cpnId", 	label:"관계사 코드", 	width:"80",		align:"left", formatter:function(){return ((selectOrgId == this.item.orgId)?'<font color="#597ac4">'+this.value+'</font>':this.value);}},
+                {key:"businessGrpNm", 		label:"비즈니스 그룹명", 		width:"100",	align:"center", formatter:function(){return ((selectOrgId == this.item.orgId)?'<font color="#597ac4">'+this.value+'</font>':this.value);}},
+
+                {key:"roleObj", 			label:"권한", 		width:"110",		align:"left"
+                	, formatter : function(){
+
+						var roleListObj = this.value;
+
+						if(typeof(this.value) != 'object') roleListObj = JSON.parse(this.value);
+
+                		if(this.value != null) return createSelectTag('roleId'+this.item.orgId, roleListObj , 'roleId', 'roleKor', this.item.roleId, null, {},100,'select_b');
+                		else return '권한이 없습니다.';
+        	        }},
+       	        {key:"auth", 	label:"R/W권한", 	width:"80",		align:"center", formatter : function(){
+
+                   	//권한 관련 select html
+                   	var comCodeAccessAuthTag = createSelectTag('authChk_'+ this.index , comCodeAccessAuthType, 'CD', 'NM', this.item.authChk, null, colorObj, null, 'select_b');
+
+                   	return comCodeAccessAuthTag;
+                   }},
+        	    {key:"updateNm", 			label:"권한설정자", 		width:"100",		align:"center"
+                	, formatter : function(){
+						return this.item.updateNm;
+        	        }}
+                ],
+			page:{
+				paging:false,
+				status:{formatter: null}
+			}
+
+        });
+
+
+    	//-------------------------- 그리드 설정 :E ----------------------------
+
+
+    },//end pageStart.
+  	//################# init function :E #################
+
+
+    //################# else function :S #################
+
+  	//선택가능한 관계사 목록 검색
+    doSearchCom: function(){
+
+    	var url = contextRoot + "/system/getOrgAuthCompanyList.do";
+    	var param = {
+    					selectUserId: selectUserId,
+    					selectOrgId: selectOrgId,
+    					searchType : $("#searchType").val(),
+    					searchText : $("#searchText").val()
+		    		};
+
+
+    	var callback = function(result){
+
+    		var obj = JSON.parse(result);
+    		var cnt = obj.resultVal;		//결과수
+    		var list = obj.resultList;		//결과데이터JSON
+
+    		var gridData = {list: list};
+
+	    	myGrid.clearSort();			//소팅초기화
+	    	myGrid.setData(gridData);	//그리드에결과반영
+
+
+			//전체 건수 세팅
+			$('#total_count').html(obj.totalCount);
+
+    	};
+
+    	commonAjax("POST", url, param, callback);
+
+    },//end doSearch
+
+    //사용자별 관계사 리스트 설정.
+    doSetAuthList : function(){
+
+    	var list = [];
+    	<c:forEach items="${relationAuthList}" var="item">
+
+    		var roleList = '${item.roleObj}';
+    		if(roleList !='' && roleList !=null){
+    			roleList = JSON.parse(roleList);
+    		}
+    		var obj = { orgId : "${item.orgId}", cpnNm : "${item.cpnNm}", cpnId : "${item.cpnId}", businessGrpSeq : "${item.businessGrpSeq}",  businessGrpNm : "${item.businessGrpNm}", authIds : "${item.authIds}", authChk : "${item.authChk}", roleKor : "${item.roleKor}" , roleId : "${item.roleId}" , roleObj : roleList,updateNm:"${item.updateNm}"};
+    		list.push(obj);
+    	</c:forEach>
+
+    	myGrid2.clearSort();			//소팅초기화
+    	myGrid2.setData({list : list});
+
+    },
+
+    //체크박스 전체 체크
+    allCheck: function(type){
+
+    	if(type == "left"){	//왼쪽 그리드
+    		var checkedYn = $("input:checkbox[name=allChkLeft]:checked").val();
+    		if(checkedYn == undefined){
+    			checkedYn = false;
+    		}else
+    			checkedYn = true;
+
+    		$("input:checkbox[name='mCheckLeft']").prop("checked", checkedYn);
+
+    		var list = myGrid.getList();
+    		for(var i=0; i<list.length; i++){
+        		list[i].chk = (checkedYn && $("#mCheckLeft"+list[i].orgId).val() != undefined ?		1	:	0);	//그리드데이터도 함께 변환(아직 그리드 데이터는 변하지 않은 상태이기때문에)
+        	}
+
+    	}else{	// type = "right"
+
+    		var checkedYn = $("input:checkbox[name='allChkRight']:checked").val();
+
+    		if(checkedYn == undefined){
+    			checkedYn = false;
+    		}else
+    			checkedYn = true;
+
+    		$("input:checkbox[name='mCheckRight']").prop("checked", checkedYn);
+
+    		var list = myGrid2.getList();
+    		for(var i=0; i<list.length; i++){
+        		list[i].chk = (checkedYn && $("#mCheckRight"+list[i].orgId).val() != undefined ?		1	:	0);	//그리드데이터도 함께 변환(아직 그리드 데이터는 변하지 않은 상태이기때문에)
+        	}
+
+    	}
+    },
+
+    //왼쪽 그리드 체크박스 클릭 이벤트 핸들러 (그리드 data Sync)
+    clickCheckboxL: function(obj, idx){
+    	var list = myGrid.getList();
+    	if(obj.checked){
+    		list[idx].chk = 1;
+    	}else{
+    		list[idx].chk = 0;
+    	}
+    },
+    //오른쪽 그리드 체크박스 클릭 이벤트 핸들러 (그리드 data Sync)
+  	clickCheckboxR: function(obj, idx){
+    	var list = myGrid2.getList();
+    	if(obj.checked){
+    		list[idx].chk = 1;
+    	}else{
+    		list[idx].chk = 0;
+    	}
+    },
+
+    //오른쪽으로 이동 (메뉴리스트 >> 권한별메뉴등록)
+    moveRight: function(){
+    	var leftList = myGrid.getList();								//왼쪽   그리드 데이터
+    	var rightList= myGrid2.getList();								//오른쪽 그리드 데이터
+
+    	var chkCnt = 0;			//이동을 위해 체크한 수
+    	var chkIndex = -1;		//체크한 row index
+    	var moveObj;			//체크해서 이동할 row Object
+
+    	for(var i=0; i<leftList.length; i++){
+    		if(leftList[i].chk == 1){	//체크되어 있는 것을
+    			chkCnt++;
+    			leftList[i].menuRootStr = "";
+    			moveObj = leftList[i];									//이동할 row data
+
+
+    			if(getRowIndexWithValue(rightList, 'orgId', leftList[i].orgId) == -1){	//이미 추가한 것은 제외하고
+    				moveObj.authChk = "READ";
+
+    				if(moveObj.roleObj !=null && moveObj.roleObj !=''){
+    	    			//roleList = JSON.parse(moveObj.roleObj);
+    	    			//moveObj.roleObj = JSON.stringify(roleList);
+    	    		}
+
+
+    				myGrid2.pushList(moveObj);								//오른쪽 그리드에 추가
+
+    			}
+    		}
+    	}
+
+
+    	if(chkCnt == 0){
+    		alertM("이동할 직위을 먼저 선택해주세요!");
+    		return;
+    	}
+
+    	//그리드 싱크
+    	//myGrid.dataSync();
+
+    },
+
+  	//왼쪽으로 이동 (메뉴리스트 << 권한별메뉴등록) ... 실제는 삭제로 구현
+    moveLeft: function(){
+    	var rightList = myGrid2.getList();								//오른쪽 그리드 데이터
+    	var chkCnt = 0;			//이동을 위해 체크한 수
+    	var chkIndex = -1;		//체크한 row index
+    	var moveObj;			//체크해서 이동할 row Object
+    	for(var i=rightList.length-1; i>=0; i--){
+    		if(rightList[i].chk == 1){	//체크되어 있는 것을
+    			chkCnt++;
+    			rightList.splice(i, 1);									//체크 요소를 삭제
+    		}
+    	}
+
+
+    	if(chkCnt == 0){
+    		alertM("이동할 직위을 먼저 선택해주세요!");
+    		return;
+    	}
+
+
+    	//그리드 싱크
+    	myGrid.dataSync();
+    	myGrid2.redrawGrid();	//하단 상태바 count(s) 숫자도 반영되게하려면 redrawGrid().
+    },
+
+    //권한 selectbox 체크
+    doCheckAuth : function(value, index){
+    	var list = myGrid2.getList();
+    	list[index].authChk = value;
+    },
+
+	//권한(role) selectbox 체크
+    doCheckRole : function(value, index){
+    	var list = myGrid2.getList();
+    	list[index].roleId = value;
+    },
+
+    //저장
+    doSave : function(){
+
+    	var grid2List = myGrid2.getList();
+
+    	for(var i = 0 ; i< grid2List.length ; i++){
+    		var item = grid2List[i];
+
+    		if(item.authChk == null){
+    			alert("관계사 접근권한 목록에 있는 R/W권한을 선택해주세요.");
+    			return;
+    		}
+    		var roleId = $("#roleId"+item.orgId).val();
+    		if(roleId == null || roleId == 'undefined'){
+    			alert("관계사 접근권한 목록에 있는 권한을 선택해주세요.");
+    			return;
+    		}
+    		grid2List[i].roleId = roleId;
+    	}
+
+    	$("select[name*='authChk_']").each(function(){
+    		var nameBuf = $(this).attr("name").split("_");
+    		var idx = parseInt(nameBuf[1]);
+
+    		var value = $(this).val();
+
+    		var beforeValue = grid2List[idx].authChk
+
+    		if(value!=beforeValue){
+    			//grid2List[index].authChk = value;
+
+    			if(value == "VIP" || value == "SUPER"){
+    				isSmsConfirm = true;
+    				return false;
+        		}else{
+        			isSmsConfirm = false;
+        		}
+    		}
+
+    	});
+
+    	if(isSmsConfirm){
+    		fnObj.doConfirmSms();
+    	}else{
+    		fnObj.doSaveAuth();
+    	}
+    },
+    doConfirmSms:function(){
+    	alert("VIP/Super권한이 설정되어\nSMS 본인(권한설정자)인증 후 설정 내용이 저장 됩니다.");
+    	$("#authConfirmNo").val("");
+    	myModal.openDiv({
+    		modalID: "my-modal-div",
+    		targetID: "smsModal",
+    		width:470,
+    		closeByEscKey:true
+    	});
+    	$(".popHeader").hide();
+    	$("#my-modal-div_close").hide();
+    	$('#my-modal-div').draggable();
+
+    },
+    doSaveAuth:function(){
+
+    	var grid2List = myGrid2.getList();
+
+    	var sendMsgYn = "N";
+    	var comment = "";
+    	$("select[name*='authChk_']").each(function(){
+    		var nameBuf = $(this).attr("name").split("_");
+    		var idx = parseInt(nameBuf[1]);
+
+    		var value = $(this).val();
+
+    		var beforeValue = grid2List[idx].authChk
+
+    		if(value!=beforeValue){
+
+    			grid2List[idx].authChk = value;
+
+    			//슈퍼메니저로 권한 변경이됬을경우 (같은권한이면 skip) 나중에하자
+    			if(isSmsConfirm&&(value == "VIP" || value == "SUPER")){
+
+    				sendMsgYn = "Y";
+
+    				if(comment!="") comment += ",";
+    				comment += grid2List[idx].cpnNm+"|"+value;
+    			}
+    		}
+    	});
+
+    	var url = contextRoot + "/system/setOrgAuthCompany.do";
+    	var param = {
+    					list: JSON.stringify(grid2List),
+    					selectUserId: selectUserId,
+    					selectUserRankNm:selectUserRankNm,
+    					selectUserName:selectUserName,
+    					selectOrgId : selectOrgId,
+    					selectOrgName : selectOrgName,
+    					comment		: comment,
+    					sendMsgYn	: sendMsgYn
+		    		};
+
+
+    	var callback = function(result){
+
+    		var obj = JSON.parse(result);
+
+    		if(obj.result == "SUCCESS"){
+    			alert("정상 저장되었습니다.");
+    			parent.myOrgModal.close();
+    			parent.fnObj.doSearch();
+    		}else{
+    			alert("저장하는 도중 오류가 발생하였습니다.");
+    			return;
+    		}
+
+    	};
+
+    	commonAjax("POST", url, param, callback);
+    },
+    doClose : function(){
+    	parent.myOrgModal.close();
+    },
+    sendAuthSms : function(){
+    	var url = contextRoot + "/system/sendAuthSms.do";
+    	var param = {};
+    	var callback = function(result){
+    		var obj = JSON.parse(result);
+
+    		if(obj.result == "SUCCESS"){
+    			alert("인증번호가 SMS로 발송되었습니다.");
+    			isSendSms = true;
+    			isAuthConfirmNoChk = false;
+    			$("#authConfirmNo").val("");
+    			$("#authConfirmNo").focus();
+    		}else{
+    			alert("SMS전송하는 도중 오류가 발생하였습니다.");
+    			isAuthConfirmNoChk = false;
+    			isSendSms = false;
+    		}
+    	}
+    	commonAjax("POST", url, param, callback);
+    },
+    doSaveSpecialAuth : function(){
+    	if(!isSendSms){
+    		alert("인증번호 요청 버튼을 눌러주시기 바랍니다.");
+    		return;
+    	}
+
+    	if(!isAuthConfirmNoChk){
+    		alert("인증번호를 입력하고 본인확인을 해주시기 바랍니다.");
+    		return;
+    	}
+    	fnObj.doSaveAuth();
+    },
+    chkAuthSms : function(){
+    	if(!isSendSms){
+    		alert("인증번호 요청 버튼을 눌러주시기 바랍니다.");
+    		return;
+    	}
+    	var authConfirmNo = $("#authConfirmNo").val();
+    	if(authConfirmNo.trim()==""){
+    		alert("인증번호를 입력해 주세요.");
+    		$("#authConfirmNo").focus();
+    		return;
+    	}
+
+    	var url = contextRoot + "/system/chkAuthSms.do";
+    	var param = {authConfirmNo:$("#authConfirmNo").val()};
+    	var callback = function(result){
+    		var obj = JSON.parse(result);
+    		if(obj.resultObject.result == "SUCCESS"){
+    			alert("본인 확인 완료 되었습니다.");
+    			isAuthConfirmNoChk = true;
+    		}else{
+    			alert(obj.resultObject.msg);
+    			if(obj.resultObject.result == "INCONSISTENCY"){
+    				fnObj.sendAuthSms();
+    			}
+    		}
+
+    	}
+    	commonAjax("POST", url, param, callback);
+    }
+  	//################# else function :E #################
+
+
+
+};//end fnObj.
+
+
+/*
+ * 화면로딩완료후, 자바스크립트 화면세팅 과 그외동작들 호출.
+ */
+$(function(){
+	fnObj.preloadCode();	//공통코드 or 각종선로딩코드
+	fnObj.pageStart();		//화면세팅
+	fnObj.doSearchCom();		//검색
+	fnObj.doSetAuthList();
+});
+</script>

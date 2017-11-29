@@ -1,0 +1,356 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+
+<!-- 프로젝트별Top -->
+<div class="pro_statsBox">
+	<h4 class="box_title">
+		<span id="spanProjectName"></span>
+		<c:if test="${projectActivityStatus.projectFlag eq 'N' }">
+			<span class="icon_secret mgl6"><em>비공개</em></span>
+		</c:if>
+		<a href="javascript:openProjectStatus('0');"  class="btn_s_type3 mgl15"><em class="icon_info">프로젝트 정보</em></a>
+		<span class="rightselZone">
+			<!-- 직원 -->
+			<select class="sel_basic" title="직원 선택" id="searchUserId" name="searchUserId" onchange="changeTargetUsrId();">
+				<option value="0" ${searchUserId eq '0' ? 'selected':'' }>직원 : 전체</option>
+				<c:forEach var="result" items="${projectUserList}" varStatus="status">
+					<option value="${result.userId}" ${searchUserId eq result.userId ? 'selected':'' }>${result.name}</option>
+				</c:forEach>
+			</select>
+			<!-- 액티비티 -->
+			<select class="sel_basic" title="액티비티 선택" id="searchActivityId" name="searchActivityId" onchange="changeTargetActivityId();">
+				<option value="" ${searchUserId eq '' ? 'selected':'' }>액티비티 : 전체</option>
+				<c:forEach var="result" items="${activityList}" varStatus="status">
+					<option value="${result.activityId}" ${searchActivityId eq result.activityId ? 'selected':'' }>${result.name}</option>
+				</c:forEach>
+			</select>
+		</span>
+	</h4>
+	<div class="pro_tbWrap">
+		<ul class="pro_layoutList case02">
+			<li class="w01">
+				<table class="pro_stats_tb tline bline" summary="액티비티 전체 (예정, 진행, 사용안함, 마감, 계)">
+					<caption>액티비티 전체</caption>
+					<thead>
+						<tr>
+							<th scope="col" rowspan="2">진행상태/구분</th>
+							<th scope="col" colspan="2">액티비티 전체</th>
+						</tr>
+						<tr>
+							<th colspan="2">${projectActivityStatus.totalCnt }</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<th scope="row" name="expectStatus_" id="expectStatus_">예정</th>
+							<td>${projectActivityStatus.expectCnt }</td>
+							<td  name="expectRate_">${projectActivityStatus.expectRate }<em>%</em></td>
+						</tr>
+						<tr>
+							<th scope="row" name="progressStatus_" id="progressStatus_">진행</th>
+							<td>${projectActivityStatus.progressCnt }</td>
+							<td name="progressRate_">${projectActivityStatus.progressRate }<em>%</em></td>
+						</tr>
+						<tr>
+							<th scope="row" name="disableStatus_" id="disableStatus_">사용안함</th>
+							<td>${projectActivityStatus.disableCnt }</td>
+							<td name="disableRate_">${projectActivityStatus.disableRate }<em>%</em></td>
+						</tr>
+						<tr>
+							<th scope="row" name="closedStatus_" id="closedStatus_">마감</th>
+							<td>${projectActivityStatus.closedCnt }</td>
+							<td name="closedRate_">${projectActivityStatus.closedRate }<em>%</em></td>
+						</tr>
+					</tbody>
+					<tfoot>
+						<tr>
+							<th scope="row">계</th>
+							<td id="totalActCnt_">${projectActivityStatus.totalCnt }</td>
+							<td>${projectActivityStatus.totalCnt eq 0?'0':'100' }<em>%</em></td>
+						</tr>
+					</tfoot>
+				</table>
+			</li>
+			<li class="w03" style="width:65%">
+				<table class="pro_stats_tb tline bline" summary="상시프로젝트(팀업무, 개인업무, 업무전체)">
+					<caption>액티비티 전체</caption>
+					<thead>
+						<tr name="hdTeamPrivateWork_">
+							<th scope="col" rowspan="2">진행상태/구분</th>
+							<th scope="col" colspan="2">팀업무</th>
+							<th scope="col" colspan="2">개인업무</th>
+							<th scope="col" colspan="2">업무전체</th>
+						</tr>
+					</thead>
+					<tbody>
+					<c:choose>
+						<c:when test="${not empty projectTeamPrivateWorkList }">
+						    <c:set var="sumWorkTeamCnt" value="0"/>
+		                    <c:set var="sumWorkPrivateCnt" value="0"/>
+		                    <c:set var="sumTotalCnt" value="0"/>
+							<c:forEach var="item" items="${projectTeamPrivateWorkList}" varStatus="i">
+							    <c:set var="sumWorkTeamCnt"  value="${item.workTeamCnt + sumWorkTeamCnt}"></c:set>
+		                        <c:set var="sumWorkPrivateCnt"  value="${item.workPrivateCnt + sumWorkPrivateCnt}"></c:set>
+		                        <c:set var="sumTotalCnt"  value="${item.totalCnt + sumTotalCnt}"></c:set>
+
+								<tr name="teamPrivateWork_${i.index }">
+									<th scope="row" name="statusNm_">${item.progressTxt }</th>
+									<td>
+										${item.workTeamCnt }
+										<input type="hidden" name = "workTeamCnt_${i.index }" value="${item.workTeamCnt }">
+									</td>
+									<td name="workTeamRate_${i.index }">
+										<input type="hidden" name = "workTeamRate_${i.index }" value="${item.workTeamCnt }">
+									</td>
+									<td>
+										${item.workPrivateCnt }
+										<input type="hidden" name = "workPrivateCnt_${i.index }" value="${item.workPrivateCnt }">
+									</td>
+									<td name="workPrivateRate_${i.index }">
+										<input type="hidden" name = "workPrivateRate_${i.index }" value="${item.workPrivateCnt }">
+									</td>
+									<td>
+										${item.totalCnt }
+										<input type="hidden" name = "totalCnt_${i.index }" value="${item.totalCnt }">
+									</td>
+									<td name="totalRate_${i.index }">
+										<input type="hidden" name = "totalRate_${i.index }" value="${item.totalCnt }">
+									</td>
+								</tr>
+							</c:forEach>
+							<tfoot>
+                                <tr>
+                                    <th scope="row">계</th>
+                                    <td>${sumWorkTeamCnt }</td>
+                                    <td>100%</td>
+                                    <td>${sumWorkPrivateCnt }</td>
+                                    <td>100%</td>
+                                    <td>${sumTotalCnt }</td>
+                                    <td>100%</td>
+                                </tr>
+                            </tfoot>
+						</c:when>
+						<c:otherwise>
+							<tr>
+								<td colspan="7" align="center" style="height:125px; border-left:#c3cad5 solid 1px; border-bottom:#c3cad5 solid 1px;">조회된 데이터가 없습니다.</td>
+							</tr>
+						</c:otherwise>
+					</c:choose>
+					</tbody>
+				</table>
+			</li>
+		</ul>
+	</div>
+</div>
+<!--//프로젝트별Top//-->
+
+<div class="pro_stats_graWrap">
+	<ul class="pro_layoutList p0sn3">
+		<li>
+			<div class="pro_grabox">
+				<h5 class="gra_title">[액티비티 진행상태]</h5>
+				<div id="projectActivityPieChart" class="real_graph" style="width:380px; height:300px; "></div>
+			</div>
+		</li>
+		<li class="vline">
+			<div class="pro_grabox">
+				<h5 class="gra_title">[업무전체 진행상태]</h5>
+				<div id="projectWorkTotalPieChart" class="real_graph" style="width:380px; height:300px; "></div>
+			</div>
+		</li>
+		<li class="vline">
+			<div class="pro_grabox">
+				<h5 class="gra_title">[팀업무/개인업무비율]</h5>
+				<div id="projectTeamPrivatePieChart" class="real_graph" style="width:380px; height:300px; "></div>
+			</div>
+		</li>
+	</ul>
+	<ul class="pro_layoutList p0sn3 add_tline">
+		<li>
+			<div class="pro_grabox">
+				<h5 class="gra_title">[팀업무 진행상태]</h5>
+				<div id="projectTeamTotalPieChart" class="real_graph" style="width:380px; height:300px; "></div>
+			</div>
+		</li>
+		<li class="vline">
+			<div class="pro_grabox">
+				<h5 class="gra_title">[개인업무 진행상태]</h5>
+				<div id="projectPrivateTotalPieChart" class="real_graph" style="width:380px; height:300px; "></div>
+			</div>
+		</li>
+		<li class="vline"></li>
+	</ul>
+</div>
+<!--프로젝트별 참여도-->
+<ul class="pro_layoutList sn3 mgt30">
+    <li>
+        <div class="pro_statsBox">
+            <h4 class="box_title center">전체업무 참여도</h4>
+            <table class="pro_stats_tb2" summary="직원별 액티비티(프로젝트) 참여도 (담당자, 참여건, 참여도)">
+                <caption>전체업무 참여도</caption>
+                <colgroup>
+                    <col width="80" />
+                    <col width="70" />
+                    <col width="*" />
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th scope="col">담당자</th>
+                        <th scope="col">참여건</th>
+                        <th scope="col">참여도</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <c:set var="sumWorkTeamCnt" value="0"/>
+                    <c:set var="sumWorkPrivateCnt" value="0"/>
+                    <c:set var="sumTotalCnt" value="0"/>
+                    <c:forEach var="data" items="${projectWorkList}" varStatus="i">
+                        <c:set var="sumWorkTeamCnt"  value="${data.workTeamCnt + sumWorkTeamCnt}"></c:set>
+                        <c:set var="sumWorkPrivateCnt"  value="${data.workPrivateCnt + sumWorkPrivateCnt}"></c:set>
+                        <c:set var="sumTotalCnt"  value="${data.totalCnt + sumTotalCnt}"></c:set>
+                    </c:forEach>
+                    <c:forEach var="data" items="${projectWorkList}" varStatus="i">
+	                    <fmt:parseNumber var="sumTotalCnt" value="${sumTotalCnt}" pattern="#.##"/>
+	                    <fmt:parseNumber var="totalCnt" value="${data.totalCnt}" pattern="#.##"/>
+	                    <c:choose>
+	                        <c:when test="${sumTotalCnt> 0}"><fmt:formatNumber var="totalRate"  pattern="#.#"  value="${(totalCnt/sumTotalCnt)*100}"/></c:when>
+	                        <c:otherwise><fmt:formatNumber var="totalRate" value="0"/></c:otherwise>
+	                    </c:choose>
+                    <tr>
+                        <th scope="row">${data.userName }</th>
+                        <td>${data.totalCnt }</td>
+                        <td>
+                            <div class="partiGage">
+                                <div class="bg_bar"><span class="gage_bar"  style="width:${totalRate}%;"></span></div>
+                                <span class="perNum">${totalRate}%
+                            </div>
+                        </td>
+                    </tr>
+                    </c:forEach>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>계</th>
+                        <td>${sumTotalCnt }</td>
+                        <td>
+                            <div class="partiGage">
+                                <div class="bg_bar"><span class="gage_bar" style="width:100%;"></span></div>
+                                <span class="perNum">100%</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </li>
+    <li>
+        <div class="pro_statsBox">
+            <h4 class="box_title center">직원별 팀업무 참여도</h4>
+            <table class="pro_stats_tb2" summary="직원별 팀업무 참여도 (담당자, 참여건, 참여도)">
+                <caption>직원별 팀업무 참여도</caption>
+                <colgroup>
+                    <col width="80" />
+                    <col width="70" />
+                    <col width="*" />
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th scope="col">담당자</th>
+                        <th scope="col">참여건</th>
+                        <th scope="col">참여도</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <c:forEach var="data" items="${projectWorkList}" varStatus="i">
+                        <fmt:parseNumber var="sumWorkTeamCnt" value="${sumWorkTeamCnt}" pattern="#.##"/>
+                        <fmt:parseNumber var="workTeamCnt" value="${data.workTeamCnt}" pattern="#.##"/>
+                        <c:choose>
+                            <c:when test="${sumWorkTeamCnt> 0}"><fmt:formatNumber var="workTeamRate"  pattern="#.#"  value="${(workTeamCnt/sumWorkTeamCnt)*100}"/></c:when>
+                            <c:otherwise><fmt:formatNumber var="workTeamRate" value="0"/></c:otherwise>
+                        </c:choose>
+                    <tr>
+                        <th scope="row">${data.userName }</th>
+                        <td>${data.workTeamCnt }</td>
+                        <td>
+                            <div class="partiGage">
+                                <div class="bg_bar"><span class="gage_bar" style="width:${workTeamRate}%;"></span></div>
+                                <span class="perNum">${workTeamRate}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    </c:forEach>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>계</th>
+                        <td>${sumWorkTeamCnt }</td>
+                        <td>
+                            <div class="partiGage">
+                                <div class="bg_bar"><span class="gage_bar" style="width:100%;"></span></div>
+                                <span class="perNum">100%</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </li>
+    <li>
+        <div class="pro_statsBox">
+            <h4 class="box_title center">직원별 개인업무 참여도</h4>
+            <table class="pro_stats_tb2" summary="직원별 개인업무 참여도 (담당자, 참여건, 참여도)">
+                <caption>직원별 개인업무 참여도</caption>
+                <colgroup>
+                    <col width="80" />
+                    <col width="70" />
+                    <col width="*" />
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th scope="col">담당자</th>
+                        <th scope="col">참여건</th>
+                        <th scope="col">참여도</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <c:forEach var="data" items="${projectWorkList}" varStatus="i">
+                        <fmt:parseNumber var="sumWorkPrivateCnt" value="${sumWorkPrivateCnt}" pattern="#.##"/>
+                        <fmt:parseNumber var="workPrivateCnt" value="${data.workPrivateCnt}" pattern="#.##"/>
+                        <c:choose>
+                            <c:when test="${sumWorkPrivateCnt> 0}"><fmt:formatNumber var="workPrivateRate"  pattern="#.#"  value="${(workPrivateCnt/sumWorkPrivateCnt)*100}"/></c:when>
+                            <c:otherwise><fmt:formatNumber var="workPrivateRate" value="0"/></c:otherwise>
+                        </c:choose>
+                    <tr>
+                        <th scope="row">${data.userName }</th>
+                        <td>${data.workPrivateCnt }</td>
+                        <td>
+                            <div class="partiGage">
+                                <div class="bg_bar"><span class="gage_bar" style="width:${workPrivateRate }%;"></span></div>
+                                <span class="perNum">${workPrivateRate }%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    </c:forEach>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>계</th>
+                        <td>${sumWorkPrivateCnt }</td>
+                        <td>
+                            <div class="partiGage">
+                                <div class="bg_bar"><span class="gage_bar" style="width:100%;"></span></div>
+                                <span class="perNum">100%</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </li>
+</ul>
+<!--//프로젝트별 참여도//-->
+

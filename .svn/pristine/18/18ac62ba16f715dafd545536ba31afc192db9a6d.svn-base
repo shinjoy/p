@@ -1,0 +1,698 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="common">
+
+	<!--
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="carVO" type="ib.car.service.CarVO"/>
+	 -->
+
+	<!-- 공통코드 (base.BS_CODE_GV) -->
+	<select id="common.selectBaseCommonCode" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+		SELECT CODE_VALUE		as #code#
+
+			<isEqual property="lang" compareValue="ENG">
+			  ,VALUE_MEAN_ENG	as #name#
+			</isEqual>
+			<isNotEqual property="lang" compareValue="ENG">
+			  ,VALUE_MEAN_KOR	as #name#
+			</isNotEqual>
+
+			  ,VALUE_MEAN_ENG	as nameEng
+
+			  ,CODE_NAME		as codeName
+			  ,CODE_TYPE		as codeType
+			  ,SET_MEAN_KOR		as setMeanKor
+			  ,SET_MEAN_ENG		as setMeanEng
+			  ,CODE_DESC		as codeDesc
+			  ,CODE_VALUE		as codeValue
+			  ,VALUE_MEAN_KOR	as valueMeanKor
+			  ,VALUE_MEAN_ENG	as valueMeanEng
+			  ,SORT				as sort
+			  ,VALUE_DESC		as valueDesc
+
+			  ,PARENT_CODE_NAME	as parentCodeName		/* 중분류 부모 이름 */
+			  ,SON_CODE_NAME	as sonCodeName			/* 소분류 이름 */
+
+		 FROM BS_CODE_GV	A
+		WHERE  DELETE_FLAG = 'N'
+		<isNotEmpty prepend="AND" property="orgId">
+			ORG_ID = #orgId#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="codeSetNm">
+			CODE_NAME = #codeSetNm#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="parentCodeSetNm">
+			PARENT_CODE_NAME = #parentCodeSetNm#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="roleId">
+			NOT EXISTS(
+		  				SELECT 1
+		  				  FROM BS_ROLE_CODE_LIST
+		  				 WHERE CODE_SET_NAME = A.CODE_NAME
+		  				   AND VALUE = A.CODE_VALUE
+		  				   AND ROLE_ID = #roleId#)
+		</isNotEmpty>
+
+		ORDER BY
+		<isEqual property="sSortOrder" compareValue="Y">
+			S_SORT ASC,
+		</isEqual>
+		SORT ASC, A.VALUE_ID ASC
+		/* common.selectBaseCommonCode */
+	</select>
+
+
+	<!-- 공통코드 -->
+	<select id="common.selectCommonCode" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				  DTAIL_CD			as #code#
+				, CD_NM				as #name#
+				, S_NB				as sNb
+				, MENU_CD 			as menuCd
+				, DTAIL_CD 			as dtailCd
+				, CD_NM 			as cdNm
+				, CD_DC 			as cdDc
+				, USE_AT 			as useAt
+				, CD_SORT 			as cdSort
+
+			FROM IB_COMMON_CODE
+			WHERE 1=1
+			  AND USE_AT IS NULL
+			<isNotEmpty prepend="AND" property="menuCd">
+				<![CDATA[	MENU_CD = #menuCd# 		]]>
+			</isNotEmpty>
+			ORDER BY CD_SORT2 , DTAIL_CD ASC
+
+		/* common.selectCommonCode */
+	</select>
+
+
+	<!-- 사원리스트 -->
+	<select id="common.selectStaffList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.USER_ID		AS staffSnb
+			  ,A.NAME			AS usrNm
+		      ,A.LOGIN_ID		AS usrId
+		      ,A.CUS_ID			AS cusId
+		      ,A.EMP_NO			AS sabun
+		      ,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK AND ORG_ID = A.ORG_ID)		AS position
+		      ,A.ORG_ID			AS division
+		      ,(SELECT CPN_NM FROM IB_COMPANY WHERE ORG.COMPANY_SNB = S_NB) AS divisionNm
+
+		      ,C.DEPT_ID		AS deptSeq
+		      ,C.KOR_NAME		AS deptNm
+
+		FROM BS_USER_MASTER				A
+		LEFT JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID
+		LEFT JOIN BS_DEPARTMENT			C	ON B.DEPT_ID = C.DEPT_ID
+		LEFT JOIN BS_ORG				ORG ON A.ORG_ID  = ORG.ORG_ID
+
+		WHERE 1=1
+		  AND A.DELETE_FLAG = 'N'
+		  AND A.USER_STATUS IN ('W','H','L')
+		<isEqual property="searchType" compareValue="All">
+		  AND A.ORG_ID IN
+		        (SELECT    DISTINCT A.ORG_ID
+		          FROM    BS_RELATION_COMPANY_ACCESS_AUTH A
+		                     ,BS_ORG                          B
+		                     ,IB_COMPANY                      C
+		          WHERE  A.USER_ID = #userId#
+		          AND     A.ORG_ID = B.ORG_ID
+		          AND     NOW() BETWEEN B.START_DT AND DATE_ADD(DATE_SUB(DATE(B.END_DT), INTERVAL 1 SECOND), INTERVAL 1 DAY)
+		          AND     B.COMPANY_SNB = C.S_NB)
+		</isEqual>
+        <isNotEqual property="searchType" compareValue="All">
+			<isNotEmpty prepend="AND" property="applyOrgId">
+				A.ORG_ID = #applyOrgId#
+			</isNotEmpty>
+		</isNotEqual>
+		<isNotEmpty prepend="AND" property="mainYn"><!--  메인 팀에따른 유저검색 -->
+			B.main_yn ='Y'
+		</isNotEmpty>
+
+		<isEqual property="nameOrder" compareValue="Y">
+		  ORDER BY A.ORG_ID ASC, A.NAME ASC
+		</isEqual>
+		<isNotEqual property="nameOrder" compareValue="Y">
+		  ORDER BY C.ORG_ID ASC, C.LEVEL_SEQ ASC, C.DEPT_SEQ ASC, A.NAME ASC
+		</isNotEqual>
+
+		/* common.selectStaffList */
+	</select>
+
+	<!-- 사원리스트 -->
+    <select id="common.selectUserNameList" parameterClass="HashMap" resultClass="HashMap">
+        SELECT
+                 A.USER_ID      AS userId
+                ,A.NAME         AS userName
+        FROM BS_USER_MASTER             A
+        WHERE 1=1
+
+        <isNotEmpty prepend="AND" property="userId">            <!--  userId에따른 유저검색(snb) -->
+            A.USER_ID IN ($userId$)
+        </isNotEmpty>
+        <isEmpty prepend="AND" property="userId">            <!--  userId에따른 유저검색(snb) -->
+            1=2
+        </isEmpty>
+        ORDER BY A.NAME ASC
+        /* common.selectUserNameList */
+    </select>
+
+	<!-- 사원리스트(이름정렬) -->
+	<select id="common.selectStaffListNameSort" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				 A.USER_ID		AS staffSnb
+			  	,A.NAME			AS usrNm
+		      	,A.LOGIN_ID		AS usrId
+		      	,A.MOBILE_TEL	AS phone
+		      	,A.CUS_ID		AS cusId
+		      	,A.EMP_NO		AS sabun
+		      	,SUBSTRING_INDEX(A.EMP_NO, '_', -1)		AS showEmpNo
+		      	,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK AND ORG_ID = A.ORG_ID)		AS position
+		      	,A.ORG_ID		AS division
+
+		     	,C.DEPT_ID		AS deptSeq
+		     	,C.KOR_NAME		AS deptNm
+				,C.DEPT_LEVEL 	AS deptLevel
+		     	,C.DEPT_ID		AS deptId
+		     	,A.USER_ID		AS userId
+		      	,A.NAME			AS userName
+		      	,A.NAME			AS userNm
+		      	,A.MOBILE_TEL   AS mobileTel
+		      	,A.EMP_NO		AS empNo
+		      	,A.ORG_ID		AS orgId
+
+		      	,A.RANK			AS rank
+		      	,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK AND ORG_ID = A.ORG_ID)		AS rankNm
+		      	,(SELECT CPN_NM FROM IB_COMPANY IC, BS_ORG IO WHERE IC.S_NB = IO.COMPANY_SNB AND IO.ORG_ID = A.ORG_ID)	AS orgNm
+
+				,IF(
+			  		E.USER_ID = A.USER_ID
+			  		 ,'Y','N'
+			   	 ) AS deptManagerYn
+		FROM BS_USER_MASTER				A
+		LEFT JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID
+		LEFT JOIN BS_DEPARTMENT			C	ON B.DEPT_ID = C.DEPT_ID
+		LEFT JOIN BS_USER_PROFILE		D	ON D.USER_ID = A.USER_ID
+		LEFT JOIN BS_DEPT_MANAGER		E	ON E.DEPT_ID = B.DEPT_ID AND B.MAIN_YN = 'Y'
+
+		WHERE 1=1
+		<isEqual property="hideSynergyUserYn" compareValue="Y">     <!-- 관계사 시너지 유저 목록 활성화여부 -->
+            AND A.CUS_ID != 1133368
+        </isEqual>
+
+		<isEmpty property="userStatus"> 						<!-- 빈값 재직자 -->
+			AND A.DELETE_FLAG = 'N'
+		  	AND A.USER_STATUS IN ('W','H','L')
+			AND C.DEPT_ID IS NOT NULL
+			AND C.ENABLE = 'Y' AND C.DELETE_FLAG = 'N'
+		</isEmpty>
+
+		<isNotEmpty property="userStatus"> 						<!-- 값이있음 퇴직자 -->
+			AND (A.DELETE_FLAG = 'Y' OR
+		  	 	 A.USER_STATUS IN ('F','R'))
+
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="orgId"> 			<!-- orgId으로 검색 -->
+
+		    <isEqual property="hasDeptTopLevel" compareValue="Y">
+                 (A.ORG_ID = #orgId#  OR C.DEPT_LEVEL = 'L00')
+             </isEqual>
+             <isNotEqual property="hasDeptTopLevel" compareValue="Y">
+                 A.ORG_ID = #orgId#
+             </isNotEqual>
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="applyOrgId"> 		<!-- applyOrgId으로 검색 -->
+
+		    (
+		    <isEqual property="hasDeptTopLevel" compareValue="Y">
+                 A.ORG_ID = #applyOrgId#  OR C.DEPT_LEVEL = 'L00'
+             </isEqual>
+             <isNotEqual property="hasDeptTopLevel" compareValue="Y">
+                 A.ORG_ID = #applyOrgId#
+             </isNotEqual>
+
+             <isEqual property="isAppoveLineAdd" compareValue="Y">
+
+		     	OR EXISTS (
+
+		     		 	SELECT 1
+		     		 	FROM BS_APPROVE_OPENER 	AS AP
+
+		     		 	WHERE AP.USER_ID = A.USER_ID AND OPEN_ORG_ID = #applyOrgId#
+
+		     		 )
+
+
+		 	 </isEqual>
+
+		 	 )
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="sabun">				<!--  사번에따른 유저검색 -->
+			A.EMP_NO IN (#sabun#)
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="userId">			<!--  userId에따른 유저검색(snb) -->
+			A.USER_ID IN ($userId$)
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="mainYn">			<!--  메인 팀에따른 유저검색 -->
+			B.main_yn ='Y'
+		</isNotEmpty>
+
+		<isEqual property="searchType" compareValue="CAR"> 		<!-- user_profile 차량 관리여부-->
+		  	AND D.CAR_WORK_YN='Y'
+		</isEqual>
+
+		<isEqual property="searchType" compareValue="MANAGER"> 	<!-- 부서장조건 -->
+		  	AND E.USER_ID = A.USER_ID
+		</isEqual>
+
+		<isEqual property="searchType" compareValue="SEL_USER"> <!-- 직접선택 -->
+		  	AND 1 = 2
+		</isEqual>
+
+		<isNotEqual property="deptOrder" compareValue="Y">
+			<isEqual property="isAppoveLineAdd" compareValue="Y">
+				ORDER BY (
+					IF(A.ORG_ID = #applyOrgId# ,1
+					,(
+						CASE WHEN C.DEPT_LEVEL = 'L00' 	  THEN 1
+						 	 WHEN C.ORG_ID = #applyOrgId# THEN 2
+						ELSE 3 END
+					))
+				) ASC, A.NAME ASC
+			</isEqual>
+			<isNotEqual property="isAppoveLineAdd" compareValue="Y">
+				ORDER BY A.NAME ASC
+			</isNotEqual>
+
+		</isNotEqual>
+		<isEqual property="deptOrder" compareValue="Y">
+		   ORDER BY C.DEPT_LEVEL ASC, C.ORG_ID ASC, C.LEVEL_SEQ ASC, C.DEPT_SEQ ASC
+		  ,(SELECT SORT FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK AND ORG_ID = A.ORG_ID) ASC
+		  ,A.NAME ASC
+		</isEqual>
+
+
+		<isNotEmpty prepend="" property="limit">				<!-- 페이징이 필요할 경우 -->
+			LIMIT $offset$, $limit$
+		</isNotEmpty>
+
+		/* common.selectStaffListNameSort */
+	</select>
+
+
+	<!-- 사원리스트(부서별 사원 트리) -->
+	<select id="common.selectUserList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.USER_ID				AS userId
+			  ,A.NAME					AS userName
+			  ,A.NAME					AS usrNm
+		      ,A.LOGIN_ID				AS loginId
+		      ,A.CUS_ID					AS cusId
+		      ,A.EMP_NO					AS empNo
+		      ,SUBSTRING_INDEX(A.EMP_NO, '_', -1)       AS showEmpNo
+		      ,E.VALUE_MEAN_KOR			AS rankNm
+		      ,E.SORT					AS sort
+		      <!-- ,A.ORG_ID					AS orgId -->
+		      ,#applyOrgId#    AS orgId
+		      ,(SELECT CPN_NM FROM IB_COMPANY WHERE D.COMPANY_SNB = S_NB) AS orgNm
+
+		      ,C.DEPT_ID				AS deptId
+		      ,C.KOR_NAME				AS deptNm
+
+		      ,A.USER_ID				AS id
+		      ,A.NAME					AS text
+		      ,CONCAT('DEPT-', C.DEPT_ID)	AS parent
+		      ,'user'					AS type
+
+		      ,(SELECT SORT FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK AND ORG_ID = A.ORG_ID)		AS positionSort
+			  ,IF(
+			  		(SELECT COUNT(*)
+			  		 FROM BS_DEPT_MANAGER AS X
+			  		 WHERE X.DEPT_ID = B.DEPT_ID AND B.MAIN_YN = 'Y' AND X.USER_ID = A.USER_ID ) &gt; 0
+			  		 ,'Y','N'
+			   ) AS deptManagerYn
+
+		  FROM BS_USER_MASTER			A
+		  LEFT JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID
+		  LEFT JOIN BS_DEPARTMENT		C	ON B.DEPT_ID = C.DEPT_ID
+		  LEFT JOIN BS_ORG				D	ON A.ORG_ID  = D.ORG_ID
+		  LEFT JOIN BS_CODE_GV			E	ON E.CODE_VALUE = A.RANK AND E.CODE_NAME = 'RANK' AND E.ORG_ID = A.ORG_ID
+
+		 WHERE 1=1
+		 <isEqual property="hideSynergyUserYn" compareValue="Y">     <!-- 관계사 시너지 유저 목록 활성화여부 -->
+            AND A.CUS_ID != 1133368
+        </isEqual>
+
+        <isEmpty property="userStatusFire"> 						<!-- 빈값 재직자 -->
+			AND A.DELETE_FLAG = 'N'
+		  	AND A.USER_STATUS IN ('W','H','L')
+			AND C.DEPT_ID IS NOT NULL
+			AND C.ENABLE = 'Y' AND C.DELETE_FLAG = 'N'
+		</isEmpty>
+
+		<isNotEmpty property="userStatusFire"> 						<!-- 값이있음 퇴직자 -->
+			AND (A.DELETE_FLAG = 'Y' OR
+		  	 	 A.USER_STATUS IN ('F','R'))
+
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="applyOrgId">
+		    <isEqual property="hasDeptTopLevel" compareValue="Y">
+                 (A.ORG_ID = #applyOrgId#  OR C.DEPT_LEVEL = 'L00')
+             </isEqual>
+             <isNotEqual property="hasDeptTopLevel" compareValue="Y">
+                 A.ORG_ID = #applyOrgId#
+             </isNotEqual>
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="mainYn">		<!--  메인 팀에따른 유저검색 -->
+			B.MAIN_YN = #mainYn#
+		</isNotEmpty>
+
+		<isEqual property="authOrgId" compareValue="Y">		<!-- 검색조건 : authOrgId -->
+		 	AND A.ORG_ID IN (SELECT ORG_ID
+							   FROM BS_RELATION_COMPANY_ACCESS_AUTH
+							  WHERE USER_ID = #userId#)
+		</isEqual>
+
+		<isEqual property="nameOrder" compareValue="Y">
+			ORDER BY D.ORG_ID ASC, A.NAME ASC
+		</isEqual>
+		<isNotEqual property="nameOrder" compareValue="Y">
+		    ORDER BY C.ORG_ID ASC, C.LEVEL_SEQ ASC, C.DEPT_SEQ ASC, positionSort, A.NAME ASC
+		</isNotEqual>
+
+		/* common.selectUserList */
+	</select>
+
+
+	<!-- division List -->
+	<select id="common.getSelectDivisionList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.ORG_ID 		AS divId
+		 	  ,A.ORG_ID 		AS divCode
+			  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY_SNB)	AS divName
+			  ,A.ORG_ID			AS sort
+			  ,'Y'				AS enable
+
+			  ,A.ORG_ID 		AS code
+			  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY_SNB)	AS name
+
+			  ,CREATED_BY		AS createdBy
+			  ,CREATE_DATE 		AS createDate
+			  ,UPDATED_BY		AS updatedBy
+			  ,UPDATE_DATE 		AS updateDate
+
+		  FROM BS_ORG									A
+		  LEFT JOIN BS_RELATION_COMPANY_ACCESS_AUTH		B	ON A.ORG_ID = B.ORG_ID
+		 WHERE 1=1
+
+		 <isNotEmpty prepend="AND" property="userId" >
+		 	USER_ID = #userId#
+		 </isNotEmpty>
+		 <isNotEmpty prepend="AND" property="orgId" >
+		 	A.ORG_ID = #orgId#
+		 </isNotEmpty>
+
+		 ORDER BY A.ORG_ID ASC
+
+		/* common.getSelectDivisionList */
+	</select>
+
+
+	<!-- 부서 List -->
+	<select id="common.selectDeptList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+		  		 DEPT.DEPT_ID 					AS code
+         		,DEPT.KOR_NAME 					AS name
+         		,DEPT.DEPT_ID 					AS deptSeq
+         		,DEPT.KOR_NAME 					AS deptNm
+         		,MANAGER.USER_ID				AS manager
+         		,MANAGER.USER_ID				AS teamLeaderSabun
+         		,CONCAT(DEPT.DEPT_LEVEL, '_' , DEPT.DEPT_SEQ)			AS deptOrder
+         		,DEPT.LEVEL_SEQ 				AS levelSeq
+         		,DEPT.PARENT_DEPT_ID 			AS parentDeptId
+		 		<!-- ,DEPT.ORG_ID 					AS orgId -->
+		 		, #applyOrgId#                  AS orgId
+		 		,IF(DEPT.DEPT_LEVEL = 'L00', #applyOrgId#,DEPT.ORG_ID) 	AS teamOrgId
+		 		,DEPT.SORT 						AS sort
+		 		,DEPT.DEPT_ID 					AS deptId
+		 		,(SELECT COUNT(1) FROM BS_USER_DEPARTMENT WHERE DEPT_ID = DEPT.DEPT_ID AND MAIN_YN = 'Y') AS userCount
+				,(SELECT CPN_NM FROM IB_COMPANY WHERE ORG.COMPANY_SNB = S_NB) AS orgNm
+		 		,CONCAT('DEPT-', DEPT.DEPT_ID)		AS id
+		 		,DEPT.KOR_NAME					AS text
+		 		,(CASE WHEN DEPT.PARENT_DEPT_ID = 0 THEN '##' ELSE CONCAT('DEPT-', DEPT.PARENT_DEPT_ID) END)	AS parent
+		 		,'dept'							AS type
+
+		 FROM BS_DEPARTMENT					AS DEPT
+		 LEFT OUTER JOIN BS_DEPT_MANAGER	AS MANAGER ON DEPT.DEPT_ID	= MANAGER.DEPT_ID
+		 LEFT JOIN BS_ORG					AS ORG	ON DEPT.ORG_ID  = ORG.ORG_ID
+
+		 WHERE 1=1
+
+		 <isEmpty property="allDept">
+		   AND DEPT.ENABLE = 'Y'
+		   AND DEPT.DELETE_FLAG = 'N'
+		 </isEmpty>
+
+		 <isNotEmpty prepend="AND" property="deleteFlag" >		<!-- 삭제 조건여부 -->
+		 	DEPT.DELETE_FLAG = #deleteFlag#
+		 </isNotEmpty>
+
+		 <isNotEmpty property="enable" >			<!-- 사용여부 -->
+		     <isEqual property="enable" compareValue="Y">
+                AND  DEPT.ENABLE = 'Y'
+                AND DEPT.DELETE_FLAG ='N'
+             </isEqual>
+		 </isNotEmpty>
+
+		 <isNotEmpty prepend="AND"  property="applyOrgId" >		<!-- 검색조건 : applyOrgId, 부서레벨:회장(L00) 은 포함 -->
+		     <isEqual property="hasDeptTopLevel" compareValue="Y">
+		         (DEPT.ORG_ID = #applyOrgId#  OR DEPT.DEPT_LEVEL = 'L00')
+		     </isEqual>
+		     <isNotEqual property="hasDeptTopLevel" compareValue="Y">
+
+		     	 DEPT.ORG_ID = #applyOrgId#
+
+		     	 <isEqual property="isDeptSelect" compareValue="Y">
+		     	 	AND DEPT.DEPT_LEVEL != 'L00'
+		     	 </isEqual>
+
+		     </isNotEqual>
+
+		     <isEqual property="isAppoveLineAdd" compareValue="Y">
+
+		     	<isNotEqual property="isDeptSelect" compareValue="Y">
+
+			     	OR DEPT.ORG_ID IN(
+
+			     		 	SELECT DISTINCT(ORG_ID)
+			     		 	FROM BS_APPROVE_OPENER
+
+			     		 	WHERE OPEN_ORG_ID = #applyOrgId#
+			     		 )
+			     </isNotEqual>
+
+		 	 </isEqual>
+		 </isNotEmpty>
+
+
+
+		 <isEqual property="authOrgId" compareValue="Y">		<!-- 검색조건 : authOrgId -->
+		 	AND DEPT.ORG_ID IN (SELECT ORG_ID
+								  FROM BS_RELATION_COMPANY_ACCESS_AUTH
+							     WHERE USER_ID = #userId#)
+		 </isEqual>
+
+		 <isNotEmpty prepend="AND" property="deptId">         <!--  dept Id에따른 검색 -->
+            DEPT.DEPT_ID IN ($deptId$)
+         </isNotEmpty>
+
+         <isNotEmpty prepend="AND" property="userIdArrStr">         <!--  userId에따른 검색 -->
+            DEPT.DEPT_ID IN (SELECT X.DEPT_ID FROM BS_USER_DEPARTMENT AS X WHERE X.USER_ID IN ($userIdArrStr$) AND X.MAIN_YN = 'Y')
+         </isNotEmpty>
+
+		 <isNotEqual property="isAppoveLineAdd" compareValue="Y">
+			 ORDER BY DEPT.LEVEL_SEQ ASC,DEPT.DEPT_LEVEL ASC, DEPT.ORG_ID ASC,  DEPT.DEPT_SEQ ASC
+		 </isNotEqual>
+
+		 <isEqual property="isAppoveLineAdd" compareValue="Y">
+
+			ORDER BY DEPT.ORG_ID ASC,DEPT.LEVEL_SEQ ASC, DEPT.DEPT_LEVEL ASC,  DEPT.DEPT_SEQ ASC
+		 </isEqual>
+
+		/* common.selectDeptList */
+	</select>
+
+
+	<!-- 관계사 리스트 콤보용 -->
+	<select id="common.selectOrgCodeCombo" remapResults="true" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			   BO.ORG_ID 				AS #code#
+			  ,IBC.CPN_NM 				AS #name#
+
+			  ,BO.ORG_ID 				AS orgId
+			  ,IBC.CPN_NM 				AS orgNm
+
+			  ,BO.COMPANY_SNB 			AS companySnb
+			  ,BO.BUSINESS_GRP_SEQ 		AS businessGrpSeq
+			  ,(SELECT BUSINESS_GRP_NM FROM BS_BUSINESS_GROUP BBG WHERE BBG.BUSINESS_GRP_SEQ = BO.BUSINESS_GRP_SEQ) AS businessGrpNm
+			  ,IBC.CPN_ID 				AS cpnId
+			  ,IFNULL(
+			  			(SELECT X.ORG_ACCESS_AUTH_TYPE
+			      		   FROM BS_RELATION_COMPANY_ACCESS_AUTH X
+			     		  WHERE X.USER_ID =#userId# AND X.ORG_ID = BO.ORG_ID)
+			     	 ,'READ') AS orgAccessAuthType
+
+			  ,IFNULL(STAFF_DEPT_ID,0) AS staffDeptId
+			  ,IFNULL(STAFF_USER_ID,0) AS staffUserId
+
+		  FROM BS_ORG BO
+
+		  LEFT JOIN IB_COMPANY IBC ON IBC.S_NB = BO.COMPANY_SNB
+		  LEFT JOIN BS_CARD_INPUT_SETUP A ON BO.ORG_ID =  A.ORG_ID
+		 WHERE BO.ENABLE = 'Y'
+
+		 <isNotEmpty prepend="AND" property="applyOrgId" >		<!-- 검색조건 : applyOrgId -->
+		 	BO.ORG_ID = #applyOrgId#
+		 </isNotEmpty>
+
+		 <isEqual property="authOrgId" compareValue="Y">		<!-- 검색조건 : authOrgId -->
+		 	AND BO.ORG_ID IN (SELECT ORG_ID
+								FROM BS_RELATION_COMPANY_ACCESS_AUTH
+							   WHERE USER_ID = #userId#)
+		 </isEqual>
+		 <isEqual property="isCheckOrgUseYn" compareValue="Y">      <!-- 검색조건 : isCheckOrgUseYn -->
+            AND BO.USE_YN = 'Y'
+         </isEqual>
+
+		 <isEqual property="sortByOrgId" compareValue="Y">
+		 	ORDER BY BO.ORG_ID ASC
+		 </isEqual>
+		 <isNotEqual property="sortByOrgId" compareValue="Y">
+		 	ORDER BY (CASE WHEN BO.ORG_ID = 1 THEN 'A' ELSE REPLACE(IBC.CPN_NM,'(주)','') END) ASC
+		 </isNotEqual>
+
+		/* common.selectOrgCodeCombo */
+	</select>
+
+
+	<!-- 관계사에 따른 companyList  -->
+	<select id="common.getCompanyListCombo" remapResults="true" parameterClass="HashMap" resultClass="HashMap" >
+		SELECT
+				 S_NB 		 AS  #code#
+			  	,CPN_NM 	 AS  #name#
+
+			 	,S_NB		 AS	 sNb
+			 	,CPN_NM		 AS	 cpnNm
+			 	,REF_ORG_ID  AS	 refOrgId
+
+		FROM IB_COMPANY
+		WHERE 1=1
+
+		 <isNotEmpty prepend="AND" property="orgId" >		<!-- 검색조건 : orgId -->
+		 	REF_ORG_ID = #orgId#
+		 </isNotEmpty>
+
+		 <isEqual prepend="AND" property="excGrpRefOrgId" compareValue="Y">		<!-- 그룹핑을 위한 ORG 의 회사인 것은 제외 시키는지 여부 -->
+		 	GROUPING_ORG_YN = 'N'
+		 </isEqual>
+
+		 ORDER BY S_NB ASC
+
+		/* common.getCompanyListCombo */
+	</select>
+
+
+	<!-- 유저 그룹 목록  -->
+    <select id="common.getUserGroupList" parameterClass="HashMap" resultClass="HashMap">
+        SELECT
+                 X.USER_GROUP_ID                   	AS code
+                ,X.GROUP_NM                 	 	AS name
+                ,X.USER_GROUP_ID                   	AS deptSeq
+                ,X.GROUP_NM                  		AS deptNm
+                /* ,MANAGER.USER_ID                	AS manager */
+                /* ,MANAGER.USER_ID                	AS teamLeaderSabun */
+                ,X.GROUP_ORD                 		AS deptOrder
+                ,'1'                 				AS levelSeq
+                ,'0'            					AS parentDeptId
+                ,A.ORG_ID                    		AS orgId
+                ,NULL                      			AS sort
+                ,X.USER_GROUP_ID                   	AS deptId
+                ,(SELECT COUNT(1) FROM BS_USER_GROUP WHERE USER_GROUP_ID = X.USER_GROUP_ID) AS userCount
+                ,'그룹' AS orgNm
+                ,CONCAT('DEPT-', X.USER_GROUP_ID)   AS id
+                ,X.GROUP_NM                  		AS text
+                ,'##'  AS parent
+                ,'dept'                         	AS type
+
+         FROM BS_USER_GROUP X
+         INNER JOIN BS_USER_MASTER  A ON X.USER_ID = A.USER_ID
+
+         WHERE 1=1
+           AND X.ENABLE = 'Y'
+           AND X.USER_ID = #userId#
+         ORDER BY X.GROUP_ORD ASC, X.USER_GROUP_ID ASC
+        /* common.getUserGroupList */
+    </select>
+
+
+    <!-- 유저 그룹 상세목록 -->
+    <select id="common.getUserGroupDetailList" parameterClass="HashMap" resultClass="HashMap">
+        SELECT A.USER_ID                AS userId
+              ,A.NAME                   AS userName
+              ,A.NAME                   AS usrNm
+              ,A.NAME                   AS userNm
+              ,A.LOGIN_ID               AS loginId
+              ,A.CUS_ID                 AS cusId
+              ,A.EMP_NO                 AS empNo
+              ,NULL         			AS rankNm
+              ,NULL                   	AS sort
+              ,A.ORG_ID                 AS orgId
+              ,(SELECT CPN_NM FROM IB_COMPANY WHERE D.COMPANY_SNB = S_NB) AS orgNm
+              ,X.USER_GROUP_ID                AS deptId
+              ,C.KOR_NAME               	  AS deptNm
+
+              ,CONCAT(A.USER_ID ,'_', X.USER_GROUP_ID)          AS id
+              ,A.NAME                   AS text
+              ,CONCAT('DEPT-', X.USER_GROUP_ID)   AS parent
+              ,'user'                   		  AS type
+
+              ,'1'     AS positionSort
+              ,SUBSTRING_INDEX(A.EMP_NO, '_', -1)       AS showEmpNo
+              ,A.EMP_NO       AS empNo
+
+              ,(CASE WHEN A.ORG_ID IN (SELECT DISTINCT K.ORG_ID
+										        FROM  BS_RELATION_COMPANY_ACCESS_AUTH J
+										                ,BS_ORG                          K
+										        WHERE   J.USER_ID = #userId#
+										        AND     J.ORG_ID = K.ORG_ID
+										        AND     K.ENABLE = 'Y'
+										        AND     NOW() BETWEEN K.START_DT AND DATE_ADD(DATE_SUB(DATE(K.END_DT), INTERVAL 1 SECOND), INTERVAL 1 DAY)
+										        ) THEN 'Y'
+                       ELSE 'N'
+               END) AS authOrgYn
+
+          FROM BS_USER_GROUP X
+          INNER JOIN BS_USER_GROUP_DETAIL Y ON X.USER_GROUP_ID = Y.USER_GROUP_ID
+          INNER JOIN BS_USER_MASTER  A ON Y.USER_ID = A.USER_ID
+          LEFT JOIN BS_USER_DEPARTMENT  B   ON A.USER_ID = B.USER_ID
+          LEFT JOIN BS_DEPARTMENT       C   ON B.DEPT_ID = C.DEPT_ID
+          LEFT JOIN BS_ORG              D   ON A.ORG_ID  = D.ORG_ID
+
+         WHERE 1=1
+           AND A.DELETE_FLAG = 'N'
+           AND A.USER_STATUS IN ('W','H','L')
+           AND A.CUS_ID IS NOT NULL
+           AND X.ENABLE = 'Y'
+           AND X.USER_ID = #userId#
+           AND C.ENABLE = 'Y'
+           AND C.DELETE_FLAG = 'N'
+           AND B.MAIN_YN = 'Y'
+        ORDER BY X.GROUP_ORD ASC, X.USER_GROUP_ID ASC, D.ORG_ID ASC, A.NAME ASC
+        /* common.getUserGroupDetailList */
+    </select>
+
+
+</sqlMap>

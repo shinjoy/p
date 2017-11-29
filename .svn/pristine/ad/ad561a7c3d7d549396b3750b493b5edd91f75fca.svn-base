@@ -1,0 +1,154 @@
+package ib.notice.service;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * <pre>
+ * package	:
+ * filename	:
+ * </pre>
+ *
+ *
+ *
+ * @author	: oys
+ * @date	: 2016. 01. 15.
+ * @version :
+ *
+ */
+public interface NoticeService {
+
+	public Object selectNoticeMezzaine(Object vo) throws Exception;
+
+	public int insertNotice(NoticeVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectNoticeMezzaineList
+	 * @param vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<NoticeVO> selectNoticeMezzaineList(NoticeVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectNoticeMezzaineCategoryList
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 6. 5.
+	 */
+	@SuppressWarnings("unchecked")
+	public List<NoticeVO> selectNoticeMezzaineCategoryList(NoticeVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectEventNoticeList
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 6. 11.
+	 */
+	@SuppressWarnings("unchecked")
+	public List<NoticeVO> selectEventNoticeList(NoticeVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectNoticeIncCapList
+	 * @param vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<NoticeVO> selectNoticeIncCapList(NoticeVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectNoticeIncCapList
+	 * @param vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<NoticeShVO> selectNoticeShList(NoticeVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : modifyPublicNoticeIncCap
+	 * @param vo
+	 * @return
+	 */
+	public int modifyPublicNoticeIncCap(NoticeVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : insertNoticeSh
+	 * @param vo
+	 * @return
+	 */
+	public int insertNoticeSh(Map<String,String> param) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : selectNoticeSh
+	 * @param vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public NoticeShVO selectNoticeSh(Map<String,String> param) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : insertNoticeSh
+	 * @param vo
+	 * @return
+	 */
+	public int modifyNoticeSh(Map<String,String> param) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : modifyPublicNoticeMezzanine
+	 * @param vo
+	 * @return
+	 */
+	public int modifyPublicNoticeMezzanine(NoticeVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : deletePublicNotice
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 2. 27.
+	 */
+	public int deletePublicNotice(NoticeVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : insertEventPublicNotice
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 6. 11.
+	 */
+	public int insertEventPublicNotice(NoticeVO vo) throws Exception ;
+
+	/**
+	 *
+	 * @MethodName : modifyEventPublicNotice
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 6. 11.
+	 */
+	public int modifyEventPublicNotice(NoticeVO vo) throws Exception;
+
+	/**
+	 *
+	 * @MethodName : deleteEventPublicNotice
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 6. 11.
+	 */
+	public int deleteEventPublicNotice(NoticeVO vo) throws Exception;
+}

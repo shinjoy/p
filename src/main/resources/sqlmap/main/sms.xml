@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="sms">
+
+
+	<!-- sms log 조회 -->
+	<select id="sms.getSmsLogList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				  sms_id				AS smsId
+				, sms_title				AS smsTitle
+				, send_user_id			AS sendUserId
+				, recieve_user_id		AS recieveUserId
+				, recieve_customer_id	AS recieveCustomerId
+				, sms_type				AS smsType
+				, send_number			AS sendNumber
+				, recieve_number		AS recieveNumber
+				, content				AS content
+				, create_date			AS createDate
+
+				, result_date			AS resultDate
+				, result_flag			AS resultFlag
+				, created_by			AS createdBy
+
+				, DATE_FORMAT(reserve_date,'%Y%m%d%H%i%s')			AS reserveDate
+
+		FROM bs_sms_log
+		WHERE 1=1
+		<isNotEmpty prepend="AND" property="smsId">
+				sms_id = #smsId#
+		</isNotEmpty>
+
+
+		/*sms.getSmsLogList*/
+	</select>
+
+	<!-- sms log 기록 -->
+	<insert id="sms.insertSms" parameterClass="HashMap">
+		INSERT INTO bs_sms_log
+				  (
+				  	sms_title
+				  , send_user_id
+				  , recieve_user_id
+				  , recieve_customer_id
+				  , sms_type
+				  , send_number
+				  , recieve_number
+				  , content
+				  , create_date
+				  , reserve_date
+				  , created_by
+
+		 ) VALUES (
+		 		 	#smsTitle#
+				  , #sendUserId#
+				  , #recieveUserId#
+				  , #recieveCustomerId#
+				  , #smsType#
+				  , #smsEndTelNo#
+			<isNotEmpty property="recieveUserId">
+				  , (SELECT mobile_tel FROM bs_user_master where user_id = #recieveUserId#)
+			</isNotEmpty>
+			<isEmpty property="recieveUserId">
+				  , (SELECT phn_1 FROM ib_customer where s_nb = #recieveCustomerId#)
+			</isEmpty>
+				  , #content#
+				  , now()
+				  , #reserveDate#
+				  , #userId#
+				  )
+		<selectKey keyProperty="sms_id" resultClass="String">
+			<!-- 2016.11.30. 이인희, 배치실행시 리턴값을 못받아서 수정함 SELECT LAST_INSERT_ID() -->
+			SELECT LAST_INSERT_ID() FROM bs_sms_log LIMIT 1
+		</selectKey>
+		/*sms.insertSms*/
+	</insert>
+
+	<!-- 문자 전송결과 업데이트 완료 -->
+	<update id="sms.smsSendResult" parameterClass="HashMap">
+
+		UPDATE bs_sms_log SET
+					 result_date		=	#resultDate#
+					,send_date			=	#sendDate#
+					,result_flag		=	#resultFlag#
+
+		WHERE sms_id	=	#smsId#
+
+	</update>
+
+	<!-- 관계사 SMS 전송 대표번호 조회 -->
+    <select id="sms.getSmsEndTelNo" parameterClass="HashMap" resultClass="String">
+        SELECT IFNULL(MAX(SMS_END_TEL_NO),'') AS smsEndTelNo
+		FROM bs_user_master A, bs_org B
+		WHERE A.org_id = B.org_id
+		AND A.user_id = #sendUserId#
+
+        /*sms.getSmsEndTelNo*/
+    </select>
+
+
+</sqlMap>

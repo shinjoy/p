@@ -1,0 +1,253 @@
+/*
+  Css Name : main.css
+  Description : 硫붿씤 CSS
+  Modification Information
+*/
+@CHARSET "UTF-8";
+
+/* reset */
+article,aside,dialog,footer,header,section,footer,nav,figure {
+	display: block;
+}
+
+body {
+	background-color: #fff;
+	margin: 0;
+	padding: 0;
+	font-size: 11px;
+	line-height: 1.2em;
+	color: #333;
+	text-align: center;
+}
+
+
+#wrap { /*
+	width: 971px;
+	height: 99%;
+	height: 99%;
+	min-height: 770px;
+ */
+	/*
+	margin-top: 5px;
+	margin: 0 auto 0 auto;
+	width: 99%;
+	*/
+	text-align: left;
+	min-width: 1126px;
+	/* max-width: 900px; ** Mozilla ** */
+}
+
+header {
+	background-color: white;
+	/*
+	width: 99.2%;
+	height: 85px;
+	margin: 0 0 0 0.4%;
+	*/
+	padding: 0;
+}
+
+#mainTopMenu {
+	/* width: 70%; */
+	margin: 25px  0 0 5px;
+	float: left;
+}
+
+.nav>ul {
+	display: inline;
+	list-style: none; /* ul �젏 �뾾�븷湲� */
+}
+/*
+
+header nav ul {
+	display: inline;
+	list-style: none;
+	font-family: 留묒� 怨좊뵓, Trebuchet MS, Verdana, Geneva, sans-serif;
+	font-size: 12px;
+	font-weight: bold;
+	color: #333;
+}
+
+header nav ul li {
+	float: left;
+	margin: 0 4px;
+}
+header nav ul li a {
+	display: block;
+	height: 20px;
+	padding: 6px;
+	text-decoration: none;
+	color: #75c5de;
+	border-top: 3px solid white;
+}
+
+ */
+
+.nav>li>a{
+	font-family: 留묒� 怨좊뵓, Trebuchet MS, Verdana, Geneva, sans-serif;
+	font-size: 12px;
+	font-weight: bold;
+	color: #75c5de;
+	line-height: 1.2em;
+	border-top: 3px solid white;
+	padding:5px;
+}
+/* .blueTitle>a {
+	color: #75c5de !important;
+}
+
+.blueTitle>a:hover,.blueTitle>a.current  {
+	border-top: 3px solid #75c5de !important;
+} */
+
+.ibTitle>a {
+	color: #75c5de !important;
+}
+
+.ibTitle>a:hover,.blueTitle>a.current  {
+	border-top: 3px solid #75c5de !important;
+}
+.insideTitle>a {
+	color: #3585c8 !important;
+}
+
+.insideTitle>a:hover,.insideTitle>a.current  {
+	border-top: 3px solid #3585c8 !important;
+}
+.pointTitle>a {
+	color: #FFBB00 !important;
+
+}
+
+.pointTitle>a:hover,.pointTitle>a.current  {
+	border-top: 3px solid #FFBB00 !important;
+}
+.managementTitle>a {
+	color: violet !important;
+}
+
+.managementTitle>a:hover,.managementTitle>a.current  {
+	border-top: 3px solid violet !important;
+}
+.pupleTitle>a {
+	color: #BA75DE !important;
+}
+
+.pupleTitle>a:hover,.pupleTitle>a.current  {
+	border-top: 3px solid #BA75DE !important;
+}
+
+.developTitle>a {
+	color: #19da20  !important;
+}
+
+.developTitle>a:hover,.developTitle>a.current  {
+	border-top: 3px solid #19da20  !important;
+}
+
+/*
+header nav ul li a:hover,header nav ul li a.current  {
+	border-top: 3px solid #75c5de;
+	font-size: 14px;
+	padding: 4px;
+}
+
+*/
+#logo {
+	float: left;
+	margin: 20px 0 0 30px;
+}
+
+#loginOut {
+	float: right;
+	margin: 10px 10px 0 0;
+	font-family: 留묒� 怨좊뵓, Trebuchet MS, Verdana, Geneva, sans-serif;
+	font-size: 12px;
+	word-spacing: 5px;
+}
+
+#loginOut a {
+	text-decoration: none;
+}
+
+#loginOut a:hover {
+	color: #f90;
+}
+
+#bar_0 {
+	border-top: 3px solid #75c5de;
+	/*
+	height: 30px;
+	background-color: #00CCFF;
+	color: white;
+	 */
+}
+
+section {
+	/* width: 99.2%;
+	margin: 0 0 0 0.4%;
+	*/
+	padding: 0;
+	background: white;
+	background-color: white;
+}
+
+#left,#main {
+	float: left;
+	/* height: 600px; */
+}
+
+#leftFrame {
+
+	/* min-height: 600px;
+	height: 600px; */
+	max-width: 200px;
+}
+#leftArea {
+
+	/* min-height: 600px;
+	height: 600px; */
+	max-width: 220px;
+
+}
+#mainArea {
+	/* height: 595px; */
+	overflow-x:hidden; /* 媛�濡쒖뒪�겕濡� �뾾�븷湲� */
+	/* height: 595px; */
+	width:100%;
+}
+
+#left {
+	/* padding: 5px 2px 0 10px; */
+	overflow:hidden;
+	height:100%;
+	border-right: 3px solid #75c5de;
+}
+#main {
+/*
+	width: expression(this.clientWidth <= 560px ? '560px' : '72%' );
+ 	width: 79.5%;
+	padding-right: 2px;
+	min-width: 560px;
+ */
+	overflow-x:hidden;
+	float:none;
+	margin-left:205px;
+
+
+}
+
+footer p {
+	font-weight: bold;
+	font-size: 11px;
+	font-family: 留묒� 怨좊뵓, Trebuchet MS, Verdana, Geneva, sans-serif;
+	color: #828282;
+	text-align: left;
+	padding: 0px 0px 0px 20px;
+}
+
+a { cursor: pointer;}
+
+.clear {	clear: both;}
+
+.cent{ text-align:center; }

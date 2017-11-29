@@ -1,0 +1,715 @@
+package ib.person.service.impl;
+
+import ib.basic.service.CpnExcelVO;
+import ib.cmm.service.impl.ComAbstractDAO;
+import ib.company.service.CompanyVO;
+import ib.login.service.StaffVO;
+import ib.person.service.PersonVO;
+import ib.work.service.WorkVO;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+
+/**
+ * <pre>
+ * package  : ib.person.service.impl
+ * filename : PersonDAO.java
+ * </pre>
+ *
+ * @author  : ChanWoo Lee
+ * @since   : 2012. 9. 6.
+ * @version : 1.0.0
+ */
+@Repository("personDAO")
+public class PersonDAO extends ComAbstractDAO{
+
+	/**
+	 *
+	 * @MethodName : selectPersonList
+	 * @param personVO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<PersonVO> selectPersonList(PersonVO personVO) throws Exception{
+		return list("personDAO.selectPersonList", personVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectPersonListCnt
+	 * @param personVO
+	 * @return
+	 */
+	public int selectPersonListCnt(PersonVO personVO) throws Exception {
+   	return (Integer)getSqlMapClientTemplate().queryForObject("personDAO.selectPersonListCnt", personVO);
+   }
+
+	/**
+	 *
+	 * @MethodName : selectMainPersonList
+	 * @param personVO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<PersonVO> selectMainPersonList(PersonVO personVO) throws Exception{
+		return list("personDAO.selectMainPersonList", personVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertCustomer
+	 * @param personVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int insertCustomer(PersonVO personVO) throws Exception {
+		return Integer.parseInt(insert("personDAO.insertCustomer", personVO).toString());
+	}
+
+	/**
+	 *
+	 * @MethodName : regCustomer
+	 * @param Map<String,Object>
+	 * @return
+	 * @throws Exception
+	 */
+	public int regCustomer(Map<String,Object> map) throws Exception {
+		return Integer.parseInt(insert("personDAO.insertCustomer", map).toString());
+	}
+
+
+	/**
+	 *
+	 * @MethodName : regCustomer
+	 * @param Map<String,Object>
+	 * @return
+	 * @throws Exception
+	 */
+	public int regCustomerByUser(Map<String,Object> map) throws Exception {
+		return Integer.parseInt(insert("personDAO.insertCustomerByUser", map).toString());
+	}
+
+	/**
+	 *
+	 * @MethodName : updateCustomerByUser
+	 * @param Map<String,Object>
+	 * @return
+	 * @throws Exception
+	 */
+	public int updateCustomerByUser(Map<String,Object> map) throws Exception {
+		return update("personDAO.updateCustomerByUser", map);
+	}
+
+
+	/**
+	 *
+	 * @MethodName : insertNetworkCst
+	 * @param personVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int insertNetworkCst(PersonVO personVO) throws Exception {
+		return (Integer)update("personDAO.insertNetworkCst", personVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertNote
+	 * @param personVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int insertNote(PersonVO personVO) throws Exception {
+		return (Integer)update("personDAO.insertNote", personVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateCustomer
+	 * @param personVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int updateCustomer(PersonVO personVO) throws Exception {
+		return (Integer)update("personDAO.updateCustomer", personVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : checkStaff
+	 * @param loginVO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<StaffVO> checkStaff(StaffVO staffVO) throws Exception{
+		return list("personDAO.selectCheckStaff", staffVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : checkStaffCnt
+	 * @param staffVO
+	 * @return
+	 */
+	public int checkStaffCnt(StaffVO staffVO) throws Exception {
+    	return (Integer)getSqlMapClientTemplate().queryForObject("personDAO.selectCheckStaffCnt", staffVO);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectCheckIdCnt
+	 * @param staffVO
+	 * @return
+	 */
+	public int selectCheckIdCnt(StaffVO staffVO) throws Exception {
+    	return (Integer)getSqlMapClientTemplate().queryForObject("personDAO.selectCheckIdCnt", staffVO);
+    }
+
+	/**
+	 *
+	 * @MethodName : updateStaffInfo
+	 * @param map
+	 * @return
+	 */
+	public int updateStaffInfo(Map<String, String> map) throws Exception {
+		return (Integer)update("personDAO.updateStaffInfo", map);
+	}
+
+	/**
+	 *
+	 * @MethodName : 이용약관 동의 updateUserRule
+	 * @param map
+	 * @return
+	 */
+	public int updateUserRule(Map<String, Object> map) throws Exception {
+		int cnt =0;
+
+		update("personDAO.updateUserRule", map);
+
+		cnt=1;
+		return cnt;
+	}
+
+
+	// 사원리스트 받아오기
+	@SuppressWarnings("rawtypes")
+	public List GetPerList(Map<String,Object> map) throws Exception {
+		return list("personDAO.GetPerList", map);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectStaff
+	 * @param staffVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<Map> selectStaff(Map<String, String> map) throws Exception{
+		return list("personDAO.selectStaff", map);
+	}
+
+
+	/**
+	 *
+	 * @MethodName : selectMaxSnb
+	 * @param personVO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<PersonVO> selectMaxSnb(PersonVO personVO) throws Exception{
+		return list("personDAO.selectMaxSnb", personVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : excelInsertCustomer
+	 * @param vo
+	 * @return
+	 * @throws Exception
+	 */
+	public int excelInsertCustomer(CpnExcelVO vo) throws Exception {
+    	return (Integer)update("personDAO.excelInsertCustomer", vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : excelInsertNote
+	 * @param vo
+	 * @return
+	 * @throws Exception
+	 */
+	public int excelInsertNote(CpnExcelVO vo) throws Exception {
+    	return (Integer)update("personDAO.excelInsertNote", vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectExcelDown
+	 * @param VO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<PersonVO> selectExcelDown(PersonVO VO) throws Exception{
+		return list("personDAO.selectExcelDown", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : deletePersonNetInfo
+	 * @param personVO
+	 * @return
+	 */
+	public int deletePersonNetInfo(PersonVO VO) throws Exception {
+		return (Integer)update("personDAO.deletePersonNetInfo", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : modifyNetPoint
+	 * @param personVO
+	 * @return
+	 */
+	public int modifyNetPoint(PersonVO VO) throws Exception {
+		return (Integer)update("personDAO.modifyNetPoint", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectNetworkList
+	 * @param personVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> selectNetworkList(PersonVO VO) throws Exception{
+		return (List<EgovMap>)getSqlMapClientTemplate().queryForList("personDAO.selectNetworkList", VO);
+	}
+	/**
+	 *
+	 * @MethodName : selectNetworkList
+	 * @param personVO
+	 * @return
+	 */
+	public Integer selectNetworkListTotalCnt(PersonVO VO) throws Exception{
+		return (Integer)getSqlMapClientTemplate().queryForObject("personDAO.selectNetworkListTotalCnt", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateStaffInformation
+	 * @param psnVo
+	 */
+	public int updateStaffInformation(StaffVO VO) throws Exception {
+		return (Integer)update("personDAO.updateStaffInformation", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateIBstaffwithInside
+	 * @param stVo
+	 * @return
+	 */
+	public Integer updateIBstaffwithInside(StaffVO VO) throws Exception {
+		return (Integer)update("personDAO.updateIBstaffwithInside", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectSearchDuplicateB4excelInsert
+	 * @param psnVo
+	 * @return
+	 */
+	public int selectSearchDuplicateB4excelInsert(WorkVO psnVo) {
+		return (Integer)getSqlMapClientTemplate().queryForObject("personDAO.selectSearchDuplicateB4excelInsert",psnVo);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateCstPhn
+	 * @param personVO
+	 * @return
+	 */
+	public int updateCstPhn(PersonVO VO) throws Exception {
+		return (Integer)update("personDAO.updateCstPhn", VO);
+	}
+
+
+
+	//회사별 부서 리스트
+	public List<Map> getCpnDeptList(Map map) throws Exception {
+		return list("personDAO.selectCpnDeptList", map);
+	}
+
+
+
+	/**
+	 * 부서코드 반환(신규면 등록하고 코드 반환)
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 01. 18
+	 */
+	public Map getDeptCodeByCallProcedure(Map map) throws Exception{
+
+		update("personDAO.getDeptCodeByCallProcedure", map);
+
+		return map;
+
+	}
+
+
+	/**
+	 * 증권사 IB 고객 담당자 등록
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 2. 19.
+	 */
+	public int doSaveCstManager(Map<String, Object> map) throws Exception{
+		insert("personDAO.doSaveCstManager", map);
+		return 1;
+	}
+
+
+	/**
+	 * 고객리스트 카운트
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 3. 10.
+	 */
+	public int getCustListCount(Map<String, Object> map) {
+		return (Integer)selectByPk("person.selectCustListCount", map);
+	}
+
+
+	/**
+	 * 고객리스트
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 3. 10.
+	 */
+	public List<Map> getCustList(Map<String, Object> map) {
+		return list("person.selectCustList", map);
+	}
+
+
+	/**
+	 * 신규할당 고객
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 3. 15.
+	 */
+	public List<Map> getCustListNewInCharge(Map<String, String> param) {
+		return list("person.selectCustListNewInCharge", param);
+	}
+
+
+
+	/**
+	 * 신규할당 고객 수락
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 3. 16.
+	 */
+	public int updateCstManager(Map<String, Object> param) {
+		return update("person.updateCstManager", param);		//// *** 1. 기존 담당자 상태코드 'Y' >> 'T'
+	}
+
+	/**
+	 * 신규할당 고객 수락
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 3. 16.
+	 */
+	public int updateAcceptCstManager(Map<String, Object> param) {
+		return update("person.updateAcceptCstManager", param);		//// *** 2. 신규 담당자 상태코드 'A' >> 'Y'
+	}
+
+
+	/**
+	 * 담당자 바로 등록 (상태값 'Y')
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 3. 16.
+	 */
+	public int doSaveCstManagerDirect(Map<String, Object> map) {
+		insert("person.doSaveCstManagerDirect", map);
+		return 1;
+	}
+
+	/**
+	 * 담당자 삭제
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 3. 16.
+	 */
+	public int deleteCstManager(Map<String, Object> map) {
+		insert("person.deleteCstManager", map);
+		return 1;
+	}
+
+
+
+	/**
+	 *
+	 * @MethodName : regNetworkCst
+	 * @param Map<String, Object>
+	 * @return
+	 * @throws Exception
+	 */
+	public int regNetworkCst(Map<String, Object> map) throws Exception {
+		return (Integer)update("personDAO.insertNetworkCst", map);
+	}
+
+	/**
+	 * 고객 정보 (1명) ... 핸드폰번호 중복자 체크
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: 이인희
+	 * @date		: 2016. 10. 19.
+	 */
+	public Map getCustomerSameMobile(Map<String, Object> map) throws Exception {
+		return (Map)selectByPk("person.getCustomerSameMobile", map);
+	}
+
+	/**
+	 * 고객 정보 (1명) ... 이름 중복자 체크
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: 이인희
+	 * @date		: 2016. 10. 19.
+	 */
+	public Map getCustomerSameName(Map<String, Object> map) throws Exception {
+		return (Map)selectByPk("person.getCustomerSameName", map);
+	}
+
+	/**
+	 * 고객 정보 (1명) ... 이름으로 찾기
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 3. 23.
+	 */
+	public Map getCustomerByName(Map<String, Object> map) throws Exception {
+		return (Map)selectByPk("person.selectCustomerByName", map);
+	}
+
+	/**
+	 * 고객 삭제
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 4. 8.
+	 */
+	public int doDelCst(Map<String, Object> map) throws Exception {
+
+		return update("person.deleteCustomer", map);
+	}
+
+
+	/**
+	 *
+	 * @MethodName : selectStaffList
+	 * @param staffVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<Map> selectStaffList(Map<String,Object>map) throws Exception{
+		return list("personDAO.selectStaffList", map);
+	}
+
+	/**
+	 * 고객이력등록
+	 * @MethodName : regNetworkCst
+	 * @param Map<String, Object>
+	 * @return
+	 * @throws Exception
+	 */
+	public int insertCustomerCareer(Map<String, Object> map) throws Exception {
+		return (Integer)update("personDAO.insertCustomerCareer", map);
+	}
+	/**
+	 * 고객학력등록
+	 * @MethodName : regNetworkCst
+	 * @param Map<String, Object>
+	 * @return
+	 * @throws Exception
+	 */
+	public int insertCustomerSchool(Map<String, Object> map) throws Exception {
+		return (Integer)update("personDAO.insertCustomerSchool", map);
+	}
+
+	/**
+	 * 고객이력 목록
+	 * @MethodName : selectCustomerCareerList
+	 * @param companyVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> selectCustomerCareerList(PersonVO VO) throws Exception{
+		return list("personDAO.selectCustomerCareerList", VO);
+	}
+
+	/**
+	 * 고객학력 목록
+	 * @MethodName : selectCustomerSchoolList
+	 * @param companyVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> selectCustomerSchoolList(PersonVO VO) throws Exception{
+		return list("personDAO.selectCustomerSchoolList", VO);
+	}
+
+	/**
+	 * 고객 정보 (1명)
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 3. 16.
+	 */
+	public PersonVO getCustomer(PersonVO personVO) throws Exception {
+		return (PersonVO)selectByPk("person.selectCustomer", personVO);
+	}
+
+	/**
+	 * 고객학력 삭제
+	 * @MethodName : deleteCustomerSchool
+	 * @param personVO
+	 * @return
+	 */
+	public int deleteCustomerSchool(PersonVO VO) throws Exception {
+		return (Integer)update("personDAO.deleteCustomerSchool", VO);
+	}
+
+	/**
+	 * 고객이력 삭제
+	 * @MethodName : deleteCustomerCareer
+	 * @param personVO
+	 * @return
+	 */
+	public int deleteCustomerCareer(PersonVO VO) throws Exception {
+		return (Integer)update("personDAO.deleteCustomerCareer", VO);
+	}
+	/**
+	 * cpnId 회사 직원조회
+	 * @MethodName : selectStaffList
+	 * @param staffVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<EgovMap> getCpnUserList(String cpnId) throws Exception{
+		return list("personDAO.getCpnUserList", cpnId);
+	}
+	//고객의 orgIdList를 조회한다
+	public List<EgovMap> getCustomerOrgIdList(PersonVO personVO) throws Exception{
+		return list("personDAO.getCustomerOrgIdList", personVO);
+	}
+	//담당자 메모 업데이트
+	public int doUpdateCstManagerDirec(Map<String, Object> map) throws Exception{
+		return (Integer)update("person.doUpdateCstManagerDirect", map);
+	}
+	//담당자친밀도 업데이트
+	public int doUpdateCstManagerLvCd(Map<String, Object> map) throws Exception{
+		return (Integer)update("person.doUpdateCstManagerLvCd", map);
+	}
+	//담당자 변경시 신규담당자가 이미 고객의 네트워크와 연결되어있는 cnt
+	public Integer getChkDupNetCnt(Map<String, Object> map) throws Exception{
+		return (Integer)getSqlMapClientTemplate().queryForObject("person.getChkDupNetCnt", map);
+	}
+
+	//담당자 정보를 조회한다
+	public EgovMap getOtherOrgStaff(Map<String,Object> map) throws Exception{
+		return (EgovMap)getSqlMapClientTemplate().queryForObject("person.getOtherOrgStaff", map);
+	}
+
+	/**
+	 * 사용자이름 가져오기
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: 이인희
+	 * @date		: 2017. 2. 13.
+	 */
+	public List<EgovMap> getUserNameList(Map<String, Object> map) throws Exception {
+		return list("person.getUserNameList", map);
+	}
+
+	//전체 관계사 목록 (네트워크 > 고객 > 상세팝업)
+	public List<Map> getOrgIdListForCustomer(PersonVO personVO) throws Exception{
+		return list("person.getOrgIdListForCustomer", personVO);
+	}
+	//직원 카테고리 저장
+	public int doSaveOrgCustomerCate(Map<String, Object> map) {
+		insert("person.doSaveOrgCustomerCate", map);
+		return 1;
+	}
+	//담당고객정보수정확인 리스트
+	public List<Map> getCustomerChangeConfirmList(Map<String, Object> map) throws Exception{
+		return list("person.getCustomerChangeConfirmList", map);
+	}
+	//고객 알림 팝업 노출 여부 판단
+	public Integer getChkPersonNoticeInfo(Map<String, Object> map) throws Exception{
+		return (Integer)getSqlMapClientTemplate().queryForObject("person.getChkPersonNoticeInfo", map);
+	}
+	//고객 알림 데이터 삭제
+	public Integer deleteCustomerInfoChange(Map<String, Object> map) throws Exception{
+		return delete("person.deleteCustomerInfoChange", map);
+	}
+
+	//고객의 타담당자정보목록을 조회한다
+	public List<EgovMap> getOtherStaffList(Map<String,Object> map) throws Exception{
+		return list("person.getOtherStaffList", map);
+	}
+
+	//고객담당자고객정보수정확인  등록
+	public int insertCustomerInfoChangeConfirm(Map<String, Object> map) throws Exception {
+		insert("person.insertCustomerInfoChangeConfirm", map);
+		return 1;
+	}
+
+}

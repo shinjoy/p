@@ -1,0 +1,860 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+
+<style type="text/css">
+.fa.fa-star.yellow {
+	color : #fee834;
+}
+
+#overlay {
+    width: 100%;
+    height  : auto;
+    min-height:100%;
+    z-index : 599;
+    background:#fff;
+    opacity : 0.3;
+    position: absolute;
+    display:none;
+}
+
+#overlay img.loading_circle {
+    position: absolute;
+    top: 35%;
+    left: 40%;
+}
+.menuRipple{ margin-left:4px; vertical-align:middle; font-size:11px; color:#fc4953; font-weight:bold; }
+</style>
+
+
+<script type="text/javascript">
+
+	//------------ logout ------------
+	function logout(){
+
+		//메뉴정보 삭제
+		window.localStorage['menuTop'] = "";
+
+		location.href = "<c:url value='/logout.do'/>";
+	}
+
+	//------------ 사용자수정 ------------
+	function modifyUsrInfo(){
+
+		location.href="<c:url value='/login/modifyUsrInfo.do'/>";
+	}
+
+
+	//--------- 화면 단축키 검색 --------------
+	//사용자가 해당 메뉴 권한이 없는 경우 혹은 단축키가 잘못된 경우 결과는 null.
+	function moveMenuNum(){
+
+		var param = { menuNum : $("input[name='shortCodeNum']").val()};
+		var callback = function(result){
+			//console.log(result);
+			var obj = JSON.parse(result);
+			if(obj == null){
+				alertM("화면 단축키에 해당하는 메뉴가 없습니다.");
+				return;
+			}
+
+			location.href = contextRoot + "/"+ obj.menuPath;
+		};
+		commonAjax("POST", contextRoot+"/basic/selectMenuNum.do", param, callback);
+
+	}
+
+	//--------- 메일 메뉴 셋팅  --------------
+	function setEmailMenus(){
+		//email 사용하지 않을 시 메뉴 숨김
+		if('${baseUserLoginInfo.mailUseYn}' == 'N' ){
+			$('#mailMenu').hide();
+			$('#mailDirectMenu').hide();
+			return;
+		}
+
+		//메일서비스 종류가 기타(etc) 일 경우
+		//메일 메뉴 숨김 , mailUrl 정보로 바로 링크
+		if('${baseUserLoginInfo.mailServiceName}' == 'etc' ){
+
+			var url = '${baseUserLoginInfo.mailUrl}';
+			//주소에 http 체크, 없으면 붙여주기
+			if( url.indexOf('http') < 0 ){
+				url = 'http://' + url;
+			}
+
+			$('#mailMenu').hide();
+			$('#mailDirectUrl').attr('href', url);
+			$('#mailDirectUrl').attr('target', '_blank');
+
+			return;
+		}
+
+		//mailplug 일 경우 메일갯수 가져오기
+		if('${baseUserLoginInfo.mailServiceName}' == 'mailplug'){
+			getEmailCount('${baseUserLoginInfo.mailId}');
+		}
+	}
+
+
+
+	//--------- 신규건 체크 NEW 아이콘 표시  --------------
+	function setNewArticleIcon(){
+
+		/////////////////////////// 신규건 체크 로직 추가 //////////////////////////
+
+
+		//신규건이 있을때
+		//$('.MENU_BOARD_NOTICE_ALL').html('<span class="icon_new"><em>new</em></span>');
+	}
+
+
+
+
+	//----------북마크 움직일때
+	function changeBookMark(booMarkList) {
+		var pArray = [];
+		var cntLvl0 = 0;
+
+		for(var i=0; i< booMarkList.length;i++){
+			var rObj = new Object();
+			rObj.menuId = booMarkList[i];
+			//console.log(booMarkList[i]);
+			cntLvl0++;
+			rObj.sort = (cntLvl0 * 10).toString();
+			pArray.push(rObj);
+		}
+
+
+		//--------------- validation :E ---------------
+
+		var url = contextRoot + "/basic/updateBookMark.do";
+		var param = {
+			pList : JSON.stringify(pArray) //그리드 데이터 (JSON 문자열)
+		};
+
+		//console.log(pArray);
+		var callback = function(result) {
+
+			var obj = JSON.parse(result);
+
+			var cnt = obj.resultVal; //결과수
+
+			if (obj.result == "SUCCESS") {
+				parent.toast.push("저장OK!");
+
+				var list = obj.resultObject.bookmarkList;
+
+				if($("#sortable_P").length != 0){
+					$("#sortable_P").html("");
+					for (var i = 0; i < list.length; i++) {
+						var bookmark = list[i];
+
+						var str ='';
+
+						str +='	<li class="ui-state-default" oriIdx="${st.count}"  id="' + bookmark.menuId + '">';
+						str +='		<dl class="favorBox">';
+						str +='			<dt class="favor_mnName"><strong>' + bookmark.menuTitleKor + '</strong><span>[' + (bookmark.menuNum != '' ? bookmark.menuNum : '' )+']</span></dt>';
+						str +='				<dd class="favor_location"><span>' + bookmark.menuRootKor + '</span><span>' + bookmark.menuParentKor + '</span></dd>';
+						str +='				<dd class="favor_sumnail"><span class="photo_aspect aspect_2_1"></span></dd>';
+						str +='				<dd class="btn_delete"><a href="javascript:fnObj.removeBookMark(' + bookmark.menuId + ');"><em>삭제</em></a></dd>';
+						str +='		</dl>';
+						str +='	</li>';
+
+
+						$(str).appendTo("#sortable_P");
+					}
+
+					//비어있는 것 채우기
+					for (var i = 0; i < 12-list.length; i++) {
+
+						var str ='';
+
+						str +='	<li class="ui-state-default">';
+						str +='		<div class="favorBox_empthy" onClick="showlayer(sitemap_choiceBox);">+</div>';
+						str +='	</li>';
+
+						$(str).appendTo("#sortable_P");
+					}
+
+				}
+			} else {
+				alertM("저장 도중 오류가 발생하였습니다.");
+				return;
+			}
+
+		};
+
+		commonAjax("POST", url, param, callback);
+
+	}//end doSave
+
+</script>
+
+<div id="overlay"><img src="${pageContext.request.contextPath}/images/loading_icon.gif" class="loading_circle" alt="loading" /></div>
+
+<!--header-->
+<header id="IB_Navi">
+<!--gnb-->
+<div id="IB_Gnb">
+   	<div class="choice_resolution">
+       	<!-- <a href="#" onClick="setBodySize(1000);">1000</a>
+		<a href="#" onClick="setBodySize(1280);">1280</a>
+		<a href="#" onClick="setBodySize(1600);">1600</a>
+		<a href="#" onClick="setBodySize();">FULL</a> -->
+		<!-- <a href="#" class="tablet" onClick="setBodySize(1280);" ><em>Tablet (1280x768)</em></a>
+		<a href="#" class="notebook" onClick="setBodySize(1600);"><em>Notebook (1600x920)</em></a>
+		<a href="#" class="desktop active" onClick="setBodySize();"><em>Desktop (Full)</em></a> -->
+	</div>
+	<div class="right_gnb_zone">
+		<div class="My_Alarm_Zone">
+			<a href="${pageContext.request.contextPath}/mypersonnel/myPageMain.do" class="ProPic">
+				<c:choose>
+					<%-- <c:when test="${baseUserLoginInfo.myPhoto>0}">
+						<div class="photo_aspect aspect_1_1_2">
+
+							<img src="<c:url value='/file/downFile.do?uploadType=PROFILEIMG&downFileList=${baseUserLoginInfo.myPhoto}' />" alt="" />
+						</div>
+					</c:when> --%>
+
+					<c:when test="${baseUserLoginInfo.myPhotoNm ne ''}">
+						<!-- 이미지 변경 -->
+						<div class="photo_aspect aspect_1_1_2">
+							<img src="/imgUpLoadData/${baseUserLoginInfo.myPhotoNm}" alt="${baseUserLoginInfo.userName} 프로필사진" />
+						</div>
+					</c:when>
+					<c:otherwise>
+						<div class="photo_aspect aspect_1_1_2 noshadow"></div>
+					</c:otherwise>
+				</c:choose>
+				<%-- <div class="photo_aspect aspect_1_1_2"><img src="${pageContext.request.contextPath}/images/common/@pic-pro.gif" alt="프로필사진" /></div> --%>
+				<span class="Profile_txt"><c:out value="${baseUserLoginInfo.userName}"/><em><!-- ▼ --></em></span>
+			</a>
+			<a href="#" class="btn_logout" onclick="logout();"><em class="blind">로그아웃</em></a>
+			<%-- <div id="Profile_s_Box" style="display:none;">
+               	<img src="${pageContext.request.contextPath}/images/common/@pro_box.png" alt="임시파일" />
+            </div>
+            <a href="" class="mail_Alarm"><em class="blind">메일알림</em><span class="count">10</span></a>
+           	<a href="#" class="work_Alarm"><em class="blind">업무알림</em><span class="count">5</span></a>
+            <a href="${pageContext.request.contextPath}/basic/bookMarkList.do" class="favorite"><em class="blind">즐겨찾기</em><span class="count">N</span></a>
+            <a href="${pageContext.request.contextPath}/basic/organizationList.do" class="work_org"><em class="blind">조직도</em>
+            <!-- 오늘날짜로 신규 등록된 관계사가 있는 경우  -->
+            <span class="count" id="count_org" style="display:none;">N</span>
+            </a>
+            <div id="favorite_list" style="display:none;">
+            	<img src="${pageContext.request.contextPath}/images/common/@favor_box.png" alt="임시파일" />
+			</div>--%>
+			<c:if test="${baseUserLoginInfo.orgId eq baseUserLoginInfo.applyOrgId}">
+				<a id="mailDirectUrl" class="mail_Alarm" href="${pageContext.request.contextPath}/email/emailView.do"><em class="blind">메일알림</em><span id="mailCount" class="count" style="display: none;"></span></a>
+			</c:if>
+			<a href="${pageContext.request.contextPath}/mypersonnel/myPageMain.do" class="favorite"><em class="blind">즐겨찾기</em></a>
+			<a href="${pageContext.request.contextPath}/basic/organizationList.do" class="work_org"><em class="blind">조직도</em><span class="count" id="count_org" style="display:none;">N</span></a>
+			<!--gnb메뉴-->
+			<ul class="Alarm_listbtn">
+				<c:if test="${baseUserLoginInfo.orgId eq baseUserLoginInfo.applyOrgId}">	<!-- 마이페이지, 메일 은 권한이 있는 다른 관계사로 들어갔을시에는 보이지 않도록 막음 -->
+
+				<li>
+					<a href="${pageContext.request.contextPath}/mypersonnel/myPageMain.do" class="mypagebtn">마이페이지</a>
+		            <div id="mypage_s_Box">
+		               	<ul>
+		               		<li id="mailMenu"><a id="mailMenuUrl" href="${pageContext.request.contextPath}/email/emailView.do">메일</a></li>
+		               		<li><a href="${pageContext.request.contextPath}/login/modifyUsrInfo.do">비밀번호 변경</a></li>
+		               		<li><a href="${pageContext.request.contextPath}/basic/bookMarkList.do">메뉴 바로가기</a></li>
+		               		<li><a href="${pageContext.request.contextPath}/worktime/user/attendanceInfo.do">근태정보</a></li>
+		               		<li><a href="${pageContext.request.contextPath}/mypersonnel/getMyPersonnelInfo.do">인사정보</a></li>
+		               	</ul>
+		            </div>
+				</li>
+
+				</c:if>
+
+
+			</ul>
+			<!--//gnb메뉴//-->
+
+			<!--사이트 바로가기-->
+			<c:if test = "${fn:length(sessionQuickLinkList)>0 }">
+				<ul class="Alarm_listbtn">
+					<li>
+						<a href="#" class="mypagebtn">사이트 바로가기</a>
+			            <div id="mypage_s_Box">
+			               	<ul>
+			               		<c:forEach items="${sessionQuickLinkList }" var = "data">
+			               			<c:set var="urlBuf">
+			               				<c:choose>
+											<c:when test="${not fn:startsWith(data.linkUrl , 'http://') and not fn:startsWith(data.linkUrl , 'https://') }">
+												http://${data.linkUrl }
+											</c:when>
+											<c:otherwise>
+												${data.linkUrl }
+											</c:otherwise>
+										</c:choose>
+									</c:set>
+									<li><a href="${urlBuf }" <c:if test = "${data.linkType eq 'BLANK' }">target="_blank"</c:if>>${data.linkName }</a></li>
+			               		</c:forEach>
+			               	</ul>
+			            </div>
+					</li>
+				</ul>
+			</c:if>
+			<!--//사이트 바로가기//-->
+
+		</div>
+
+		<div class="admin_MN_zone" id="divAccessOrgIdList" style="display:${baseUserLoginInfo.orgId eq '1' ? 'block':'none'}"><!-- 시너지만 활성화함  -->
+			<label for="accessOrgIdList" <c:if test="${baseUserLoginInfo.orgId ne baseUserLoginInfo.applyOrgId}">style="color:#F78181;"</c:if>>${baseUserLoginInfo.applyOrgNm }</label>
+			<select id="accessOrgIdList" title="회사선택" onchange="changeOrgId();" class="a b">
+				<option value=""></option>
+			</select>
+		</div>
+	</div>
+</div>
+<!--// gnb //-->
+
+<div id="IB_Lnb">
+   	<div class="logoZone">
+		<h1 class="logo">
+			<a href="${pageContext.request.contextPath}/">
+			<c:forEach items="${accessOrgIdList}" var="items">
+				<c:if test="${items.orgId eq baseUserLoginInfo.applyOrgId }">
+					<c:choose>
+						<c:when test="${items.orgLogo eq null}">
+							<img src="${pageContext.request.contextPath}/images/common/pass_logo2.png" alt="PASS : Project based Activity analysis and Sharing system" />
+						</c:when>
+						<c:otherwise>
+							<img src="data:image/gif;base64,${items.orgLogo}" alt="${items.cpnNm} 로고" style="width:140px;"/>
+						</c:otherwise>
+					</c:choose>
+				</c:if>
+			</c:forEach>
+
+			</a>
+		</h1>
+	</div>
+
+    <!-- 루트 메뉴 :S -->
+	<div id="cssmenu">
+        <ul id="ulMenuRoot" class="menu_cout_n10">
+
+        	<%--
+        	<!--시스템 [0000]~[0490]-->
+            <li class="active"><a href="/system/menu_regist.jsp"><span class="mn_icon01">시스템</span></a>
+            	<ul>
+                    <li><a href="/system/menu_regist.jsp"><span class="mn_num">[0000]</span><span>메뉴 관리</span></a>
+                        <ul>
+                            <li><a href="/system/author_menu.jsp"><span class="mn_num">[0010]</span><span>메뉴 등록</span></a></li>
+                            <li><a href="/system/author_module.jsp"><span class="mn_num">[0020]</span><span>모듈 등록</span></a></li>
+                        </ul>
+                    </li>
+                    <li><a href="/system/author_menu.jsp"><span class="mn_num">[0100]</span><span>권한 관리</span></a>
+                        <ul>
+                            <li><a href="#"><span class="mn_num">[0110]</span><span>권한 등록</span></a></li>
+                            <li><a href="#"><span class="mn_num">[0120]</span><span>사용자 권한</span></a></li>
+                            <li><a href="/system/author_menu.jsp"><span class="mn_num">[0130]</span><span>권한별 메뉴</span></a></li>
+                            <li><a href="/system/author_module.jsp"><span class="mn_num">[0140]</span><span>권한별 모듈</span></a></li>
+                            <li><a href="#"><span class="mn_num">[0150]</span><span>권한별 화면</span></a></li>
+                            <li><a href="#"><span class="mn_num">[0160]</span><span>권한별 코드</span></a></li>
+                        </ul>
+                    </li>
+                    <li><a href="#"><span class="mn_num">[0200]</span><span>코드 관리</span></a>
+                        <ul>
+                            <li><a href="/system/author_code.jsp"><span class="mn_num">[0210]</span><span>코드 목록</span></a></li>
+                            <li><a href="/system/author_code.jsp"><span class="mn_num">[0220]</span><span>코드 등록</span></a></li>
+                        </ul>
+                    </li>
+                    <li>
+                    	<ul>
+                            <li><a href="/system/authority.jsp"><span class="mn_num">[0310]</span><span>시스템 설정</span></a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+            <!--관리업무 [0500]~[0990]-->
+            <li><a href="/system/author_menu.jsp"><span class="mn_icon02">관리업무</span></a>
+            	<ul>
+                    <li><a href="#"><span class="mn_num">[0500]</span><span>사용자 관리</span></a>
+                        <ul>
+                            <li><a href="#"><span class="mn_num">[0510]</span><span>사용자 등록</span></a></li>
+                            <li><a href="#"><span class="mn_num">[0520]</span><span>사용자 설정</span></a></li>
+                        </ul>
+                    </li>
+                    <li><a href="/system/user_authority.jsp"><span class="mn_num">[0600]</span><span>부서 관리</span></a>
+                        <ul>
+                            <li><a href="/system/user_authority.jsp"><span class="mn_num">[0610]</span><span>부서 등록</span></a></li>
+                            <li><a href="#"><span class="mn_num">[0620]</span><span>결재라인</span></a></li>
+                        </ul>
+                    </li>
+                    <li><a href="#"><span class="mn_num">[0700]</span><span>달력관리</span></a>
+                        <ul>
+                            <li><a href="#"><span class="mn_num">[0710]</span><span>달력 등록</span></a></li>
+                            <li><a href="#"><span class="mn_num">[0720]</span><span>달력 관리</span></a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+
+              --%>
+
+        </ul>
+	</div>
+	<!-- 루트 메뉴 :E -->
+</div>
+
+<!-- 마이퀵메뉴 :S -->
+<div class="quickmnWrap">
+	<div class="shortcodeBox">
+		<input type="text" name="shortCodeNum" placeholder="화면단축키입력" onkeyup="if(event.keyCode==13) moveMenuNum();return false;" title="화면 단축키를 입력하세요" /><button type="button" onclick="moveMenuNum();return false;">검색</button>
+	</div>
+	<div class="myquickmenu">
+		<ul class="quickmn_list" id="sortable">
+			<c:forEach items="${bookMarkList}" var="bookmark">
+				<li id="${bookmark.menuId }"><a href="${pageContext.request.contextPath}/${bookmark.menuPath}" <c:if test="${bookmark.menuId eq currentMenuId}">class="current_favor"</c:if>>${fn:replace(bookmark.menuTitleKor,'#PROJECT#',baseUserLoginInfo.projectTitle)}</a></li>
+			</c:forEach>
+		</ul>
+	</div>
+</div>
+<!-- 마이퀵메뉴 :E -->
+<!--레프트메뉴 컨트롤-->
+<span class="btn_leftmn_op" id="btnLeftMenuShow"><a href="#" onclick="setVisibleLeftMenuSpace(1);" title="왼쪽 메뉴 보기"><em>왼쪽메뉴 보이기</em></a></span>
+<span class="btn_leftmn_cl" id="btnLeftMenuHide"><a href="#" onclick="setVisibleLeftMenuSpace(0);" title="왼쪽 메뉴 숨김"><em>왼쪽메뉴 숨기기</em></a></span>
+<!--//레프트메뉴 컨트롤//-->
+
+</header>
+<!--// header //-->
+
+
+
+<script type='text/javascript'>
+
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 메뉴 생성 스크립트 :S ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+/*
+ * function makeMenu
+ *
+ * description: menu object 의 정렬 순서가 중요(순서대로 만들어지기 때문)
+ * 				- 순서는, 그룹단위별로 만들어진다(한개의 그룹이 모두 만들어진후 다음 그룹이 만들어지는 방식)
+ * 																※ 한개 그룹: (0 level ~ 자식 level까지)
+ */
+function makeMenu(){
+	var menuStr = window.localStorage['menuTop'];				//menuTop... json string
+	var lang = '${baseUserLoginInfo.lang}';		//language (profile language... 'KOR' or 'ENG')
+	var rootId = '${menuParam.mr}';				//root menu id(0 level menu id)
+
+	if(menuStr.length>0){
+		var menu = eval(menuStr);	//menu object (string to object(array))
+
+		var menuDepth0;				//GNB 부모값이 'N'인 자식들을 보이지 않게 하기 위해... 그룹세팅값
+		var menuDepth1;				//GNB 부모값이 'N'인 자식들을 보이지 않게 하기 위해... 그룹세팅값
+
+		var menuRootId;
+		var menuUpId;
+		var ulDrop;					//level 1 의 그룹
+		var ulDropLvl2;				//level 2 의 그룹
+		var li;						//level 0 의 메뉴
+		var liLvl1;					//level 1 의 메뉴
+
+		var oA;
+
+		var root = $('#ulMenuRoot').get(0);	//$('.Lnb_MN_Zone')[0];		//document.getElementsByTagName('ul')[0];		//menu space
+
+		var zeroDepthCnt = 0;		//0 depth menu 대메뉴 갯수 ... 스타일주기위함(유동적스타일명)  class="menu_cout_n10" > 10개메뉴
+
+		var orgProjectNm = "${baseUserLoginInfo.projectTitle }";
+
+		for(var i=0;i<menu.length;i++){
+			oA = document.createElement('a');
+
+			var menuTitleKor = menu[i].menuTitleKor;
+
+			if(menuTitleKor.indexOf("#PROJECT#")>-1){
+				menuTitleKor = menuTitleKor.split("#PROJECT#").join(orgProjectNm);
+			}
+
+			if(menu[i].basicTreeYn == 'N') continue;		//기본 트리 메뉴가 아닌 경우에는 skip
+
+			if(menu[i].depth == '0'){								//depth 0 menu(ROOT)
+
+				menuDepth0 = menu[i].menuId;						//해당그룹 세팅
+
+				zeroDepthCnt++;		//대메뉴 카운팅
+
+				li = document.createElement('li');					//menu 그룹이 되는 태그
+
+
+				if(rootId == menu[i].menuRootId || menu[i].menuId == '${menuParam.me}'){				//화면의 루트메뉴에 활성화(current) 클래스 주기
+					$(li).addClass('active');
+				}
+
+				var cSpan = document.createElement('span');
+				$(cSpan).addClass(menu[i].cssNm);
+
+				cSpan.innerHTML = ((lang=='KOR')?menuTitleKor:menu[i].menuTitleEng) + '<span class="MENU_' + menu[i].menuEng + '"></span>';
+				oA.innerHTML = isEmpty(menu[i].menuNum)?'':'<span class="mn_num">[' + menu[i].menuNum + ']</span>';
+				oA.appendChild(cSpan);
+
+				//상단메뉴 조립
+				mainMenu(menu[i].menuPath, li, oA, '01', menu[i].trgtMenuId, menu[i].trgtMenuUpId, menu[i].trgtMenuRootId, menu[i].trgtDepth);
+
+				root.appendChild(li);	//root 메뉴 추가
+
+
+			}else if(menu[i].depth == '1'){
+
+				if(menuDepth0 != menu[i].menuRootId) continue;		//해당 그룹이 아닌경우 제외
+				menuDepth1 = menu[i].menuId;						//해당그룹 세팅
+
+				var li_n = document.createElement('li');	//하위 메뉴 li 생성
+
+
+				var isDepth1NoChild = '';
+				if(menu[i+1] != undefined){
+					if(menu[i+1] == 0 || !(menu[i+1].depth > menu[i].depth)){  //하위 메뉴가 존재하지 않으면
+	                    isDepth1NoChild = 'Y';
+	                }
+				}
+
+
+
+				if(menuRootId != menu[i].menuRootId){	//root level 메뉴가 만들어진 다음, 첫번째 하위(level 1)를 만드려는 경우
+					menuRootId = menu[i].menuRootId;
+					ulDrop = document.createElement('ul');		//menu 그룹의 하위(1레벨) list 기본 생성
+
+				    li.appendChild(ulDrop);
+				}
+
+				var cSpan = document.createElement('span');
+				$(cSpan).addClass(menu[i].cssNm);
+
+				cSpan.innerHTML = ((lang=='KOR')?menuTitleKor:menu[i].menuTitleEng) + '<span class="MENU_' + menu[i].menuEng + '"></span>';
+				oA.innerHTML = isEmpty(menu[i].menuNum)?'':('<span class="mn_num">[' + menu[i].menuNum + ']</span>');
+				oA.appendChild(cSpan);
+
+				subMenu(isDepth1NoChild, menu[i].menuPath, ulDrop, li_n, oA, '01', menu[i].trgtMenuId, menu[i].trgtMenuUpId, menu[i].trgtMenuRootId, menu[i].trgtDepth);	// !!!!!!!얘도!!!!!
+
+				liLvl1 = li_n;		//하위(2레벨)이 있을시 들어갈 수 있도록 저장해 놓음.
+
+			}else{		// if(menu[i].depth == '2'){			//else if(false){		//탑 메뉴는 1depth 까지만 보이고 2depth 는 왼쪽메뉴에서
+
+				if(menuDepth1 != menu[i].menuUpId) continue;		//해당 그룹이 아닌경우 제외
+
+				var li_n = document.createElement('li');	//하위 메뉴 li 생성
+
+				if(menuUpId != menu[i].menuUpId){	//level 1 가 만들어진 다음, 첫번째 하위(level 2)를 만드려는 경우
+                    menuUpId = menu[i].menuUpId;
+				    ulDropLvl2 = document.createElement('ul');	//level 1 메뉴 그룹의 하위(2레벨) list 기본 생성
+
+				    liLvl1.appendChild(ulDropLvl2);				//상위 li 에 하위 ul 을 넣어준다.
+				}
+
+				var cSpan = document.createElement('span');
+				$(cSpan).addClass(menu[i].cssNm);
+
+				cSpan.innerHTML = ((lang=='KOR')?menuTitleKor:menu[i].menuTitleEng) + '<span class="MENU_' + menu[i].menuEng + '"></span>';
+				oA.innerHTML = isEmpty(menu[i].menuNum)?'':('<span class="mn_num">[' + menu[i].menuNum + ']</span>');
+				oA.appendChild(cSpan);
+
+				subMenu('', menu[i].menuPath, ulDropLvl2, li_n, oA, '01', menu[i].trgtMenuId, menu[i].trgtMenuUpId, menu[i].trgtMenuRootId, menu[i].trgtDepth);	// !!!!!!!얘도!!!!!
+			}
+
+
+		}//end for.
+
+		$('#ulMenuRoot').attr('class', 'menu_cout_n' + fillzero(zeroDepthCnt, 2));		//대메뉴 스타일 변경...대메뉴 갯수에 따라
+	}//if
+
+	var orgIdListStr =  window.localStorage['accessOrgIdList'];				//accessOrgIdList... json string
+
+	var selectedOrgId = "${baseUserLoginInfo.applyOrgId}";
+	var stStr = "";
+	var orgCnt = 0;
+	if(orgIdListStr.length>0){
+		var orgIdList = eval(orgIdListStr);			//jton to object
+		orgCnt = orgIdList.length;					//관계사 갯수
+
+		for(var i = 0 ;i<orgIdList.length;i++){
+			stStr +="<option value = '"+orgIdList[i].orgId+"'";
+			if(parseInt(selectedOrgId) == parseInt(orgIdList[i].orgId) ){
+				stStr += "selected='selected'";
+			}
+			stStr += ">";
+			stStr +=orgIdList[i].cpnNm;
+			stStr +="</option>";
+		}
+
+	}
+
+	$("#accessOrgIdList").html(stStr);
+
+	if(orgCnt <= 1){						//권한관계사가 소속 관계사가 유일할 경우
+		$("#divAccessOrgIdList").hide();		//관계사 선택 메뉴를 없앤다.
+	}
+}
+
+//applyOrgId change...
+function changeOrgId(){
+
+	var oriApplyOrgId = '${baseUserLoginInfo.applyOrgId}';		//변경전 applyOrgId
+
+	if($("#accessOrgIdList").val() == ""){
+		return;
+	}
+
+	var url = contextRoot + "/processChangeOrgId.do";
+
+	var param = {
+			orgId : $("#accessOrgIdList").val()
+	};
+
+	var callback = function(result){
+
+		var obj = JSON.parse(result);
+		var rObj = obj.resultObject;	//결과데이터JSON
+
+		if(rObj.result == "fail"){
+			alert("관계사 변경에 실패했습니다. 관리자에게 문의해주세요!!");
+
+			$("#accessOrgIdList").val(oriApplyOrgId);		//이전 관계사로
+
+			return;
+		}
+
+		//applyOrgId 변경 SUCCESS
+
+		//localStorage 에 메뉴객체저장
+		window.localStorage['menuTop'] = JSON.stringify(rObj.menu);							//■■■■■■ 메뉴정보 ■■■■■■
+
+		/////////// main page go //////////
+		document.location.href = contextRoot + "/";		//main
+	};
+	var failcallback = function(){
+		alert("관계사 변경에 실패했습니다. 관리자에게 문의해주세요!");
+
+		$("#accessOrgIdList").val(oriApplyOrgId);		//이전 관계사로
+	};
+
+	commonAjaxForFail("POST", url, param, callback, failcallback);
+}
+
+
+//상단메뉴(root) 를 클릭할때 하위 첫번째 메뉴로 가도록
+function goFirstMenuByMainMenu(th){
+	var aList = $(th).parent().find("a");
+
+	for(var i=1; i<aList.length; i++){
+		if(aList[i].href.indexOf('#') == -1){
+			location.href = aList[i].href;
+			break;
+		}
+	}
+}
+
+
+//상단메뉴 세팅
+function mainMenu(url, li_p, a, menuClass, menuId, menuUpId, menuRootId, trgtDepth){									//depth 0 menu(ROOT)
+	//상단메뉴 세팅
+	if(url==''||url==null){
+		a.setAttribute('href','#');
+		a.setAttribute('onclick','goFirstMenuByMainMenu(this);');	//상단메뉴(root) 를 클릭할때 하위 첫번째 메뉴로 가도록
+
+        li_p.appendChild(a);
+
+    }else{
+    	//메뉴 경로
+		var hrefStr = contextRoot + '/' + url;
+
+		a.setAttribute('href',hrefStr);
+        if(menuClass=='02'){
+            a.setAttribute('target', '_blank');
+        }
+
+        li_p.appendChild(a);
+	}
+}
+
+//하위메뉴 세팅 (level 1, level 2)
+function subMenu(isDepth1NoChild, url, ulDrop, li_p, a, menuClass, menuId, menuUpId, menuRootId, trgtDepth){ 	//depth 1,2 menu
+
+	var hrefStr = '';
+
+	if(url=='' || url==null || (trgtDepth==1 && isDepth1NoChild != 'Y')){		//연결 링크가 없는경우에는 버튼 동작을 막는다.
+		hrefStr = '#';
+
+	}else{
+		hrefStr = contextRoot + '/' + url;
+	}
+
+	a.setAttribute('href', hrefStr);
+	li_p.appendChild(a);
+
+
+	if(isDepth1NoChild == 'Y'){			//depth 1 이면서 하위 메뉴가 존재하지 않으면
+    	dmmyLi = document.createElement('li');		//
+    	dmmyUl = document.createElement('ul');		//
+    	dmmyLi.appendChild(dmmyUl);
+		dmmyUl.appendChild(li_p);
+		ulDrop.appendChild(dmmyLi);
+    }else{
+    	ulDrop.appendChild(li_p);
+    }
+}
+
+makeMenu();		//메뉴를 만든다.
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 메뉴 생성 스크립트 :E ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+
+
+
+//상위 메뉴 New 아이콘 보임여부 체크
+function checkHeader(){
+	var newYn =  window.localStorage["orgNewYn"];
+	if(newYn == "Y"){
+		$("#count_org").show();
+	}
+}
+
+checkHeader();
+
+</script>
+
+
+
+
+
+<!-- -------------- body resize :S ------------- -->
+<!-- ** 사용자 설정 화면 사이즈를 위한 스크립트 ** -->
+<script type="text/javascript">
+//화면 사이즈 설정(세션 스토리지에 저장해두고 화면전환시에도 유지)
+function setBodySize(s){	//1000, 1280, 1600, FULL
+	var b = $('body');
+
+	//세션설정
+	if(s==undefined || s==null){	//FULL
+		window.sessionStorage['setBodySize'] = null;
+		window.sessionStorage['bodySize'] = null;
+
+	}else{			//특정 사이즈(1000, 1280, 1600, ...)
+		window.sessionStorage['setBodySize'] = s;
+
+		if($(window).width() < window.sessionStorage['setBodySize']){
+			window.sessionStorage['bodySize'] = null;
+		}else{
+			window.sessionStorage['bodySize'] = s;
+		}
+	}
+
+	//사이즈 변경
+	if(window.sessionStorage['bodySize']=='null' || window.sessionStorage['bodySize']==null || window.sessionStorage['bodySize']==undefined){
+		b.width('100%');
+	}else{
+		b.width(s);
+	}
+
+}
+//화면로딩후
+var resizeId;
+$(function(){
+
+	if(window.sessionStorage['bodySize'] != undefined && window.sessionStorage['bodySize'] != null && window.sessionStorage['bodySize'] != 'null'){
+		setBodySize(window.sessionStorage['bodySize']);
+	}
+
+	$(window).resize(function(){	//사이즈 변경 이벤트리스너 설정
+		clearTimeout(resizeId);
+		resizeId = setTimeout(doneResizing, 0);		//100 (ms)
+	});
+
+
+
+	//바로가기 메뉴 위치이동---------------------------
+	$("#sortable").sortable({
+    	update : function(event, ui){
+		    		var productOrder = $(this).sortable('toArray');
+					changeBookMark(productOrder);
+		}
+	});
+ 	$("#sortable").disableSelection();
+	//----------------------------------------------
+
+
+ 	//사용자 사진 사이즈 조정 스크립트 :S ---------------
+	var divs = document.querySelectorAll('.photo_aspect');
+	for (var i = 0; i < divs.length; ++i) {
+		var div = divs[i];
+		var divAspect = div.offsetHeight / div.offsetWidth;
+		div.style.overflow = 'hidden';
+
+		var img = div.querySelector('img');
+		if(img != null || img != undefined){
+			var imgAspect = img.height / img.width;
+
+			if (imgAspect <= divAspect) {
+				// 이미지가 div보다 납작한 경우 세로를 div에 맞추고 가로는 잘라낸다
+				var imgWidthActual = div.offsetHeight / imgAspect;
+				var imgWidthToBe = div.offsetHeight / divAspect;
+				var marginLeft = -Math.round((imgWidthActual - imgWidthToBe) / 2);
+				img.style.cssText = 'width: auto; height: 100%; margin-left: ' + marginLeft + 'px;';
+    		}else{
+    			// 이미지가 div보다 길쭉한 경우 가로를 div에 맞추고 세로를 잘라낸다
+    		    img.style.cssText = 'width: 100%; height: auto; margin-left: 0;';
+    		}
+		}
+	}
+	//사용자 사진 사이즈 조정 스크립트 :E ---------------
+
+
+
+	//메일 메뉴 셋팅
+	setEmailMenus();
+
+
+	//신규건 체크 NEW 아이콘 표시
+	setNewArticleIcon();
+
+});
+
+function doneResizing(){
+
+	var b = $('body');
+	var bWidth = $('body').width();
+
+	if(bWidth >= $(window).width()){					//윈도우 창이 내용보다 작거나 같으면
+
+		window.sessionStorage['bodySize'] = null;		//bodySize 를 null 로하여
+		b.width('100%');								//width 100% 로 한다.
+
+	}else{												//크면
+		window.sessionStorage['bodySize'] = window.sessionStorage['setBodySize'];	//사용자 설정 사이즈(null일 수도 있다)로
+		b.width(window.sessionStorage['bodySize']);
+	}
+}
+
+
+//----------- 메일 읽지 않은 갯수 ----------------
+function getEmailCount(mailAccount){
+
+	//var url = "http://mail.synergynet.co.kr/api/api_mail_get.php";
+	var url = "http://${baseUserLoginInfo.mailUrl}/api/api_mail_get.php";
+	var param = {
+			"id":mailAccount.trim(),
+			"returntype":"json"
+	};
+
+	var callback = function(result){
+		var obj = JSON.parse(result);
+		if(obj.result > 0){
+			//999건 이 넘어갈때는 999+ 로 표현
+			if(obj.result>999) obj.result = '999+';
+
+			$('#mailCount').html(obj.result);
+			$('#mailCount').show();
+		}else{
+			$('#mailCount').hide();
+		}
+	};
+	var failcallback = function(result){
+		$('#mailCount').hide();
+	};
+
+	$.support.cors = true; // ie9에서 발생하는 크로스도메인 이슈해결하기 위한 코드
+	commonAjaxForFail("POST", url, param, callback, failcallback);
+}
+</script>
+<!-- -------------- body resize :E ------------- -->

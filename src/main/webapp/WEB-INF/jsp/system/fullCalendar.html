@@ -1,0 +1,100 @@
+
+
+<!DOCTYPE html>
+<html>
+<head>
+
+<link rel='stylesheet' href='../../../js/fullcalendar-2.4.0/fullcalendar.css' />
+<link href='../../../js/fullcalendar-2.4.0/fullcalendar.print.css' rel='stylesheet' media='print' />
+
+<script src='../../../js/fullcalendar-2.4.0/lib/jquery.min.js'></script>
+<script src='../../../js/fullcalendar-2.4.0/lib/moment.min.js'></script>
+<script src='../../../js/fullcalendar-2.4.0/fullcalendar.js'></script>
+
+
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<script type='text/javascript'>
+	$(document).ready(function() {
+
+		var date = new Date();
+		var d = date.getDate();
+		var m = date.getMonth();
+		var y = date.getFullYear();
+
+		$('#calendar').fullCalendar({
+			header : {
+				left : 'prev,next today',
+				center : 'title',
+				right : 'month'
+			},
+			editable : true,
+			events : [ {
+				start: '2015-02-24',
+				end: '2015-02-28',
+				overlap: false,
+				rendering: 'background',
+				color: '#ff9f89'
+			},
+			{
+				title:'CLOSED',
+				start: '2015-10-04',
+				end: '2015-10-11',
+				overlap: false,
+				rendering: 'background',
+				color: '#6E6E6E'
+			},
+			{
+				title:'입력불가',
+				start: '2015-10-04',
+				end: '2015-10-11',
+				overlap: true,
+				rendering: 'foreground;background',
+				color: '#000000'
+			},
+			{
+				title:'CLOSED',
+				start: '2015-10-18',
+				end: '2015-10-25',
+				overlap: false,
+				rendering: 'background',
+				color: '#6E6E6E'
+			},
+			{
+				title:'입력불가',
+				start: '2015-10-18',
+				end: '2015-10-25',
+				overlap: true,
+				rendering: 'foreground;background',
+				color: '#000000'
+			}
+			
+ ]
+		});
+
+	});
+</script>
+<style>
+
+	body {
+		margin: 40px 10px;
+		padding: 0;
+		font-family: "Lucida Grande",Helvetica,Arial,Verdana,sans-serif;
+		font-size: 14px;
+	}
+
+	#calendar {
+		max-width: 900px;
+		margin: 0 auto;
+	}
+
+</style>
+
+</head>
+<body>
+
+	<div id='calendar'></div>
+
+</body>
+
+</html>

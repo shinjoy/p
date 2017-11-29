@@ -1,0 +1,474 @@
+package ib.recommend.web;
+
+import ib.basic.web.MultiFileUpload;
+import ib.cmm.FileUpDbVO;
+import ib.cmm.IBsMessageSource;
+import ib.cmm.service.CmmUseService;
+import ib.cmm.service.CommonService;
+import ib.cmm.util.sim.service.AjaxResponse;
+import ib.recommend.service.RecommendService;
+import ib.recommend.service.RecommendVO;
+import ib.reply.service.ReplyVO;
+import ib.stats.service.StatsService;
+import ib.work.service.WorkService;
+import ib.work.service.WorkVO;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+/**
+ * <pre>
+ * package  : ib.recommend.web
+ * filename : RecommendController.java
+ * </pre>
+ *
+ * @author  : ChanWoo Lee
+ * @since   : 2013. 3. 20.
+ * @version : 1.0.0
+ */
+@Controller
+public class RecommendController {
+
+	/** CmmUseService */
+	@Resource(name="CmmUseService")
+	private CmmUseService cmm;
+
+	@Resource(name="commonService")
+	private CommonService commonService;
+
+	/** MessageSource */
+    @Resource(name="IBsMessageSource")
+    IBsMessageSource MessageSource;
+
+    @Resource(name = "workService")
+    private WorkService workService;
+
+    @Resource(name = "recommendService")
+    private RecommendService recommendService;
+    @Resource(name = "statsService")
+    private StatsService statsService;
+
+
+	/** log */
+    protected static final Log LOG = LogFactory.getLog(RecommendController.class);
+
+	protected static Calendar cal = Calendar.getInstance();
+
+	/**
+	 * main 화면
+	 * @MethodName : index
+	 * @param rcmdVO
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/recommend/index.do")
+	public String index( RecommendVO rcmdVO,
+			HttpSession session,
+			ModelMap model) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+//		if(Integer.parseInt(loginUser.getPermission())<11) return "basic/Content";
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		model.addAttribute("ttT", rcmdVO.getTotal());
+		//List<WorkVO> recommend = null;
+		List<RecommendVO> recommend = null;
+//		List<RecommendVO> opinion = null;
+
+	/** 년도별로 소팅 **/
+		if(rcmdVO.getChoiceYear().equals("") && rcmdVO.getChoiceMonth().equals("")){
+			// Calendar cal = Calendar.getInstance();
+			cal.setTime( new Date(System.currentTimeMillis()) );
+			String date = new SimpleDateFormat("yyyy").format( cal.getTime() );
+
+			rcmdVO.setChoiceYear(date);
+		}//System.out.println("---------choiceYear---\n"+rcmdVO.getChoiceYear());
+		String year = rcmdVO.getChoiceYear();
+		model.addAttribute("choiceYear", year);
+
+		rcmdVO.setChoiceMonthS("01");
+		rcmdVO.setChoiceMonth("12");
+	/** 년도별로 소팅 **/
+
+		rcmdVO.setOfferCd("00013");
+
+		try{
+			recommend = recommendService.selectIBlist(rcmdVO);
+		}catch (Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+	/*	StaffVO staffVO = new StaffVO();
+		model.addAttribute("userList", cmm.userList(staffVO));*/
+
+		model.addAttribute("recommendList", recommend);
+//		model.addAttribute("opinionList", opinion);
+
+		//model.addAttribute("cmmCdCategoryList", cmm.commonCdList(rcmdVO.ccdCateCd));
+        Map cmmCdCategoryListCodeMap = new HashMap();
+        cmmCdCategoryListCodeMap.put("codeSetNm", "DEAL_KIND");
+        model.addAttribute("cmmCdCategoryList", commonService.getBaseCommonCode(cmmCdCategoryListCodeMap));
+
+    	return "recommend/RecommendMain";
+    }
+
+	/**
+	 * 의견 페이지 조회
+	 * @MethodName : comment
+	 * @param rcmdVO
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/recommend/comment.do")
+	public String comment( RecommendVO rcmdVO,
+			HttpSession session,
+			HttpServletRequest request,
+			ModelMap model) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+
+		if(rcmdVO.getsNb()==null | "".equals(rcmdVO.getsNb())) return "ajaxPopDiv/Reply";
+
+		/** 년도별로 소팅 **/
+		if(rcmdVO.getChoiceYear().equals("") && rcmdVO.getChoiceMonthS().equals("")){
+			// Calendar cal = Calendar.getInstance();
+			cal.setTime( new Date(System.currentTimeMillis()) );
+			String date = new SimpleDateFormat("yyyy").format( cal.getTime() );
+			rcmdVO.setChoiceYear(date);
+			rcmdVO.setChoiceMonthS("01");
+		}
+
+		rcmdVO.setChoiceMonth("12");
+		/** 년도별로 소팅 **/
+
+		rcmdVO.setOfferCd("00013");
+		model.addAttribute("offerSNB", rcmdVO.getsNb());
+		model.addAttribute("choiceYear", rcmdVO.getChoiceYear());
+		model.addAttribute("choiceMonthS", rcmdVO.getChoiceMonthS());
+
+		try{
+			List<RecommendVO> recommend = recommendService.selectRecommendInfo(rcmdVO);
+			model.addAttribute("d_day", getDday(recommend.get(0)));
+
+			String cpnid = recommend.get(0).getCpnId();
+			rcmdVO.setCpnId((cpnid==null||"".equals(cpnid))?"0":cpnid);
+
+			rcmdVO.setCategoryCd("00001");
+			List<RecommendVO> opinion = recommendService.selectOpinionList(rcmdVO);
+
+			rcmdVO.setOfferCd("00004");
+			List<WorkVO> analysis = statsService.selectPrivateOffer(rcmdVO);
+
+			rcmdVO.setOfferCd("00005");
+			List<WorkVO> proposal = statsService.selectPrivateOffer(rcmdVO);
+
+			rcmdVO.setOfferCd("00002");
+			List<WorkVO> ir = statsService.selectPrivateOffer(rcmdVO);
+
+			rcmdVO.setOfferCd("00003");
+			List<WorkVO> visit = statsService.selectPrivateOffer(rcmdVO);
+
+			ReplyVO rvo = new ReplyVO();
+			rvo.setsNb(rcmdVO.getsNb());
+			model.addAttribute("disposalList", workService.selectDisposalList(rvo));
+			model.addAttribute("supportList", workService.selectSupporterList(rvo));
+
+
+			//-------- 딜정보 회사기본정보 추가 201504001 :S ---------
+			for(RecommendVO info : recommend){
+				String sizeT = info.getCategoryBusiness() + info.getMajorProduct() + info.getCeo() + info.getStockValue() + "" + info.getUnitPrice();
+				LOG.debug("################## zzz length : " + sizeT.length());
+				if(sizeT.length() > 43 && (info.getCategoryBusiness() + info.getMajorProduct() + info.getCeo()).length() > 30){
+					info.setMajorProductFull(info.getMajorProduct());
+					int tmp = 28 - (info.getCategoryBusiness() + info.getCeo()).length();
+					info.setMajorProduct(info.getMajorProduct().substring(0, (tmp<0?0:tmp)) + "...");		//full
+				}
+			}
+			//-------- 딜정보 회사기본정보 추가 201504001 :E ---------
+
+			//-------- 추천종목 딜 정보(IB_OFFER.RECOMMEND_SNB) 있으면 가져오기 ...(딜제안중 딜일때) :S ---------
+			List<RecommendVO> rcmdDealInfo = recommendService.selectRcmdDealInfo(rcmdVO);
+			model.addAttribute("rcmdDealInfo", rcmdDealInfo);
+			//-------- 추천종목 딜 정보(IB_OFFER.RECOMMEND_SNB) 있으면 가져오기 ...(딜제안중 딜일때) :E ---------
+
+
+			model.addAttribute("recommendInfo", recommend);
+			model.addAttribute("opinionList", opinion);
+			model.addAttribute("analysisList", analysis);
+			model.addAttribute("proposalList", proposal);
+			model.addAttribute("irList", ir);
+			model.addAttribute("visitList", visit);
+
+            Map cmmCdProgressListCodeMap = new HashMap();
+			if("00008".equals(recommend.get(0).getCategoryCd())){
+				//model.addAttribute("cmmCdProgressList", cmm.commonCdList("00016"));
+                cmmCdProgressListCodeMap.put("codeSetNm", "MNA_STATUS");
+                model.addAttribute("cmmCdProgressList", commonService.getBaseCommonCode(cmmCdProgressListCodeMap));
+
+				model.addAttribute("mnaMatchList", workService.selectMnaMatchCpnList(rcmdVO));
+			}else
+				//model.addAttribute("cmmCdProgressList", cmm.commonCdList(rcmdVO.ccdPrgressCd));
+                cmmCdProgressListCodeMap.put("codeSetNm", rcmdVO.ccdPrgressCd);
+                model.addAttribute("cmmCdProgressList", commonService.getBaseCommonCode(cmmCdProgressListCodeMap));
+		}catch (Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+
+		//model.addAttribute("cmmCdCategoryList", cmm.commonCdList(rcmdVO.ccdCateCd));
+        Map cmmCdCategoryListCodeMap = new HashMap();
+        cmmCdCategoryListCodeMap.put("codeSetNm", rcmdVO.ccdCateCd);
+        model.addAttribute("cmmCdCategoryList", commonService.getBaseCommonCode(cmmCdCategoryListCodeMap));
+
+		return "ajaxPopDiv/Reply/pop";
+	}
+
+	/**
+	 * D day 계산
+	 * @MethodName : D_day
+	 * @param vo
+	 * @return
+	 */
+	public String getDday(WorkVO vo){
+		if( vo.getDueDt()==null || vo.getDueDt().equals("") ) return null;
+
+		System.out.println("\n-----------\n"+vo.getDueDt()+"\n-------------\n");
+
+		java.util.Calendar caldar = java.util.Calendar.getInstance(); //일단 Calendar 객체
+		long now_day = caldar.getTimeInMillis();
+
+		int due_year = Integer.parseInt( vo.getDueDt().substring(0,4) );
+		int due_mon = Integer.parseInt( vo.getDueDt().substring(5,7) );
+		int due_date = Integer.parseInt( vo.getDueDt().substring(8,10) );
+		caldar.set(due_year, due_mon-1, due_date);
+		long event_day = caldar.getTimeInMillis();
+
+		long d_day = (event_day - now_day)/(60*60*24*1000);
+
+		return Long.toString(d_day);
+	}
+
+	/**
+	 * 결과, 딜제안자, 진행사항 수정
+	 * @MethodName : updateResult
+	 * @param rcmdVO
+	 * @param session
+	 * @param model
+	 * @return
+	 */
+	@RequestMapping(value="/recommend/updateResult.do")
+	public String updateResult( RecommendVO rcmdVO,
+			HttpSession session,
+			ModelMap model){
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+		rcmdVO.setRgId(baseUserLoginInfo.get("loginId").toString());
+		rcmdVO.setOrgId(baseUserLoginInfo.get("orgId").toString());
+
+		int cnt = 0, memoCnt = 0;
+		if("N".equals(rcmdVO.getSubMemo())){
+			rcmdVO.setMainSnb("0");
+		}
+		try{
+			cnt = workService.updateResultByIbSystem(rcmdVO);
+			LOG.debug(baseUserLoginInfo.get("loginId").toString()+"^_^workService.insertMemo");
+		}catch (Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+
+    	return "recommend/RecommendMain";
+    }
+
+	/**
+	 * 의견 입력,삭제			(... 수정 은 하단 recommend/saveOpinion2.do 에서)
+	 * @MethodName : saveOpinion
+	 * @param rcmdVO
+	 * @param session
+	 * @param model
+	 * @return
+	 */
+	@RequestMapping(value="/recommend/saveOpinion.do")
+	public String saveOpinion(
+			HttpServletRequest request,
+			HttpServletResponse response,
+			@ModelAttribute("rcmdVO") RecommendVO rcmdVO,
+			HttpSession session,
+			ModelMap model){
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+		rcmdVO.setRgId(baseUserLoginInfo.get("loginId").toString());
+		rcmdVO.setOrgId(baseUserLoginInfo.get("orgId").toString());
+		String rtnPath = "";
+		try{
+			if("".equals(rcmdVO.getsNb()) | rcmdVO.getsNb()==null){
+				//System.out.println("\n:::::::: insert :::::::\n");
+
+				// 정보 받기
+				MultipartHttpServletRequest multipartRequest = (MultipartHttpServletRequest) request;
+
+				rtnPath=recommendService.insertRecommendOpinionByIbSystem(rcmdVO, multipartRequest,rtnPath,request);
+
+			}else{
+				rtnPath = "redirect:/recommend/comment.do?sNb="+ rcmdVO.getTmpNum1();
+				if ("00002".equals(rcmdVO.getCategoryCd())) rtnPath = "redirect:/personnel/management/index.do?usrId="+rcmdVO.getUsrId();
+				if("".equals(rcmdVO.getOfferSnb()) | rcmdVO.getOfferSnb()==null){
+					//System.out.println("\n:::::::: delete :::::::\n");
+					recommendService.deleteRecommendOpinion(rcmdVO);
+					LOG.debug(baseUserLoginInfo.get("loginId").toString()+"^_^recommendService.deleteRecommendOpinion");
+				}else{
+					///////////////////////////////////////// 이 수정 부분은 하단 recommend/saveOpinion2.do 에서 처리로 바뀜 2016-06-01 !!!!!!
+					//System.out.println("\n:::::::: update :::::::\n");
+					recommendService.updatecomment(rcmdVO);
+					LOG.debug(baseUserLoginInfo.get("loginId").toString()+"^_^recommendService.updatecomment^_^"+rcmdVO.getsNb());
+				}
+			}
+		}catch (Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return rtnPath;
+	}
+
+
+	/**
+	 * 의견 수정
+	 * @MethodName : saveOpinion
+	 * @param rcmdVO
+	 * @param session
+	 * @param model
+	 * @return
+	 */
+	@RequestMapping(value="/recommend/saveOpinion2.do")
+	public String saveOpinion2(
+			HttpServletRequest request,
+			HttpServletResponse response,
+			@ModelAttribute("rcmdVO") RecommendVO rcmdVO,
+			HttpSession session,
+			ModelMap model){
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		LOG.info(baseUserLoginInfo.get("loginId").toString());
+		rcmdVO.setRgId(baseUserLoginInfo.get("loginId").toString());
+		rcmdVO.setOrgId(baseUserLoginInfo.get("orgId").toString());
+		String rtnPath = "";
+		try{
+
+			rtnPath = "redirect:/recommend/comment.do?sNb="+ rcmdVO.getTmpNum1() + "&tmDt=" + request.getParameter("tmDt");
+			if ("00002".equals(rcmdVO.getCategoryCd())) rtnPath = "redirect:/personnel/management/index.do?usrId="+rcmdVO.getUsrId();
+
+
+			// 정보 받기
+			MultipartHttpServletRequest multipartRequest = (MultipartHttpServletRequest) request;
+
+			String cateCd = (String) multipartRequest.getParameter("categoryCd");
+			rtnPath = "redirect:/recommend/comment.do?sNb="+(String) multipartRequest.getParameter("tmpNum1")+ "&tmDt=" + multipartRequest.getParameter("tmDt");
+			if ("00002".equals(cateCd)) rtnPath = "redirect:/personnel/management/index.do?usrId="+(String) multipartRequest.getParameter("usrId");
+			rcmdVO.setOfferSnb( (String) multipartRequest.getParameter("offerSnb"));
+			rcmdVO.setComment( (String) multipartRequest.getParameter("comment"));
+			rcmdVO.setCategoryCd( cateCd );
+
+			// 파일업로드 시키기
+			//MultiFileUpload mUpload = new MultiFileUpload();
+			FileUpDbVO fileVo = new FileUpDbVO();
+//					fileVo.setOfferSnb(rslt.get(0).getsNb());
+			fileVo.setOfferSnb(rcmdVO.getsNb());
+			fileVo.setReportYN("N");
+			fileVo.setFileCategory("00002"); //00000:정보정리, 00001: staff사진 ,  00002: 댓글 첨부파일, 00003: 인사관리->이력서파일
+			fileVo.setRgId(baseUserLoginInfo.get("loginId").toString());
+			fileVo.setOrgId(baseUserLoginInfo.get("orgId").toString());
+
+			MultiFileUpload mUpload = new MultiFileUpload("");
+			mUpload.fileUpload(multipartRequest, fileVo, request);
+
+
+
+
+			recommendService.updatecomment(rcmdVO);
+
+
+		}catch (Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+		}
+		return rtnPath;
+	}
+
+
+	/**
+	 * 딜 등록 팝업(추천종목 > 딜제안중)
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 05. 23.
+	 */
+	@RequestMapping(value = "/recommend/regDealPopup.do")
+	public String regCstPopup(HttpServletRequest request, HttpServletResponse response, ModelMap model,
+								HttpSession session, @RequestParam Map<String,Object> map) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+
+		model.addAllAttributes(map);	//받은 파라미터 화면으로 그대로 전달.
+
+		return "recommend/regDealPopup";
+	}
+
+
+	/**
+	 * 추천종목 >> 제안중 딜 등록 ajax
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 5. 24.
+	 */
+	@RequestMapping(value = "/recommend/regPropDeal.do")
+	public void regPropDeal(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model,
+			HttpSession session, @RequestParam Map<String,Object> map) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return;
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+
+		int upCnt = 0;
+		map.put("usrId", baseUserLoginInfo.get("loginId").toString());
+		map.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		upCnt = recommendService.regPropDeal(map);			//추천종목 으로 제안중딜을 등록, 파일도 카피해서 등록, 기존 추천종목 상태 '딜제안'으로 변경
+
+
+		AjaxResponse.responseAjaxSave(response, upCnt);		//결과전송
+
+	}
+
+}

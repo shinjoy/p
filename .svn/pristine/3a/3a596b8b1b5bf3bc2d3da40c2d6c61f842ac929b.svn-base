@@ -1,0 +1,115 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+<script type="text/javascript" defer="defer">
+	$(document).ready(function(){
+		//최초 정보셋팅
+		commentObj.doSearch();
+	});
+	var commentObj = {
+			doSearch : function(){
+				$("#commentFrm").attr("action",contextRoot+"/business/mainBusinessCommentListAjax.do");
+				commonAjaxSubmit("POST",$("#commentFrm"),commentObj.mainBusinessCallback);
+			},
+			mainBusinessCallback:function(data){
+				$("#commentArea").empty();
+
+				//list obj
+				var list = data.resultObject;
+
+				if(list == undefined || list.length<1){
+					//nodata
+					$("#commentArea").append("<div class=\"m_nocontxt\">등록된 정보코멘트가 없습니다.</div>");
+
+				}else{
+					for(var i = 0 ; i <list.length ; i++){
+
+						var dataObj = list[i];
+						//tmpl txt
+						var commentTmpl = $("#commentTmpl").text();
+
+						commentTmpl = commentTmpl.split("##infoId##").join(dataObj.infoId);
+						commentTmpl = commentTmpl.split("##infoPathNm##").join(dataObj.infoPathNm);
+						if(dataObj.infoTypeNm!=undefined&&dataObj.infoTypeNm!=""){
+							commentTmpl = commentTmpl.split("##infoTypeNm##").join(dataObj.infoTypeNm);
+							commentTmpl = commentTmpl.split("##infoTypeDisplay##").join("inline");
+						}else
+							commentTmpl = commentTmpl.split("##infoTypeDisplay##").join("none");
+
+						if(dataObj.infoClassNm!=undefined&&dataObj.infoClassNm!=""){
+							commentTmpl = commentTmpl.split("##infoClassNm##").join(dataObj.infoClassNm);
+							commentTmpl = commentTmpl.split("##infoClassDisplay##").join("inline");
+						}else
+							commentTmpl = commentTmpl.split("##infoClassDisplay##").join("none");
+
+						var title = "["+dataObj.cpnNm1+"]"+dataObj.content;
+						commentTmpl = commentTmpl.split("##title##").join(title);
+
+						if(dataObj.newYn == "Y")
+							commentTmpl = commentTmpl.split("##newYnCss##").join("inline");
+						else
+							commentTmpl = commentTmpl.split("##newYnCss##").join("none");
+
+						var stStr = "<span class='userProfileTargetArea' onmousedown = 'openUserProfileBox(\""+dataObj.createdBy+"\",$(this),\"mouseover\",null,0,-300,300)'>";
+							stStr+= dataObj.createdByNm+"</span>";
+						commentTmpl = commentTmpl.split("##createdByNm##").join(stStr);
+
+						commentTmpl = commentTmpl.split("##createDate##").join(dataObj.createdDateStr);
+						$("#commentArea").append(commentTmpl);
+					}
+				}
+				//유저프로필 이벤트 셋팅
+				initUserProfileEvent();
+			},
+			//상세팝업
+			openDetailPop : function(infoId){
+				$("#commentFrm #infoId").val(infoId);
+				$("#commentFrm #fromPage").val("main");
+				var option = "width=968px,height=720px,resizable=yes,scrollbars = yes";
+				commonPopupOpen("businessDetailPop",contextRoot+"/business/businessDetail.do",option,$("#commentFrm"));
+			},
+			//더보기 버튼 클릭시...
+			moveMorePage : function(){
+				$("#commentFrm #recordCountPerPage").val("10");
+
+				$("#commentFrm").attr("action",contextRoot+"/business/businessCommentList.do").submit();
+
+			}
+	}
+</script>
+<!-- List Tmpl... -->
+<script type="text" id = "commentTmpl">
+	<li>
+		<div class="fl_block">
+			<a href="javascript:commentObj.openDetailPop('##infoId##')">
+				<span class="info_type_cway">##infoPathNm##</span>
+				<span class="info_type_c1" style = "display:##infoTypeDisplay##">##infoTypeNm##)</span>
+				<span class="info_type_c2" style = "display:##infoClassDisplay##">##infoClassNm##</span>
+				<span>##title##
+				</span>
+			</a>
+				<div style = "display:##newYnCss##"><span class="icon_new" ><em>new</em></span></div>
+		</div>
+		<div class="fr_block"><span class="bs_name">##createdByNm##</span><span class="bs_date">##createDate##</span></div>
+	</li>
+</script>
+<form id = "commentFrm" name = "commentFrm" method="post">
+	<!-- 상세화면 이동을 위한 파라미터  :S -->
+	<input type="hidden" id ="infoId" name = "infoId">
+	<input type="hidden" id ="fromPage" name = "fromPage">
+
+	<!-- 상세화면 이동을 위한 파라미터  :E -->
+	<h2 class="module_title">
+	    <strong onclick="commentObj.moveMorePage()">영업정보 코멘트</strong>
+	    <c:if test="${baseUserLoginInfo.vipAuthYn eq 'Y'}"><span>(전체)</span></c:if>
+	</h2>
+	<div class="module_conBox">
+		<ul class="board_mbs_list" id = "commentArea">
+		</ul>
+	</div>
+	<a href="javascript:commentObj.moveMorePage()" class="btn_more"><em>더보기</em></a>
+</form>

@@ -1,0 +1,909 @@
+package ib.worktime.web;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+import ib.cmm.util.fcc.service.StringUtil;
+import ib.cmm.util.sim.service.AjaxResponse;
+import ib.schedule.service.ScheduleService;
+import ib.schedule.service.Utill;
+import ib.system.service.CertificationRqmtService;
+import ib.system.service.OrgCompanyRegService;
+import ib.worktime.service.WorktimeService;
+
+/**
+ *
+ * @author  : 이인희
+ * @since   : 2016. 12. 16.
+ * @filename : ManagementController.java
+ * @version : 1.0.0
+ * @see
+ *
+ * <pre>
+ * package  : ib.worktime.web
+ * </pre>
+ */
+@Controller
+public class WorktimeController {
+
+
+    @Resource(name = "worktimeService")
+    private WorktimeService worktimeService;
+
+    @Resource(name = "orgCompanyRegService")
+	private OrgCompanyRegService orgCompanyRegService;
+
+    @Resource(name = "scheService")
+	private ScheduleService scheService;
+
+    @Resource(name = "certificationRqmtService")
+	private CertificationRqmtService certificationRqmtService;
+
+    @Value("${Globals.fileStorePath2}")
+	private String folderPathBase;
+
+    /** log */
+    protected static final Log LOG = LogFactory.getLog(WorktimeController.class);
+
+    // 카운트 prefix
+ 	String prefix = "<span class=\"menuRipple\">(";
+ 	// 카운트 suffix
+ 	String suffix = ")</span>";
+
+    @ModelAttribute
+	public void common(Model model, HttpServletRequest request, HttpSession session) {
+		Map<String, Object> menuMap = new HashMap<String, Object>();
+
+		///////////////// ajax조회면 실행하지 않는다 : S
+		String ajaxHeader = request.getHeader("X-Requested-With");
+		String winId = request.getParameter("winID");	//AxisModal
+
+		if ((ajaxHeader != null && ajaxHeader.equals("XMLHttpRequest"))||winId!=null)
+			return;
+		///////////////// ajax조회면 실행하지 않는다 : E
+		try{
+			Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+			Map<String,Object> paramMap = new HashMap<String, Object>();
+			paramMap.put("targetOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+			Calendar car = Calendar.getInstance();
+
+			String month = (car.get(Calendar.MONTH)+1)+"";
+			month = String.format("%02d", Integer.parseInt(month));
+			paramMap.put("month", month);
+			paramMap.put("year", car.get(Calendar.YEAR));
+
+			Integer certDocRqmtListCnt = certificationRqmtService.getCertDocRqmtListCnt(paramMap);
+			menuMap.put("MENU_CERT_DOC_RQMT_MNG",prefix + certDocRqmtListCnt + suffix);
+
+			model.addAttribute("menuSummaryMap", menuMap);
+		}catch(Exception e){
+			LOG.info(
+					"=========================================업무지원 좌측메뉴 새글알림 조회도중 오류발생=============================== ");
+			e.printStackTrace();
+		}
+    }
+
+    /**
+	 * 근태열람 화면으로 이동
+	 *
+	* @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/attendanceViewList.do")
+	public String attendanceViewList(@RequestParam Map<String,Object> paramMap
+			,Model model, HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("userId", baseUserLoginInfo.get("userId"));
+		model.addAttribute("orgCompList", orgCompanyRegService.getOrgRelationAuthListOnlyUserId(paramMap));
+
+		model.addAttribute("userId", baseUserLoginInfo.get("userId"));  //사용자ID
+		model.addAttribute("deptId", baseUserLoginInfo.get("deptId"));  //부서ID
+		model.addAttribute("deptLevel", baseUserLoginInfo.get("deptLevel"));  //부서레벨
+
+		model.addAttribute("deptMngrYn", baseUserLoginInfo.get("deptMngrYn"));  //부서장 여부
+		model.addAttribute("vipAuthYn", baseUserLoginInfo.get("vipAuthYn"));  //특별권한 여부
+
+		String viewAuth ="";
+
+		if("Y".equals(baseUserLoginInfo.get("vipAuthYn"))) viewAuth ="ALL";   //특별권한이면 전체보기권한
+		else if("Y".equals(baseUserLoginInfo.get("deptMngrYn"))) viewAuth ="DEPT";  //부서장  부서별로 보기권한
+		else viewAuth ="USER";  //일반사용자
+
+		model.addAttribute("viewAuth", viewAuth);  //부서ID
+
+		model.addAttribute("pageType","VIEW");  //근태열람 화면구분자
+		model.addAttribute("actionType","dayList");  //초기값 일별목록
+
+		return "worktime/manager/attendanceMgmt";
+	}
+
+	/**
+	 * 근태관리 화면으로 이동
+	 *
+	* @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/attendanceMgmt.do")
+	public String attendanceMgmt(@RequestParam Map<String,Object> paramMap
+			,Model model, HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("userId", baseUserLoginInfo.get("userId"));
+		model.addAttribute("orgCompList", orgCompanyRegService.getOrgRelationAuthListOnlyUserId(paramMap));
+
+		model.addAttribute("pageType","MGMT");  //근태관리 화면구분자
+		model.addAttribute("viewAuth","ALL");  //
+
+		model.addAttribute("searchDate",paramMap.get("searchDate"));  //
+
+		return "worktime/manager/attendanceMgmt";
+	}
+	/**
+	 * 근태관리 화면 : 근태현황(일)
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/attendanceDayListAjax.do")
+	public String getAttendanceDayListAjax(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		//paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("applyOrgId", paramMap.get("targetOrgId").toString());
+		paramMap.put("hideSynergyUserYn", baseUserLoginInfo.get("hideSynergyUserYn").toString());  //관계사 시너지 유저 목록 활성화여부
+
+		if(paramMap.get("searchDate") == null || StringUtil.isEmpty(paramMap.get("searchDate").toString())){
+			Date dateNow = new Date();
+			SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+			String searchDate = formatter.format(dateNow);
+			paramMap.put("searchDate", searchDate);
+		}
+
+		paramMap.put("searchYear", null);
+		paramMap.put("searchMonth", null);
+		//연차목록 조회 , 검색가능한 orgId가 있으므로 조회
+		List<EgovMap> worktimeList = worktimeService.getWorktimeList(paramMap);
+
+		//근태현황 통계
+		EgovMap worktimeStatistics = worktimeService.getWorktimeStatistics(paramMap);
+
+		//근태마감여부 : 일
+		EgovMap worktimeEndInfo = worktimeService.getWorktimeEndInfoForDay(paramMap);
+
+		model.addAttribute("worktimeList", worktimeList);
+		model.addAttribute("worktimeStatistics", worktimeStatistics);
+		model.addAttribute("worktimeEndInfo", worktimeEndInfo);
+		model.addAttribute("searchDate", paramMap.get("searchDate").toString());
+		model.addAttribute("targetOrgId", paramMap.get("targetOrgId").toString());
+		model.addAttribute("pageType", paramMap.get("pageType").toString());
+		model.addAttribute("viewAuth", paramMap.get("viewAuth").toString());
+		/*model.addAttribute("searchDeptId", paramMap.get("searchDeptId").toString());*/
+
+		return "worktime/manager/include/attendanceMgmt_dayList_INC";
+	}
+
+	/**
+	 * 근태관리 화면 : 근태현황(월)
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/attendanceMonthListAjax.do")
+	public String attendanceMonthListAjax(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		//paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("applyOrgId", paramMap.get("targetOrgId").toString());
+		paramMap.put("hideSynergyUserYn", baseUserLoginInfo.get("hideSynergyUserYn").toString());  //관계사 시너지 유저 목록 활성화여부
+
+		if(paramMap.get("searchYear") == null || StringUtil.isEmpty(paramMap.get("searchYear").toString())){
+			Date dateNow = new Date();
+			SimpleDateFormat formatter = new SimpleDateFormat("yyyy");
+			String searchYear = formatter.format(dateNow);
+
+			formatter = new SimpleDateFormat("MM");
+			String searchMonth = formatter.format(dateNow);
+
+			paramMap.put("searchYear", searchYear);
+			paramMap.put("searchMonth", searchMonth);
+		}
+
+		List<EgovMap> worktimeListEndYn = worktimeService.getWorktimeEndYnByMonthList(paramMap);
+
+		List<EgovMap> worktimeList = worktimeService.getWorktimeByMonthList(paramMap);
+
+		//근태마감여부 : 월
+		EgovMap worktimeEndInfo = worktimeService.getWorktimeEndInfoForMonth(paramMap);
+		EgovMap worktimeEndInfo2 = worktimeService.getWorktimeEndInfoForMonth2(paramMap);
+
+		//
+		List<EgovMap> calendarPerMonth = worktimeService.getCalendarPerMonth(paramMap);
+
+		model.addAttribute("worktimeListEndYn", worktimeListEndYn);
+		model.addAttribute("worktimeList", worktimeList);
+		model.addAttribute("worktimeEndInfo", worktimeEndInfo);
+		model.addAttribute("worktimeEndInfo2", worktimeEndInfo2);
+		model.addAttribute("calendarPerMonth", calendarPerMonth);
+		model.addAttribute("searchYear", paramMap.get("searchYear").toString());
+		model.addAttribute("searchMonth", paramMap.get("searchMonth").toString());
+		model.addAttribute("searchDate", paramMap.get("searchDate").toString());
+
+		model.addAttribute("targetOrgId", paramMap.get("targetOrgId").toString());
+		model.addAttribute("pageType", paramMap.get("pageType").toString());
+		model.addAttribute("viewAuth", paramMap.get("viewAuth").toString());
+
+		return "worktime/manager/include/attendanceMgmt_monthList_INC";
+	}
+
+	/**
+	 * 근태관리 화면 : 근태현황(년)
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/attendanceYearListAjax.do")
+	public String attendanceYearListAjax(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		//paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("applyOrgId", paramMap.get("targetOrgId").toString());
+		paramMap.put("hideSynergyUserYn", baseUserLoginInfo.get("hideSynergyUserYn").toString());  //관계사 시너지 유저 목록 활성화여부
+
+		if(paramMap.get("searchYear") == null || StringUtil.isEmpty(paramMap.get("searchYear").toString())){
+			Date dateNow = new Date();
+			SimpleDateFormat formatter = new SimpleDateFormat("yyyy");
+			String searchYear = formatter.format(dateNow);
+
+			formatter = new SimpleDateFormat("MM");
+			String searchMonth = formatter.format(dateNow);
+
+			paramMap.put("searchYear", searchYear);
+			paramMap.put("searchMonth", searchMonth);
+		}
+
+		List<EgovMap> worktimeListEndYn = worktimeService.getWorktimeEndYnByYearList(paramMap);
+
+		List<EgovMap> worktimeList = worktimeService.getWorktimeByYearList(paramMap);
+
+		model.addAttribute("worktimeListEndYn", worktimeListEndYn);
+		model.addAttribute("worktimeList", worktimeList);
+		model.addAttribute("searchYear", paramMap.get("searchYear").toString());
+		model.addAttribute("searchMonth", paramMap.get("searchMonth").toString());
+		model.addAttribute("searchDate", paramMap.get("searchDate").toString());
+
+		model.addAttribute("pageType", paramMap.get("pageType").toString());
+		model.addAttribute("viewAuth", paramMap.get("viewAuth").toString());
+
+		return "worktime/manager/include/attendanceMgmt_yearList_INC";
+	}
+	/**
+	 * 근태관리 화면 : 근태일괄관리(Excel)
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/attendanceExcelListAjax.do")
+	public String attendanceExcelListAjax(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		//paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("orgId", baseUserLoginInfo.get("orgId"));
+		paramMap.put("applyOrgId", paramMap.get("targetOrgId").toString());
+		paramMap.put("hideSynergyUserYn", baseUserLoginInfo.get("hideSynergyUserYn").toString());  //관계사 시너지 유저 목록 활성화여부
+
+		if(paramMap.get("searchYear") == null || StringUtil.isEmpty(paramMap.get("searchYear").toString())){
+			Date dateNow = new Date();
+			SimpleDateFormat formatter = new SimpleDateFormat("yyyy");
+			String searchYear = formatter.format(dateNow);
+
+			formatter = new SimpleDateFormat("MM");
+			String searchMonth = formatter.format(dateNow);
+
+			paramMap.put("searchYear", searchYear);
+			paramMap.put("searchMonth", searchMonth);
+		}
+
+		List<EgovMap> fileList = worktimeService.getWorkTimeExcelFileList(paramMap);
+
+		model.addAttribute("fileList", fileList);
+
+		model.addAttribute("searchYear", paramMap.get("searchYear").toString());
+		model.addAttribute("searchMonth", paramMap.get("searchMonth").toString());
+		model.addAttribute("searchDate", paramMap.get("searchDate").toString());
+
+		model.addAttribute("targetOrgId", paramMap.get("targetOrgId").toString());
+		model.addAttribute("pageType", paramMap.get("pageType").toString());
+		model.addAttribute("viewAuth", paramMap.get("viewAuth").toString());
+
+
+		return "worktime/manager/include/attendanceMgmt_excelList_INC";
+	}
+
+	/**
+	 * 근태관리 화면 : 근태일괄관리(Excel)
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/attendanceExcelPop.do")
+	public String attendanceExcelPop(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		//paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("orgId").toString());
+
+
+
+		return "worktime/manager/include/attendanceMgmt_attendanceExcelPop_INC/pop";
+	}
+
+	/**
+	 * 출근부 엑셀 업로드 - 엑셀
+	 * @MethodName : uploadExel
+	 * @param request
+	 * @param response
+	 * @param rcmdVO
+	 * @param session
+	 * @param model
+	 * @return
+	 */
+	@RequestMapping(value="/worktime/uploadWorktimeExcel.do")
+	public void uploadWorktimeExcel(
+			HttpServletRequest request,
+			HttpServletResponse response,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return;	// "basic/Content";
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		Map param = new HashMap<String, Object>();
+		param.put("rgId", baseUserLoginInfo.get("userId").toString());
+		param.put("orgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		try{
+			// 정보 받기
+			MultipartHttpServletRequest multi = (MultipartHttpServletRequest) request;
+			// 파일업로드 시키기
+			String folderPath = folderPathBase + "PASS_ATTEND_EXCEL";
+			//os가 리눅스면 D:를 제거한다
+  			if(System.getProperty("os.name").toUpperCase().indexOf("WINDOWS") < 0)
+  	        {
+  				if(folderPath.indexOf("D:")>=0){
+  					folderPath = folderPath.split("D:")[1];
+  				}
+  	        }
+
+		    File f = new File(folderPath);
+		    f.mkdirs();//파일 저장될 폴더 생성
+
+			// 넘어온 파일을 리스트에 담아서
+			List<MultipartFile> files = multi.getFiles("shadowFile");
+			if (files.size() == 1 && files.get(0).getOriginalFilename().equals("")) {
+
+	        } else {
+	            for (int i = 0; i < files.size(); i++) {
+	                String originalfileName = files.get(i).getOriginalFilename();
+	                if("".equals(originalfileName) || originalfileName==null){
+	                	continue;
+	                }
+
+                	//String newFileName = "" + (System.currentTimeMillis() + 1);		//새이름
+                	String newFileName = Utill.upFileReName(files.get(0), originalfileName, folderPath);		//새이름
+                	String savePath = folderPath + "/" + newFileName; 					//저장 될 파일 경로/이름
+                	param.put("filePath", savePath);
+                	param.put("newFileName", newFileName);
+                	param.put("fileSize", files.get(0).getSize());
+                	param.put("orgFileName", originalfileName);
+
+
+                	files.get(i).transferTo(new File(savePath)); // 파일 저장
+                	File fNewname1 = new File(savePath);
+
+                	//----------------------------------- 등록 :S -----------------------------------
+                	Map result = worktimeService.uploadWorktimeExcel(param, fNewname1);
+                	//Map result = new HashMap<String, Object>();
+
+                	model.put("upload", result.get("upload"));			//업로드 success
+	            }
+	        }
+		}catch(Exception e){
+			LOG.error(e);
+			e.printStackTrace();
+        	throw e;
+		}
+
+		AjaxResponse.responseAjaxObject(response, param); // 결과전송
+
+		//return "company/uploadCompanyByCsv";
+	}
+
+	/**
+	 * 근태관리 화면 : 근태승인
+	 *
+	* @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/attendanceApprovPopup.do")
+	public String openAttendanceApprovPopup(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		EgovMap worktime = worktimeService.getWorktime(paramMap);
+		model.addAttribute("worktime", worktime);
+		model.addAttribute("actionType", paramMap.get("actionType").toString());
+
+		return "worktime/manager/attendanceApprovPopup/pop";
+	}
+
+	/**
+	 * 근태관리 화면 : 근태승인 저장
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/doSaveAttendanceApprov.do")
+	public void doSaveAttendanceApprov(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model, HttpSession session,
+			@RequestParam Map<String, Object> map) throws Exception {
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("updatedBy", baseUserLoginInfo.get("userId").toString());
+
+		int cnt = worktimeService.doSaveAttendanceApprov(map);
+
+		AjaxResponse.responseAjaxSave(response, cnt); // 결과전송
+	}
+
+	/**
+	 * 일근태마감처리
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/processWorkTimeDayEndAjax.do")
+	public void processWorkTimeDayEndAjax(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model, HttpSession session,
+			@RequestParam Map<String, Object> map) throws Exception {
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("updatedBy", baseUserLoginInfo.get("userId").toString());
+		map.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+
+		int cnt = worktimeService.processWorkTimeDayEnd(map);
+
+		AjaxResponse.responseAjaxSave(response, cnt); // 결과전송
+	}
+
+	/**
+	 * 월근태마감처리
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/processWorkTimeMonthEndAjax.do")
+	public void processWorkTimeMonthEndAjax(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model, HttpSession session,
+			@RequestParam Map<String, Object> map) throws Exception {
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("updatedBy", baseUserLoginInfo.get("userId").toString());
+		map.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		int cnt = worktimeService.processWorkTimeMonthEnd(map);
+
+		AjaxResponse.responseAjaxSave(response, cnt); // 결과전송
+	}
+
+
+
+
+	/********************************************************************************
+	 * Mypage > 근태정보 (사용자 페이지)
+	 * ******************************************************************************/
+	/**
+	 * 근태정보 화면으로 이동
+	 *
+	* @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/user/attendanceInfo.do")
+	public String attendanceInfoList(@RequestParam Map<String,Object> paramMap
+			,Model model, HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		model.addAttribute("leftMenuStr", "attendanceInfo");
+		model.addAttribute("currentMenuKor", "근태정보");
+		model.addAttribute("menuKorPath","<span class='divide'>My Page</span><span class='divide current'>근태정보</span>");
+
+		return "worktime/user/attendanceInfo/fixLeft";
+	}
+
+	/**
+	 * 근태정보 화면 : 근태현황(월)
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/user/attendanceInfoMonthListAjax.do")
+	public String attendanceInfoMonthListAjax(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		if(paramMap.get("searchMonth") == null || StringUtil.isEmpty(paramMap.get("searchMonth").toString())){
+			Date dateNow = new Date();
+			SimpleDateFormat formatter = new SimpleDateFormat("yyyy");
+			String searchYear = formatter.format(dateNow);
+
+			formatter = new SimpleDateFormat("MM");
+			String searchMonth = formatter.format(dateNow);
+
+			paramMap.put("searchYear", searchYear);
+			paramMap.put("searchMonth", searchMonth);
+		}
+
+		paramMap.put("searchUserId", baseUserLoginInfo.get("userId").toString());
+		List<EgovMap> worktimeList = worktimeService.getWorktimeList(paramMap);
+
+		//근태현황 통계
+		EgovMap worktimeStatistics = worktimeService.getWorktimeStatistics(paramMap);
+
+		model.addAttribute("worktimeList", worktimeList);
+		model.addAttribute("worktimeStatistics", worktimeStatistics);
+		model.addAttribute("searchYear", paramMap.get("searchYear").toString());
+		model.addAttribute("searchMonth", paramMap.get("searchMonth").toString());
+
+		return "worktime/user/include/attendanceInfo_monthList_INC";
+	}
+
+	/**
+	 * 근태정보 화면 : 사용자 근태현황(년)
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/user/attendanceInfoYearListAjax.do")
+	public String attendanceInfoYearListAjax(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+		if(paramMap.get("searchYear") == null || StringUtil.isEmpty(paramMap.get("searchYear").toString())){
+			Date dateNow = new Date();
+			SimpleDateFormat formatter = new SimpleDateFormat("yyyy");
+			String searchYear = formatter.format(dateNow);
+
+			formatter = new SimpleDateFormat("MM");
+			String searchMonth = formatter.format(dateNow);
+
+			paramMap.put("searchYear", searchYear);
+			paramMap.put("searchMonth", "All");
+		}
+
+		paramMap.put("searchUserId", baseUserLoginInfo.get("userId").toString());
+		List<EgovMap> worktimeList = worktimeService.getWorktimeInfoByYearList(paramMap);
+
+		//근태현황 통계
+		EgovMap worktimeStatistics = worktimeService.getWorktimeStatistics(paramMap);
+
+		//근태현황 월별 비정상근태 리스트
+		paramMap.put("actionType", "noWork");
+		List<EgovMap> worktimeNoWorkList = worktimeService.getWorktimeMainList(paramMap);
+
+		List<EgovMap> worktimeListEndYn = worktimeService.getWorktimeEndYnByYearList(paramMap);
+
+		model.addAttribute("worktimeListEndYn", worktimeListEndYn);
+		model.addAttribute("worktimeList", worktimeList);
+		model.addAttribute("worktimeStatistics", worktimeStatistics);
+		model.addAttribute("worktimeNoWorkList", worktimeNoWorkList);
+		model.addAttribute("searchYear", paramMap.get("searchYear").toString());
+		model.addAttribute("searchMonth", paramMap.get("searchMonth").toString());
+
+		return "worktime/user/include/attendanceInfo_yearList_INC";
+	}
+
+	/**
+	 * 근태관리 화면 : 출근인정요청
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/user/attendanceApprovReqPopup.do")
+	public String openAttendanceApprovReqPopup(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		EgovMap worktime = worktimeService.getWorktime(paramMap);
+		model.addAttribute("worktime", worktime);
+
+		return "worktime/user/attendanceApprovReqPopup/pop";
+	}
+
+	/**
+	 * 근태관리 화면 : 출근인정요청 저장
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/user/doSaveAttendanceApprovReq.do")
+	public void doSaveAttendanceApprovReq(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model, HttpSession session,
+			@RequestParam Map<String, Object> map) throws Exception {
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("updatedBy", baseUserLoginInfo.get("userId").toString());
+
+		int cnt = worktimeService.doSaveAttendanceApprovReq(map);
+
+		AjaxResponse.responseAjaxSave(response, cnt); // 결과전송
+	}
+
+	/********************************************************************************
+	 * Main > 근태정보 (팝업 페이지)
+	 * ******************************************************************************/
+	/**
+	 * 근태관리 화면 : 근태승인
+	 *
+	* @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/user/mainAttendanceAlarm.do")
+	public String mainAttendanceAlarm(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("searchUserId", baseUserLoginInfo.get("userId").toString());
+
+		paramMap.put("actionType", "mainPop");
+
+		List<EgovMap> worktimeList = worktimeService.getWorktimeMainList(paramMap);
+
+		model.addAttribute("worktimeList", worktimeList);
+
+		return "worktime/user/mainAttendanceAlarm/pop";
+	}
+
+	/**
+	 * 휴직 종료 사전 안내 메인팝업
+	 *
+	* @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/mainWorktimeRestAlarm.do")
+	public String mainWorktimeRestAlarm(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		paramMap.put("orgId", baseUserLoginInfo.get("orgId").toString());
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("userId", baseUserLoginInfo.get("userId").toString());
+		paramMap.put("mainAlarmType", "worktimeRest");
+
+		//휴직종료 사전안내
+		List<EgovMap> worktimeRestList = scheService.getMainSpotWorkAlarmList(paramMap);
+		model.addAttribute("worktimeRestList", worktimeRestList);
+
+		//출근인정 요청안내
+		List<EgovMap> worktimeReqList = worktimeService.getWorktimeReqAlarmList(paramMap);
+		model.addAttribute("worktimeReqList", worktimeReqList);
+
+		return "worktime/manager/mainWorktimeRestAlarm/pop";
+	}
+
+	/**
+	 * 년별건수 상세화면 팝업
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : 이인희
+	 * @date : 2016. 12. 14.
+	 */
+	@RequestMapping(value = "/worktime/manager/openWortimeListPopup.do")
+	public String openWortimeListPopup(@RequestParam Map<String,Object> paramMap
+			,Model model
+			,HttpServletResponse response
+			,HttpSession session) throws Exception {
+
+		if(session.getAttribute("baseUserLoginInfo")==null) throw new Exception();
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+		paramMap.put("applyOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+		paramMap.put("actionType", "yearPop");
+
+		List<EgovMap> worktimeList = worktimeService.getWorktimeMainList(paramMap);
+
+		model.addAttribute("worktimeList", worktimeList);
+		model.addAttribute("searchUserId", paramMap.get("searchUserId").toString());
+		model.addAttribute("searchMonth", paramMap.get("searchMonth").toString());
+
+		return "worktime/manager/include/attendanceMgmt_year_POP";
+	}
+
+	/**
+	 * 엑셀 업로드 일괄 처리
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : Park
+	 * @date : 2015. 9. 14.
+	 */
+	@RequestMapping(value = "/worktime/processAttendanceExcelInfo.do")
+	public void doSaveModule(HttpServletRequest request,
+			HttpServletResponse response, ModelMap model, HttpSession session,
+			@RequestParam Map<String, Object> map) throws Exception {
+
+
+		Map loginUser = (Map)session.getAttribute("baseUserLoginInfo");
+
+		map.put("userId", loginUser.get("userId").toString());
+		map.put("orgId", loginUser.get("applyOrgId").toString());
+
+		int upCnt = 0;
+
+		upCnt = worktimeService.processAttendanceExcelInfo(map);
+		AjaxResponse.responseAjaxSave(response, upCnt); // 결과전송
+	}
+	/**
+	 * 엑셀 다운로드
+	 *
+	 * @param :
+	 * @return :
+	 * @exception :
+	 * @author : Park
+	 * @date : 2015. 9. 14.
+	 */
+	@RequestMapping(value = "/worktime/downExcelFile.do")
+	public void fileDown(@RequestParam Map<String, Object> map, HttpServletRequest req, HttpServletResponse res) throws Exception {
+		//logger.debug("################ fileController.fileDown() ##########");
+		map.put("worktimeExcelFileId", map.get("worktimeExcelFileId").toString());
+		EgovMap fileInfo = worktimeService.getExcelFileInfo(map);
+
+		String getfileNm = fileInfo.get("newFileName").toString();
+		String orgfileNm = fileInfo.get("orgFileName").toString();
+		String filePath = fileInfo.get("filePath").toString();
+		worktimeService.doFileDownloadExcel(filePath,getfileNm,orgfileNm, req, res);
+
+	}
+
+}

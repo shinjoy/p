@@ -1,0 +1,969 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="gBoard">
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+
+	<!-- 게시판 그룹 리스트 -->
+	<select id="gboard.getGboardGoupList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT   GROUP_ID       AS groupId
+				,ORG_ID         AS orgId
+				,GROUP_NAME     AS groupName
+				,GROUP_DESC     AS groupDesc
+				,SORT           AS sort
+				,DELETE_FLAG    AS deleteFlag
+				,CONCAT('D', GROUP_ID)			AS id
+		 		,GROUP_NAME						AS text
+		 		,'##'							AS parent
+		 		,'GROUP'						AS type
+		   FROM BS_GBOARD_GROUP
+		  WHERE ORG_ID = #orgId#
+		    AND DELETE_FLAG = 'N'
+		  ORDER BY SORT ASC
+	</select>
+
+	<!-- 일반게시판 그룹 목록 -->
+	<select id="gboard.getGboardGoupMapList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT   A.GROUP_ID
+		        ,A.GROUP_NAME
+		        ,B.GBOARD_ID
+		        ,B.GBOARD_NAME
+				,B.GBOARD_DESC
+				,B.NOTICE_YN
+				,B.FILE_YN
+				,B.REPLY_YN
+				,B.LIST_COUNT
+				,B.PAGE_COUNT
+				,B.WRITER_TYPE
+				,B.OPEN_FLAG
+				,B.SORT
+				,B.DELETE_FLAG
+				,B.GBOARD_ID				AS id
+				,IF(B.OPEN_FLAG = 'N',CONCAT(B.GBOARD_NAME,'<![CDATA[<span class="board_secret"></span>]]>'),B.GBOARD_NAME)  AS text
+				,CONCAT('D', B.GROUP_ID)	AS parent
+				,'GBOARD'					AS type
+		  FROM BS_GBOARD_GROUP A
+		  	   INNER JOIN BS_GBOARD B ON A.GROUP_ID = B.GROUP_ID AND B.DELETE_FLAG = 'N'
+		  WHERE A.DELETE_FLAG = 'N'
+		    AND A.ORG_ID = #orgId#
+		    /* 1.공개 게시판은 무조건 노출
+		       2. 부서레벨이 회장(L00), 그룹대표(L10), 대표(L20) 이면 무조건 노출
+		       3.비공개 게시판일경우 글쓰기권한이 있거나 , 게시판 읽기 권한이 있을경우 노출....
+		    */
+		    AND 1 = (
+		    		CASE WHEN B.OPEN_FLAG = 'Y' THEN 1
+		    		    WHEN #deptBossLevelYn# = 'Y' THEN 1
+		    			 WHEN B.WRITER_TYPE = 'ALL' THEN 1
+		    			 WHEN B.READER_TYPE !='ALL' THEN IF(
+		    			 				(SELECT COUNT(*)
+		    			 				   FROM BS_GBOARD_WRITER X
+		    			 				  LEFT OUTER JOIN BS_GBOARD_READER Y ON X.GBOARD_ID = Y.GBOARD_ID
+		    			 				  WHERE X.GBOARD_ID = B.GBOARD_ID
+		    			 				    AND (X.DEPT_ID = #deptId# OR X.USER_ID = #userId# OR Y.DEPT_ID = #deptId# OR Y.USER_ID = #userId#)
+		    			 		 )>0,1,0)
+		    			 ELSE 1
+		    		END
+		    		)
+		 ORDER BY A.SORT, B.SORT
+	</select>
+
+	<!-- 게시판 글 리스트 -->
+	<select id="gboard.getBoardContentList" parameterClass="HashMap" resultClass="HashMap">
+	 	<isNotEqual property="noNotice" compareValue="Y">
+	 	 SELECT * FROM(
+	 	 	SELECT * FROM (
+		 	SELECT
+				 content_id					AS	contentId
+				,content.gboard_id			AS	gboardId
+				,boardGroup.group_id		AS	groupId
+				,notice_flag				AS	noticeFlag
+				,(SELECT
+					cpn_nm
+				  FROM
+				   BS_ORG AS org
+				  ,IB_COMPANY AS company
+
+				  WHERE content.org_id = org.org_id
+				  AND org.company_snb = company.s_nb)	AS	orgNm
+                ,NULL               AS  allOrg
+				,all_board			AS	allBoard
+				,master.name 		AS  createNm
+				,title				AS	title
+				,content			AS	content
+				,hit				AS	hit
+				,content.created_by	AS	createdBy
+				,DATE_FORMAT(content.created_date, "%Y.%m.%d") as createdDate
+				,DATE_FORMAT(notice_start_date, '%Y-%m-%d')	as	noticeStartDate
+				,DATE_FORMAT(notice_end_date,   '%Y-%m-%d')	as	noticeEndDate
+				,IFNULL((SELECT COUNT(*) FROM bs_gboard_comment WHERE content_id=content.content_id AND delete_flag='N'),0) AS commentCount
+				,IFNULL((SELECT COUNT(*) FROM bs_file_list WHERE upload_id=content.content_id AND upload_type='GBOARD' AND delete_flag='N'),0) AS fileCount
+				,(CASE
+                	WHEN DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN notice_start_date AND notice_end_date THEN 1
+                	ELSE 2
+           		  END) AS sort
+				,'NOTICE' AS contentType
+				,GBOARD_NAME 					AS gboardName
+				,GBOARD_DESC					AS gboardDesc
+				,NOTICE_YN						AS noticeYn
+				,FILE_YN						AS fileYn
+				,REPLY_YN						AS replyYn
+				,LIST_COUNT						AS listCount
+				,GROUP_NAME						AS groupName
+				,'GBOARD'					 	AS type
+				,CASE WHEN WRITER_TYPE = 'ALL' THEN 'Y'
+				        WHEN #deptBossLevelYn# = 'Y' THEN 'Y'
+					  WHEN READER_TYPE !='ALL' THEN  IF(
+    			 				(SELECT COUNT(*)
+    			 				   FROM BS_GBOARD_WRITER X
+    			 				  LEFT OUTER JOIN BS_GBOARD_READER Y ON X.GBOARD_ID = Y.GBOARD_ID
+    			 				  WHERE X.GBOARD_ID = content.GBOARD_ID
+    			 				    AND (X.DEPT_ID = #deptId# OR X.USER_ID = #userId# OR Y.DEPT_ID = #deptId# OR Y.USER_ID = #userId#)
+		    			 		 )>0,'Y','N')
+		    		  ELSE 'Y'
+		    	 END AS dtlYn
+		    	<isEqual property="ruleUseYn" compareValue="Y">
+				,CASE WHEN #readTimeYn# = 'Y' THEN IF(content.READ_USER_ID IS NULL OR content.READ_USER_ID NOT LIKE CONCAT('%|',#userId#,'|%') , 'Y' , 'N')
+					  WHEN #readTimeYn# = 'N' THEN IF(DATEDIFF(NOW(),content.CREATED_DATE)<![CDATA[<=]]>#markDayCnt#,'Y','N')
+				 END AS newYn
+				</isEqual>
+				<isEqual property="ruleUseYn" compareValue="N">
+					,'N' AS newYn
+				</isEqual>
+			FROM bs_gboard_content AS content
+			LEFT OUTER JOIN bs_user_master AS master ON master.user_id = content.created_by
+			LEFT OUTER JOIN bs_gboard AS gboard ON gboard.GBOARD_ID = content.GBOARD_ID
+			LEFT OUTER JOIN bs_gboard_group AS boardGroup ON boardGroup.group_id = gboard.group_id
+
+			WHERE content.delete_flag='N' AND (DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN notice_start_date AND notice_end_date ) AND notice_flag ='Y' AND all_board ='Y'
+			AND gboard.DELETE_FLAG = 'N'
+			AND boardGroup.DELETE_FLAG = 'N'
+			AND (CASE
+                    WHEN content.all_board = 'Y' THEN content.org_id =#orgId#
+                    WHEN content.all_board = 'N' THEN content.GBOARD_ID = #gboardId#
+				END)
+			<!-- AND (CASE WHEN content.all_org = 'N' THEN content.org_id=1 ELSE content.org_id !=0 AND content.cboard_id !=#cboardId# END )
+			AND (CASE WHEN content.all_board = 'Y' THEN content.cboard_id !=#cboardId# ELSE content.cboard_id !=0 END ) -->
+
+			<isNotEmpty prepend="AND" property="searchKeyword">
+				<isNotEmpty property="searchType">
+					<isEqual property="searchType" compareValue="title">
+							title LIKE concat('%', #searchKeyword#, '%')
+						</isEqual>
+						<isEqual property="searchType" compareValue="writer">
+							master.name LIKE concat('%', #searchKeyword#, '%')
+						</isEqual>
+						<isEqual property="searchType" compareValue="content">
+							(content LIKE concat('%', #searchKeyword#, '%') OR title LIKE concat('%', #searchKeyword#, '%'))
+					</isEqual>
+				</isNotEmpty>
+
+				<isEmpty property="searchType">
+					(title LIKE concat('%', #searchKeyword#, '%') OR
+					 master.name LIKE concat('%', #searchKeyword#, '%') OR
+					 content LIKE concat('%', #searchKeyword#, '%'))
+				</isEmpty>
+			</isNotEmpty>
+			UNION ALL
+
+			SELECT
+				 content_id					AS	contentId
+				,content.cboard_id			AS	gboardId
+				,boardGroup.group_id		AS	groupId
+				,notice_flag				AS	noticeFlag
+				,(SELECT
+					cpn_nm
+				  FROM
+				   BS_ORG AS org
+				  ,IB_COMPANY AS company
+
+				  WHERE content.org_id = org.org_id
+				  AND org.company_snb = company.s_nb)	AS	orgNm
+                ,all_org            AS  allOrg
+				,all_board			AS	allBoard
+				,master.name 		AS  createNm
+				,title				AS	title
+				,content			AS	content
+				,hit				AS	hit
+				,content.created_by	AS	createdBy
+				,DATE_FORMAT(content.created_date, "%Y.%m.%d") as createdDate
+				,DATE_FORMAT(notice_start_date, '%Y-%m-%d')	as	noticeStartDate
+				,DATE_FORMAT(notice_end_date,   '%Y-%m-%d')	as	noticeEndDate
+				,IFNULL((SELECT COUNT(*) FROM bs_cboard_comment WHERE content_id=content.content_id AND delete_flag='N'),0) AS commentCount
+				,IFNULL((SELECT COUNT(*) FROM bs_file_list WHERE upload_id=content.content_id AND upload_type='BOARD' AND delete_flag='N'),0) AS fileCount
+				,(CASE
+                	WHEN DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN notice_start_date AND notice_end_date THEN 1
+                	ELSE 2
+           		  END) AS sort
+				,'NOTICE' AS contentType
+				,boardGroup.group_uid 		AS gboardName
+				,cboard.cboard_uid			AS gboardDesc
+				,NOTICE_YN						AS noticeYn
+				,FILE_YN						AS fileYn
+				,REPLY_YN						AS replyYn
+				,LIST_COUNT						AS listCount
+				,GROUP_NAME						AS groupName
+				,'CBOARD'					 	AS type
+				,'Y'							AS dtlYn
+				<isEqual property="ruleUseYn" compareValue="Y">
+				,CASE WHEN #readTimeYn# = 'Y' THEN IF(content.READ_USER_ID IS NULL OR content.READ_USER_ID NOT LIKE CONCAT('%|',#userId#,'|%') , 'Y' , 'N')
+					  WHEN #readTimeYn# = 'N' THEN IF(DATEDIFF(NOW(),content.CREATED_DATE)<![CDATA[<=]]>#markDayCnt#,'Y','N')
+				 END AS newYn
+				</isEqual>
+				<isEqual property="ruleUseYn" compareValue="N">
+					,'N' AS newYn
+				</isEqual>
+			FROM bs_cboard_content AS content
+			LEFT OUTER JOIN bs_user_master AS master ON master.user_id = content.created_by
+			LEFT OUTER JOIN bs_cboard AS cboard ON cboard.cboard_id = content.cboard_id
+			LEFT OUTER JOIN bs_cboard_group AS boardGroup ON boardGroup.group_id = cboard.group_id
+
+			WHERE content.delete_flag='N' AND (DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN notice_start_date AND notice_end_date ) AND notice_flag ='Y' AND (all_org ='Y' OR all_board ='Y')
+			AND (CASE
+                    WHEN content.all_org = 'Y' AND content.all_board = 'Y' THEN content.org_id != 0 AND content.cboard_id != '0'
+                    WHEN content.org_id = #orgId# AND content.all_board = 'Y' THEN content.org_id != 0 AND content.cboard_id != '0'
+                    ELSE 1=2
+				END)
+			<!-- AND (CASE WHEN content.all_org = 'N' THEN content.org_id=1 ELSE content.org_id !=0 AND content.cboard_id !=#cboardId# END )
+			AND (CASE WHEN content.all_board = 'Y' THEN content.cboard_id !=#cboardId# ELSE content.cboard_id !=0 END ) -->
+
+			<isNotEmpty prepend="AND" property="searchKeyword">
+				<isNotEmpty property="searchType">
+					<isEqual property="searchType" compareValue="title">
+							title LIKE concat('%', #searchKeyword#, '%')
+						</isEqual>
+						<isEqual property="searchType" compareValue="writer">
+							master.name LIKE concat('%', #searchKeyword#, '%')
+						</isEqual>
+						<isEqual property="searchType" compareValue="content">
+							(content LIKE concat('%', #searchKeyword#, '%') OR title LIKE concat('%', #searchKeyword#, '%'))
+					</isEqual>
+				</isNotEmpty>
+
+				<isEmpty property="searchType">
+					(title LIKE concat('%', #searchKeyword#, '%') OR
+					 master.name LIKE concat('%', #searchKeyword#, '%') OR
+					 content LIKE concat('%', #searchKeyword#, '%'))
+				</isEmpty>
+			</isNotEmpty>
+			)AS headList
+			ORDER BY headList.contentId DESC
+		) AS head
+
+		UNION ALL
+	   </isNotEqual>
+		SELECT * FROM(
+
+			SELECT
+				 content_id			AS	contentId
+				,content.gboard_id			AS	gboardId
+				,boardGroup.group_id		AS	groupId
+				,notice_flag		AS	noticeFlag
+				,''					AS	orgNm
+                ,NULL               AS  allOrg
+				,all_board			AS	allBoard
+				,master.name 		AS  createNm
+				,title				AS	title
+				,content			AS	content
+				,hit				AS	hit
+				,content.created_by	AS	createdBy
+				,DATE_FORMAT(content.created_date, "%Y.%m.%d") as createdDate
+				,DATE_FORMAT(notice_start_date, '%Y-%m-%d')	as	noticeStartDate
+				,DATE_FORMAT(notice_end_date,   '%Y-%m-%d')	as	noticeEndDate
+				,IFNULL((SELECT COUNT(*) FROM bs_gboard_comment WHERE content_id=content.content_id AND delete_flag='N'),0) AS commentCount
+				,IFNULL((SELECT COUNT(*) FROM bs_file_list WHERE upload_id=content.content_id AND upload_type='GBOARD' AND delete_flag='N'),0) AS fileCount
+				,(CASE WHEN DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN notice_start_date AND notice_end_date THEN 1
+	    		 ELSE 2 END )AS sort
+				,'GENERAL' AS contentType
+				,GBOARD_NAME 					AS gboardName
+				,GBOARD_DESC					AS gboardDesc
+				,NOTICE_YN						AS noticeYn
+				,FILE_YN						AS fileYn
+				,REPLY_YN						AS replyYn
+				,LIST_COUNT						AS listCount
+				,GROUP_NAME						AS groupName
+				,'GBOARD'					 	AS type
+				,CASE WHEN WRITER_TYPE = 'ALL' THEN 'Y'
+				        WHEN #deptBossLevelYn# = 'Y' THEN 'Y'
+					  WHEN READER_TYPE !='ALL' THEN  IF(
+    			 				(SELECT COUNT(*)
+    			 				   FROM BS_GBOARD_WRITER X
+    			 				  LEFT OUTER JOIN BS_GBOARD_READER Y ON X.GBOARD_ID = Y.GBOARD_ID
+    			 				  WHERE X.GBOARD_ID = content.GBOARD_ID
+    			 				    AND (X.DEPT_ID = #deptId# OR X.USER_ID = #userId# OR Y.DEPT_ID = #deptId# OR Y.USER_ID = #userId#)
+		    			 		 )>0,'Y','N')
+		    		  ELSE 'Y'
+		    	 END AS dtlYn
+		    	 <isEqual property="ruleUseYn" compareValue="Y">
+				,CASE WHEN #readTimeYn# = 'Y' THEN IF(content.READ_USER_ID IS NULL OR content.READ_USER_ID NOT LIKE CONCAT('%|',#userId#,'|%') , 'Y' , 'N')
+					  WHEN #readTimeYn# = 'N' THEN IF(DATEDIFF(NOW(),content.CREATED_DATE)<![CDATA[<=]]>#markDayCnt#,'Y','N')
+				 END AS newYn
+				</isEqual>
+				<isEqual property="ruleUseYn" compareValue="N">
+					,'N' AS newYn
+				</isEqual>
+			FROM bs_gboard_content AS content
+			LEFT OUTER JOIN bs_user_master AS master ON master.user_id = content.created_by
+			LEFT OUTER JOIN bs_gboard AS gboard ON gboard.gboard_id = content.gboard_id
+			LEFT OUTER JOIN bs_gboard_group AS boardGroup ON boardGroup.group_id = gboard.group_id
+
+			WHERE content.delete_flag='N'
+			AND CASE WHEN DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN content.notice_start_date AND content.notice_end_date
+					 	THEN content.all_board = 'N'
+					 ELSE content.content_id !=0
+					 END
+			<isNotEmpty prepend="AND" property="gboardId">
+				content.gboard_id = #gboardId#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="contentId">
+				content.content_id = #contentId#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="applyOrgId">
+				content.org_id = #applyOrgId#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="searchKeyword">
+				<isNotEmpty property="searchType">
+					<isEqual property="searchType" compareValue="title">
+							title LIKE concat('%', #searchKeyword#, '%')
+						</isEqual>
+						<isEqual property="searchType" compareValue="writer">
+							master.name LIKE concat('%', #searchKeyword#, '%')
+						</isEqual>
+						<isEqual property="searchType" compareValue="content">
+							(content LIKE concat('%', #searchKeyword#, '%') OR title LIKE concat('%', #searchKeyword#, '%'))
+					</isEqual>
+				</isNotEmpty>
+
+				<isEmpty property="searchType">
+					(title LIKE concat('%', #searchKeyword#, '%') OR
+					 master.name LIKE concat('%', #searchKeyword#, '%') OR
+					 content LIKE concat('%', #searchKeyword#, '%'))
+				</isEmpty>
+			</isNotEmpty>
+			 ORDER BY
+			<isEqual property="noticeYn" compareValue="Y">
+	   			sort ASC,
+	  		</isEqual>
+
+			 content.CONTENT_ID DESC
+
+	   )AS general
+	   where 1=1
+	   <isNotEmpty prepend="" property="limit">
+			LIMIT #offset#,#limit#
+	   </isNotEmpty>
+
+		/*gboard.getBoardContentList*/
+	</select>
+	<!-- 게시판 글 정보-->
+	<select id="gboard.getBoardContent" parameterClass="HashMap" resultClass="HashMap">
+
+			SELECT
+				 content.content_id			AS	contentId
+				,content.gboard_id			AS	gboardId
+				,content.notice_flag		AS	noticeFlag
+				,content.all_board			AS	allBoard
+				,master.name 				AS  createNm
+				,content.title				AS	title
+				,content.content			AS	content
+				,content.hit				AS	hit
+				,content.created_by	AS	createdBy
+				,DATE_FORMAT(content.created_date, "%Y.%m.%d") as createdDate
+				,DATE_FORMAT(content.notice_start_date, '%Y-%m-%d')	as	noticeStartDate
+				,DATE_FORMAT(content.notice_end_date,   '%Y-%m-%d')	as	noticeEndDate
+				,IFNULL((SELECT COUNT(*) FROM bs_gboard_comment WHERE content_id=content.content_id AND delete_flag='N'),0) AS commentCount
+				,IFNULL((SELECT COUNT(*) FROM bs_file_list WHERE upload_id=content.content_id AND upload_type='BOARD' AND delete_flag='N'),0) AS fileCount
+				,gboard.COMMENT_WRITER_TYPE AS commentWriterType
+				,gboard.OPEN_FLAG AS openFlag
+				,gboard.NOTICE_YN AS noticeYn
+				,CASE WHEN content.org_Id != #orgId# THEN 'N'
+                        WHEN gboard.COMMENT_WRITER_TYPE = 'ALL' THEN IF(gboard.WRITER_TYPE = 'ALL','Y',
+                                                                            IF(
+                                                                                (SELECT COUNT(*)
+                                                                                   FROM BS_GBOARD_WRITER X
+                                                                                  WHERE X.GBOARD_ID = content.GBOARD_ID
+                                                                                    AND (X.DEPT_ID = #deptId# OR X.USER_ID = #userId#))>0
+                                                                                 ,'Y',IF(gboard.READER_TYPE = 'ALL','Y',
+                                                                                            IF(
+                                                                                                (SELECT COUNT(*)
+                                                                                                   FROM BS_GBOARD_READER X
+                                                                                                  WHERE X.GBOARD_ID = content.GBOARD_ID
+                                                                                                    AND (X.DEPT_ID = #deptId# OR X.USER_ID = #userId#))>0
+                                                                                                 ,'Y','N'
+                                                                                            )
+                                                                                        )
+                                                                            )
+                                                                        )
+					  WHEN gboard.COMMENT_WRITER_TYPE = 'WRITER' THEN IF(gboard.WRITER_TYPE = 'ALL','Y',
+						  													IF(
+						  														(SELECT COUNT(*)
+												    			 				   FROM BS_GBOARD_WRITER X
+												    			 				  WHERE X.GBOARD_ID = content.GBOARD_ID
+												    			 				    AND (X.DEPT_ID = #deptId# OR X.USER_ID = #userId#))>0
+												    			 				 ,'Y','N'
+						  													)
+					  													)
+					  WHEN gboard.COMMENT_WRITER_TYPE = 'READER' THEN  IF(gboard.READER_TYPE = 'ALL','Y',
+					  														IF(
+						  														(SELECT COUNT(*)
+												    			 				   FROM BS_GBOARD_READER X
+												    			 				  WHERE X.GBOARD_ID = content.GBOARD_ID
+												    			 				    AND (X.DEPT_ID = #deptId# OR X.USER_ID = #userId#))>0
+												    			 				 ,'Y','N'
+						  													)
+					  													)
+				END AS commentYn
+			FROM bs_gboard_content AS content
+			INNER JOIN BS_GBOARD AS gboard ON content.gboard_id = gboard.gboard_id
+			LEFT OUTER JOIN bs_user_master AS master ON master.user_id = content.created_by
+			WHERE content.delete_flag='N'
+
+			<isNotEmpty prepend="AND" property="cboardId">
+				content.gboard_id = #gboardId#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="contentId">
+				content.content_id = #contentId#
+			</isNotEmpty>
+
+			ORDER BY content.created_date DESC
+	</select>
+	<!-- 글수정 -->
+	<update id="gboard.updateBoardContent">
+		UPDATE BS_GBOARD_CONTENT SET
+							 gboard_id			=	#gboardId#
+							,notice_flag		=	#noticeFlag#
+							,all_board			=	#allBoard#
+							,notice_start_date	=	#noticeStartDate#
+							,notice_end_date	=	#noticeEndDate#
+							,title				=	#title#
+							,content			=	#content#
+							,updated_date		=	now()
+							,updated_by			=	#usrSeq#
+
+		WHERE content_id = #contentId#
+
+		/* gboard.updateBoardContent */
+	</update>
+
+	<!-- 조회수 증가  -->
+	<update id="gboard.updateViewCount">
+		UPDATE BS_GBOARD_CONTENT SET
+
+							hit		=	#viewCount#
+
+		WHERE content_id = #contentId#
+
+		/* gboard.updateViewCount */
+	</update>
+	<!-- 게시판 이전글 및 다음글 정보-->
+	<select id="gboard.getBoardContentPrevNext" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			 content.content_id			AS	contentId
+			,content.gboard_id			AS	cboardId
+			,content.notice_flag		AS	noticeFlag
+			,content.title				AS	title
+			,content.content			AS	content
+			,content.hit				AS	hit
+			,DATE_FORMAT(content.created_date, "%Y-%m-%d") 		AS createdDate
+			,DATE_FORMAT(content.notice_start_date, '%Y-%m-%d')	AS	noticeStartDate
+			,DATE_FORMAT(content.notice_end_date,   '%Y-%m-%d')	AS	noticeEndDate
+			,(CASE WHEN DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN content.notice_start_date AND content.notice_end_date THEN 1        ELSE 2 END )AS sort
+			,CASE WHEN WRITER_TYPE = 'ALL' THEN 'Y'
+			       WHEN #deptBossLevelYn# = 'Y' THEN 'Y'
+			      WHEN READER_TYPE !='ALL' THEN  IF(
+    			 				(SELECT COUNT(*)
+    			 				   FROM BS_GBOARD_WRITER X
+    			 				  LEFT OUTER JOIN BS_GBOARD_READER Y ON X.GBOARD_ID = Y.GBOARD_ID
+    			 				  WHERE X.GBOARD_ID = content.GBOARD_ID
+    			 				    AND (X.DEPT_ID = #deptId# OR X.USER_ID = #userId# OR Y.DEPT_ID = #deptId# OR Y.USER_ID = #userId#)
+		    			 		 )>0,'Y','N')
+		    		  ELSE 'Y'
+		    	 END AS dtlYn
+		FROM bs_gboard_content AS content
+		LEFT OUTER JOIN bs_gboard AS gboard ON gboard.gboard_id = content.gboard_id
+		LEFT OUTER JOIN bs_user_master AS master ON master.user_id = content.created_by
+		WHERE content.delete_flag='N' AND content.org_id = #orgId#
+
+		<isEqual property="searchType" compareValue="prev">
+			AND content.gboard_id = #gboardId#
+			AND content.content_id &lt; #contentId#
+			ORDER BY CONTENT_ID DESC LIMIT 1
+		</isEqual>
+
+		<isEqual property="searchType" compareValue="next">
+			AND content.gboard_id = #gboardId#
+			AND content.content_id &gt; #contentId#
+			ORDER BY CONTENT_ID ASC LIMIT 1
+		</isEqual>
+
+		/* gboard.getBoardContentPrevNext */
+	</select>
+	<!-- 글삭제 처리 delflag  -->
+	<update id="gboard.updateBoardContentDelFlag">
+		UPDATE BS_GBOARD_CONTENT SET
+
+							 delete_flag		=	'Y'
+							,deleted_date		=	now()
+							,deleted_by			=	#usrSeq#
+
+		WHERE content_id = #contentId#
+
+		/* gboard.updateBoardContentDelFlag */
+	</update>
+	<!-- 게시글 댓글 리스트 -->
+	<select id="gboard.getBoardCommentList" parameterClass="HashMap" resultClass="HashMap">
+		 SELECT
+			 comment.comment_id			AS commentId
+			,comment.content_id			AS contentId
+			,comment.recomment_id		AS recommentId
+			,comment.comment_idx		AS commentIdx
+			,comment.content			AS content
+			,comment.created_by			AS createdBy
+			,comment.delete_flag		AS  deleteFlag
+			,DATE_FORMAT(comment.created_date, "%Y.%m.%d") AS createdDate
+			,(SELECT name FROM BS_USER_MASTER WHERE user_id = comment.created_by)	AS createNm
+			,(SELECT count(1) FROM BS_CBOARD_COMMENT WHERE recomment_id = comment.comment_id AND delete_flag='N')	AS recommentCount
+
+		 	,IFNULL((SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = B.CREATED_BY), '')	AS pUserNm
+
+		 FROM BS_GBOARD_COMMENT comment
+		 LEFT JOIN BS_GBOARD_COMMENT B on comment.RECOMMENT_ID = B.COMMENT_ID
+
+		 WHERE 1=1
+		 <isNotEmpty prepend="" property="contentId">
+		   AND comment.CONTENT_ID = #contentId#
+		 </isNotEmpty>
+
+		 ORDER BY comment.COMMENT_ID ASC, comment.RECOMMENT_ID ASC ,comment.comment_idx ASC
+
+
+		/* gboard.getBoardCommentList */
+
+	</select>
+	<!-- 댓글쓰기 -->
+	<insert id="gboard.insertBoardComment">
+		INSERT INTO BS_GBOARD_COMMENT(
+							 content_id
+							,recomment_id
+							,comment_idx
+							,content
+							,created_date
+							,created_by
+							,updated_date
+							,updated_by
+							,delete_flag
+
+						)VALUES(
+							 #contentId#
+							,#recommentId#
+							,#commentIdx#
+							,#content#
+							,now()
+							,#usrSeq#
+							,now()
+							,#usrSeq#
+							,'N'
+						)
+
+		<selectKey resultClass="int" type="post" keyProperty="contentId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* gboard.insertBoardComment */
+	</insert>
+	<!-- 댓글수정 -->
+	<update id="gboard.updateBoardComment">
+		UPDATE BS_GBOARD_COMMENT SET
+							 content			=	#content#
+							,updated_date		=	now()
+							,updated_by			=	#usrSeq#
+
+		WHERE comment_id = #commentId#
+
+		/* gboard.updateBoardComment */
+	</update>
+	<!-- 댓글삭제 처리 delflag  -->
+	<update id="gboard.updateBoardCommentDelFlag">
+		UPDATE BS_GBOARD_COMMENT SET
+
+							 delete_flag		=	'Y'
+							,deleted_date		=	now()
+							,deleted_by			=	#usrSeq#
+
+		WHERE comment_id = #commentId#
+
+		/* gboard.updateBoardCommentDelFlag */
+	</update>
+	<!-- 글쓰기 -->
+	<insert id="gboard.insertBoardContent">
+		INSERT INTO BS_GBOARD_CONTENT(
+							 gboard_id
+							,org_id
+							,notice_flag
+							,all_board
+							,notice_start_date
+							,notice_end_date
+							,title
+							,content
+							,created_date
+							,created_by
+							,updated_date
+							,updated_by
+
+						)VALUES(
+							 #gboardId#
+							,#applyOrgId#
+							,#noticeFlag#
+							,#allBoard#
+							,#noticeStartDate#
+							,#noticeEndDate#
+							,#title#
+							,#content#
+							,now()
+							,#usrSeq#
+							,now()
+							,#usrSeq#
+						)
+
+		<selectKey resultClass="int" type="post" keyProperty="contentId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* gboard.insertBoardContent */
+	</insert>
+
+	<select id = "gboard.getBoardWriteType" parameterClass="HashMap" resultClass="String" remapResults="true">
+		SELECT CASE WHEN A.WRITER_TYPE = 'ALL' THEN 'Y'
+					WHEN A.WRITER_TYPE = 'DEPT' THEN IF((SELECT COUNT(*) FROM BS_GBOARD_WRITER X WHERE X.GBOARD_ID = #gboardId# AND X.DEPT_ID = #deptId#) > 0 , 'Y','N')
+					WHEN A.WRITER_TYPE = 'USER' THEN IF((SELECT COUNT(*) FROM BS_GBOARD_WRITER X WHERE X.GBOARD_ID = #gboardId# AND X.USER_ID = #userId#) > 0 , 'Y','N')
+			   ELSE 'N' END
+		FROM (
+		SELECT WRITER_TYPE
+		  FROM BS_GBOARD
+		 WHERE GBOARD_ID = #gboardId#
+		 ) A
+	</select>
+	<!-- *************************************************************************************************
+     * 관리자 화면
+     ************************************************************************************************** -->
+
+
+    <!-- 게시판 그룹 리스트 -->
+    <select id="gboard.getBoardGroupList" parameterClass="HashMap" resultClass="HashMap">
+        SELECT
+            GROUP_ID  as groupId,
+            ORG_ID  as ORG_ID ,
+            GROUP_NAME  as groupName,
+            GROUP_DESC  as groupDesc ,
+            SORT as sort ,
+            DELETE_FLAG as deleteFlag
+        FROM BS_GBOARD_GROUP
+        WHERE 1=1
+        AND   ORG_ID = #orgId#
+        <isNotEmpty prepend="AND" property="groupId">
+            GROUP_ID=#groupId#
+        </isNotEmpty>
+         ORDER BY SORT ASC, GROUP_NAME ASC
+
+        /* gboard.getboardGroupList */
+    </select>
+
+    <!-- 게시판 카테고리 목록 리스트 -->
+    <select id="gboard.getBoardCateList" parameterClass="HashMap" resultClass="HashMap">
+        SELECT
+            gboard.GBOARD_ID           as  gboardId,
+            gboard.GROUP_ID       as  groupId,
+            gboard.ORG_ID          as  orgId,
+            gboard.GBOARD_NAME         as  gboardName,
+            gboard.GBOARD_DESC         as  gboardDesc,
+            gboard.NOTICE_YN           as  noticeYn,
+            gboard.FILE_YN             as  fileYn,
+            gboard.REPLY_YN            as  replyYn,
+            gboard.LIST_COUNT          as  listCount,
+            gboard.PAGE_COUNT          as  pageCount,
+            gboard.WRITER_TYPE as  writerType,
+             ( SELECT  J.VALUE_MEAN_KOR
+              FROM    BS_CODE_GV J
+              WHERE   J.ORG_ID = gboard.ORG_ID
+              AND     J.CODE_NAME = 'GENERAL_BOARD_WRITE_TYPE'
+              AND     J.CODE_VALUE = gboard.WRITER_TYPE  ) AS writerTypeNm,
+            gboard.READER_TYPE as  readerType,
+             ( SELECT  J.VALUE_MEAN_KOR
+              FROM    BS_CODE_GV J
+              WHERE   J.ORG_ID = gboard.ORG_ID
+              AND     J.CODE_NAME = 'GENERAL_BOARD_WRITE_TYPE'
+              AND     J.CODE_VALUE = gboard.READER_TYPE  ) AS readerTypeNm,
+            gboard.COMMENT_WRITER_TYPE as  commentWriterType,
+             ( SELECT  J.VALUE_MEAN_KOR
+              FROM    BS_CODE_GV J
+              WHERE   J.ORG_ID = gboard.ORG_ID
+              AND     J.CODE_NAME = 'GENERAL_BOARD_COMMENT_WRITE_TYPE'
+              AND     J.CODE_VALUE = gboard.READER_TYPE  ) AS commentWriterTypeNm,
+            gboard.OPEN_FLAG as openFlag ,
+            gboard.SORT  as  sort,
+            gboard.CREATED_DATE        as  createdDate,
+            gboard.CREATED_BY          as  createdBy,
+            gboard.UPDATED_DATE        as  updatedDate,
+            gboard.UPDATED_BY          as  updatedBy,
+            gboard.DELETED_DATE        as  deletedDate,
+            gboard.DELETED_BY          as  deletedBy,
+            gboard.DELETE_FLAG    as  deleteFlag,
+            grp.GROUP_NAME      as  groupName
+
+        FROM BS_GBOARD AS gboard
+        LEFT OUTER JOIN BS_GBOARD_GROUP AS grp ON gboard.GROUP_ID = grp.GROUP_ID
+        WHERE 1=1
+        <isNotEmpty prepend="AND" property="groupId">
+            gboard.GROUP_ID=#groupId#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="gboardId">
+            gboard.GBOARD_ID=#gboardId#
+        </isNotEmpty>
+         ORDER BY gboard.SORT ASC, gboard.GBOARD_NAME ASC
+
+        /*gboard.getBoardCateList*/
+    </select>
+
+    <!-- 그룹 등록 -->
+    <insert id="gboard.insertBoardGroup">
+        INSERT INTO BS_GBOARD_GROUP(
+                     ORG_ID
+                    ,GROUP_NAME
+                    ,GROUP_DESC
+                    ,SORT
+                    ,DELETE_FLAG
+                    ,CREATED_DATE
+                    ,CREATED_BY
+                    ,UPDATED_DATE
+                    ,UPDATED_BY
+                    <isEqual property="deleteFlag" compareValue="Y">
+                        ,DELETED_DATE
+                        ,DELETED_BY
+                    </isEqual>
+
+                )VALUES(
+                     #orgId#
+                    ,#groupName#
+                    ,#groupDesc#
+                    ,#sort#
+                    ,#deleteFlag#
+                    ,NOW()
+                    ,#userId#
+                    ,NOW()
+                    ,#userId#
+                    <isEqual property="deleteFlag" compareValue="Y">
+                        ,NOW()
+                        ,#userId#
+                    </isEqual>
+                )
+
+        <selectKey resultClass="String" keyProperty="groupId">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+
+    </insert>
+
+    <!-- 그룹 수정 -->
+    <update id="gboard.updateBoardGroup">
+        UPDATE BS_GBOARD_GROUP SET
+                     ORG_ID        = #orgId#
+                    ,GROUP_NAME   = #groupName#
+                    ,GROUP_DESC   = #groupDesc#
+                    ,SORT         = #sort#
+                    ,DELETE_FLAG  = #deleteFlag#
+                    ,UPDATED_DATE = NOW()
+                    ,UPDATED_BY   = #userId#
+                    <isEqual property="deleteFlag" compareValue="Y">
+                        ,DELETED_DATE = NOW()
+                        ,DELETED_BY = #userId#
+                    </isEqual>
+
+        WHERE group_id = #groupId#
+
+    </update>
+
+    <!-- 게시판 카테고리 등록 -->
+    <insert id="gboard.insertBoardCate">
+        INSERT INTO BS_GBOARD(
+                     GROUP_ID
+                    ,ORG_ID
+                    ,GBOARD_NAME
+                    ,GBOARD_DESC
+                    ,NOTICE_YN
+                    ,FILE_YN
+                    ,REPLY_YN
+                    ,LIST_COUNT
+                    ,PAGE_COUNT
+                    ,WRITER_TYPE
+                    ,READER_TYPE
+                    ,COMMENT_WRITER_TYPE
+                    ,OPEN_FLAG
+                    ,SORT
+                    ,DELETE_FLAG
+                    ,CREATED_DATE
+                    ,CREATED_BY
+                    ,UPDATED_DATE
+                    ,UPDATED_BY
+                    <isEqual property="deleteFlag" compareValue="Y">
+                        ,DELETED_DATE
+                        ,DELETED_BY
+                    </isEqual>
+
+                )VALUES(
+                     #groupId#
+                    ,#orgId#
+                    ,#gboardName#
+                    ,#gboardDesc#
+                    ,#noticeYn#
+                    ,#fileYn#
+                    ,#replyYn#
+                    ,#listCount#
+                    ,#pageCount#
+                    ,#writerType#
+                    ,#readType#
+                    ,#commentWriterType#
+                    ,#openFlag#
+                    ,#sort#
+                    ,#deleteFlag#
+                    ,NOW()
+                    ,#userId#
+                    ,NOW()
+                    ,#userId#
+                    <isEqual property="deleteFlag" compareValue="Y">
+                        ,NOW()
+                        ,#userId#
+                    </isEqual>
+                )
+
+        <selectKey resultClass="String" keyProperty="gboardId">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+
+    <!-- 게시판 카테고리 수정 -->
+    <update id="gboard.updateBoardCate">
+        UPDATE BS_GBOARD SET
+                     GROUP_ID     =  #groupId#
+                    ,ORG_ID       =  #orgId#
+                    ,GBOARD_NAME    =  #gboardName#
+                    ,GBOARD_DESC    =  #gboardDesc#
+                    ,NOTICE_YN    =  #noticeYn#
+                    ,FILE_YN        =  #fileYn#
+                    ,REPLY_YN     =  #replyYn#
+                    ,LIST_COUNT   =  #listCount#
+                    ,PAGE_COUNT   =  #pageCount#
+                    ,WRITER_TYPE  =  #writerType#
+                    ,READER_TYPE = #readType#
+                    ,COMMENT_WRITER_TYPE = #commentWriterType#
+                    ,OPEN_FLAG = #openFlag#
+                    ,SORT             =  #sort#
+                    ,DELETE_FLAG  = #deleteFlag#
+                    ,UPDATED_DATE = NOW()
+                    ,UPDATED_BY   = #userId#
+                    <isEqual property="deleteFlag" compareValue="Y">
+                        ,DELETED_DATE = NOW()
+                        ,DELETED_BY = #userId#
+                    </isEqual>
+
+        WHERE gboard_id = #gboardId#
+
+    </update>
+
+    <!-- 일반게시판쓰기권한자 등록 -->
+    <insert id="gboard.insertGboardWriter">
+        INSERT INTO BS_GBOARD_WRITER (
+                     GBOARD_ID
+                    ,ORG_ID
+                    ,DEPT_ID
+                    ,USER_ID
+                )VALUES(
+                     #gboardId#
+                    ,#orgId#
+                    ,#writerDeptId#
+                    ,#writerUserId#
+                )
+        <selectKey resultClass="String" keyProperty="gboardWriterId">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+    <!-- 일반게시판읽기권한자 등록 -->
+    <insert id="gboard.insertGboardRead">
+        INSERT INTO BS_GBOARD_READER (
+                     GBOARD_ID
+                    ,ORG_ID
+                    ,DEPT_ID
+                    ,USER_ID
+                )VALUES(
+                     #gboardId#
+                    ,#orgId#
+                    ,#readDeptId#
+                    ,#readUserId#
+                )
+        <selectKey resultClass="String" keyProperty="gboardWriterId">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+
+    <!-- 일반게시판쓰기권한자 삭제 -->
+    <delete id="gboard.deleteGboardWriter">
+        DELETE FROM BS_GBOARD_WRITER
+        WHERE GBOARD_ID = #gboardId#
+    </delete>
+    <!-- 일반게시판읽기권한자 삭제 -->
+    <delete id="gboard.deleteGboardRead">
+        DELETE FROM BS_GBOARD_READER
+        WHERE GBOARD_ID = #gboardId#
+    </delete>
+
+
+    <!-- 일반게시판쓰기권한자  리스트 -->
+    <select id="gboard.getGboardWriterList" parameterClass="HashMap" resultClass="HashMap">
+        SELECT
+            GBOARD_WRITER_ID  as gboardWriterId,
+            GBOARD_ID  as gboardId ,
+            ORG_ID  as orgId,
+            DEPT_ID  as deptId ,
+            USER_ID as userId,
+            (SELECT U.NAME FROM BS_USER_MASTER U WHERE U.USER_ID = A.USER_ID) as userNm,
+            (SELECT U.KOR_NAME FROM BS_DEPARTMENT U WHERE U.DEPT_ID = A.DEPT_ID) as deptNm
+        FROM BS_GBOARD_WRITER A
+        WHERE 1=1
+        <isNotEmpty prepend="AND" property="gboardId">
+            GBOARD_ID=#gboardId#
+        </isNotEmpty>
+         ORDER BY DEPT_ID ASC, USER_ID ASC
+
+        /* gboard.getGboardWriterList */
+    </select>
+
+    <!-- 일반게시판읽기권한자  리스트 -->
+    <select id="gboard.getGboardReaderList" parameterClass="HashMap" resultClass="HashMap">
+        SELECT
+            GBOARD_READER_ID  as gboardReaderId,
+            GBOARD_ID  as gboardId ,
+            ORG_ID  as orgId,
+            DEPT_ID  as deptId ,
+            USER_ID as userId,
+            (SELECT U.NAME FROM BS_USER_MASTER U WHERE U.USER_ID = A.USER_ID) as userNm,
+            (SELECT U.KOR_NAME FROM BS_DEPARTMENT U WHERE U.DEPT_ID = A.DEPT_ID) as deptNm
+        FROM BS_GBOARD_READER A
+        WHERE 1=1
+        <isNotEmpty prepend="AND" property="gboardId">
+            GBOARD_ID=#gboardId#
+        </isNotEmpty>
+         ORDER BY DEPT_ID ASC, USER_ID ASC
+
+        /* gboard.getGboardReaderList */
+    </select>
+	<!-- 유저 열람정보 저장 -->
+	<update id = "gboard.updateReadUserId"  parameterClass="HashMap">
+		UPDATE BS_GBOARD_CONTENT
+		   SET READ_USER_ID = CONCAT(IFNULL(READ_USER_ID,''),'|',#userId#,'|')
+		 WHERE CONTENT_ID = #contentId#
+		   AND IFNULL(READ_USER_ID,'') NOT LIKE CONCAT('%|',#userId#,'|%')
+	</update>
+
+</sqlMap>

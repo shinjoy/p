@@ -1,0 +1,3295 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="work">
+
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="workVO" type="ib.work.service.WorkVO"/>
+	<typeAlias  alias="fileVO" type="ib.cmm.FileUpDbVO"/>
+	<typeAlias  alias="staffVO" type="ib.login.service.StaffVO"/>
+	<typeAlias  alias="cpnVO" type="ib.basic.service.CpnExcelVO"/>
+	<typeAlias  alias="rcmdVO" type="ib.recommend.service.RecommendVO"/>
+
+	<!-- 업무일지 -->
+	<select id="workDAO.selectBusinessRecordList" parameterClass="workVO" resultClass="workVO">
+			SELECT
+				  A.S_NB                as  sNb
+				, A.TM_DT         		as  tmDt
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.STAFF_SNB = X.USER_ID )                as  name
+				, A.PRIVATE             as  bsnsRecPrivate
+				, IFNULL(A.TITLE,"-")   as  title
+				, IFNULL(A.PROCESS,"-") as  process
+				, B.VALUE_MEAN_KOR      as  processNm
+			FROM IB_BUSINESS_RECORD A
+		LEFT JOIN BS_CODE_GV B ON CODE_NAME = 'WORK_PROGRESS' AND CODE_VALUE = A.PROCESS
+		<dynamic prepend="WHERE">
+			<isNotEmpty prepend="AND" property="bsnsRecPrivate">
+				A.PRIVATE = #bsnsRecPrivate#
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="choiceMonth">
+				A.TM_DT between CONCAT (#choiceYear#, #choiceMonth#, '01') and CONCAT (#choiceYear#, #choiceMonth#, '31235959')
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="name">
+				(SELECT X.NAME FROM BS_USER_MASTER X WHERE A.STAFF_SNB = X.USER_ID) = #name#
+			</isNotEmpty>
+		</dynamic>
+			ORDER BY (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.STAFF_SNB = X.USER_ID), A.TM_DT ASC
+	</select>
+
+	<select id="workDAO.selectBusinessRecordOne" parameterClass="workVO" resultClass="workVO">
+			SELECT
+				  A.S_NB                as  sNb
+				, A.TM_DT         		as  tmDt
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.STAFF_SNB = X.USER_ID )                as  name
+				, A.PRIVATE             as  bsnsRecPrivate
+				, IFNULL(A.TITLE,"-")   as  title
+				, IFNULL(A.NOTE,"-")    as  note
+			FROM IB_BUSINESS_RECORD A
+		<dynamic prepend="WHERE">
+			<isNotEmpty prepend="AND" property="sNb">
+				A.S_NB = #sNb#
+			</isNotEmpty>
+		</dynamic>
+	</select>
+
+	<select id="workDAO.selectStaffList" parameterClass="staffVO" resultClass="staffVO">
+		<![CDATA[
+			SELECT
+				  S_NB                as  sNb
+				, CUS_ID              as  cstId
+				, USR_ID              as  usrId
+				, USR_NM              as  usrNm
+				, JOIN_DT             as  joinDt
+				, SRT_CD              as  srtCd
+
+				, PERMISSION		  as permission
+
+			FROM IB_STAFF
+			WHERE SRT_CD <> '10000' AND SRT_CD < 201
+		]]>
+			<isNotEqual property="tmpNum1" compareValue="notInHere">
+			  	<![CDATA[ AND SRT_CD <> '00000'		]]>
+			</isNotEqual>
+			<isNotEmpty prepend="AND" property="usrNm">
+				<![CDATA[	USR_NM = #usrNm# 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="srtCd">
+				<![CDATA[	SRT_CD != #srtCd# 		]]>
+			</isNotEmpty>
+			ORDER BY
+			<isNotEmpty property="srtCd"> SRT_CD, </isNotEmpty>
+			USR_NM ASC
+			<isNotEmpty property="limit">
+			limit 0, 9
+			</isNotEmpty>
+	</select>
+
+	<select id="workDAO.selectStaffList4ib" parameterClass="staffVO" resultClass="staffVO">
+		<![CDATA[
+			SELECT
+				  S_NB                as  sNb
+				, CUS_ID              as  cstId
+				, USR_ID              as  usrId
+				, USR_NM              as  usrNm
+				, JOIN_DT             as  joinDt
+			FROM IB_STAFF
+			WHERE SRT_CD <> '10000'
+		]]>
+			<isNotEmpty prepend="AND" property="usrNm">
+				<![CDATA[	USR_NM = #usrNm# 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="srtCd">
+				<![CDATA[	SRT_CD < #srtCd# 		]]>
+			</isNotEmpty>
+			ORDER BY
+			<isNotEmpty property="srtCd"> SRT_CD, </isNotEmpty>
+			USR_NM ASC
+
+	</select>
+
+	<select id="workDAO.selectOutStaffList" parameterClass="staffVO" resultClass="egovMap">
+		<![CDATA[
+			SELECT
+				  USR_ID
+				, USR_NM
+			FROM IB_STAFF
+			WHERE SRT_CD = '10000'
+		]]>
+			<isNotEmpty prepend="AND" property="division">
+				division = #division#
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="usrNm">
+				<![CDATA[	USR_NM = #usrNm# 		]]>
+			</isNotEmpty>
+			ORDER BY USR_NM ASC
+	</select>
+
+	<select id="workDAO.getStaffName" parameterClass="java.lang.String" resultClass="java.lang.String">
+		<![CDATA[
+			SELECT
+				NAME              as  usrNm
+			FROM BS_USER_MASTER
+			WHERE LOGIN_ID = #rgId#
+		]]>
+	</select>
+
+	<insert id="workDAO.insertBusinessRecord">
+			INSERT INTO IB_BUSINESS_RECORD
+				  select s_nb + 1
+		 		  , #staffSnb#
+				  , #title#
+				  , #note#
+				  , '00001'
+				  , #bsnsRecPrivate#
+				  , #orgId#
+				  , concat(#tmDt#,date_format(now(), '%H%i%s'))
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  from ib_business_record order by s_nb desc limit 1
+	</insert>
+
+
+	<update id="workDAO.updateBusinessRecord">
+		<![CDATA[
+			UPDATE IB_BUSINESS_RECORD
+			SET
+				  TITLE     =  #title#
+				, NOTE      =  #note#
+				]]><isNotEmpty prepend="," property="bsnsRecPrivate">
+				<![CDATA[	PRIVATE = #bsnsRecPrivate# 		]]>
+				</isNotEmpty><![CDATA[
+				, UP_DT     =  now()
+				, UP_ID     =  #rgId#
+			WHERE S_NB      =  #sNb#
+		]]>
+	</update>
+
+	<update id="workDAO.updatePrecessResult">
+		<![CDATA[
+			UPDATE IB_BUSINESS_RECORD
+			SET
+				  PROCESS   =  #process#
+				, UP_DT     =  now()
+				, UP_ID     =  #rgId#
+			WHERE S_NB      =  #sNb#
+		]]>
+	</update>
+
+	<delete id="workDAO.deleteBusinessRecord">
+		<![CDATA[
+			DELETE FROM IB_BUSINESS_RECORD
+			 WHERE S_NB      =  #sNb#
+		]]>
+	</delete>
+
+	<delete id="workDAO.deleteOffer">
+		<![CDATA[
+			DELETE FROM IB_OFFER
+			 WHERE S_NB      =  #sNb#
+		]]>
+	</delete>
+
+
+<!-- memo -->
+	<select id="workDAO.selectMemoList" parameterClass="workVO" resultClass="workVO">
+		   SELECT
+				  A.S_NB                as  sNb
+				, A.MAIN_SNB            as  mainSnb
+				, A.STTS_CD             as  sttsCd
+				, A.PRIVATE             as  priv
+				, A.MAJOR               as  major
+				, A.IMPORTANCE          as  importance
+				, DATE(A.TM_DT)         as  tmDt
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.STAFF_SNB = X.USER_ID) as name
+				,(SELECT DEPT_ID  FROM BS_USER_DEPARTMENT WHERE USER_ID = A.STAFF_SNB AND MAIN_YN = 'Y' AND ENABLE = 'Y' AND DELETE_fLAG = 'N')     as memoDeptId
+				,(SELECT ORG_ID FROM BS_USER_MASTER WHERE USER_ID = A.STAFF_SNB)                                                                    as division
+
+				, case when a.private='Y' then aes_decrypt(unhex(a.comment), md5(a.rg_id)) else IFNULL(A.COMMENT,"-") end as  comment
+				<!--
+				<isNotEmpty property="sNb">
+				, case when a.private='Y' then aes_decrypt(unhex(a.comment), md5(a.rg_id)) else IFNULL(A.COMMENT,"-") end as  comment
+				</isNotEmpty>
+				<isEmpty property="sNb">
+				, IFNULL(A.COMMENT,"-")  as  comment
+				</isEmpty>
+				 -->
+				, A.RG_ID				as rgId
+				, B.NAME                as rgNm
+				, A.UP_ID               as upId
+				, case when j1.realNm is null then GROUP_CONCAT(J2.realNm SEPARATOR '^^^') else GROUP_CONCAT(J1.realNm SEPARATOR '^^^') end   as realNm
+				, case when j1.makeNm is null then GROUP_CONCAT(J2.makeNm SEPARATOR '^^^') else GROUP_CONCAT(J1.makeNm SEPARATOR '^^^') end   as makeNm
+			FROM IB_COMMENT A
+			LEFT JOIN BS_USER_MASTER B ON B.LOGIN_ID = A.RG_ID
+			LEFT OUTER JOIN
+					(SELECT OFFER_SNB
+						  , REAL_NAME as realNm
+						  , MAKE_NAME as makeNm
+					   FROM IB_FILE_INFO
+					  WHERE FILE_CATEGORY = '00004'
+
+					) J1 ON A.S_NB = J1.OFFER_SNB
+			LEFT OUTER JOIN
+					(SELECT OFFER_SNB
+						  , REAL_NAME as realNm
+						  , MAKE_NAME as makeNm
+					   FROM IB_FILE_INFO
+					  WHERE FILE_CATEGORY = '00004'
+
+					) J2 ON A.MAIN_SNB = J2.OFFER_SNB
+
+		<dynamic prepend="WHERE">
+			<isNotEmpty prepend="AND" property="choiceMonth">
+				<![CDATA[	A.TM_DT between CONCAT (#choiceYear#, #choiceMonthS#, '01') and CONCAT (#choiceYear#, #choiceMonth#, '31235959') 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="name">
+				<![CDATA[	(SELECT X.NAME FROM BS_USER_MASTER X WHERE A.STAFF_SNB = X.USER_ID ) = #name# 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="comment">
+				<![CDATA[	( A.COMMENT like CONCAT('%',#comment#,'%') or (aes_decrypt(unhex(a.comment), md5(a.rg_id))) like CONCAT('%',#comment#,'%') ) 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="tmDt">
+				<![CDATA[	A.TM_DT = #tmDt# 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="rgId">
+				<![CDATA[	A.RG_ID = #rgId# 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="sNb">
+				<![CDATA[	A.S_NB = #sNb# 		]]>
+			</isNotEmpty>
+		</dynamic>
+		group by a.s_nb
+			ORDER BY
+			<isEqual property="memo4db" compareValue=""> A.TM_DT ASC, A.RG_DT ASC </isEqual>
+			<isEqual property="memo4db" compareValue="memo"> A.TM_DT ASC, A.RG_DT ASC </isEqual>
+	</select>
+
+	<select id="workDAO.selectMemo4insertFile" parameterClass="workVO" resultClass="java.lang.String">
+		<![CDATA[
+			SELECT S_NB as sNb
+			  FROM IB_COMMENT
+		WHERE RG_DT >=  DATE_ADD(NOW(), INTERVAL -1 MINUTE)
+		  AND RG_ID  =  #rgId#
+		  and main_snb = 0
+		  order by rg_dt desc
+		  limit 1
+		]]>
+	</select>
+
+	<select id="workDAO.selectEncrypt" parameterClass="workVO" resultClass="java.lang.String">
+		<![CDATA[
+			SELECT hex(aes_encrypt(#comment#,md5(#rgId#)))	AS v
+		]]>
+	</select>
+
+	<insert id="workDAO.insertMemo">
+		<![CDATA[
+			INSERT INTO IB_COMMENT
+				  ( STAFF_SNB
+				  , MAIN_SNB
+				  , COMMENT
+				  , IMPORTANCE
+				  , PRIVATE
+				  , MAJOR
+				  , STTS_CD
+				  , TM_DT
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES ( #staffSnb#
+				  , #mainSnb#
+				  , #comment#
+				  , #importance#
+				  , #priv#
+				  , case when #major# = '' then 'N' else #major# end
+				  , #sttsCd#
+				  , #tmDt#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+		]]>
+	</insert>
+
+	<insert id="workDAO.insertMainMemoNreturnSnb" parameterClass="workVO">
+			INSERT INTO IB_COMMENT
+				  ( STAFF_SNB
+				  , MAIN_SNB
+				  , COMMENT
+				  , IMPORTANCE
+				  , PRIVATE
+				  , MAJOR
+				  , STTS_CD
+				  , TM_DT
+				  , FRST_STTS_CD
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES ( #staffSnb#
+				  , #mainSnb#
+				  , #comment#
+				  , #importance#
+				  , #priv#
+				  , case when #major# = '' then 'N' else #major# end
+				  , #sttsCd#
+				  , #tmDt#
+				  , '00002'
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+		<selectKey keyProperty="mainSnb" resultClass="string">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+	</insert>
+
+	<insert id="workDAO.insertMemoOfDealResult">
+		<![CDATA[
+			INSERT INTO IB_COMMENT
+				  ( STAFF_SNB
+				  , MAIN_SNB
+				  , COMMENT
+				  , STTS_CD
+				  , TM_DT
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 )
+			SELECT
+					  b.USER_ID
+					, '0'
+					, concat(
+							  '[업무일지or딜⇒'
+								, case when a.middle_offer_cd = '00001' then '중개] \n회사명: '
+								   when a.middle_offer_cd = '00002' then '직접발굴] \n회사명: '
+								   when a.middle_offer_cd = '00004' then '제안중(중개)] \n회사명: '
+								   when a.middle_offer_cd = '00005' then '제안중(직접발굴)] \n회사명: '
+								   when a.middle_offer_cd = '00011' then '일임] \n회사명: '
+								   when a.middle_offer_cd = '00012' then '재매각] \n회사명: '
+								   when a.middle_offer_cd = '00013' then '펀드] \n회사명: ' end
+								, case when c.cpn_nm is null then '' else c.cpn_nm end
+								, case when a.opinion is null then '' else concat('\n' , a.opinion) end)
+				  , #sttsCd#
+				  , #tmDt#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+                  , #orgId#
+			   from ib_offer a
+		  left join BS_USER_MASTER b on b.LOGIN_ID = a.rg_id
+		  left join ib_company c on c.cpn_id = a.cpn_id
+		  left join ib_comment d on d.s_nb = a.s_nb
+
+			  where a.middle_offer_cd != '00000' and a.progress_cd != '10000' and a.progress_cd != '00003'
+					and A.S_NB = #sNb#
+		]]>
+	</insert>
+
+	<select id="workDAO.selectSMS" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+			SELECT
+				  GROUP_CONCAT(DISTINCT SMS_SEQ ORDER BY SMS_SEQ SEPARATOR ',') 						AS smsSeq
+				, SMS_TYPE
+				, GROUP_CONCAT(DISTINCT REPLACE(SMS_TO_NUM,'-','') ORDER BY SMS_SEQ SEPARATOR ',') 	AS smsToNum
+				, REPLACE(SMS_FROM_NUM,'-','') 														AS smsFromNum
+				, concat('ib : ',SMS_CONTENT)																AS smsContent
+				, SMS_RESER_TIME AS smsReserTime
+				, SMS_SEND_FLAG AS smsSendFlag
+			FROM IB_SMS_LOG
+			WHERE smsresertime >= CURRENT_DATE()
+		]]>
+			<isNotEmpty prepend="AND" property="rgId">
+				<![CDATA[	SMS_FROM_NUM = (SELECT MOBILE_TEL FROM BS_USER_MASTER WHERE LOGIN_ID = #rgId#)		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="comment">
+				<![CDATA[	SMS_CONTENT = #comment# 		]]>
+			</isNotEmpty>
+	</select>
+
+	<update id="workDAO.updateMemo">
+		<![CDATA[
+			UPDATE IB_COMMENT
+			SET
+				  COMMENT    =  case when #priv#='Y' then hex(aes_encrypt(#comment#,md5(rg_id))) else #comment# end
+				, IMPORTANCE =  #importance#
+				, PRIVATE    =  #priv#
+				, MAJOR      =  case when #major# = '' then 'N' else #major# end
+				, UP_DT      =  now()
+				, UP_ID      =  #rgId#
+			WHERE S_NB       =  #memoSNb#
+		]]>
+	</update>
+
+	<update id="workDAO.modifySttsCd">
+		<![CDATA[
+			UPDATE IB_COMMENT
+			SET
+				  STTS_CD	=  '00001'
+				, UP_DT		=  now()
+				, UP_ID		=  #rgId#
+			WHERE MAIN_SNB	=  #mainSnb#
+			  and STAFF_SNB		!=  (select USER_ID from BS_USER_MASTER where LOGIN_ID = #rgId# limit 1)
+		]]>
+	</update>
+
+	<update id="workDAO.updateSendedMemo">
+		<![CDATA[
+			UPDATE IB_COMMENT
+			SET
+				  COMMENT 	=  case when #priv#='Y' then hex(aes_encrypt(#comment#,md5(rg_id))) else #comment# end
+				, PRIVATE 	=  #priv#
+				, MAJOR 	=  case when #major# = '' then 'N' else #major# end
+				, STTS_CD 	=  '00001'
+				, UP_DT 	=  now()
+				, UP_ID 	=  #rgId#
+			WHERE MAIN_SNB 	=  #memoSNb#
+			  AND RG_ID 	=  #rgId#
+		]]>
+	</update>
+
+
+	<update id="workDAO.checkMemo">
+		<![CDATA[
+			UPDATE IB_COMMENT
+			SET
+				  STTS_CD   =  #sttsCd#
+				, IMPORTANCE = #importance#
+
+				, FRST_STTS_CD = '00002'		/* 첫글 확인 */
+
+				, UP_DT     =  now()
+				, UP_ID     =  #rgId#
+			WHERE S_NB      =  #memoSNb#
+		]]>
+	</update>
+
+	<delete id="workDAO.deleteMemo">
+		<![CDATA[
+			DELETE FROM IB_COMMENT
+			 WHERE S_NB      =  #memoSNb#
+		]]>
+	</delete>
+
+	<delete id="workDAO.deleteSubMemo">
+		<![CDATA[
+			DELETE FROM IB_COMMENT
+			 WHERE STTS_CD != '00002'
+			   AND MAIN_SNB      =  #memoSNb#
+		]]>
+	</delete>
+
+	<select id="workDAO.selectOfferList" parameterClass="workVO" resultClass="egovMap">
+		<![CDATA[
+			SELECT
+				  A.S_NB
+				, A.MIDDLE_OFFER_CD
+				, A.OFFER_CD
+				, C.VALUE_MEAN_KOR          as  MIDDLE_OFFER_NM
+				, B.VALUE_MEAN_KOR          as  OFFER_NM
+				, DATE(A.TM_DT) 			as  TM_DT
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.ORG_ID ) as RG_NM
+				, A.CST_ID
+				, D.CST_NM
+				, E.CPN_NM 					as  CST_CPN_NM
+				, D.POSITION
+				, A.CPN_ID
+				, case when f.a_CPN_ID is null or f.A_CPN_ID = '' then a.cpn_id else f.A_CPN_ID end 			   		as  A_CPN_ID
+				, F.CPN_NM
+				, f.S_NB 					as  CPN_SNB
+				, A.CATEGORY_CD
+				, A.PRICE
+				, A.INVEST_PRICE
+				, A.ENTRUST
+				, A.CPN_CST
+				, A.DUE_DT
+				, A.FEEDBACK
+				, A.PROGRESS_CD 			as  PROGRESS_CD
+				, A.RESULT
+				, A.OPINION					as  INVEST_OPINION
+				, A.MEMO
+				, A.USED
+				, A.SELL_BUY
+				, A.CPN_TYPE
+				, if(f.CATEGORY_BUSINESS = 0, null, f.CATEGORY_BUSINESS)			as  CATEGORY_BUSINESS
+				, A.RG_ID
+				, J2.FINANCING
+				, J2.MANAGEMENT
+				, J2.MNA
+				, J2.ETC
+				, J2.SHARE
+				, J2.RESOURCE
+				, J2.HUMANNET
+				, J2.AUDIT
+				, J2.INVESTINTE
+				, J2.SERVEY
+				, A.INFO_PROVIDER
+				, G.CST_NM 					as  INFO_PROVIDER_NM
+				, H.CPN_NM 					as  INFO_PROVIDER_CPN_NM
+				, A.COWORKER
+				, K.CST_NM					as  COWORKER_NM
+				, A.SUPPORTER
+				, A.SUPPORTER_TEXT			as  SUPPORTER_TEXT
+				, A.RECOMMEND_SNB		   as  RCMD_SNB
+				, I.CST_NM 					as  SUPPORTER_NM
+				, COUNT(CASE WHEN IFNULL(L.OFFER_SNB,0) != 0 THEN 1 END)						as  JOINT_CNT
+				, COUNT(CASE WHEN A.TM_DT <= J1.TM_DT THEN 1 END)					as ANALYSIS
+				, (SELECT COUNT(S_NB)
+				 	 FROM IB_RECOMMEND_OPINION
+					WHERE CATEGORY = '00001'
+					  AND OFFER_SNB = A.S_NB
+					  AND RG_DT >= A.TM_DT) 					as OPINION
+
+			FROM IB_OFFER A
+	            LEFT JOIN BS_CODE_OFFER_GV B ON B.CODE_VALUE = A.OFFER_CD
+	            LEFT JOIN BS_CODE_MIDDLE_OFFER_GV C ON C.CODE_VALUE = A.MIDDLE_OFFER_CD
+	            LEFT JOIN IB_CUSTOMER D ON D.S_NB = A.CST_ID
+	            LEFT JOIN IB_COMPANY E ON E.CPN_ID = D.CPN_ID
+	            LEFT JOIN IB_COMPANY F ON F.CPN_ID = A.CPN_ID
+	            LEFT JOIN IB_CUSTOMER G ON G.S_NB = A.INFO_PROVIDER
+	            LEFT JOIN IB_CUSTOMER K ON K.S_NB = A.COWORKER
+	            LEFT JOIN IB_COMPANY H ON H.CPN_ID = G.CPN_ID
+	            LEFT JOIN IB_CUSTOMER I ON I.S_NB = A.SUPPORTER
+          		LEFT JOIN IB_JOINT_PROGRESS L ON L.OFFER_SNB = A.S_NB
+				LEFT OUTER JOIN (
+		          SELECT CPN_ID,TM_DT
+		            FROM IB_OFFER
+		           WHERE OFFER_CD = '00004'
+		           ) J1 ON J1.CPN_ID = A.CPN_ID
+				LEFT OUTER JOIN (
+					SELECT OFFER_SNB
+                         , MAX(CASE WHEN CATEGORY = '00001' THEN COMMENT END) financing
+                         , MAX(CASE WHEN CATEGORY = '00002' THEN COMMENT END) management
+                         , MAX(CASE WHEN CATEGORY = '00003' THEN COMMENT END) mna
+                         , MAX(CASE WHEN CATEGORY = '00004' THEN COMMENT END) etc
+                         , MAX(CASE WHEN CATEGORY = '00005' THEN COMMENT END) share
+                         , MAX(CASE WHEN CATEGORY = '00006' THEN COMMENT END) resource
+                         , MAX(CASE WHEN CATEGORY = '00007' THEN COMMENT END) humanNet
+                         , MAX(CASE WHEN CATEGORY = '00008' THEN COMMENT END) audit
+                         , MAX(CASE WHEN CATEGORY = '00009' THEN COMMENT END) investInte
+                         , MAX(CASE WHEN CATEGORY = '00010' THEN COMMENT END) servey
+					  FROM IB_OFFER_INFO
+					  GROUP BY OFFER_SNB
+					) J2 ON A.S_NB = J2.OFFER_SNB
+		]]>
+		<dynamic prepend="WHERE">
+			<isNotEmpty prepend="AND" property="choiceMonth">
+				<![CDATA[	A.TM_DT between CONCAT (#choiceYear#, #choiceMonthS#, '01') and CONCAT (#choiceYear#, #choiceMonth#, '31235959') 		]]>
+			</isNotEmpty>
+			<isEqual prepend="AND" property="middleOfferCd" compareValue="00070">
+				<![CDATA[	A.MIDDLE_OFFER_CD in ('00071','00072')		]]>
+			</isEqual>
+			<!-- <isNotEmpty prepend="AND" property="offerCd">
+				<![CDATA[	OFFER_CD = #offerCd# 		]]>
+			</isNotEmpty> -->
+			<isNotEmpty prepend="AND" property="offerCd">
+				<![CDATA[	A.CATEGORY_CD is not null		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="offerCd">
+				<![CDATA[	A.CATEGORY_CD <> ''			]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="categoryCd">
+				<![CDATA[	A.CATEGORY_CD = #categoryCd# 		]]>
+			</isNotEmpty>
+			<isNotEqual property="middleOfferCd" compareValue="00070">
+				<isNotEmpty prepend="AND" property="middleOfferCd">
+					<![CDATA[	A.MIDDLE_OFFER_CD = #middleOfferCd# 		]]>
+				</isNotEmpty>
+				<isEmpty prepend="AND" property="categoryCd">
+					<![CDATA[	A.CATEGORY_CD != '00008' and A.CATEGORY_CD != '00012'		]]>
+				</isEmpty>
+			</isNotEqual>
+			<isNotEmpty prepend="AND" property="name">
+				<![CDATA[	(SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) = #name# 		]]>
+			</isNotEmpty>
+			<isNotEqual prepend="AND" property="total" compareValue="total">
+				<![CDATA[	A.PROGRESS_CD != '10000'		]]>
+			</isNotEqual>
+		</dynamic>
+			GROUP BY A.S_NB
+			ORDER BY A.USED ASC, A.PROGRESS_CD ASC
+			<isEqual prepend="," property="sorting" compareValue="">
+				<![CDATA[	A.TM_DT DESC		]]>
+			</isEqual>
+			<isEqual prepend="," property="sorting" compareValue="1">
+				<![CDATA[	case when CST_NM = '' or INFO_PROVIDER_NM is null then 1 else 0 end, INFO_PROVIDER_NM ASC		]]>
+			</isEqual>
+			<isEqual prepend="," property="sorting" compareValue="2">
+				<![CDATA[	case when CST_NM = '' or CST_NM is null then 1 else 0 end, CST_NM ASC 		]]>
+			</isEqual>
+			<isEqual prepend="," property="sorting" compareValue="3">
+				<![CDATA[	(SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) ASC 		]]>
+			</isEqual>
+			<isEqual prepend="," property="sorting" compareValue="4">
+				<![CDATA[	CPNNM ASC 		]]>
+			</isEqual>
+			<isEqual prepend="," property="sorting" compareValue="5">
+				<![CDATA[	CATEGORY_CD ASC 		]]>
+			</isEqual>
+			<isEqual prepend="," property="sorting" compareValue="6">
+				<![CDATA[	case when SUPPORTER_NM = '' or SUPPORTER_NM is null then 1 else 0 end, SUPPORTER_NM ASC 		]]>
+			</isEqual>
+			<isEqual prepend="," property="sorting" compareValue="7">
+				<![CDATA[	MIDDLE_OFFER_CD ASC, A.TM_DT DESC 		]]>
+			</isEqual>
+			<isEqual prepend="," property="sorting" compareValue="8">
+				<![CDATA[	OFFER_CD ASC, A.TM_DT DESC 		]]>
+			</isEqual>
+
+	</select>
+
+	<select id="workDAO.selectOfferAllDealList" parameterClass="workVO" resultClass="egovMap">
+
+			SELECT
+				  A.S_NB
+				, A.MIDDLE_OFFER_CD 		as  MIDDLE_OFFER_CD
+				, C.VALUE_MEAN_KOR 			as  MIDDLE_OFFER_NM
+				, B.VALUE_MEAN_KOR 			as  OFFER_NM
+				, DATE(A.TM_DT) 			as  TM_DT
+				, DATE(A.DUE_DT)			as  DUE_DT
+				, DATEDIFF(now(),DATE(A.DUE_DT))			as  DIFF_DT
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) as  RG_NM
+				, F.CPN_NM
+
+				, CASE WHEN A.CPN_ID = '951769' THEN 'Q' WHEN SUBSTRING(F.A_CPN_ID,1,1) = 'A' THEN 'Q' ELSE SUBSTRING(F.CPN_ID,1,1) END	as  CPN_STTS
+
+				, D.S_NB					as	CST_SNB
+				, D.CST_NM
+				, E.CPN_NM 					as  CST_CPN_NM
+				, concat(substring(A.MEMO,1,10),'...')		as  MEMO
+				, concat(substring(A.MEMO,1,40),(case when length(A.MEMO)>40 then '...' else '' end))		as  MEMO_LONG
+				, A.CATEGORY_CD
+				, A.PRICE
+				, A.INVEST_PRICE
+				, A.PROGRESS_CD
+				, CMM.VALUE_MEAN_KOR        as  PROGRESS_NM
+				, A.OPINION 				as  INVEST_OPINION
+				, A.SELL_BUY
+				, CM2.VALUE_MEAN_KOR        as  CPN_TYPE_CD_NM
+				, A.CPN_TYPE 				as  CPN_TYPE
+				, mcc.CPN_NM
+				,(SELECT X.NAME FROM BS_USER_MASTER X WHERE mnaS.STAFF_SNB = X.USER_ID ) as  USR_NM
+				, COUNT(TT.s_nb)			as ANALYSIS
+				, ( SELECT  X.NAME
+                    FROM    IB_OFFER Z
+						    INNER JOIN BS_USER_MASTER X ON Z.RG_STAFF_SNB = X.USER_ID
+			        WHERE Z.S_NB = A.RECOMMEND_SNB)					as RECOMMEND_NM
+
+				<!--, case
+				  when COUNT(CASE WHEN date(A.RG_DT) &lt;= date(J1.RG_DT) THEN 1 END) - COUNT(CASE WHEN date(A.RG_DT) &lt;= date(J2.RG_DT) THEN 1 END) &gt; 0
+				  then COUNT(CASE WHEN date(A.RG_DT) &lt;= date(J1.RG_DT) THEN 1 END)
+				  else COUNT(CASE WHEN date(A.RG_DT) &lt;= date(J2.RG_DT) THEN 1 END)
+				  end as analysis-->
+
+			<![CDATA[
+				, (SELECT COUNT(S_NB)
+				 	 FROM IB_RECOMMEND_OPINION
+					WHERE CATEGORY = '00001'
+					  AND OFFER_SNB = A.S_NB
+					  AND date(RG_DT) >= date(A.RG_DT)) 								as OPINION
+				, (SELECT MAX(RG_DT)
+				 	 FROM IB_RECOMMEND_OPINION
+					WHERE CATEGORY = '00001'
+					  AND OFFER_SNB = A.S_NB
+					  AND RG_DT >= CURDATE() - INTERVAL 1 DAY) 					as tmpNum1
+				, CASE WHEN A.RG_DT >= CURDATE() - INTERVAL 1 DAY THEN A.RG_DT ELSE '' END 	as TMP_NUM2
+				, (SELECT COUNT(1)
+						FROM IB_FILE_INFO
+						WHERE FILE_CATEGORY = '00000'
+						  AND A.S_NB = OFFER_SNB)								as FILE_CNT
+				, (SELECT COUNT(1)
+						FROM IB_FILE_INFO subA
+						LEFT JOIN IB_RECOMMEND_OPINION subB ON subB.S_NB = subA.OFFER_SNB
+						WHERE FILE_CATEGORY = '00002'
+						  AND A.S_NB = subB.OFFER_SNB)							as COMMENT_FILE_CNT
+
+				, A.INFO_LEVEL
+				, A.RG_ID
+
+				]]>
+
+				,(SELECT ORG_ID FROM BS_USER_MASTER WHERE LOGIN_ID = A.RG_ID)			as DIVISION
+				, F.CPN_ID
+				, F.A_CPN_ID
+
+				<isNotEqual property="sorting" compareValue="00008">	<!-- mna "00008" -->
+				, getAnalysisVal(A.S_NB) as analVal
+				</isNotEqual>
+				<isEqual property="sorting" compareValue="00008">		<!-- mna "00008" -->
+				, '1|1' as analVal
+				</isEqual>
+
+				<![CDATA[
+
+
+			FROM IB_OFFER A
+	            LEFT JOIN BS_CODE_OFFER_GV B ON B.CODE_VALUE = A.OFFER_CD
+	            LEFT JOIN BS_CODE_MIDDLE_OFFER_GV C ON C.CODE_VALUE = A.MIDDLE_OFFER_CD
+	            LEFT JOIN BS_CODE_GV CMM ON (CMM.CODE_NAME = 'DEAL_PROCESS_STATUS' AND CMM.CODE_VALUE = A.PROGRESS_CD)
+	            LEFT JOIN BS_CODE_GV CM2 ON (CM2.CODE_NAME = 'BUSINESS_TYPE' AND CM2.CODE_VALUE = A.CPN_TYPE_CD)
+	            LEFT JOIN IB_CUSTOMER D ON D.S_NB = A.CST_ID
+	            LEFT JOIN IB_COMPANY E ON E.CPN_ID = D.CPN_ID
+	            LEFT JOIN IB_COMPANY F ON F.CPN_ID = A.CPN_ID
+	            LEFT JOIN IB_CUSTOMER G ON G.S_NB = A.INFO_PROVIDER
+	            LEFT JOIN IB_CUSTOMER K ON K.S_NB = A.COWORKER
+	            LEFT JOIN IB_COMPANY H ON H.CPN_ID = G.CPN_ID
+	            LEFT JOIN IB_CUSTOMER I ON I.S_NB = A.SUPPORTER
+          		LEFT JOIN IB_JOINT_PROGRESS L ON L.OFFER_SNB = A.S_NB
+          		LEFT JOIN (
+							select
+									imcc.offer_snb
+									, GROUP_CONCAT(Mc.cpn_nm SEPARATOR '<br/>,') cpn_nm
+							from  ib_offer_mna_match_cpn imcc
+							LEFT JOIN IB_COMPANY Mc ON Mc.CPN_ID = imcc.cpn_id
+							group by imcc.offer_snb
+							)mcc ON mcc.OFFER_SNB = A.S_NB
+	            LEFT JOIN ib_offer_mna_staff mnaS ON mnaS.OFFER_SNB = A.S_NB
+	      ]]>
+
+			  	LEFT OUTER JOIN
+			  		(
+			  		select KK.*
+			  		  from(
+
+				           SELECT s_nb, CPN_ID, tm_dt
+				             FROM IB_OFFER
+				            WHERE OFFER_CD = '00004'
+
+				  			union
+
+				          	select m.s_nb, (select cpn_id from ib_customer where s_nb = m.cst_id) as cpn_id
+				          			,m.tm_dt
+							  from ib_offer		m
+							  join ib_offer_info	n on m.s_nb = n.offer_snb and n.category = '00008'
+							 where offer_cd in ('00002', '00003')
+
+				           ) KK
+			         ) TT on TT.cpn_id = a.cpn_id
+			         	  <!-- and date(date_add(A.TM_DT, interval -2 month)) &lt;= date(TT.TM_DT) -->
+			         	  and date(date_add(A.TM_DT, interval -7 day)) &lt;= date(TT.TM_DT)
+
+			WHERE 1=1
+
+			<isNotEmpty prepend="AND" property="choiceMonth">
+				<![CDATA[	A.TM_DT between CONCAT (#choiceYearS#, #choiceMonthS#, '01') and CONCAT (#choiceYear#, #choiceMonth#, '31235959') 		]]>
+			</isNotEmpty>
+
+		<isNotEmpty property="search">
+			<![CDATA[  AND	F.CPN_NM like concat('%', #search# ,'%')		]]>
+
+			AND	 A.MIDDLE_OFFER_CD in ('00001', '00002', '00003', '00004', '00005')
+		</isNotEmpty>
+
+
+		<isEmpty property="search">
+
+			<isNotEqual prepend="and" property="middleOfferCd" compareValue="00004">	<!-- 제안중00004 이 아닌 딜 -->
+				<![CDATA[	A.MIDDLE_OFFER_CD in ('00001', '00002', '00003')		]]>
+			</isNotEqual>
+
+			<isNotEmpty prepend="AND" property="middleOfferCd">
+				<isEqual prepend="" property="middleOfferCd" compareValue="00004">	<!-- 제안중 -->
+					<![CDATA[	A.MIDDLE_OFFER_CD in ('00004','00005') 		]]>
+				</isEqual>
+				<isNotEqual prepend="" property="middleOfferCd" compareValue="00004">
+					<![CDATA[	A.MIDDLE_OFFER_CD = #middleOfferCd# 		]]>
+				</isNotEqual>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="middleOfferCd">
+				<![CDATA[	A.CATEGORY_CD is not null		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="middleOfferCd">
+				<![CDATA[	A.CATEGORY_CD <> ''			]]>
+			</isNotEmpty>
+			<isEqual prepend="AND" property="middleOfferCd" compareValue="00004">		<!-- 제안중00004 이면서 -->
+				<isEqual prepend="" property="isEtc" compareValue="Y">
+					<![CDATA[	A.CATEGORY_CD not in ('00001','00002','00003','00015')		]]>
+				</isEqual>
+				<!-- <isNotEqual prepend="" property="isEtc" compareValue="Y"> -->
+				<!-- 	<![CDATA[	A.CATEGORY_CD in ('00001','00002','00003','00015')			]]> -->		<!-- CB(00001), BW(00002), EB(00003), RCPS(00015) -->
+				<!-- </isNotEqual> -->
+			</isEqual>
+
+			<isNotEqual prepend="" property="sorting" compareValue="null">
+				<isEqual prepend="AND" property="sorting" compareValue="">
+					<!-- <![CDATA[	A.CATEGORY_CD != '00012' AND A.CATEGORY_CD != '00008' AND A.CATEGORY_CD != '00013' AND A.CATEGORY_CD != '00011' AND A.CATEGORY_CD != '00014'		]]> -->
+					<![CDATA[	A.CATEGORY_CD in ('00001','00002','00003','00015')		]]>		<!-- CB(00001), BW(00002), EB(00003), RCPS(00015) -->
+
+					<isEqual prepend="AND" property="listed" compareValue="N">
+						<![CDATA[	(F.CPN_ID not like 'A%' and (F.A_CPN_ID is null or F.A_CPN_ID not like 'A%'))	]]>		<!-- 비상장 -->
+					</isEqual>
+					<isNotEqual prepend="AND" property="listed" compareValue="N">
+						<![CDATA[	(F.CPN_ID like 'A%' or F.A_CPN_ID like 'A%')		]]>		<!-- 상장 -->
+					</isNotEqual>
+
+				</isEqual>
+				<isNotEqual prepend="AND" property="sorting" compareValue="">
+					<isNotEqual prepend="" property="tmpNum2" compareValue="statsPrivateList">
+						<isNotEqual property="sorting" compareValue="0">
+							<isNotEqual property="sorting" compareValue="00014">
+
+								<isEqual property="sorting" compareValue="T1">				<!-- T1.. 유증(00004), 블록딜(00005), 실권주(00006), 워런트(00007) -->
+									<![CDATA[	A.CATEGORY_CD in ('00004','00005','00006','00007')		]]>
+								</isEqual>
+								<isNotEqual property="sorting" compareValue="T1">
+									<![CDATA[	A.CATEGORY_CD = #sorting#		]]>
+								</isNotEqual>
+
+							</isNotEqual>
+							<isEqual property="sorting" compareValue="00014">
+								<![CDATA[	A.CATEGORY_CD in ('00011','00014')		]]>
+							</isEqual>
+						</isNotEqual>
+						<isEqual property="sorting" compareValue="0"><![CDATA[
+										A.CATEGORY_CD in (
+															select	group_concat(cmm.dtail_cd SEPARATOR ',')
+															from ib_staff_allow_code alw
+															left join ib_staff st on st.permission = alw.perm_code
+															left join IB_COMMON_CODE cmm on cmm.s_nb = alw.code_snb
+															where st.usr_id = #rgId#
+															  and cmm.menu_cd = '00005'
+															group by cmm.menu_cd) ]]>
+						</isEqual>
+					</isNotEqual>
+					<isEqual prepend="" property="tmpNum2" compareValue="statsPrivateList">
+						<isNotEmpty property="tmpNum1">
+						<![CDATA[	(SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) = #tmpNum1# 		]]>
+						</isNotEmpty>
+					</isEqual>
+				</isNotEqual>
+			</isNotEqual>
+			<isNotEqual prepend="AND" property="total" compareValue="total">
+				<isNotEqual property="sorting" compareValue="00008">
+					<![CDATA[	A.PROGRESS_CD in ('00001','00002')	]]>
+				</isNotEqual>
+				<isEqual property="sorting" compareValue="00008">
+					<![CDATA[	A.PROGRESS_CD in ('00001','00002','00003','00004','00005')	]]>
+				</isEqual>
+			</isNotEqual>
+		</isEmpty>
+
+
+			GROUP BY A.S_NB
+			ORDER BY
+			<isNotEqual property="sorting" compareValue="00008">
+				A.PROGRESS_CD ASC ,
+			</isNotEqual>
+			<isEqual prepend="" property="total" compareValue="sellBuy">
+				A.SELL_BUY asc ,
+			</isEqual>
+						 CASE WHEN A.DUE_DT IS NULL THEN 1 ELSE 0 END, A.TM_DT DESC
+	</select>
+
+	<select id="workDAO.selectOpinionNdeal" parameterClass="workVO" resultClass="egovMap">
+		<![CDATA[
+			SELECT
+				OF.S_NB
+				, ST.NAME					as  RG_NM
+				, OF.MIDDLE_OFFER_CD
+				, C.VALUE_MEAN_KOR 			as  MIDDLE_OFFER_NM
+				, B.VALUE_MEAN_KOR 			as  OFFER_NM
+				, DATE(RP.RG_DT) 			as  TM_DT
+				, OF.PRICE
+				, OF.INVEST_PRICE
+				, OF.PROGRESS_CD
+				, OF.CATEGORY_CD
+				, RP.COMMENT 				as  MEMO
+				, CMM.VALUE_MEAN_KOR        as  PROGRESS_NM
+				, F.CPN_NM
+				, D.CST_NM
+				, E.CPN_NM 					as  CST_CPN_NM
+				, COUNT(CASE WHEN OF.TM_DT <= date(J1.TM_DT) THEN 1 END)			as ANALYSIS
+				, (SELECT COUNT(S_NB)
+				 	 FROM IB_RECOMMEND_OPINION
+					WHERE CATEGORY = '00001'
+					  AND OFFER_SNB = OF.S_NB
+					  AND RG_DT >= date(OF.TM_DT)) 								as OPINION
+				, (SELECT MAX(RG_DT)
+				 	 FROM IB_RECOMMEND_OPINION
+					WHERE CATEGORY = '00001'
+					  AND OFFER_SNB = OF.S_NB
+					  AND RG_DT >= CURDATE() - INTERVAL 1 DAY) 					as TMP_NUM1
+				, CASE WHEN OF.RG_DT >= CURDATE() - INTERVAL 1 DAY THEN OF.RG_DT ELSE '' END 	as TMP_NUM2
+				, (SELECT COUNT(1)
+						FROM IB_FILE_INFO
+						WHERE FILE_CATEGORY = '00000'
+						  AND OF.S_NB = OFFER_SNB)								as FILE_CNT
+				, (SELECT COUNT(1)
+						FROM IB_FILE_INFO subA
+						LEFT JOIN IB_RECOMMEND_OPINION subB ON subB.S_NB = subA.OFFER_SNB
+						WHERE FILE_CATEGORY = '00002'
+						  AND OF.S_NB = subB.OFFER_SNB)							as COMMENT_FILE_CNT
+			FROM IB_RECOMMEND_OPINION RP
+				LEFT JOIN IB_OFFER OF ON OF.S_NB = RP.OFFER_SNB
+				LEFT JOIN BS_USER_MASTER ST ON ST.LOGIN_ID = RP.RG_ID
+	            LEFT JOIN BS_CODE_OFFER_GV B ON B.CODE_VALUE = OF.OFFER_CD
+	            LEFT JOIN BS_CODE_MIDDLE_OFFER_GV C ON C.CODE_VALUE = OF.MIDDLE_OFFER_CD
+	            LEFT JOIN BS_CODE_GV CMM ON (CMM.CODE_NAME = 'DEAL_PROCESS_STATUS' AND CMM.CODE_VALUE = OF.PROGRESS_CD)
+				LEFT JOIN IB_CUSTOMER D ON D.S_NB = OF.CST_ID
+				LEFT JOIN IB_COMPANY E ON E.CPN_ID = D.CPN_ID
+				LEFT JOIN IB_COMPANY F ON F.CPN_ID = OF.CPN_ID
+				LEFT JOIN (
+		          SELECT CPN_ID,TM_DT
+		            FROM IB_OFFER
+		           WHERE OFFER_CD = '00004'
+		           ) J1 ON J1.CPN_ID = OF.CPN_ID
+			WHERE OF.S_NB IS NOT NULL
+			  AND RP.RG_DT between CONCAT (#choiceYear#, #choiceMonthS#, '01') and CONCAT (#choiceYear#, #choiceMonth#, '31235959')
+		]]>
+			<isNotEmpty prepend="AND" property="tmpNum1">
+			  <![CDATA[ ST.NAME = #tmpNum1# ]]>
+			</isNotEmpty>
+			GROUP BY RP.S_NB
+			ORDER BY OF.PROGRESS_CD ASC, RP.RG_DT DESC
+	</select>
+
+	<select id="workDAO.selectOfferListNfile" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+			SELECT
+				  A.S_NB 				   as  sNb
+				, A.MIDDLE_OFFER_CD 	   as  middleOfferCd
+				, A.OFFER_CD 			   as  offerCd
+				, C.VALUE_MEAN_KOR 		    as middleOfferNm
+				, B.VALUE_MEAN_KOR 			as offerNm
+				, A.TM_DT 		   			as  tmDt
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) 			   		as  rgNm
+				, A.CST_ID 			   		as  cstId
+				, D.CST_NM 					as  cstNm
+				, D.CPN_ID 					as  cstCpnId
+				, case when e.a_CPN_ID is null or e.A_CPN_ID = '' then d.cpn_id else e.A_CPN_ID end 					as  cstAcpnId
+				, E.CPN_NM 					as  cstCpnNm
+				, E.S_NB 					as  cpnSnb
+				, D.POSITION 				as  position
+				, A.CPN_ID 			   		as  cpnId
+				, case when f.a_CPN_ID is null or f.A_CPN_ID = '' then a.cpn_id else f.A_CPN_ID end 			   		as  aCpnId
+				, F.CPN_NM 					as  cpnNm
+
+				, CASE WHEN A.CPN_ID = '951769' THEN 'Q' WHEN SUBSTRING(F.A_CPN_ID,1,1) = 'A' THEN 'Q' ELSE SUBSTRING(F.CPN_ID,1,1) END	as  cpnStts
+
+				, A.CATEGORY_CD 		   as  categoryCd
+				,(SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'DEAL_KIND' AND CODE_VALUE = A.CATEGORY_CD) 				as categoryNm
+				, A.PRICE 			   as  price
+				, A.INVEST_PRICE 	   		as  investPrice
+				, A.ENTRUST					as  entrust
+				, A.CPN_CST					as  cpnCst
+				, A.DUE_DT 			   	as  dueDt
+				, A.FEEDBACK 			   as  feedback
+				, A.PROGRESS_CD 		   as  progressCd
+				, A.RESULT 			   as  result
+				, A.USED				   as  used
+				, A.RG_ID				   as  rgId
+				,(SELECT ORG_ID FROM BS_USER_MASTER WHERE LOGIN_ID = A.RG_ID)			as division
+				, A.RECOMMEND_SNB		   as  rcmdSnb
+				, a.CPN_TYPE_CD				as  cpnTypeCd
+				, GROUP_CONCAT(J1.realNm SEPARATOR '^^^')   as realNm
+				, GROUP_CONCAT(J1.makeNm SEPARATOR '^^^')   as makeNm
+				, J2.FINANCING            as  financing
+				, J2.MANAGEMENT           as  management
+				, J2.MNA                  as  mna
+				, J2.ETC                  as  etc
+				, J2.SHARE                as  share
+				, J2.RESOURCE             as  resource
+				, J2.HUMANNET            as  humanNet
+				, J2.AUDIT	             as  audit
+				, J2.INVESTINTE          as  investInte
+				, J2.SERVEY 	         as  servey
+
+				, A.INFO_LEVEL			as infoLevel
+
+			FROM IB_OFFER A
+	            LEFT JOIN BS_CODE_OFFER_GV B ON B.CODE_VALUE = A.OFFER_CD
+	            LEFT JOIN BS_CODE_MIDDLE_OFFER_GV C ON C.CODE_VALUE = A.MIDDLE_OFFER_CD
+	            LEFT JOIN IB_CUSTOMER D ON D.S_NB = A.CST_ID
+	            LEFT JOIN IB_COMPANY E ON E.CPN_ID = D.CPN_ID
+	            LEFT JOIN IB_COMPANY F ON F.CPN_ID = A.CPN_ID
+				LEFT OUTER JOIN
+					(SELECT OFFER_SNB
+						  , REAL_NAME as realNm
+						  , MAKE_NAME as makeNm
+					   FROM IB_FILE_INFO
+					  WHERE FILE_CATEGORY = '00000'
+
+					) J1 ON A.S_NB = J1.OFFER_SNB
+
+				LEFT OUTER JOIN (
+					SELECT OFFER_SNB
+                         , MAX(CASE WHEN CATEGORY = '00001' THEN COMMENT END) financing
+                         , MAX(CASE WHEN CATEGORY = '00002' THEN COMMENT END) management
+                         , MAX(CASE WHEN CATEGORY = '00003' THEN COMMENT END) mna
+                         , MAX(CASE WHEN CATEGORY = '00004' THEN COMMENT END) etc
+                         , MAX(CASE WHEN CATEGORY = '00005' THEN COMMENT END) share
+                         , MAX(CASE WHEN CATEGORY = '00006' THEN COMMENT END) resource
+                         , MAX(CASE WHEN CATEGORY = '00007' THEN COMMENT END) humanNet
+                         , MAX(CASE WHEN CATEGORY = '00008' THEN COMMENT END) audit
+                         , MAX(CASE WHEN CATEGORY = '00009' THEN COMMENT END) investInte
+                         , MAX(CASE WHEN CATEGORY = '00010' THEN COMMENT END) servey
+					  FROM IB_OFFER_INFO
+					  GROUP BY OFFER_SNB
+					) J2 ON A.S_NB = J2.OFFER_SNB
+		]]>
+		<dynamic prepend="WHERE">
+			<isEmpty prepend="AND" property="choiceDay">
+				<![CDATA[	A.TM_DT between CONCAT (#choiceYear#, #choiceMonth#, '01') and CONCAT (#choiceYear#, #choiceMonth#, '31235959') 		]]>
+			</isEmpty>
+			<isNotEmpty prepend="AND" property="offerCd">
+				<![CDATA[	A.OFFER_CD = #offerCd# 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="offerCd">
+				<![CDATA[	A.CATEGORY_CD is not null		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="offerCd">
+				<![CDATA[	A.CATEGORY_CD <> ''			]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="categoryCd">
+				<![CDATA[	A.CATEGORY_CD = #categoryCd# 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="name">
+				<![CDATA[	(SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) = #name# 		]]>
+			</isNotEmpty>
+			<isEqual prepend="AND" property="selectInfo" compareValue="main1">
+				<![CDATA[	A.CATEGORY_CD != '00001' and A.CATEGORY_CD != '00003' and A.CATEGORY_CD != '00008' and A.CATEGORY_CD != '00011'		]]>
+			</isEqual>
+			<isEqual prepend="AND" property="selectInfo" compareValue="main2">
+				<![CDATA[	A.CATEGORY_CD = '00001' or A.CATEGORY_CD = '00003' or A.CATEGORY_CD = '00008' or A.CATEGORY_CD = '00011'		]]>
+			</isEqual>
+		</dynamic>
+			GROUP BY A.S_NB
+			ORDER BY A.USED ASC, A.PROGRESS_CD ASC
+			<isNotEmpty prepend="," property="choiceDay">
+				A.TM_DT DESC
+			</isNotEmpty>
+			<isEmpty prepend="," property="choiceDay">
+				A.TM_DT ASC
+			</isEmpty>
+	</select>
+
+
+	<select id="workDAO.selectMainOfferList" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+			SELECT
+				  A.S_NB 				   as  sNb
+				, mtc.offer_snb 			as tmpNum1
+				, case when alw.cd_nm is null then alw1.cd_nm else alw.cd_nm end 			as tmpNum2
+				, A.MIDDLE_OFFER_CD 	   as  middleOfferCd
+				, A.OFFER_CD 			   as  offerCd
+				, C.VALUE_MEAN_KOR 	        as middleOfferNm
+				, B.VALUE_MEAN_KOR 			as offerNm
+				, A.TM_DT 		   			as  tmDt
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID )			   		as  rgNm
+				, A.CST_ID 			   		as  cstId
+				, D.CST_NM 					as  cstNm
+				, D.CPN_ID 					as  cstCpnId
+				, E.CPN_NM 					as  cstCpnNm
+				, E.S_NB 					as  cpnSnb
+				, D.POSITION 				as  position
+				, A.CPN_ID 			   		as  cpnId
+				, F.CPN_NM 					as  cpnNm
+
+				, CASE WHEN A.CPN_ID = '951769' THEN 'Q' WHEN SUBSTRING(F.A_CPN_ID,1,1) = 'A' THEN 'Q' ELSE SUBSTRING(F.CPN_ID,1,1) END	as  cpnStts
+
+				, A.CATEGORY_CD 		   as  categoryCd
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'DEAL_KIND' AND CODE_VALUE = A.CATEGORY_CD limit 1) as categoryNm
+				, A.PROGRESS_CD 		   as  progressCd
+				, A.RG_ID				   as  rgId
+				, GROUP_CONCAT(J1.realNm SEPARATOR '^^^')   as realNm
+				, GROUP_CONCAT(J1.makeNm SEPARATOR '^^^')   as makeNm
+
+				, A.INFO_LEVEL				as infoLevel
+
+				,(SELECT ORG_ID FROM BS_USER_MASTER WHERE LOGIN_ID = A.RG_ID)			as division
+				, F.CPN_ID														as cpnId
+				, F.A_CPN_ID													as aCpnId
+
+			FROM IB_OFFER A
+	            LEFT JOIN BS_CODE_OFFER_GV B ON B.CODE_VALUE = A.OFFER_CD
+	            LEFT JOIN BS_CODE_MIDDLE_OFFER_GV C ON C.CODE_VALUE = A.MIDDLE_OFFER_CD
+	            LEFT JOIN IB_CUSTOMER D ON D.S_NB = A.CST_ID
+	            LEFT JOIN IB_COMPANY E ON E.CPN_ID = D.CPN_ID
+	            LEFT JOIN IB_COMPANY F ON F.CPN_ID = A.CPN_ID
+				LEFT JOIN (SELECT OFFER_SNB FROM IB_MAINTABLE_CHECK WHERE CATEGORY = '00001' AND RG_ID = #rgId#) MTC ON MTC.OFFER_SNB = A.S_NB
+				LEFT OUTER JOIN
+					(SELECT OFFER_SNB
+						  , REAL_NAME as realNm
+						  , MAKE_NAME as makeNm
+					   FROM IB_FILE_INFO
+					  WHERE FILE_CATEGORY = '00000'
+
+					) J1 ON A.S_NB = J1.OFFER_SNB
+	            LEFT JOIN ib_staff_allow_code_v alw ON (alw.USR_ID = #rgId# and alw.MENU_CD = '00005' AND alw.DTAIL_CD = A.CATEGORY_CD)
+	            LEFT JOIN ib_staff_allow_code_v alw1 ON (alw1.USR_ID = #rgId# and alw1.MENU_CD = '00002' AND alw1.DTAIL_CD = A.offer_CD and alw1.dtail_cd != '00006' and alw1.dtail_cd != '00007')
+
+			WHERE A.PROGRESS_CD != '10000'
+			  and (alw.cd_nm is not null or alw1.cd_nm is not null)
+			  AND (MTC.OFFER_SNB = '' OR MTC.OFFER_SNB IS NULL)
+			  AND CASE WHEN A.CATEGORY_CD = '00008' THEN A.PROGRESS_CD != '00006' ELSE A.PROGRESS_CD != '00003' END
+		]]>
+			<isNotEmpty prepend="AND" property="choiceDay">
+				<![CDATA[	A.TM_DT between CONCAT (case when #choiceYearS# is null or #choiceYearS# = '' then #choiceYear# else #choiceYearS# end, case when #choiceMonthS# is null or #choiceMonthS# = '' then #choiceMonth# else #choiceMonthS# end, #choiceDayS# ) and CONCAT (#choiceYear#, #choiceMonth#, #choiceDay#, '235959') 		]]>
+			</isNotEmpty>
+			<isEqual prepend="AND" property="selectInfo" compareValue="main1">
+				<![CDATA[	A.CATEGORY_CD != '00001' and A.CATEGORY_CD != '00003' and A.CATEGORY_CD != '00008' and A.CATEGORY_CD != '00011'		]]>
+			</isEqual>
+			<isEqual prepend="AND" property="selectInfo" compareValue="main2">
+				<![CDATA[	(A.CATEGORY_CD = '00001' or A.CATEGORY_CD = '00003' or A.CATEGORY_CD = '00008')		]]>
+			</isEqual>
+			<isEqual prepend="AND" property="selectInfo" compareValue="main3">
+				<![CDATA[	A.CATEGORY_CD = '00011'		]]>
+			</isEqual>
+			<isEqual prepend="AND" property="selectInfo" compareValue="main4">
+				<![CDATA[	A.CATEGORY_CD = '00012'		]]>
+			</isEqual>
+			<isEqual prepend="AND" property="selectInfo" compareValue="mainAll">
+				<![CDATA[	A.CATEGORY_CD in ('00004','00005','00006','00007','00011','00012','00013','00014','00015')	]]>
+			</isEqual>
+			GROUP BY A.S_NB
+			ORDER BY A.TM_DT DESC
+			<isEqual property="selectInfo" compareValue="main1">
+				limit 30
+			</isEqual>
+			<isEqual property="selectInfo" compareValue="main2">
+				limit 100
+			</isEqual>
+	</select>
+
+
+
+	<select id="workDAO.selectOfferCpnList" parameterClass="workVO" resultClass="egovMap">
+		<![CDATA[
+			SELECT
+				  A.S_NB
+				, A.MIDDLE_OFFER_CD
+				, A.OFFER_CD
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_MIDDLE_OFFER_GV WHERE CODE_VALUE = MIDDLE_OFFER_CD) as MIDDLE_OFFER_NM
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_OFFER_GV WHERE CODE_VALUE = OFFER_CD) as OFFER_NM
+				, DATE(A.TM_DT) as TM_DT
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) AS RG_NM
+				, A.CST_ID
+				, (SELECT CST_NM FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.CST_ID)      as  CST_NM
+				, (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = (SELECT CPN_ID FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.CST_ID))      as  CST_CPN_NM
+				, A.CPN_ID 			   as  CPN_ID
+				, (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = A.CPN_ID)      as  CPN_NM
+				, A.CATEGORY_CD
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'DEAL_KIND' AND CODE_VALUE = A.CATEGORY_CD) as CATEGORY_NM
+				, A.PRICE
+				, A.INVEST_PRICE
+				, A.DUE_DT
+				, A.FEEDBACK
+				, A.PROGRESS_CD
+				, A.RESULT
+				, A.USED
+				, A.RG_ID
+				, GROUP_CONCAT(J1.REAL_NAME SEPARATOR '^^^')   as REAL_NM
+				, GROUP_CONCAT(J1.MAKE_NAME SEPARATOR '^^^')   as MAKE_NM
+				, J2.FINANCING
+				, J2.MANAGEMENT
+				, J2.MNA
+				, J2.ETC
+				, J2.SHARE
+				, J2.RESOURCE
+				, J2.HUMANNET
+				, J2.AUDIT
+				, J2.INVESTINTE
+				, J2.SERVEY
+				, A.INFO_PROVIDER
+				, (SELECT CST_NM FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.INFO_PROVIDER)      as  INFO_PROVIDER_NM
+				, (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = (SELECT CPN_ID FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.INFO_PROVIDER))      as  INFO_PROVIDER_CPN_NM
+				, (SELECT COUNT(S_NB)
+				 	 FROM IB_RECOMMEND_OPINION
+					WHERE CATEGORY = '00001'
+					  AND OFFER_SNB = A.S_NB
+					  AND RG_DT >= A.TM_DT) 					as OPINION
+			FROM IB_OFFER A
+			LEFT JOIN
+				IB_FILE_INFO J1 ON (j1.FILE_CATEGORY = '00000' and A.S_NB = J1.OFFER_SNB)
+			LEFT OUTER JOIN (
+				SELECT OFFER_SNB
+					 , MAX(CASE WHEN CATEGORY = '00001' THEN COMMENT END) financing
+					 , MAX(CASE WHEN CATEGORY = '00002' THEN COMMENT END) management
+					 , MAX(CASE WHEN CATEGORY = '00003' THEN COMMENT END) mna
+					 , MAX(CASE WHEN CATEGORY = '00004' THEN COMMENT END) etc
+					 , MAX(CASE WHEN CATEGORY = '00005' THEN COMMENT END) share
+					 , MAX(CASE WHEN CATEGORY = '00006' THEN COMMENT END) resource
+					 , MAX(CASE WHEN CATEGORY = '00007' THEN COMMENT END) humanNet
+					 , MAX(CASE WHEN CATEGORY = '00008' THEN COMMENT END) audit
+					 , MAX(CASE WHEN CATEGORY = '00009' THEN COMMENT END) investInte
+					 , MAX(CASE WHEN CATEGORY = '00010' THEN COMMENT END) servey
+				  FROM IB_OFFER_INFO
+				  GROUP BY OFFER_SNB
+				) J2 ON A.S_NB = J2.OFFER_SNB
+		]]>
+		<dynamic prepend="WHERE">
+			<isNotEmpty prepend="AND" property="cpnId">
+				<![CDATA[	A.CPN_ID = #cpnId# 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="cstId">
+				<![CDATA[	A.CST_ID = #cstId# 		]]>
+			</isNotEmpty>
+		</dynamic>
+			GROUP BY A.S_NB
+			ORDER BY A.TM_DT DESC
+		/* workDAO.selectOfferCpnList */
+	</select>
+
+	<select id="workDAO.selectStaffOfferList" parameterClass="workVO" resultClass="egovMap">
+		<![CDATA[
+			SELECT
+				  A.S_NB
+				, A.MIDDLE_OFFER_CD
+				, A.OFFER_CD
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_MIDDLE_OFFER_GV WHERE CODE_VALUE = MIDDLE_OFFER_CD) as MIDDLE_OFFER_NM
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_OFFER_GV WHERE CODE_VALUE = OFFER_CD) as OFFER_NM
+				, DATE(A.TM_DT) as TM_DT
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) AS RG_NM
+				, A.CST_ID
+				, (SELECT CST_NM FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.CST_ID)      as  CST_NM
+				, (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = (SELECT CPN_ID FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.CST_ID))      as  CST_CPN_NM
+				, A.CPN_ID
+				, (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = A.CPN_ID)      as  CPN_NM
+				, CATEGORY_CD
+				, A.PRICE
+				, A.INVEST_PRICE
+				, A.DUE_DT
+				, A.PROGRESS_CD
+				, A.RESULT
+				, A.USED
+				, A.RG_ID
+				, J2.FINANCING
+				, J2.MANAGEMENT
+				, J2.MNA
+				, J2.ETC
+				, J2.SHARE
+				, J2.RESOURCE
+				, J2.HUMANNET
+				, J2.AUDIT
+				, J2.INVESTINTE
+				, J2.SERVEY
+			FROM (select a.*
+					from IB_OFFER A
+					LEFT OUTER JOIN BS_USER_MASTER B ON A.RG_ID = B.LOGIN_ID
+					]]><dynamic prepend="WHERE">
+						<isNotEmpty prepend="AND" property="cstId">
+							<![CDATA[	B.CUS_ID = #cstId# 		]]>
+						</isNotEmpty>
+					</dynamic>
+					ORDER BY A.TM_DT DESC
+					<isNotEqual property="recordCountPerPage" compareValue="0">
+					limit #firstIndex#, #recordCountPerPage#
+					</isNotEqual>
+					<![CDATA[
+				) A
+			LEFT OUTER JOIN (
+				SELECT OFFER_SNB
+					 , MAX(CASE WHEN CATEGORY = '00001' THEN COMMENT END) financing
+					 , MAX(CASE WHEN CATEGORY = '00002' THEN COMMENT END) management
+					 , MAX(CASE WHEN CATEGORY = '00003' THEN COMMENT END) mna
+					 , MAX(CASE WHEN CATEGORY = '00004' THEN COMMENT END) etc
+					 , MAX(CASE WHEN CATEGORY = '00005' THEN COMMENT END) share
+					 , MAX(CASE WHEN CATEGORY = '00006' THEN COMMENT END) resource
+					 , MAX(CASE WHEN CATEGORY = '00007' THEN COMMENT END) humanNet
+					 , MAX(CASE WHEN CATEGORY = '00008' THEN COMMENT END) audit
+					 , MAX(CASE WHEN CATEGORY = '00009' THEN COMMENT END) investInte
+					 , MAX(CASE WHEN CATEGORY = '00010' THEN COMMENT END) servey
+				  FROM IB_OFFER_INFO
+				  GROUP BY OFFER_SNB
+				) J2 ON A.S_NB = J2.OFFER_SNB
+		]]>
+			GROUP BY A.S_NB
+			ORDER BY A.TM_DT DESC, CST_NM, CPN_NM
+			/* workDAO.selectStaffOfferList */
+	</select>
+	<select id="workDAO.selectStaffOfferListCnt" parameterClass="workVO" resultClass="java.lang.Integer">
+			SELECT
+					count(1) cnt
+			FROM IB_OFFER A
+            LEFT OUTER JOIN BS_USER_MASTER B ON A.RG_STAFF_SNB = B.USER_ID
+			<dynamic prepend="WHERE">
+				<isNotEmpty prepend="AND" property="cstId">
+					<![CDATA[	B.CUS_ID = #cstId# 		]]>
+				</isNotEmpty>
+			</dynamic>
+	</select>
+
+
+	<select id="workDAO.selectOfferCpnList2" parameterClass="workVO" resultClass="egovMap">
+<![CDATA[
+			SELECT
+				  A.S_NB
+				, A.MIDDLE_OFFER_CD
+				, A.OFFER_CD
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_MIDDLE_OFFER_GV WHERE CODE_VALUE = MIDDLE_OFFER_CD) as MIDDLE_OFFER_NM
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_OFFER_GV WHERE CODE_VALUE = OFFER_CD) as OFFER_NM
+				, DATE(TM_DT) 		   as  TM_DT
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) AS RG_NM
+				, A.CST_ID
+				, (SELECT CST_NM FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.CST_ID)      as  CST_NM
+				, (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = (SELECT CPN_ID FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.CST_ID))      as  CST_CPN_NM
+				, (SELECT POSITION FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.CST_ID)      as  POSITION
+				, A.CPN_ID
+				, (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = A.CPN_ID)      as  CPN_NM
+				, CASE WHEN A.CPN_ID = '951769' THEN 'Q' WHEN SUBSTRING(IFNULL((SELECT A_CPN_ID FROM IB_COMPANY WHERE CPN_ID = A.CPN_ID), '-'),1,1) = 'A' THEN 'Q' ELSE SUBSTRING(A.CPN_ID,1,1) END	as  CPN_STTS
+				, A.CATEGORY_CD
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'DEAL_KIND' AND CODE_VALUE = CATEGORY_CD) as CATEGORY_NM
+				, A.PRICE
+				, A.INVEST_PRICE
+				, A.DUE_DT
+				, A.FEEDBACK
+				, A.PROGRESS_CD
+				, A.RESULT
+				, A.MEMO
+				, A.USED
+				, A.RG_ID
+				, GROUP_CONCAT(J1.realNm SEPARATOR '^^^')   as REAL_NM
+				, GROUP_CONCAT(J1.makeNm SEPARATOR '^^^')   as MAKE_NM
+				, J2.FINANCING
+				, J2.MANAGEMENT
+				, J2.MNA
+				, J2.ETC
+				, J2.SHARE
+				, J2.RESOURCE
+				, J2.HUMANNET
+				, J2.AUDIT
+				, J2.INVESTINTE
+				, J2.SERVEY
+				, A.INFO_PROVIDER
+				, (SELECT CST_NM FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.INFO_PROVIDER)      as  INFO_PROVIDER_NM
+				, A.SUB_MEMO
+				, (SELECT COUNT(S_NB)
+				 	 FROM IB_RECOMMEND_OPINION
+					WHERE CATEGORY = '00001'
+					  AND OFFER_SNB = A.S_NB
+					  AND RG_DT >= A.TM_DT) 					as OPINION
+
+			FROM IB_OFFER A
+
+			LEFT OUTER JOIN
+				(SELECT OFFER_SNB
+					  , REAL_NAME as realNm
+					  , MAKE_NAME as makeNm
+				   FROM IB_FILE_INFO
+				  WHERE FILE_CATEGORY = '00000'
+
+				) J1 ON A.S_NB = J1.OFFER_SNB
+			LEFT OUTER JOIN (
+				SELECT OFFER_SNB
+					 , MAX(CASE WHEN CATEGORY = '00001' THEN COMMENT END) financing
+					 , MAX(CASE WHEN CATEGORY = '00002' THEN COMMENT END) management
+					 , MAX(CASE WHEN CATEGORY = '00003' THEN COMMENT END) mna
+					 , MAX(CASE WHEN CATEGORY = '00004' THEN COMMENT END) etc
+					 , MAX(CASE WHEN CATEGORY = '00005' THEN COMMENT END) share
+					 , MAX(CASE WHEN CATEGORY = '00006' THEN COMMENT END) resource
+					 , MAX(CASE WHEN CATEGORY = '00007' THEN COMMENT END) humanNet
+					 , MAX(CASE WHEN CATEGORY = '00008' THEN COMMENT END) audit
+					 , MAX(CASE WHEN CATEGORY = '00009' THEN COMMENT END) investInte
+					 , MAX(CASE WHEN CATEGORY = '00010' THEN COMMENT END) servey
+				  FROM IB_OFFER_INFO
+				  GROUP BY OFFER_SNB
+				) J2 ON A.S_NB = J2.OFFER_SNB
+		]]>
+		<dynamic prepend="WHERE">
+			<isNotEmpty prepend="AND" property="cpnId">
+				<![CDATA[	A.CPN_ID = #cpnId# 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="cstId">
+				<![CDATA[	A.CST_ID = #cstId# 		]]>
+			</isNotEmpty>
+		</dynamic>
+			GROUP BY A.S_NB
+
+			UNION
+
+		<![CDATA[
+			SELECT
+				  A.S_NB
+				, A.MIDDLE_OFFER_CD
+				, A.OFFER_CD
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_MIDDLE_OFFER_GV WHERE CODE_VALUE = MIDDLE_OFFER_CD) as MIDDLE_OFFER_NM
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_OFFER_GV WHERE CODE_VALUE = OFFER_CD) as OFFER_NM
+				, DATE(A.TM_DT) 	   as  TM_DT
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) AS RG_NM
+				, A.CST_ID
+			    , B.CST_NM
+				, (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = (SELECT CPN_ID FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.CST_ID))      as  CST_CPN_NM
+				, B.POSITION
+				, A.CPN_ID
+			    , (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = A.CPN_ID)      as  CPN_NM
+
+			    , CASE WHEN A.CPN_ID = '951769' THEN 'Q' WHEN SUBSTRING(IFNULL((SELECT A_CPN_ID FROM IB_COMPANY WHERE CPN_ID = A.CPN_ID), '-'),1,1) = 'A' THEN 'Q' ELSE SUBSTRING(A.CPN_ID,1,1) END	as  CPN_STTS
+
+				, A.CATEGORY_CD
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'DEAL_KIND' AND CODE_VALUE = A.CATEGORY_CD) as CATEGORY_NM
+				, A.PRICE
+				, A.INVEST_PRICE
+				, A.DUE_DT
+				, A.FEEDBACK
+				, A.PROGRESS_CD
+				, A.RESULT
+				, A.MEMO
+				, A.USED
+				, A.RG_ID
+				, GROUP_CONCAT(J1.realNm SEPARATOR '^^^')   as REAL_NM
+				, GROUP_CONCAT(J1.makeNm SEPARATOR '^^^')   as MAKE_NM
+				, J2.FINANCING
+				, J2.MANAGEMENT
+				, J2.MNA
+				, J2.ETC
+				, J2.SHARE
+				, J2.RESOURCE
+				, J2.HUMANNET
+				, J2.AUDIT
+				, J2.INVESTINTE
+				, J2.SERVEY
+				, A.INFO_PROVIDER
+				, (SELECT CST_NM FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.INFO_PROVIDER)      as  INFO_PROVIDER_NM
+				, A.SUB_MEMO
+				, (SELECT COUNT(S_NB)
+				 	 FROM IB_RECOMMEND_OPINION
+					WHERE CATEGORY = '00001'
+					  AND OFFER_SNB = A.S_NB
+					  AND RG_DT >= A.TM_DT) 					as OPINION
+			FROM
+			    IB_OFFER A
+
+				JOIN IB_CUSTOMER B
+			LEFT OUTER JOIN
+				(SELECT OFFER_SNB
+					  , REAL_NAME as realNm
+					  , MAKE_NAME as makeNm
+				   FROM IB_FILE_INFO
+				  WHERE FILE_CATEGORY = '00000'
+
+				) J1 ON A.S_NB = J1.OFFER_SNB
+			LEFT OUTER JOIN (
+					SELECT OFFER_SNB
+                         , MAX(CASE WHEN CATEGORY = '00001' THEN COMMENT END) financing
+                         , MAX(CASE WHEN CATEGORY = '00002' THEN COMMENT END) management
+                         , MAX(CASE WHEN CATEGORY = '00003' THEN COMMENT END) mna
+                         , MAX(CASE WHEN CATEGORY = '00004' THEN COMMENT END) etc
+                         , MAX(CASE WHEN CATEGORY = '00005' THEN COMMENT END) share
+                         , MAX(CASE WHEN CATEGORY = '00006' THEN COMMENT END) resource
+                         , MAX(CASE WHEN CATEGORY = '00007' THEN COMMENT END) humanNet
+                         , MAX(CASE WHEN CATEGORY = '00008' THEN COMMENT END) audit
+                         , MAX(CASE WHEN CATEGORY = '00009' THEN COMMENT END) investInte
+                         , MAX(CASE WHEN CATEGORY = '00010' THEN COMMENT END) servey
+					  FROM IB_OFFER_INFO
+					  GROUP BY OFFER_SNB
+					) J2 ON A.S_NB = J2.OFFER_SNB
+
+			WHERE A.CST_ID = B.S_NB
+		]]>
+			<isNotEmpty prepend="AND" property="cpnId">
+				<![CDATA[	(B.CPN_ID = #cpnId#  OR  A.CPN_ID = #cpnId#)	]]>
+			</isNotEmpty>
+		    GROUP BY A.S_NB
+			ORDER BY TM_DT DESC
+
+			/* workDAO.selectOfferCpnList2 */
+	</select>
+
+
+	<select id="workDAO.selectOffercontactPoint" parameterClass="workVO" resultClass="egovMap">
+
+		<![CDATA[
+			SELECT
+				  A.S_NB
+				, A.MIDDLE_OFFER_CD
+				, A.OFFER_CD
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_MIDDLE_OFFER_GV WHERE CODE_VALUE = MIDDLE_OFFER_CD) as MIDDLE_OFFER_NM
+				, (SELECT VALUE_MEAN_KOR FROM BS_CODE_OFFER_GV WHERE CODE_VALUE = OFFER_CD) as OFFER_NM
+				, DATE(A.TM_DT) 	   as  TM_DT
+				, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) AS RG_NM
+				, A.CST_ID
+			    , B.CST_NM
+			    , (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = (SELECT CPN_ID FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.CST_ID))      as  CST_CPN_NM
+				, B.POSITION
+				, A.CPN_ID
+			    , (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = A.CPN_ID)      as  CPN_NM
+				, A.CATEGORY_CD
+				, A.PRICE
+				, A.INVEST_PRICE
+				, A.DUE_DT
+				, A.FEEDBACK
+				, A.PROGRESS_CD
+				, A.RESULT
+				, A.MEMO
+				, A.USED
+				, A.RG_ID
+				, J2.FINANCING
+				, J2.MANAGEMENT
+				, J2.MNA
+				, J2.ETC
+				, J2.SHARE
+				, J2.RESOURCE
+				, J2.HUMANNET
+				, J2.AUDIT
+				, J2.INVESTINTE
+				, J2.SERVEY
+				, A.INFO_PROVIDER
+				, (SELECT CST_NM FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.INFO_PROVIDER)      as  INFO_PROVIDER_NM
+			    , (SELECT CPN_NM FROM IB_COMPANY WHERE IB_COMPANY.CPN_ID = (SELECT CPN_ID FROM IB_CUSTOMER WHERE IB_CUSTOMER.S_NB = A.INFO_PROVIDER))      as  INFO_PROVIDER_CPN_NM
+			FROM IB_OFFER A
+			LEFT JOIN IB_CUSTOMER B ON A.CST_ID = B.S_NB
+			LEFT JOIN (
+					SELECT OFFER_SNB
+                         , MAX(CASE WHEN CATEGORY = '00001' THEN COMMENT END) financing
+                         , MAX(CASE WHEN CATEGORY = '00002' THEN COMMENT END) management
+                         , MAX(CASE WHEN CATEGORY = '00003' THEN COMMENT END) mna
+                         , MAX(CASE WHEN CATEGORY = '00004' THEN COMMENT END) etc
+                         , MAX(CASE WHEN CATEGORY = '00005' THEN COMMENT END) share
+                         , MAX(CASE WHEN CATEGORY = '00006' THEN COMMENT END) resource
+                         , MAX(CASE WHEN CATEGORY = '00007' THEN COMMENT END) humanNet
+                         , MAX(CASE WHEN CATEGORY = '00008' THEN COMMENT END) audit
+                         , MAX(CASE WHEN CATEGORY = '00009' THEN COMMENT END) investInte
+                         , MAX(CASE WHEN CATEGORY = '00010' THEN COMMENT END) servey
+					  FROM IB_OFFER_INFO
+					  GROUP BY OFFER_SNB
+					) J2 ON A.S_NB = J2.OFFER_SNB
+			WHERE (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID )  IS NOT NULL
+		]]>
+			<isNotEmpty prepend="AND" property="cpnId">
+				<![CDATA[	(B.CPN_ID = #cpnId#  OR  A.CPN_ID = #cpnId#)	]]>
+			</isNotEmpty>
+		<![CDATA[
+			ORDER BY CST_NM ASC, (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID ) ASC
+		]]>
+	</select>
+
+	<update id="workDAO.updateFeedback">
+		<![CDATA[
+			UPDATE IB_OFFER
+			SET
+				  FEEDBACK  =  #feedback#
+				, UP_DT     =  now()
+				, UP_ID     =  #rgId#
+			WHERE S_NB      =  #sNb#
+		]]>
+	</update>
+
+	<update id="workDAO.updateprogressCd">
+		<![CDATA[
+			UPDATE IB_OFFER
+			SET
+				  PROGRESS_CD  =  #progressCd#
+				, USED  	   =  (CASE #progressCd#
+										WHEN '10000' THEN '00002'
+										ELSE '00001'
+				  				   END)
+				, UP_DT        =  now()
+				, UP_ID        =  #rgId#
+			WHERE S_NB         =  #sNb#
+		]]>
+	</update>
+	<update id="workDAO.updateProgressCdNmatchCpn">
+		<![CDATA[
+			UPDATE IB_OFFER
+			SET
+				  PROGRESS_CD  =  #progressCd#
+				, USED  	   =  (CASE #progressCd#
+										WHEN '10000' THEN '00002'
+										ELSE '00001'
+				  				   END)
+				, UP_DT        =  now()
+				, UP_ID        =  #rgId#
+			WHERE S_NB         =  #sNb#
+		]]>
+	</update>
+
+	<update id="workDAO.updateDeal">
+		<![CDATA[
+			UPDATE IB_OFFER
+			SET
+				  MEMO 			=  #memo#
+				, MIDDLE_OFFER_CD 	    =  #middleOfferCd#
+				, OFFER_CD 	    =  #offerCd#
+				, CATEGORY_CD 	=  #categoryCd#
+				, CST_ID 		=  #cstId#
+			    , CPN_ID        =  #cpnId#
+			    , PRICE         =  #price#
+			    , INVEST_PRICE  =  #investPrice#
+			    , ENTRUST       =  #entrust#
+			    , CPN_CST       =  #cpnCst#
+				, UP_DT  	    =  now()
+				, UP_ID  	  	=  #rgId#
+				, FINANCING     =  #financing#
+				, MANAGEMENT    =  #management#
+				, MNA           =  #mna#
+				, ETC           =  #etc#
+				, SHARE         =  #share#
+				, RESOURCE      =  #resource#
+				, HUMAN_NET     =  #humanNet#
+				, AUDIT		    =  #audit#
+				, INVEST_INTE   =  #investInte#
+				, SERVEY   		=  #servey#
+				, INFO_PROVIDER =  #infoProvider#
+				, COWORKER	 	=  #coworker#
+				, SUPPORTER 	=  #supporter#
+				, SUPPORTER_RATIO =  #supporterRatio#
+				, SUPPORTER_TEXT =  #supporterText#		]]><isNotEmpty property="dueDt"><![CDATA[
+				, DUE_DT		 =  #dueDt#				]]></isNotEmpty><isNotEmpty property="sellBuy"><![CDATA[
+				, SELL_BUY		 =  #sellBuy# 			]]></isNotEmpty><isNotEmpty property="cpnTypeCd"><![CDATA[
+				, CPN_TYPE_CD	 =  #cpnTypeCd# 		]]></isNotEmpty><isNotEmpty property="cpnType"><![CDATA[
+				, CPN_TYPE		 =  #cpnType# 			]]></isNotEmpty>
+
+				<isNotEmpty property="infoLevel">
+				, INFO_LEVEL		 =  #infoLevel#
+				</isNotEmpty>
+
+			WHERE S_NB   	  	=  #sNb#
+
+	</update>
+
+	<update id="workDAO.updateOfferInfo">
+		<![CDATA[
+			UPDATE IB_OFFER_INFO
+			SET
+				  UP_DT  	    =  now()
+				, UP_ID  	  	=  #rgId#
+				, COMMENT     	=  #comment# ]]><isNotEmpty property="star"><![CDATA[
+				, STAR     		=  #star#	 ]]></isNotEmpty><![CDATA[
+				, EXPIRATION_DT =  (case when #expirationDt# is null or #expirationDt# = '' then null else #expirationDt# end)
+			WHERE S_NB   	=  #offerSnb#
+		]]>
+	</update>
+
+	<insert id="workDAO.insertDeal">
+		<![CDATA[
+			INSERT INTO IB_OFFER
+				  ( MEMO
+				  , MIDDLE_OFFER_CD
+				  , OFFER_CD
+				  , CATEGORY_CD
+				  , CST_ID
+				  , CPN_ID
+				  , PRICE
+				  , INVEST_PRICE
+				  , ENTRUST
+				  , CPN_CST		]]><isNotEmpty property="dueDt"><![CDATA[
+				  , DUE_DT		]]></isNotEmpty><isNotEmpty property="sellBuy"><![CDATA[
+				  , SELL_BUY		]]></isNotEmpty><isNotEmpty property="cpnTypeCd"><![CDATA[
+				  , CPN_TYPE_CD		]]></isNotEmpty><isNotEmpty property="cpnType"><![CDATA[
+				  , CPN_TYPE		]]></isNotEmpty><![CDATA[
+				  , TM_DT
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , FINANCING
+				  , MANAGEMENT
+				  , MNA
+				  , ETC
+				  , SHARE
+				  , RESOURCE
+				  , HUMAN_NET
+				  , AUDIT
+				  , INVEST_INTE
+				  , SERVEY
+				  , EXPLORING_CNT
+				  , INFO_PROVIDER
+				  , COWORKER
+				  , SUPPORTER
+				  , SUPPORTER_TEXT
+				  , RECOMMEND_SNB
+				  					]]><isNotEmpty property="infoLevel"><![CDATA[
+				  , INFO_LEVEL		]]></isNotEmpty><![CDATA[
+				  , ORG_ID
+
+		 ) VALUES ( #memo#
+				  , #middleOfferCd#
+				  , #offerCd#
+				  , #categoryCd#
+				  , (CASE #cstId#
+						WHEN '' THEN 0
+						ELSE #cstId#
+  				    END)
+				  , #cpnId#
+				  , #price#
+				  , #investPrice#
+				  , #entrust#
+				  , #cpnCst#		]]><isNotEmpty property="dueDt"><![CDATA[
+				  , #dueDt#			]]></isNotEmpty><isNotEmpty property="sellBuy"><![CDATA[
+				  , #sellBuy#		]]></isNotEmpty><isNotEmpty property="cpnTypeCd"><![CDATA[
+				  , #cpnTypeCd#		]]></isNotEmpty><isNotEmpty property="cpnType"><![CDATA[
+				  , #cpnType#		]]></isNotEmpty><![CDATA[
+				  , concat(#tmDt#,date_format(now(), '%H%i%s'))
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #financing#
+				  , #management#
+				  , #mna#
+				  , #etc#
+				  , #share#
+				  , #resource#
+				  , #humanNet#
+				  , #audit#
+				  , #investInte#
+				  , #servey#
+				  , CASE WHEN #exploringCnt# = '' THEN NULL ELSE #exploringCnt# END
+				  , #infoProvider#
+				  , #coworker#
+				  , #supporter#
+				  , #supporterText#
+				  , #rcmdSnb#
+				  					]]><isNotEmpty property="infoLevel"><![CDATA[
+				  , #infoLevel#		]]></isNotEmpty><![CDATA[
+				  . #orgId#
+
+				  )
+		]]>
+	</insert>
+
+	<select id="workDAO.selectOfferInfo" parameterClass="workVO" resultClass="workVO">
+			SELECT
+				   S_NB  as sNb
+			  FROM IB_OFFER
+			 WHERE RG_ID = <![CDATA[#rgId#]]>
+			   and RG_DT >=  DATE_ADD(NOW(), INTERVAL -1 MINUTE)
+			order by s_nb desc limit 1
+	</select>
+
+	<insert id="workDAO.insertOfferInfo">
+		<![CDATA[
+			INSERT INTO IB_OFFER_INFO
+				  ( OFFER_SNB
+				  , STAR
+				  , EXPIRATION_DT
+				  , CATEGORY
+				  , COMMENT
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES ( #offerSnb#
+				  , #star#
+				  , (case when #expirationDt# is null or #expirationDt# = '' then null else #expirationDt# end)
+				  , #categoryCd#
+				  , #comment#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+		]]>
+	</insert>
+
+	<delete id="workDAO.deleteOfferInfo">
+		<![CDATA[
+			DELETE FROM IB_OFFER_INFO
+			 WHERE S_NB = #offerSnb#
+		]]>
+	</delete>
+
+	<update id="workDAO.updateDealMemo">
+		<![CDATA[
+			UPDATE IB_OFFER
+			SET
+				  UP_DT  	    =  now()
+				, UP_ID  	  	=  #rgId#
+		]]><isNotEmpty prepend="" property="memo">
+				<![CDATA[	, MEMO  =  #memo#	]]>
+			</isNotEmpty><isNotEmpty prepend="" property="subMemo">
+				<![CDATA[	, SUB_MEMO  =  #subMemo#	]]>
+			</isNotEmpty><![CDATA[
+			WHERE S_NB   	  	=  #sNb#
+		]]>
+	</update>
+
+	<update id="workDAO.updateKeyPointChkMemo">
+		<![CDATA[
+			UPDATE IB_OFFER_INFO
+			SET
+				  UP_DT  	    =  now()
+				, UP_ID  	  	=  #rgId#
+		]]><isNotEmpty prepend="" property="memo">
+				<![CDATA[	, MEMO  =  #memo#	]]>
+			</isNotEmpty><![CDATA[
+			WHERE S_NB   	  	=  #sNb#
+		]]>
+	</update>
+
+	<update id="workDAO.updateDealResult">
+		<![CDATA[
+			UPDATE IB_OFFER
+			SET
+				  UP_DT     =  now()
+				, UP_ID     =  #rgId#
+		]]><isEqual prepend="" property="tmpNum1" compareValue="rs">
+		<![CDATA[ , RESULT	=  #result#	]]>
+		</isEqual><isEqual property="tmpNum1" compareValue="op">
+		<![CDATA[ , OPINION  =  #opinion#	]]>
+		</isEqual><![CDATA[
+			WHERE S_NB      =  #sNb#
+		]]>
+	</update>
+
+	<update id="workDAO.updateDueDate">
+		<![CDATA[
+			UPDATE IB_OFFER
+			SET
+				  DUE_DT 	=  #dueDt#
+				, UP_DT     =  now()
+				, UP_ID     =  #rgId#
+			WHERE S_NB      =  #sNb#
+		]]>
+	</update>
+
+	<select id="workDAO.selectMaxSnbINopinion" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+			SELECT
+				  MAX(S_NB)       as sNb
+			 FROM IB_OFFER
+			WHERE RG_DT >= CURRENT_DATE()
+			  AND RG_ID = #rgId#
+		]]>
+	</select>
+
+	<select id="workDAO.selectMaxSnb" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+			SELECT
+				  MAX(S_NB)       as sNb
+			FROM IB_OFFER
+			WHERE RG_DT >= CURRENT_DATE()
+			  AND OFFER_CD = '11111'
+		]]>
+            <isNotEmpty prepend="AND" property="rgId">
+				<![CDATA[	UP_ID = #rgId# 		]]>
+			</isNotEmpty>
+		<![CDATA[
+		]]>
+	</select>
+
+	<insert id="workDAO.insertFileInfo">
+		<![CDATA[
+			INSERT INTO ib_file_info
+					( OFFER_SNB
+					, REPORT_YN 	]]><isNotEmpty property="subCd"><![CDATA[
+					, SUB_CD 		]]></isNotEmpty><![CDATA[
+					, REAL_NAME
+					, MAKE_NAME
+					, FILE_CATEGORY
+					, PATH
+					, RG_DT
+					, UP_DT
+					, RG_ID
+					, UP_ID
+					, ORG_ID)
+			VALUES
+					( #offerSnb#
+					, #reportYN#	]]><isNotEmpty property="subCd"><![CDATA[
+					, #subCd#		]]></isNotEmpty><![CDATA[
+					, #realName#
+					, #makeName#
+					, #fileCategory#
+					, #path#
+					, now()
+					, now()
+					, #rgId#
+					, #rgId#
+					, #orgId#
+					)
+		]]>
+	</insert>
+
+	<update id="workDAO.updateFileInfoCheckReport">
+		<![CDATA[
+			update ib_file_info
+			set report_yn = #reportYN#
+			where OFFER_SNB = #sNb#
+		]]>
+	</update>
+
+	<select id="workDAO.selectofferInfoInCpnCst" parameterClass="workVO" resultClass="workVO">
+		select
+				a.S_NB				as sNb
+				, case when a.category = '00002' then '자산운용' when a.category = '00003' then 'MnA' end as tmpNum1
+				, a.comment			as comment
+				, date(b.tm_dt)		as tmDt
+				, a.rg_id			as rgId
+		  from ib_offer_info a
+	 left join ib_offer b on b.s_nb = a.offer_snb
+	 left join ib_customer c on c.s_nb = b.CST_ID
+		 where (a.category = '00002' or a.category = '00003')<![CDATA[
+		   and (b.cpn_id = #cpnId# or c.cpn_id = #cpnId#)]]>
+	  group by tmpNum1, comment
+	  order by tmpNum1, tmDt DESC
+	</select>
+
+	<select id="workDAO.selectFileInfo" parameterClass="fileVO" resultClass="fileVO">
+		<![CDATA[
+			SELECT
+				  OFFER_SNB        as  offerSnb
+				, MAKE_NAME        as  makeName
+				, REAL_NAME        as  realName
+				, PATH             as  path
+			FROM  IB_FILE_INFO
+		]]>
+		<dynamic prepend="WHERE">
+            <isNotEmpty prepend="AND" property="makeName">
+				<![CDATA[	MAKE_NAME = #makeName#	]]>
+			</isNotEmpty>
+            <isNotEmpty prepend="AND" property="offerSnb">
+				<![CDATA[	OFFER_SNB = #offerSnb#	]]>
+            </isNotEmpty>
+            <isNotEmpty prepend="AND" property="fileCategory">
+				<![CDATA[	FILE_CATEGORY = #fileCategory#	]]>
+            </isNotEmpty>
+            <isNotEmpty prepend="AND" property="subCd">
+				<![CDATA[	SUB_CD = #subCd#	]]>
+            </isNotEmpty>
+		</dynamic>
+		<![CDATA[
+		ORDER BY  RG_DT DESC
+		]]>
+		<isNotEqual property="recordCountPerPage" compareValue="0">
+		limit #firstIndex#, #recordCountPerPage#
+		</isNotEqual>
+
+		/* workDAO.selectFileInfo */
+	</select>
+
+	<select id="workDAO.selectFileInfoList" parameterClass="fileVO" resultClass="egovMap">
+		<![CDATA[
+			SELECT
+				  OFFER_SNB
+				, A.S_NB
+				, MAKE_NAME
+				, REAL_NAME
+				, CASE WHEN D.CPN_NM is null THEN F.CPN_NM WHEN D.CPN_NM is not null THEN D.CPN_NM END       as  CPN_NM
+				, PATH
+				, A.RG_ID
+				, A.RG_DT
+				, B.NAME AS USR_NM
+
+				,(case when a.file_category = '00004' then ifnull((select private from ib_comment where s_nb = OFFER_SNB), 'N') else 'N' end) as PRIVATE_YN
+
+			FROM  IB_FILE_INFO A
+			LEFT JOIN BS_USER_MASTER B ON B.LOGIN_ID = A.RG_ID
+			LEFT JOIN IB_OFFER C ON C.S_NB = A.OFFER_SNB
+			LEFT JOIN IB_COMPANY D ON D.CPN_ID = C.CPN_ID
+			LEFT JOIN IB_CUSTOMER E ON E.S_NB = C.CST_ID
+			LEFT JOIN IB_COMPANY F ON F.CPN_ID = E.CPN_ID
+		]]>
+		<dynamic prepend="WHERE">
+			<isNotEmpty prepend="AND" property="realName">
+				<![CDATA[	REAL_NAME LIKE CONCAT('%',#realName#,'%') or D.CPN_NM like CONCAT('%',#realName#,'%') or F.CPN_NM like CONCAT('%',#realName#,'%')		]]>
+			</isNotEmpty>
+            <isEqual prepend="AND" property="fileCategory" compareValue="00000">
+				<![CDATA[	FILE_CATEGORY in ('00000','00002','00004')	]]>
+            </isEqual>
+            <isNotEqual prepend="AND" property="fileCategory" compareValue="00000">
+				<![CDATA[	FILE_CATEGORY = #fileCategory#	]]>
+            </isNotEqual>
+		</dynamic>
+		ORDER BY  A.RG_DT DESC
+
+		<isNotEqual property="recordCountPerPage" compareValue="0">
+		limit #firstIndex#, #recordCountPerPage#
+		</isNotEqual>
+	</select>
+
+	<select id="workDAO.selectFileInfoListCnt" parameterClass="fileVO" resultClass="java.lang.Integer">
+		<![CDATA[
+			SELECT
+				  COUNT(1)
+			FROM  IB_FILE_INFO
+		]]>
+		<dynamic prepend="WHERE">
+			<isNotEmpty prepend="AND" property="realName">
+				<![CDATA[	REAL_NAME LIKE CONCAT('%',#realName#,'%') 		]]>
+			</isNotEmpty>
+		</dynamic>
+	</select>
+
+	<update id="workDAO.updateFileInfo">
+		<![CDATA[
+			UPDATE IB_FILE_INFO
+			SET
+				  REAL_NAME  =  #realName#
+				  ,MAKE_NAME =  #makeName#
+				  ,PATH 	 =  #path#
+				  ,UP_DT 	 =  now()
+				  ,UP_ID 	 =  #rgId#
+		]]>
+		<dynamic prepend="WHERE">
+            <isNotEmpty prepend="AND" property="offerSnb">
+				<![CDATA[	OFFER_SNB = #offerSnb#	]]>
+            </isNotEmpty>
+            <isNotEmpty prepend="AND" property="fileCategory">
+				<![CDATA[	FILE_CATEGORY = #fileCategory#	]]>
+            </isNotEmpty>
+		</dynamic>
+	</update>
+
+	<delete id="workDAO.deleteFileInfo">
+		<![CDATA[
+			DELETE FROM IB_FILE_INFO
+			 WHERE S_NB = #sNb#
+		]]>
+	</delete>
+
+	<delete id="workDAO.deleteFileInfoOfOfferSnb">
+		<![CDATA[
+			DELETE FROM IB_FILE_INFO
+			 WHERE OFFER_SNB = #offerSnb#
+		]]>
+	</delete>
+
+	<update id="workDAO.updateOfferCoworker">
+		<![CDATA[
+			UPDATE IB_OFFER
+			SET
+				  COWORKER  =  #coworker#
+				  , UP_DT 	 =  now()
+				  , UP_ID 	 =  #rgId#
+			WHERE S_NB      =  #sNb#
+		]]>
+	</update>
+
+	<update id="workDAO.updateOfferProcess">
+		<![CDATA[
+			UPDATE IB_OFFER
+			SET
+				  KPC_PROCESS = #kpcProcess#
+				  ,UP_DT 	 =  now()
+				  ,UP_ID 	 =  #rgId#
+			WHERE S_NB        =  #sNb#
+		]]>
+	</update>
+
+	<update id="workDAO.updateOfferInfoProcess">
+		<![CDATA[
+			UPDATE IB_OFFER_INFO
+			SET
+				   PROGRESS_CD 	= #kpcProcess#
+				  ,UP_DT 		= NOW()
+				  ,UP_ID 		= #rgId#
+			WHERE OFFER_SNB 	=  #sNb#
+            ]]><isEqual prepend="AND" property="url" compareValue="financing">
+				<![CDATA[	CATEGORY = '00001'	]]>
+			</isEqual>
+            <isEqual prepend="AND" property="url" compareValue="management">
+				<![CDATA[	CATEGORY = '00002'	]]>
+			</isEqual>
+            <isEqual prepend="AND" property="url" compareValue="mna">
+				<![CDATA[	CATEGORY = '00003'	]]>
+			</isEqual>
+            <isEqual prepend="AND" property="url" compareValue="etc">
+				<![CDATA[	CATEGORY = '00004'	]]>
+			</isEqual>
+            <isEqual prepend="AND" property="url" compareValue="share">
+				<![CDATA[	CATEGORY = '00005'	]]>
+			</isEqual>
+            <isEqual prepend="AND" property="url" compareValue="resource">
+				<![CDATA[	CATEGORY = '00006'	]]>
+			</isEqual>
+            <isEqual prepend="AND" property="url" compareValue="humanNet">
+				<![CDATA[	CATEGORY = '00007'	]]>
+			</isEqual>
+            <isEqual prepend="AND" property="url" compareValue="audit">
+				<![CDATA[	CATEGORY = '00008'	]]>
+			</isEqual>
+            <isEqual prepend="AND" property="url" compareValue="investInte">
+				<![CDATA[	CATEGORY = '00009'	]]>
+			</isEqual>
+			<isEqual prepend="AND" property="url" compareValue="servey">
+				<![CDATA[	CATEGORY = '00010'	]]>
+			</isEqual>
+	</update>
+
+	<update id="workDAO.updateOfferInfoLv">
+		<![CDATA[
+			UPDATE IB_OFFER_INFO
+			SET
+				   LV_CD 		= #lvCd#
+				  ,UP_DT 		= NOW()
+				  ,UP_ID 		= #rgId#
+			WHERE S_NB 			= #sNb#
+		]]>
+	</update>
+
+	<select id="workDAO.selectComment" parameterClass="workVO" resultClass="egovMap">
+		<![CDATA[
+			SELECT
+				  A.S_NB
+				, A.MAIN_SNB
+				, A.STTS_CD
+				, case when date(c1.up_dt) >= DATE(A.TM_DT) then date(c1.up_dt) else a.tm_dt end         as  TM_DT
+				]]><isNotEqual property="selectInfo" compareValue="main">
+				,(case when a.private='Y' then aes_decrypt(unhex(a.comment), md5(a.rg_id)) else IFNULL(A.comment,"-") end)	as COMMENT
+				<!-- , A.COMMENT             as  comment -->
+				</isNotEqual>
+				<isEqual property="selectInfo" compareValue="main">
+				,substring((case when a.private='Y' then aes_decrypt(unhex(a.comment), md5(a.rg_id)) else IFNULL(A.comment,"-") end), 1, 40)	as COMMENT
+				<!-- , substring(A.COMMENT,1,40)             as  comment -->
+				</isEqual><![CDATA[
+				, a.private				as  PRIV
+				, A.IMPORTANCE
+				, A.RG_DT
+				, case when date(c1.rg_dt) >= DATE(A.TM_DT) then c1.nm else B.NAME end				as  CST_NM
+			 FROM IB_COMMENT A
+		LEFT JOIN BS_USER_MASTER B ON A.STAFF_SNB = B.USER_ID
+		LEFT JOIN (SELECT MAIN_SNB,  STTS_CD, up_dt, rg_dt, (SELECT X.NAME FROM BS_USER_MASTER X WHERE STAFF_SNB = X.USER_ID ) as nm FROM IB_REPLY WHERE STTS_CD = '00001' AND RG_ID != #rgId# GROUP BY MAIN_SNB) C1 ON A.S_NB = C1.MAIN_SNB
+		LEFT JOIN (SELECT A.MAIN_SNB, A.STTS_CD, a.rg_dt FROM IB_REPLY A INNER JOIN IB_COMMENT B ON B.MAIN_SNB = A.MAIN_SNB WHERE A.STTS_CD = '00001' AND A.RG_ID = B.RG_ID AND A.RG_ID != #rgId# GROUP BY A.MAIN_SNB) C2 ON A.MAIN_SNB = C2.MAIN_SNB
+		]]><isEqual property="selectInfo" compareValue="main"><![CDATA[
+				LEFT JOIN (SELECT OFFER_SNB FROM IB_MAINTABLE_CHECK WHERE CATEGORY = '00005' AND RG_ID = #rgId#) MTC ON MTC.OFFER_SNB = A.S_NB
+		]]></isEqual><![CDATA[
+			WHERE (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.STAFF_SNB = X.USER_ID) = #name#
+		]]>
+			<isEqual prepend="AND" property="selectInfo" compareValue="main">
+				<![CDATA[	( MTC.OFFER_SNB = '' OR MTC.OFFER_SNB IS NULL	)	]]>
+			</isEqual>
+			<isEqual prepend="AND" property="major" compareValue="Y">
+				A.MAJOR = 'Y'
+				<!-- AND (A.STTS_CD = '00001' OR A.IMPORTANCE >= 0 OR C1.STTS_CD = '00001') -->
+				AND (A.STTS_CD = '00001' OR C1.STTS_CD = '00001')
+			</isEqual>
+			<isNotEqual prepend="AND" property="major" compareValue="Y">
+				A.MAJOR = 'N'
+				<!-- AND (A.STTS_CD = '00001' OR A.IMPORTANCE > 0 OR C1.STTS_CD = '00001') -->
+				AND (A.STTS_CD = '00001' OR C1.STTS_CD = '00001')
+			</isNotEqual>
+			ORDER BY case when CST_NM = #name# then 1 else 0 end, case when CST_NM = #name# then A.IMPORTANCE end DESC, case when date(c1.up_dt) >= DATE(A.TM_DT) then date(c1.up_dt) else a.tm_dt end DESC
+	</select>
+
+	<select id="workDAO.selectOpinion" parameterClass="workVO" resultClass="egovMap">
+		<![CDATA[
+			SELECT
+				  A.S_NB
+				, A.OFFER_SNB
+				, DATE(A.RG_DT)         as  RG_DT
+				]]><isNotEqual property="selectInfo" compareValue="main"><![CDATA[
+				, IFNULL(A.COMMENT,"-") as  COMMENT
+				]]></isNotEqual><isEqual property="selectInfo" compareValue="main"><![CDATA[
+				, substring(IFNULL(A.COMMENT,"-"),1,40) as  COMMENT
+				]]></isEqual><![CDATA[
+				, C.CPN_NM
+
+				, CASE WHEN OF.CPN_ID = '951769' THEN 'Q' WHEN SUBSTRING(C.A_CPN_ID,1,1) = 'A' THEN 'Q' ELSE SUBSTRING(C.CPN_ID,1,1) END	as  CPN_STTS
+				, OF.progress_cd
+				, OF.rg_id				as OFFER_RG_ID
+				, OF.middle_offer_cd
+
+				, CMM.VALUE_MEAN_KOR    as CATEGORY_NM
+				, A.RG_ID
+				, B.ORG_ID              as division
+				, OF.CATEGORY_CD
+				, B.NAME                as RG_NM
+				, A.UP_ID               as UP_ID
+			FROM ib_recommend_opinion A
+			LEFT JOIN BS_USER_MASTER B ON A.RG_ID = B.LOGIN_ID
+			LEFT JOIN IB_OFFER OF ON OF.S_NB = A.OFFER_SNB
+			LEFT JOIN BS_CODE_GV CMM ON (CMM.CODE_NAME = 'DEAL_KIND' AND CMM.CODE_VALUE = of.category_cd AND B.ORG_ID = CMM.ORG_ID)
+			LEFT JOIN IB_COMPANY C ON C.CPN_ID = of.CPN_ID
+			LEFT JOIN (SELECT OFFER_SNB FROM IB_MAINTABLE_CHECK WHERE CATEGORY = '00005' AND RG_ID = #rgId#) MTC ON MTC.OFFER_SNB = A.S_NB
+			LEFT JOIN ib_staff_allow_code_v alw ON (alw.USR_ID = #rgId# and alw.MENU_CD = '00005' AND alw.DTAIL_CD = OF.CATEGORY_CD)
+			WHERE
+				alw.cd_nm is not null
+				and (MTC.OFFER_SNB = '' OR MTC.OFFER_SNB IS NULL) AND A.RG_DT between CONCAT (case when #choiceYearS# is null or #choiceYearS# = '' then #choiceYear# else #choiceYearS# end, case when #choiceMonthS# is null or #choiceMonthS# = '' then #choiceMonth# else #choiceMonthS# end, #choiceDayS# ) and CONCAT (#choiceYear#, #choiceMonth#, #choiceDay#, '235959')
+			ORDER BY A.RG_DT DESC
+		]]>
+	</select>
+
+
+
+	<select id="workDAO.selectNetPoint" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+			SELECT
+					 DATE(CS.RG_DT) as tmDt
+					,J01.CST_NM  as cstNm1st
+					,J03.CPN_NM  as cpnNm1st
+					,J02.CST_NM  as cstNm2nd
+					,J04.CPN_NM  as cpnNm2nd
+					,CS.NOTE
+
+			  FROM  IB_NET_POINT_AVAL_V CS
+		 LEFT JOIN  IB_CUSTOMER J01 ON J01.S_NB = CS.SNB_1ST
+		 LEFT JOIN  IB_COMPANY  J03 ON J03.CPN_ID = J01.CPN_ID
+		 LEFT JOIN  IB_CUSTOMER J02 ON J02.S_NB = CS.SNB_2ND
+		 LEFT JOIN  IB_COMPANY  J04 ON J04.CPN_ID = J02.CPN_ID
+			 WHERE  CS.RG_ID = #tmpId#
+		]]>
+			<isNotEmpty prepend="AND" property="choiceMonth">
+				<![CDATA[	CS.RG_DT between CONCAT (#choiceYear#, #choiceMonth#, '01') and CONCAT (#choiceYear#, #choiceMonth#, '31235959') 		]]>
+			</isNotEmpty>
+
+	</select>
+
+	<select id="workDAO.selectRecommendOne" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+			SELECT
+					DATE(A.TM_DT)		as  tmDt
+				 ,  (SELECT X.NAME FROM BS_USER_MASTER X WHERE A.RG_STAFF_SNB = X.USER_ID )				as  rgNm
+				 ,  B.CPN_NM			as  cpnNm
+				 ,  A.MEMO				as  memo
+				 ,  A.S_NB				as  sNb
+			  FROM  IB_OFFER A
+		 LEFT JOIN  IB_COMPANY B ON A.CPN_ID = B.CPN_ID
+			 WHERE  OFFER_CD = '00013'
+			   AND  PROGRESS_CD != '10000'
+			   AND  A.CPN_ID = #cpnId#
+		  ORDER BY  TM_DT DESC
+		  	 LIMIT  1
+		]]>
+	</select>
+
+
+	<select id="workDAO.selectBusinessTmdt" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+			SELECT
+				   S_NB  as sNb
+				]]><isEqual property="tmpId" compareValue="title"><![CDATA[
+			  FROM IB_BUSINESS_RECORD
+			 WHERE (SELECT X.NAME FROM BS_USER_MASTER X WHERE STAFF_SNB = X.USER_ID ) = #name#
+			    ]]></isEqual><isEqual property="tmpId" compareValue="cpnNm"><![CDATA[
+			  FROM IB_OFFER
+			 WHERE (SELECT X.NAME FROM BS_USER_MASTER X WHERE RG_STAFF_SNB = X.USER_ID ) = #name#
+			    ]]></isEqual><![CDATA[
+			   AND TM_DT BETWEEN #tmDt# AND CONCAT( #tmDt#,'235959')
+
+			 ]]>
+	</select>
+
+	<update id="workDAO.updateBusinessTmdt">
+		<![CDATA[
+			UPDATE
+				]]><isEqual property="tmpId" compareValue="title"><![CDATA[
+			  IB_BUSINESS_RECORD
+			    ]]></isEqual><isEqual property="tmpId" compareValue="cpnNm"><![CDATA[
+			  IB_OFFER
+			    ]]></isEqual><![CDATA[
+			SET
+				   TM_DT		= #tmDt#
+				  ,UP_DT 		= NOW()
+				  ,UP_ID 		= #rgId#
+				  , ORG_ID = #orgId#
+			WHERE S_NB 			= #sNb#
+		]]>
+	</update>
+
+	<select id="workDAO.selectSameCommentStaffName" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+			   SELECT
+			           MAIN_SNB								as mainSnb
+			        ,  GROUP_CONCAT((SELECT X.NAME FROM BS_USER_MASTER X WHERE STAFF_SNB = X.USER_ID) SEPARATOR ', ')	as cmntStaffs
+			     FROM  IB_COMMENT
+			    WHERE  MAIN_SNB != 0
+		]]>
+			<isNotEmpty prepend="AND" property="choiceMonth">
+				<![CDATA[	TM_DT between CONCAT (#choiceYear#, #choiceMonthS#, '01') and CONCAT (#choiceYear#, #choiceMonth#, '31235959') 		]]>
+			</isNotEmpty>
+			<isEmpty prepend="AND" property="mainSnb">
+				<![CDATA[	MAIN_SNB = #sNb#	]]>
+			</isEmpty>
+			<isNotEmpty prepend="AND" property="mainSnb">
+				<![CDATA[	MAIN_SNB = (select main_snb from ib_comment where s_nb = #sNb#)	]]>
+			</isNotEmpty>
+			 GROUP BY  MAIN_SNB
+ 			   HAVING  COUNT(1)>0
+	</select>
+
+	<select id="workDAO.selectOfferJointProgress" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+				SELECT
+						A.S_NB			sNb
+					 ,  A.OFFER_SNB		offerSnb
+					 ,  A.STAFF_SNB		staffSnb
+					 ,  A.RATIO			ratio
+					 ,  A.COMMENT		comment
+					 ,  STF.NAME		staffNm
+				  FROM	IB_JOINT_PROGRESS A
+				LEFT JOIN BS_USER_MASTER STF ON STF.USER_ID = A.STAFF_SNB
+		]]><dynamic prepend="WHERE">
+            <isNotEmpty prepend="AND" property="offerSnb">
+				<![CDATA[	A.OFFER_SNB = #offerSnb#		]]>
+			</isNotEmpty>
+		</dynamic>
+	</select>
+
+
+	<update id="workDAO.updateOfferJointProgress">
+		<![CDATA[
+			UPDATE
+			  IB_JOINT_PROGRESS
+			SET
+				   STAFF_SNB	= #staffSnb#
+				  ,RATIO 		= #ratio#
+				  ,COMMENT 		= #comment#
+				  ,UP_DT 		= NOW()
+				  ,UP_ID 		= #rgId#
+			WHERE S_NB 			= #sNb#
+		]]>
+	</update>
+
+	<insert id="workDAO.insertOfferJointProgress">
+		<![CDATA[
+			INSERT INTO IB_JOINT_PROGRESS
+				  (
+				 	OFFER_SNB
+				  , STAFF_SNB
+				  , RATIO
+				  , COMMENT
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES (
+		 			#offerSnb#
+				  , #staffSnb#
+				  , #ratio#
+				  , #comment#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+		]]>
+	</insert>
+
+	<delete id="workDAO.deleteOfferJointProgress">
+		<![CDATA[
+			DELETE FROM IB_JOINT_PROGRESS
+			 WHERE S_NB      =  #sNb#
+		]]>
+	</delete>
+
+	<select id="workDAO.selectInsideList" parameterClass="workVO" resultClass="workVO">
+
+		SELECT *
+		  FROM(
+
+				SELECT
+					  A.SCHE_SEQ			as sNb
+					, CONCAT(a.SCHE_S_YEAR, '-', LPAD(a.SCHE_S_MONTH, 2, '0'), '-', LPAD(a.SCHE_S_DAY, 2, '0')) as tmDt
+					, B.NAME              as  name
+					, CASE WHEN TRUE THEN 2 ELSE 1 END             as  bsnsRecPrivate
+					, A.SCHE_PUBLIC_FLAG 		as schePublicFlag
+					, IFNULL(A.SCHE_CON,"-")    as  note
+					, A.SCHE_S_TIME  as tt
+					, ''  as ap
+					, A.SCHE_S_TIME as viewTime
+					, CONCAT('[InS] ',
+						A.SCHE_S_TIME
+						, ' ', IFNULL(A.SCHE_TITLE,"-"))   as  title
+			FROM ERP_SCHEDULE A
+			LEFT JOIN BS_USER_MASTER B ON B.EMP_NO = A.PER_SABUN
+			WHERE a.DEL_FLAG = 'n'
+
+			UNION
+
+				SELECT
+					  C.SCHE_SEQ			as sNb
+					, concat(c.SCHE_S_YEAR, '-', LPAD(c.SCHE_S_MONTH, 2, '0'), '-', LPAD(c.SCHE_S_DAY, 2, '0')) as tmDt
+					, B.NAME                as  name
+					, CASE WHEN TRUE THEN 2 ELSE 1 END             as  bsnsRecPrivate
+					, (SELECT SCHE_PUBLIC_FLAG FROM ERP_SCHEDULE WHERE SCHE_SEQ = A.SCHE_SEQ)	as schePublicFlag
+					, IFNULL(C.SCHE_CON,"-")    as  note
+					, C.SCHE_S_TIME  as tt
+					, ''  as ap
+					, C.SCHE_S_TIME as viewTime
+					, CONCAT('[InS] ',
+						 C.SCHE_S_TIME
+						, ' ', IFNULL(C.SCHE_TITLE,"-"))   as  title
+			FROM ERP_SCHEDULE_ENTRY A
+			LEFT JOIN BS_USER_MASTER B ON B.EMP_NO = A.PER_SABUN
+			LEFT JOIN ERP_SCHEDULE C ON C.SCHE_SEQ = A.SCHE_SEQ
+			where a.DEL_FLAG = 'n'
+			  and c.DEL_FLAG = 'n'
+			) uo
+		<dynamic prepend="WHERE">
+			<isNotEmpty prepend="AND" property="choiceMonth">
+				<![CDATA[	uo.tmDt between CONCAT (#choiceYear#,'-', #choiceMonth#,'-', '01') and CONCAT (#choiceYear#,'-', #choiceMonth#,'-', '31') 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="name">
+				<![CDATA[	uo.name= #name# 		]]>
+			</isNotEmpty>
+			<isEqual prepend="AND" property="tmpNum2" compareValue="2">
+				<![CDATA[	uo.bsnsRecPrivate= #tmpNum2# 		]]>
+			</isEqual>
+		</dynamic>
+
+			ORDER BY uo.name ASC, uo.tmDt ASC, STR_TO_DATE(uo.viewTime,'%T') ASC
+
+		/* workDAO.selectInsideList */
+	</select>
+
+
+	<select id="workDAO.selectInsideOne" parameterClass="workVO" resultClass="workVO">
+			SELECT * FROM(
+				SELECT
+					  A.SCHE_SEQ			as sNb
+					, A.SCHESDATE			as tmDt
+					, B.NAME                as  name
+					, CASE WHEN A.SCHE_GUBUN = 'All' THEN 2 ELSE 1 END             as  bsnsRecPrivate
+					, IFNULL(A.SCHE_CON,"-")    as  note
+					, A.SCHE_S_TIME  as tt
+					, ''  as ap
+					, A.SCHE_S_TIME as viewTime
+					, CONCAT('[InS] ',
+						A.SCHE_S_TIME
+						, ' ', IFNULL(A.SCHE_TITLE,"-"))   as  title
+			FROM ERP_SCHEDULE A
+			LEFT JOIN BS_USER_MASTER B ON B.EMP_NO = A.PER_SABUN
+			WHERE a.DEL_FLAG = 'n'
+			AND A.SCHE_PUBLIC_FLAG = 'Y'
+
+			UNION
+
+				SELECT
+					  C.SCHE_SEQ			as sNb
+					, C.SCHESDATE			as tmDt
+					, B.NAME                as  name
+					, CASE WHEN C.SCHE_GUBUN = 'All' THEN 2 ELSE 1 END             as  bsnsRecPrivate
+					, IFNULL(C.SCHE_CON,"-")    as  note
+					, C.SCHE_S_TIME  as tt
+					, ''  as ap
+					, C.SCHE_S_TIME as viewTime
+					, CONCAT('[InS] ',
+						 C.SCHE_S_TIME
+						, ' ', IFNULL(C.SCHE_TITLE,"-"))   as  title
+			FROM ERP_SCHEDULE_ENTRY A
+			LEFT JOIN BS_USER_MASTER B ON B.EMP_NO = A.PER_SABUN
+			LEFT JOIN ERP_SCHEDULE C ON C.SCHE_SEQ = A.SCHE_SEQ
+			WHERE a.DEL_FLAG = 'n'
+			  AND c.DEL_FLAG = 'n'
+			) uo
+			<dynamic prepend="WHERE">
+				<isNotEmpty prepend="AND" property="sNb">
+					uo.sNb = #sNb#
+				</isNotEmpty>
+			</dynamic>
+			limit 1
+	</select>
+
+	<select id="workDAO.selectCompanyOpinion" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+				SELECT
+						OPINION			as opinion
+				  FROM	IB_COMPANY
+				 WHERE  CPN_ID 			= #cpnId#
+			     LIMIT  1
+		]]>
+	</select>
+
+	<update id="workDAO.updateCompanyExloring">
+		<![CDATA[
+			UPDATE
+			  IB_COMPANY
+			SET
+				   EXPLORING 	= #exploring#
+				  ,UP_DT 		= NOW()
+				  ,UP_ID 		= #rgId#
+			WHERE S_NB 			= #sNb#
+		]]>
+	</update>
+
+	<update id="workDAO.updateCompanyPbr">
+		<![CDATA[
+			UPDATE
+			  IB_COMPANY
+			SET
+				   PBR 			= #pbr#
+				  ,UP_DT 		= NOW()
+				  ,UP_ID 		= #rgId#
+			WHERE S_NB 			= #sNb#
+		]]>
+	</update>
+
+	<update id="workDAO.updateCompanyOpinion">
+		<![CDATA[
+			UPDATE
+			  IB_COMPANY
+			SET
+				   OPINION		= #opinion#		]]><isEqual property="tmpNum1" compareValue="exp"><![CDATA[
+				  ,PBR			= #pbr#			]]></isEqual><![CDATA[
+				  ,OPINION_REG 	= CONCAT(#rgId#,'^_^',NOW())
+				  ,UP_DT 		= NOW()
+				  ,UP_ID 		= #rgId#
+			]]>
+		<dynamic prepend="WHERE">
+			<isNotEqual prepend="and" property="tmpNum1" compareValue="exp">
+				<![CDATA[	S_NB 			= #sNb# 		]]>
+			</isNotEqual><isEqual prepend="and" property="tmpNum1" compareValue="exp">
+				<![CDATA[	CPN_ID 			= #cpnId# 		]]>
+			</isEqual>
+		</dynamic>
+	</update>
+
+	<insert id="workDAO.insertMainTableCheck">
+		<![CDATA[
+			INSERT INTO IB_MAINTABLE_CHECK
+				  (
+				    OFFER_SNB
+				  , CATEGORY
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES (
+				    #offerSnb#
+				  , #categoryCd#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+		]]>
+	</insert>
+
+	<delete id="workDAO.deleteMaintableCheck">
+		<![CDATA[
+			DELETE FROM IB_MAINTABLE_CHECK
+			 WHERE CATEGORY = #categoryCd#
+			   AND OFFER_SNB = #mainSnb#
+		]]>
+	</delete>
+
+	<select id="workDAO.selectAnalysisCommentsList" parameterClass="workVO" resultClass="workVO">
+				SELECT
+						A.OFFER_SNB				as sNb
+					 ,  B.NAME				    as rgNm
+					 ,  date(C.TM_DT)			as rgDt
+					 ,  CASE WHEN D.S_NB IS NULL THEN E1.S_NB ELSE D.S_NB END						as cpnSnb
+					 ,  CASE WHEN D.CPN_NM IS NULL THEN E1.CPN_NM ELSE D.CPN_NM END					as cpnNm
+					 ,	(SELECT ADDR FROM IB_COMPANY_INFO WHERE COM_CD = (
+    								case when d.cpn_id is null then e1.cpn_id else d.cpn_id end)) 	as cpnAddr
+					 ,  CASE WHEN d.A_CPN_ID IS NULL OR d.A_CPN_ID = '' then (case when C.CPN_ID IS NULL OR C.CPN_ID = '' THEN (CASE WHEN e1.A_CPN_ID IS NULL OR e1.A_CPN_ID = '' then E.CPN_ID else e1.A_CPN_ID end) ELSE C.CPN_ID END) else d.A_CPN_ID end tmpNum2
+					 ,  A.STAR			as star
+					 ,  CASE WHEN C.OFFER_CD = '00002' THEN 'IR' WHEN C.OFFER_CD = '00003' THEN '탐방' WHEN C.OFFER_CD = '00004' THEN '분석' END tmpNum1
+					 ,  A.COMMENT		as comment
+					 ,  (SELECT MIN(UNIT_PRICE) FROM CS_CATE_PRICE WHERE CATE_CD = (CASE WHEN d.A_CPN_ID IS NULL OR d.A_CPN_ID = '' then (case when C.CPN_ID IS NULL OR C.CPN_ID = '' THEN (CASE WHEN e1.A_CPN_ID IS NULL OR e1.A_CPN_ID = '' then E.CPN_ID else e1.A_CPN_ID end) ELSE C.CPN_ID END) else d.A_CPN_ID end) AND STR_TO_DATE(PRICE_DATE,'%Y-%m-%d') >= CAST(DATE_FORMAT(C.TM_DT,'%Y-%m-%d') AS CHAR(10)))  	    as minPrice
+					 ,  (SELECT MAX(UNIT_PRICE) FROM CS_CATE_PRICE WHERE CATE_CD = (CASE WHEN d.A_CPN_ID IS NULL OR d.A_CPN_ID = '' then (case when C.CPN_ID IS NULL OR C.CPN_ID = '' THEN (CASE WHEN e1.A_CPN_ID IS NULL OR e1.A_CPN_ID = '' then E.CPN_ID else e1.A_CPN_ID end) ELSE C.CPN_ID END) else d.A_CPN_ID end) AND STR_TO_DATE(PRICE_DATE,'%Y-%m-%d') >= CAST(DATE_FORMAT(C.TM_DT,'%Y-%m-%d') AS CHAR(10)))  	    as maxPrice
+					 ,  (SELECT UNIT_PRICE FROM CS_CATE_PRICE WHERE CATE_CD = (CASE WHEN d.A_CPN_ID IS NULL OR d.A_CPN_ID = '' then (CASE WHEN C.CPN_ID IS NULL OR C.CPN_ID = '' THEN (CASE WHEN e1.A_CPN_ID IS NULL OR e1.A_CPN_ID = '' then E.CPN_ID else e1.A_CPN_ID end) ELSE C.CPN_ID END) else d.A_CPN_ID end) AND STR_TO_DATE(PRICE_DATE,'%Y-%m-%d') = CAST(DATE_FORMAT(C.TM_DT,'%Y-%m-%d') AS CHAR(10)))  	    as regPrice
+					 ,  (SELECT UNIT_PRICE FROM CS_CATE_PRICE WHERE CATE_CD = (CASE WHEN d.A_CPN_ID IS NULL OR d.A_CPN_ID = '' then (CASE WHEN C.CPN_ID IS NULL OR C.CPN_ID = '' THEN (CASE WHEN e1.A_CPN_ID IS NULL OR e1.A_CPN_ID = '' then E.CPN_ID else e1.A_CPN_ID end) ELSE C.CPN_ID END) else d.A_CPN_ID end) ORDER BY PRICE_DATE DESC LIMIT 1)  	    as curPrice
+				  FROM  IB_OFFER_INFO A
+			 LEFT JOIN  BS_USER_MASTER B ON B.LOGIN_ID = A.RG_ID
+			 LEFT JOIN  IB_OFFER C ON C.S_NB = A.OFFER_SNB
+			 LEFT JOIN  IB_COMPANY D ON D.CPN_ID = C.CPN_ID
+			 LEFT JOIN  IB_CUSTOMER E ON E.S_NB = C.CST_ID
+			 LEFT JOIN  IB_COMPANY E1 ON E1.CPN_ID = E.CPN_ID
+				WHERE  C.OFFER_CD IN ('00002','00003','00004')
+				  AND  A.COMMENT != ''
+				  AND  A.CATEGORY = '00008'
+			<isEqual prepend="and" property="page" compareValue="1">
+				A.STAR = #page#
+			</isEqual>
+			<isEqual prepend="and" property="page" compareValue="2">
+				A.STAR = #page#
+			</isEqual>
+			<isEqual prepend="and" property="page" compareValue="3">
+				A.STAR = #page#
+			</isEqual>
+			<isEqual prepend="and" property="page" compareValue="4">
+				A.STAR = #page#
+			</isEqual>
+			<isEqual prepend="and" property="page" compareValue="5">
+				A.STAR = #page#
+			</isEqual>
+			<isNotEmpty prepend="" property="name">
+				<![CDATA[	AND  B.NAME = #name#		]]>
+			</isNotEmpty>
+			  ORDER BY
+			<isEqual prepend="" property="sorting" compareValue="">
+				rgDt DESC
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="a">
+				rgNm ASC, rgDt DESC, a.star DESC
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="b">
+				cpnNm ASC
+			</isEqual>
+			<isEqual prepend="" property="sorting" compareValue="c">
+				a.star desc, rgDt desc
+			</isEqual>
+	</select>
+
+	<select id="workDAO.selectOfferMnaStaff" parameterClass="workVO" resultClass="workVO">
+		<![CDATA[
+			SELECT
+				  S_NB                as  sNb
+				  ,(SELECT X.NAME FROM BS_USER_MASTER X WHERE A.STAFF_SNB = X.USER_ID )  as  usrNm
+			FROM ib_offer_mna_staff
+		   WHERE OFFER_SNB = #offerSnb#
+		]]>
+	</select>
+
+	<insert id="workDAO.insertOfferMnaStaff">
+		<selectKey keyProperty="sNb" resultClass="string">
+			SELECT ifnull(MAX(S_NB),0) + 1 FROM ib_offer_mna_staff
+		</selectKey>
+		<![CDATA[
+			INSERT INTO ib_offer_mna_staff
+				  ( S_NB
+				  , OFFER_SNB
+				  , STAFF_NM
+				  , ORG_ID
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+		 ) VALUES ( #sNb#
+				  , #offerSnb#
+				  , #memoSndSnb#
+				  , #orgId#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  )
+		]]>
+	</insert>
+
+	<delete id="workDAO.deleteOfferMnaStaff">
+		<![CDATA[
+			DELETE FROM ib_offer_mna_staff
+			 WHERE OFFER_SNB = #offerSnb#
+		]]>
+	</delete>
+
+
+	<select id="workDAO.selectMnaMatchCpnList" parameterClass="rcmdVO" resultClass="rcmdVO">
+	<![CDATA[
+			select
+					ichrg.s_nb			as sNb
+					, ichrg.comment		as comment
+					, cpn.s_nb			as cpnSnb
+					, cpn.cpn_nm		as cpnNm
+					, stf.NAME          as usrNm
+			from ib_offer_mna_match_cpn ichrg
+			left join ib_company cpn on cpn.cpn_id = ichrg.cpn_id
+			left join BS_USER_MASTER stf on stf.LOGIN_ID = ichrg.rg_id
+			where ichrg.offer_snb = #sNb#
+		]]>
+	</select>
+
+	<insert id="workDAO.insertMnaMatchCpn">
+		<![CDATA[
+			INSERT INTO ib_offer_mna_match_cpn
+				  ( OFFER_SNB
+				  , cpn_id
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES ( #sNb#
+				  , #matchCpn#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+		]]>
+	</insert>
+
+	<delete id="workDAO.deleteMnaMatchCpn">
+		<![CDATA[
+			DELETE FROM ib_offer_mna_match_cpn
+			 WHERE S_NB = #sNb#
+		]]>
+	</delete>
+
+	<select id="workDAO.selectMatrixList" parameterClass="workVO" resultClass="workVO">
+	<![CDATA[
+			select t.*
+			from
+			(
+				select
+					sub.snb 											as sNb
+					,sub.cpnSnb											as cpnSnb
+					,sum(sub.tmpNum1)                                          as tmpNum1
+					,sub.cpnNm                                          as cpnNm
+					,sub.categoryNm                                     as categoryNm
+					,concat('<span class="clk" onclick="bsnsPop(event,this,' ,group_concat(sub.snb,');"><a>',sub.financing SEPARATOR  '</a></span><br/><span class="clk" onclick="bsnsPop(event,this,') ,'</a></span>')     as financing
+					,concat('<span class="clk" onclick="bsnsPop(event,this,' ,group_concat(sub.snb,');"><a>',sub.management SEPARATOR '</a></span><br/><span class="clk" onclick="bsnsPop(event,this,') ,'</a></span>')     as management
+					,concat('<span class="clk" onclick="bsnsPop(event,this,' ,group_concat(sub.snb,');"><a>',sub.mna SEPARATOR        '</a></span><br/><span class="clk" onclick="bsnsPop(event,this,') ,'</a></span>')     as mna
+					,concat('<span class="clk" onclick="bsnsPop(event,this,' ,group_concat(sub.snb,');"><a>',sub.etc SEPARATOR        '</a></span><br/><span class="clk" onclick="bsnsPop(event,this,') ,'</a></span>')     as etc
+				from(select
+						oi.offer_snb as snb
+						,case when cpn.s_nb is null then cstcpn.s_nb else cpn.s_nb end as cpnSnb
+						,case when (replace(oi.comment,' ','') like concat('%',replace(#tmpNum2#,' ',''),'%')) <> '' then 1 else 0 end tmpNum1
+						,replace(case when cpn.cpn_nm is not null then cpn.cpn_nm else cstcpn.cpn_nm end,'(주)','') as cpnNm
+						,case when cpn.CATEGORY_BUSINESS is not null then cpn.CATEGORY_BUSINESS when cstcpn.CATEGORY_BUSINESS is not null then cstcpn.category_business else o.cpn_type end as categoryNm
+						,case when oi.category = '00001' or oi.category = '00007' then concat('<b>',stf.NAME,'</b> - ',replace(oi.comment,#tmpNum2#,concat('<font color=blue>',#tmpNum2#,'</font>')))
+						 end   as financing
+						,case when oi.category = '00002' then concat('<b>',stf.NAME,'</b> - ',replace(oi.comment,#tmpNum2#,concat('<font color=blue>',#tmpNum2#,'</font>')))
+						 end   as management
+						,case when oi.category = '00003' then concat('<b>',stf.NAME,'</b> - ',replace(oi.comment,#tmpNum2#,concat('<font color=blue>',#tmpNum2#,'</font>')))
+						 end   as mna
+						,case when oi.category != '00001' and oi.category != '00002' and oi.category != '00003' and oi.category != '00007' then concat('<b>',stf.NAME,'</b> - ',replace(oi.comment,#tmpNum2#,concat('<font color=blue>',#tmpNum2#,'</font>')))
+						 end   as etc
+					from ib_offer_info oi
+				left join ib_offer o on o.s_nb = oi.offer_snb
+				left join ib_company cpn on cpn.cpn_id = o.cpn_id
+				left join ib_customer cst on cst.s_nb = o.cst_id
+				left join ib_company cstcpn on cstcpn.cpn_id = cst.cpn_id
+				left join BS_USER_MASTER stf on stf.LOGIN_ID = oi.rg_id
+					where 1=1 ]]><isNotEmpty prepend="and" property="search"><![CDATA[
+						replace( case when cpn.CATEGORY_BUSINESS is not null then cpn.CATEGORY_BUSINESS when cstcpn.CATEGORY_BUSINESS is not null then cstcpn.category_business else o.cpn_type end ,' ','') like concat('%',replace(#search#,' ',''),'%')
+						]]></isNotEmpty><![CDATA[
+						and oi.comment is not null and oi.comment <> ''
+						and (case when cpn.cpn_nm is not null then cpn.cpn_nm else cstcpn.cpn_nm end) is not null and (case when cpn.cpn_nm is not null then cpn.cpn_nm else cstcpn.cpn_nm end) <> ''
+
+				)sub
+				where cpnNm != '-' and cpnNm !='.' and cpnNm !='000'
+				group by sub.cpnNm
+			) t
+		]]>
+		<dynamic prepend="WHERE">
+			<isEmpty prepend="and" property="search">
+				<![CDATA[ (t.tmpNum1) > 0 ]]>
+			</isEmpty>
+		</dynamic>
+		<isEqual property="sorting" compareValue="1">
+			order by t.cpnNm desc
+		</isEqual>
+		<isEqual property="sorting" compareValue="2">
+			order by t.categoryNm desc, t.cpnNm
+		</isEqual>
+	</select>
+	<update id="workDAO.updateMnaMatchComment">
+		<![CDATA[
+			UPDATE IB_OFFER_MNA_MATCH_CPN
+			SET
+				   COMMENT = #comment#
+				   , UP_DT     =  now()
+				   , UP_ID = #rgId#
+			 WHERE S_NB = #sNb#
+		]]>
+	</update>
+
+	<update id="workDAO.updateMiddleOfferCd">
+		<![CDATA[
+			UPDATE IB_OFFER
+			SET
+				   MIDDLE_OFFER_CD = #middleOfferCd#
+				   , OFFER_CD = #offerCd#
+				   , UP_DT     =  now()
+				   , UP_ID = #rgId#
+			 WHERE S_NB = #sNb#
+		]]>
+	</update>
+
+	<!-- 파일삭제 추가 20151001 -->
+	<update id="workDAO.deleteFile">
+		<![CDATA[
+			DELETE FROM ib_file_info
+			 WHERE OFFER_SNB = #offerSnb#
+			   AND make_name = #makeName#
+		]]>
+	</update>
+
+
+
+
+
+
+
+
+	<!-- ================================== 메모박스 관련 :S ================================== -->
+
+	<!-- 메모리스트 -->
+	<select id="work.selectMemoList" parameterClass="HashMap" resultClass="HashMap">
+		select *
+		  from(
+
+			select (case when L.grpMemCnt = 1 then 'MY' when L.mainSnb = 0 then 'SEND' else 'RECV' end) as mType
+					, L.*
+			  from(
+
+				select a.s_nb		as sNb
+					  ,a.main_snb	as mainSnb
+					  ,a.stts_cd	as sttsCd
+					  ,a.private	as private
+					  ,a.importance	as importance
+					  ,(SELECT X.NAME FROM BS_USER_MASTER X WHERE a.STAFF_SNB = X.USER_ID)  as name
+					  ,(SELECT ORG_ID FROM BS_USER_MASTER WHERE USER_ID = A.STAFF_SNB)			as division
+
+					  ,left((case when a.private='Y' then aes_decrypt(unhex(a.comment), md5(a.rg_id)) else IFNULL(A.comment,"-") end), 60)	as comment
+					  ,a.major		as major
+					  ,date_format(a.tm_dt, '%Y-%m-%d')	as tmDt
+					  ,a.rg_id		as rgId
+					  ,a.up_id		as upId
+
+					  ,(case when a.main_snb = 0 then a.s_nb else a.main_snb end) as newMainSnb
+
+					  ,(select count(1) from ib_comment where main_snb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end)
+															   or s_nb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end) ) as grpMemCnt	<!-- 참여자수 -->
+
+					  ,(select group_concat((SELECT X.NAME FROM BS_USER_MASTER X WHERE STAFF_SNB = X.USER_ID )) from ib_comment where main_snb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end)
+												   or s_nb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end) ) as grpMemNms
+
+					  ,(select count(1) from ib_reply where main_snb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end)) as repCnt		<!-- 댓글수 -->
+
+					  ,(select rg_dt from ib_reply where main_snb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end) order by s_nb desc limit 1) as repLastDt	<!-- 최신댓글날짜 -->
+
+					  ,(case
+						when a.main_snb = 0 then	<!-- 주메모 일때 -->
+							ifnull((select (case when rep_snb = 0 then '00002' else stts_cd end) from ib_reply where main_snb = a.s_nb order by s_nb desc limit 1), '00002')
+							<!-- 댓글이 없으면 무조건 읽은상태, 마지막이 내가 쓴 댓글이면 무조건 읽은상태, 마지막이 다른사람이 쓴글이면 마지막 댓글의 읽은 상태코드 반환 -->
+						else
+							a.stts_cd	<!-- 내가 수신자인 메모일때, 메모의 상태코드가 읽은 상태 -->
+						end
+					   ) as readStts	<!-- 읽은상태 -->
+
+					  ,a.frst_stts_cd		as frstReadStts		<!-- 첫글 읽은상태 -->
+
+					  ,(select (SELECT X.NAME FROM BS_USER_MASTER X WHERE STAFF_SNB = X.USER_ID ) from ib_comment where s_nb = a.main_snb) as sendNm						<!-- 발송자명 -->
+					  ,(select group_concat((SELECT X.NAME FROM BS_USER_MASTER X WHERE STAFF_SNB = X.USER_ID )) from ib_comment where main_snb = a.s_nb) as recvNms		<!-- 수신자들명 -->
+
+					  ,(select group_concat(comment order by s_nb) from ib_reply where main_snb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end)) as commentsReply
+
+					  ,concat(
+					  	ifnull((select group_concat(REAL_NAME) from IB_FILE_INFO WHERE FILE_CATEGORY = '00004' and OFFER_SNB = (case when a.main_snb = 0 then a.s_nb else a.main_snb end)),'')
+					  	,
+					  	ifnull((select group_concat(T.REAL_NAME) from IB_FILE_INFO T WHERE T.FILE_CATEGORY = '00005' and exists (
+																						select 1
+																						  from ib_reply
+																						 where main_snb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end)
+																						   and s_nb = T.OFFER_SNB
+																					  )), '')
+					  	) as files
+
+				from ib_comment	a
+
+				where 1=1
+				  and a.TM_DT BETWEEN #startDt# AND #endDt#
+				  and (SELECT X.NAME FROM BS_USER_MASTER X WHERE a.STAFF_SNB = X.USER_ID ) = #usrNm#
+
+			) L
+
+		) K
+
+		where 1=1
+
+
+		<isNotEmpty prepend="AND" property="memoType">
+			K.mType = #memoType#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="" property="srchTxt">
+			<isNotEmpty prepend="AND" property="srchTxtType">
+				<isEqual property="srchTxtType" compareValue="CONT">
+					( K.comment like concat('%', #srchTxt#, '%') or K.commentsReply like concat('%', #srchTxt#, '%') )
+				</isEqual>
+				<isEqual property="srchTxtType" compareValue="SEND">
+					K.sendNm like concat('%', #srchTxt#, '%')
+				</isEqual>
+				<isEqual property="srchTxtType" compareValue="RECV">
+					K.recvNms like concat('%', #srchTxt#, '%')
+				</isEqual>
+				<isEqual property="srchTxtType" compareValue="FILE">
+					K.files like concat('%', #srchTxt#, '%')
+				</isEqual>
+			</isNotEmpty>
+			<isEmpty prepend="AND" property="srchTxtType">
+				(
+						( K.comment like concat('%', #srchTxt#, '%') or K.commentsReply like concat('%', #srchTxt#, '%') )
+					or
+						K.sendNm like concat('%', #srchTxt#, '%')
+					or
+						K.recvNms like concat('%', #srchTxt#, '%')
+					or
+						K.files like concat('%', #srchTxt#, '%')
+				)
+			</isEmpty>
+		</isNotEmpty>
+
+		<isEqual prepend="AND" property="noRead" compareValue="Y">
+			K.readStts = '00001'
+		</isEqual>
+
+
+		order by  <isEqual property="lastRepOrdr" compareValue="Y">K.repLastDt desc,</isEqual>  K.tmDt desc, sNb desc
+
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#, #limit#
+		</isNotEmpty>
+
+		/* work.selectMemoList */
+	</select>
+
+
+	<!-- 메모 수 -->
+	<select id="work.selectMemoListCount" parameterClass="HashMap" resultClass="Integer">
+
+		select count(*)
+		  from(
+
+			select (case when L.grpMemCnt = 1 then 'MY' when L.mainSnb = 0 then 'SEND' else 'RECV' end) as mType
+					, L.*
+			  from(
+
+				select a.s_nb		as sNb
+					  ,a.main_snb	as mainSnb
+					  ,a.stts_cd	as sttsCd
+					  ,a.private	as private
+					  ,a.importance	as importance
+					  ,(SELECT X.NAME FROM BS_USER_MASTER X WHERE a.STAFF_SNB = X.USER_ID )		as name
+					  ,(case when a.private='Y' then aes_decrypt(unhex(a.comment), md5(a.rg_id)) else IFNULL(A.comment,"-") end)	as comment
+
+					  ,a.major		as major
+					  <!-- ,date_format(a.tm_dt, '%Y-%m-%d')	as tmDt
+					  ,a.rg_id		as rgId
+					  ,a.up_id		as upId -->
+
+					  ,(select count(1) from ib_comment where main_snb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end)
+															   or s_nb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end) ) as grpMemCnt	<!-- 참여자수 -->
+
+					  <!-- ,(select count(1) from ib_reply where main_snb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end)) as repCnt -->		<!-- 댓글수 -->
+
+					  ,(case
+						when a.main_snb = 0 then	<!-- 주메모 일때 -->
+							ifnull((select (case when rep_snb = 0 then '00002' else stts_cd end) from ib_reply where main_snb = a.s_nb order by s_nb desc limit 1), '00002')
+							<!-- 댓글이 없으면 무조건 읽은상태, 마지막이 내가 쓴 댓글이면 무조건 읽은상태, 마지막이 다른사람이 쓴글이면 마지막 댓글의 읽은 상태코드 반환 -->
+						else
+							a.stts_cd	<!-- 내가 수신자인 메모일때, 메모의 상태코드가 읽은 상태 -->
+						end
+					   ) as readStts	<!-- 읽은상태 -->
+
+					  ,(select (SELECT X.NAME FROM BS_USER_MASTER X WHERE STAFF_SNB = X.USER_ID ) from ib_comment where s_nb = a.main_snb) as sendNm						<!-- 발송자명 -->
+					  ,(select group_concat((SELECT X.NAME FROM BS_USER_MASTER X WHERE STAFF_SNB = X.USER_ID )) from ib_comment where main_snb = a.s_nb) as recvNms		<!-- 수신자들명 -->
+
+					  ,(select group_concat(comment order by s_nb) from ib_reply where main_snb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end)) as commentsReply
+
+					  ,concat(
+					  	ifnull((select group_concat(REAL_NAME) from IB_FILE_INFO WHERE FILE_CATEGORY = '00004' and OFFER_SNB = (case when a.main_snb = 0 then a.s_nb else a.main_snb end)),'')
+					  	,
+					  	ifnull((select group_concat(T.REAL_NAME) from IB_FILE_INFO T WHERE T.FILE_CATEGORY = '00005' and exists (
+																						select 1
+																						  from ib_reply
+																						 where main_snb = (case when a.main_snb = 0 then a.s_nb else a.main_snb end)
+																						   and s_nb = T.OFFER_SNB
+																					  )), '')
+					  	) as files
+
+				from ib_comment	a
+
+				where 1=1
+				  and a.TM_DT BETWEEN #startDt# AND #endDt#
+				  and (SELECT X.NAME FROM BS_USER_MASTER X WHERE a.STAFF_SNB = X.USER_ID ) = #usrNm#
+
+			) L
+
+		) K
+
+		where 1=1
+
+
+		<isNotEmpty prepend="AND" property="memoType">
+			K.mType = #memoType#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="" property="srchTxt">
+			<isNotEmpty prepend="AND" property="srchTxtType">
+				<isEqual property="srchTxtType" compareValue="CONT">
+					( K.comment like concat('%', #srchTxt#, '%') or K.commentsReply like concat('%', #srchTxt#, '%') )
+				</isEqual>
+				<isEqual property="srchTxtType" compareValue="SEND">
+					K.sendNm like concat('%', #srchTxt#, '%')
+				</isEqual>
+				<isEqual property="srchTxtType" compareValue="RECV">
+					K.recvNms like concat('%', #srchTxt#, '%')
+				</isEqual>
+				<isEqual property="srchTxtType" compareValue="FILE">
+					K.files like concat('%', #srchTxt#, '%')
+				</isEqual>
+			</isNotEmpty>
+			<isEmpty prepend="AND" property="srchTxtType">
+				(
+						( K.comment like concat('%', #srchTxt#, '%') or K.commentsReply like concat('%', #srchTxt#, '%') )
+					or
+						K.sendNm like concat('%', #srchTxt#, '%')
+					or
+						K.recvNms like concat('%', #srchTxt#, '%')
+					or
+						K.files like concat('%', #srchTxt#, '%')
+				)
+			</isEmpty>
+		</isNotEmpty>
+
+		<isEqual prepend="AND" property="noRead" compareValue="Y">
+			K.readStts = '00001'
+		</isEqual>
+
+		/* work.selectMemoListCount */
+	</select>
+
+
+	<!-- 메모 상세 보기 -->
+	<select id="work.selectMemoDetail" parameterClass="HashMap" resultClass="HashMap">
+		select k.*
+		from (
+
+			select s_nb as mainSnb, (SELECT X.NAME FROM BS_USER_MASTER X WHERE STAFF_SNB = X.USER_ID ) as name
+				  ,(case when private='Y' then aes_decrypt(unhex(comment), md5(rg_id)) else IFNULL(comment,"-") end) as	comment
+				  ,date_format(rg_dt, '%Y-%m-%d%H:%i') as dt
+				  ,'' as isFile
+				  ,'' as mkNm
+			from ib_comment
+			where 1=1
+			  and s_nb = #mainSnb#
+
+			union all
+
+			select main_snb as mainSnb, (SELECT X.NAME FROM BS_USER_MASTER X WHERE STAFF_SNB = X.USER_ID ) as name, comment, date_format(rg_dt, '%Y-%m-%d%H:%i') as dt
+				  ,'' as isFile
+				  ,'' as mkNm
+			from ib_reply
+			where 1=1
+			  and main_snb = #mainSnb#
+
+			union all
+
+		    select '' as mainSnb, (select NAME from BS_USER_MASTER where LOGIN_ID = a.rg_id) as name, a.real_name as comment, date_format(rg_dt, '%Y-%m-%d%H:%i') as dt
+		    	  , 'Y' as isFile
+		    	  , a.make_name as mkNm
+			  from ib_file_info A
+			 where 1=1
+			   and a.file_category = '00004'
+			   and exists (
+					select 1
+						from ib_comment
+					   where s_nb = #mainSnb#
+						 and s_nb = a.OFFER_SNB
+				  )
+
+			union all
+
+		    select '' as mainSnb, (select NAME from BS_USER_MASTER where LOGIN_ID = a.rg_id) as name, a.real_name as comment, date_format(rg_dt, '%Y-%m-%d%H:%i') as dt
+		    	  , 'Y' as isFile
+		    	  , a.make_name as mkNm
+			  from ib_file_info A
+			 where 1=1
+			   and a.file_category = '00005'
+			   and exists (
+					select 1
+						from ib_reply
+					   where main_snb = #mainSnb#
+						 and s_nb = a.OFFER_SNB
+				  )
+
+		) k
+		order by k.dt
+
+		/* work.selectMemoDetail */
+	</select>
+
+
+	<update id="work.updateMemoMainStatus">
+		<![CDATA[
+			UPDATE IB_COMMENT
+			SET
+				  STTS_CD   =  #sttsCd#
+				, FRST_STTS_CD = '00002'
+				, UP_DT     =  now()
+				, UP_ID     =  #rgId#
+			WHERE S_NB      =  #sNb#
+		]]>
+	</update>
+	<update id="work.updateMemoReplyStatus">
+		<![CDATA[
+			UPDATE IB_REPLY
+			SET
+				  STTS_CD   =  #sttsCd#
+				, UP_DT     =  now()
+				, UP_ID     =  #rgId#
+			WHERE MAIN_SNB	=  #sNb#
+		]]>
+	</update>
+
+
+	<!-- 메모 참여자 수신 확인 -->
+	<select id="work.selectMemoRecvInfo" parameterClass="HashMap" resultClass="HashMap">
+		select K.isMaster, K.name, K.readStts, K.frstReadStts
+		  from (
+				select  a.main_snb,
+						case when a.main_snb = 0 then 'Y' else '' end as isMaster,
+						(SELECT X.NAME FROM BS_USER_MASTER X WHERE a.STAFF_SNB = X.USER_ID ) AS NAME,
+					    case when a.main_snb = 0 then ifnull((select (case when rep_snb = 0 then '00002' else stts_cd end) from ib_reply where main_snb = #mainSnb# order by s_nb desc limit 1), '00002')
+							else stts_cd
+						end as readStts,
+						a.frst_stts_cd	as frstReadStts
+				from ib_comment a
+				where (a.s_nb = #mainSnb# and a.main_snb = 0) or a.main_snb = #mainSnb#
+		    ) K
+
+		order by K.main_snb, K.frstReadStts desc, K.readStts desc, K.name
+
+		/* work.selectMemoRecvInfo */
+	</select>
+
+
+	<insert id="work.cloneResendMemoMain" parameterClass="HashMap">
+			INSERT INTO IB_COMMENT
+				  ( STAFF_SNB
+				  , MAIN_SNB
+				  , COMMENT
+				  , IMPORTANCE
+				  , PRIVATE
+				  , MAJOR
+				  , STTS_CD
+				  , TM_DT
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+				  )
+
+			SELECT  STAFF_SNB
+				  , MAIN_SNB
+				  , case when private = 'Y' then hex(aes_encrypt(#comment#,md5(#usrId#))) else #comment# end
+				  , IMPORTANCE
+				  , PRIVATE
+				  , MAJOR
+				  , ''
+				  , #tmDt#
+				  , now()
+				  , now()
+				  , #usrId#
+				  , #usrId#
+				  , #orgId#
+			  FROM IB_COMMENT
+			 WHERE S_NB = #sNb#
+
+		<selectKey keyProperty="s" resultClass="String">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		/* work.cloneResendMemoMain */
+	</insert>
+
+
+	<insert id="work.cloneResendMemoSub" parameterClass="HashMap">
+		INSERT INTO IB_COMMENT
+			  ( STAFF_SNB
+			  , MAIN_SNB
+			  , COMMENT
+			  , IMPORTANCE
+			  , PRIVATE
+			  , MAJOR
+			  , STTS_CD
+			  , TM_DT
+			  , RG_DT
+			  , UP_DT
+			  , RG_ID
+			  , UP_ID
+			  , ORG_ID
+			  )
+
+		SELECT STAFF_SNB
+			  , #mainSnb#
+			  , case when private = 'Y' then hex(aes_encrypt(#comment#,md5(#usrId#))) else #comment# end
+			  , IMPORTANCE
+			  , PRIVATE
+			  , MAJOR
+			  , '00001'
+			  , #tmDt#
+			  , now()
+			  , now()
+			  , #usrId#
+			  , #usrId#
+			  , #orgId#
+		  FROM IB_COMMENT
+		 WHERE MAIN_SNB = #sNb#
+		/* work.cloneResendMemoSub */
+	</insert>
+
+	<insert id="work.cloneResendFile" parameterClass="HashMap">
+		INSERT INTO IB_FILE_INFO(
+			OFFER_SNB, SUB_CD, REPORT_YN, REAL_NAME, MAKE_NAME, PATH, RG_DT, UP_DT, RG_ID, UP_ID, FILE_CATEGORY, ORG_ID
+		    )
+
+		    SELECT #offerSnb#, SUB_CD, REPORT_YN, REAL_NAME, MAKE_NAME, PATH, RG_DT, UP_DT, RG_ID, UP_ID, FILE_CATEGORY, ORG_ID
+		      FROM IB_FILE_INFO
+		     WHERE OFFER_SNB = #sNb#
+		       AND FILE_CATEGORY = '00004'
+
+		/* work.cloneResendFile */
+	</insert>
+	<insert id="work.clonePropDealFile" parameterClass="HashMap">
+		INSERT INTO IB_FILE_INFO(
+			OFFER_SNB, SUB_CD, REPORT_YN, REAL_NAME, MAKE_NAME, PATH, RG_DT, UP_DT, RG_ID, UP_ID, FILE_CATEGORY, ORG_ID
+		    )
+
+		    SELECT #offerSnb#, SUB_CD, REPORT_YN, REAL_NAME, MAKE_NAME, PATH, RG_DT, UP_DT, RG_ID, UP_ID, FILE_CATEGORY, ORG_ID
+		      FROM IB_FILE_INFO
+		     WHERE OFFER_SNB = #sNb#
+		       AND FILE_CATEGORY = '00000'
+
+		/* work.clonePropDealFile */
+	</insert>
+
+	<!-- ================================== 메모박스 관련 :E ================================== -->
+
+
+
+	<!-- ================================== 정보등급 관련 :S ================================== -->
+	<!-- 정보등급 (실제 배정되어 있는 등급 숫자들 -->
+	<select id="work.selectInfoLevelList" resultClass="String">
+		select *
+		  from (
+				 SELECT DISTINCT MNA_LEVEL		as lvl
+				  FROM IB_STAFF
+				 WHERE SRT_CD &lt; 100
+				   AND MNA_LEVEL IS NOT NULL
+
+				 union
+
+				 SELECT DISTINCT INFO_LEVEL		as lvl
+				  FROM IB_STAFF
+				 WHERE SRT_CD &lt; 100
+				   AND INFO_LEVEL IS NOT NULL
+			) K
+		order by K.lvl asc
+	</select>
+
+	<!-- 정보등급별 사용자(M&A 외) -->
+	<select id="work.selectInfoLevelUser" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			   INFO_LEVEL									as lvl
+		      ,GROUP_CONCAT(USR_NM ORDER BY USR_NM ASC)		as names
+		      ,''											as btn
+
+		  FROM IB_STAFF
+		 WHERE SRT_CD &lt; 100
+		 GROUP BY INFO_LEVEL
+		 ORDER BY INFO_LEVEL DESC
+
+		/* work.selectInfoLevelUser */
+	</select>
+	<!-- 정보등급별 사용자(M&A) -->
+	<select id="work.selectMnaLevelUser" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			   MNA_LEVEL									as lvl
+		      ,GROUP_CONCAT(USR_NM ORDER BY USR_NM ASC)		as names
+		      ,''											as btn
+
+		  FROM IB_STAFF
+		 WHERE SRT_CD &lt; 100
+		 GROUP BY MNA_LEVEL
+		 ORDER BY MNA_LEVEL DESC
+
+		/* work.selectMnaLevelUser */
+	</select>
+
+	<!-- ================================== 정보등급 관련 :E ================================== -->
+
+</sqlMap>

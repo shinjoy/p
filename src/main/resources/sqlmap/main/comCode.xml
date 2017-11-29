@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="comCode">
+	<!-- 
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="comCode" type="ib.cmm.ComCodeVO"/>
+
+	<select id="comCodeVO.selectComCodeDetail" parameterClass="comCode" resultClass="egovMap">
+			SELECT
+				  S_NB
+				, MENU_CD
+				, DTAIL_CD
+				, CD_NM
+				, CD_DC
+				, USE_AT
+				, CD_SORT
+			FROM IB_COMMON_CODE
+			WHERE 1=1
+			  AND USE_AT IS NULL
+			<isNotEmpty prepend="AND" property="menuCd">
+				<![CDATA[	MENU_CD = #menuCd# 		]]>
+			</isNotEmpty>
+			ORDER BY CD_SORT2 , DTAIL_CD ASC
+	</select>
+
+	<select id="comCodeVO.selectComCodeDetailPer" parameterClass="comCode" resultClass="comCode">
+			select
+				  cmm.menu_cd			as  menuCd
+				, cmm.dtail_cd		as  dtailCd
+				, cmm.cd_nm			as  cdNm
+				, cmm.temp			as  temp
+				, cmm.cd_dc			as  cdDc
+				, cmm.cd_sort 		as  cdSort
+				, cmm.cd_sort2 		as  cdSort2
+			from ib_staff_allow_code alw
+		left join ib_staff st on st.permission = alw.perm_code
+		left join IB_COMMON_CODE cmm on cmm.s_nb = alw.code_snb
+			where alw.del_flag = 'N'
+			  and cmm.USE_AT IS NULL
+		
+			  and st.usr_id = #rgId#
+		
+			<isNotEmpty prepend="AND" property="menuCd">
+				<![CDATA[	cmm.MENU_CD = #menuCd# 		]]>
+			</isNotEmpty>
+			ORDER BY CD_SORT2 , DTAIL_CD ASC
+
+		/* comCodeVO.selectComCodeDetailPer */
+	</select>
+ -->
+</sqlMap>

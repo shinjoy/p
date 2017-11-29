@@ -1,0 +1,45 @@
+@CHARSET "UTF-8";
+
+header,section { /* height: 85px; */
+	margin: 0;
+	padding: 0;
+	font-family: 맑은 고딕, Trebuchet MS, Verdana, Geneva, sans-serif;
+	font-size: 13px;
+}
+
+body {
+	margin: 0;
+	/* padding: 20; */
+	font-size: 11px;
+	line-height: 1.2em;
+	color: #333;
+}
+div * {margin:0; padding:0;}
+
+/* div#menubody {padding-left:21px;} */
+
+ul { list-style-type:none;}
+
+ul li {height:20px;font:bold 13px 맑은 고딕, Trebuchet MS, Verdana, Geneva, sans-serif; color:#000000; text-decoration:none;}
+
+ul li.leftTitle {width:144px; height:15px;font-size: 13px;padding-bottom:5px;border-bottom:black 1px solid; margin-top:5px;margin-bottom:10px;}
+
+ul.once a {width:120px; height:17px; border-left:#75c5de 5px solid; font:bold 11px 맑은 고딕, Trebuchet MS, Verdana, Geneva, sans-serif; color:#000000; text-decoration:none; padding:2px 0 0 10px; display:inline-block;}
+ul.left-list>li>a {width:90px; height:17px; border-left:#75c5de 5px solid; font:bold 11px 맑은 고딕, Trebuchet MS, Verdana, Geneva, sans-serif; color:#000000; text-decoration:none; padding:2px 0 0 10px; display:inline-block;}
+
+ul.dual a {width:60px; height:17px; border-left:#75c5de 5px solid; font:bold 11px 맑은 고딕, Trebuchet MS, Verdana, Geneva, sans-serif; color:#000000; text-decoration:none; padding:2px 0 0 10px; display:inline-block;}
+ul.dual span {width:50px; height:17px; border-left:white 5px solid; font:bold 11px 맑은 고딕, Trebuchet MS, Verdana, Geneva, sans-serif; color:#000000; text-decoration:none; padding:2px 0 0 10px; display:inline-block;}
+ul.dual span.tex {width:50px; height:17px; border-left:#DEDEDE 5px solid; font:bold 11px 맑은 고딕, Trebuchet MS, Verdana, Geneva, sans-serif; color:#000000; text-decoration:none; padding:2px 0 0 10px; display:inline-block;}
+
+#divisionDivMenu ul a:hover {background:#75c5de left repeat-y; color:#ffffff;}
+
+a {
+	text-decoration: none;
+	color: #333;
+	cursor: pointer;
+}
+.hand { cursor: pointer; }
+.bgYlw {	background-color: #F1F8E0;}
+.bgRed {	background-color: #F6CECE !important;}
+.bgGrn {	background-color: #4b8956 !important;}
+.bgOrg {	background-color: #FAAC58 !important;}

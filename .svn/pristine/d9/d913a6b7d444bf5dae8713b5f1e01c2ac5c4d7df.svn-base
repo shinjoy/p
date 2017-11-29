@@ -1,0 +1,427 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<script type="text/javascript">
+var colorObj = {};
+//문서종류 등록 선택박스
+var comCodeAppvDocClass = getBaseCommonCode('APPV_DOC_CLASS', null, 'CD', 'NM', '', '문서종류선택', null, { orgId : "${baseUserLoginInfo.orgId}" });
+var appvDocClassTag = createSelectTag('appvDocClass', comCodeAppvDocClass, 'CD', 'NM', '', null, colorObj, '', 'select_b w100pro');   //'fnObj.clickRdBudget(this);');//radio tag creator 함수 호출 (common.js)
+
+var newIndex = 1;
+
+var targetIndex = 0;
+$(document).ready(function(){
+    $("#appvDocClassTag0").html(appvDocClassTag);
+    $("#appvDocClassTag1").html(appvDocClassTag);
+
+    appvDocClassChg(0);
+    appvDocClassChg(1);
+
+});
+//문서종류 변경시 이벤트 셋팅
+function appvDocClassChg(index){
+	var targetClassTagId = "appvDocClassTag"+index;
+
+	$("#"+targetClassTagId).find("#appvDocClass").change(function(){
+		var appvDocClass = $(this).val().trim();
+
+		if(appvDocClass!="COMPANY"){
+        	//문서종류 검색 선택박스
+    		var comCodeAppvDocType = getBaseCommonCode('APPV_DOC_TYPE_'+appvDocClass, null, 'CD', 'NM', '', '문서타입선택', null, { orgId : "${baseUserLoginInfo.orgId}" });
+            var searchAppvDocType = createSelectTag('appvDocType', comCodeAppvDocType, 'CD', 'NM', '', 'appvDocTypeChg("'+index+'")', colorObj, '', 'select_b w100pro');   //'fnObj.clickRdBudget(this);');//radio tag creator 함수 호출 (common.js)
+            $("#appvDocTypeTag"+index).html(searchAppvDocType);
+    	}else{
+    		var url = contextRoot +"/approve/getAppvCompanyListForLineAjax.do";
+    		var param = {};
+    		var callback = function(data){
+    			var obj = JSON.parse(data);
+				var appvCompanyList = obj.resultObject.appvCompanyList;
+
+				var stStr = "<select id='appvDocType' name='appvDocType' class='select_b w100pro' onchange= 'appvDocTypeChg(\""+index+"\")'>";
+				    stStr+= '<option value="">문서타입선택</option>';
+
+				for(var i = 0 ; i <appvCompanyList.length ; i++){
+					stStr+= '<option value = "'+appvCompanyList[i].appvDocTypeName+'">'+appvCompanyList[i].appvDocTypeName+'</option>';
+				}
+				stStr+= '</select>';
+				$("#appvDocTypeTag"+index).html(stStr);
+    		}
+
+    		commonAjax("POST", url, param, callback,false);
+    	}
+
+		var stStr = '<select id = "appvHeaderId" name = "appvHeaderId" class="select_b w100pro"><option value="">결재라인명선택</option></select>';
+
+		$("#appvHeaderNameArea"+index).html(stStr);
+
+	});
+}
+//문서타입 선택시 결재라인명 리스트를 조회
+function appvDocTypeChg(index){
+
+	var targetAppvDocTypeTagId = "appvDocTypeTag"+index;
+
+	var selectAppvDocType = $("#"+targetAppvDocTypeTagId).find("#appvDocType").val();
+
+	if(selectAppvDocType == ""){
+		alert("문서타입을 선택해 주세요.");
+		return;
+	}
+	targetIndex = index;
+	$("#searchFrm #appvDocType").val(selectAppvDocType);
+
+	//appvDocClass셋팅
+	var targetClassTagId = "appvDocClassTag"+index;
+
+	var targetClass= $("#"+targetClassTagId).find("#appvDocClass").val();
+
+	$("#searchFrm #appvDocClass").val(targetClass);
+
+	$("#searchFrm").attr("action",contextRoot+"/approve/getAppvHeaderListAjax.do");
+	commonAjaxSubmit("POST",$("#searchFrm"),appvDocTypeChgCallback);
+}
+//문서타입 선택시 결재라인명 리스트를 조회 콜백
+function appvDocTypeChgCallback(data){
+	if(data.result =="SUCCESS"){
+		var stStr = "<select name='appvHeaderId' class='select_b'";
+		if(targetIndex >1){
+			stStr+= " onchange = 'targetAppvHearIdChg($(this))'";
+		}
+		stStr+=">";
+
+		stStr += "<option value = ''>결재라인선택</option>";
+
+		if(targetIndex >1){
+			stStr += "<option value = 'new'>신규추가</option>";
+		}
+
+		var headerList = data.resultObject;
+
+		for(var i = 0 ; i < headerList.length;i++){
+			stStr += "<option value = '"+headerList[i].appvHeaderId+"'>"+headerList[i].appvHeaderName+"</option>";
+		}
+		stStr += "</select>";
+
+		var targetHeaderNameAreaId = "appvHeaderNameArea"+targetIndex;
+		$("#"+targetHeaderNameAreaId).html(stStr);
+	}else{
+		alert("결재라인 조회에 실패했습니다. 담당자에게 문의해주세요.");
+		return;
+	}
+}
+//추가버튼
+function addCopyLine(){
+
+	if($("#appvDocClassTag1 #appvDocClass").val()==""){
+		alert("복사대상 문서종류를 선택해 주세요.");
+		$("#appvDocTypeTag0 #appvDocClass").focus();
+		return;
+	}
+
+	if($("#appvDocTypeTag1 #appvDocType").val()==""){
+		alert("복사대상 문서타입을 선택해 주세요.");
+		$("#appvDocTypeTag0 #appvDocClass").focus();
+		return;
+	}
+
+	newIndex++;
+
+	var appvDocClass =$("#appvDocClassTag1 #appvDocClass").val();
+
+	var appvDocClassNm = $("#appvDocClassTag1 #appvDocClass option:selected").text();
+
+	var selectAppvDocType = $("#appvDocTypeTag1 #appvDocType").val();
+
+	var selectAppvDocTypeNm =  $("#appvDocTypeTag1 #appvDocType option:selected").text();
+
+	var temlStr = $("#addItem").text();
+
+	temlStr = temlStr.split("##index##").join(newIndex);
+	temlStr = temlStr.split("##appvDocClass##").join(appvDocClass);
+	temlStr = temlStr.split("##appvDocClassNm##").join(appvDocClassNm);
+	temlStr = temlStr.split("##selectAppvDocType##").join(selectAppvDocType);
+	temlStr = temlStr.split("##selectAppvDocTypeNm##").join(selectAppvDocTypeNm);
+
+
+	$("#addItemArea").before(temlStr);
+
+	appvDocTypeChg(newIndex);
+
+	parent.myModal2.resize();
+
+	$("#appvDocClassTag1 #appvDocClass").val("").change();
+
+	$("#appvDocTypeTag1 #appvDocType").val("");
+
+	$("input[type = 'checkbox']").on("click",function(){
+
+		if($(this).attr("id")=="chkAll"){
+			if($(this).prop("checked")){
+				$("input[type = 'checkbox']").not("input[disabled = 'disabled']").prop("checked",true);
+			}else{
+				$("input[type = 'checkbox']").not("input[disabled = 'disabled']").prop("checked",false);
+			}
+			return;
+		}
+		var chkboxlength = $("input[type = 'checkbox']").not("input[disabled = 'disabled']").not("#chkAll").length;
+
+
+		if($("input[type = 'checkbox']:checked").not("#chkAll").length == chkboxlength){
+			$("#chkAll").prop("checked",true);
+		}else{
+			$("#chkAll").prop("checked",false);
+		}
+	});
+}
+//체크박스삭제
+function deleteCopyLine(){
+	if($("input[type = 'checkbox']:checked").not("#chkAll").length<=0){
+		alert("삭제 대상을 1개 이상 체크해주세요 ");
+		return;
+	}
+
+	if(confirm("삭제하시겠습니까?")){
+		$("input[type = 'checkbox']:checked").not("#chkAll").each(function(){
+			$(this).parent().parent().parent().remove();
+		});
+		alert("삭제되었습니다.");
+		$("#chkAll").prop("checked",false);
+	}
+}
+
+//직접입력폼노출
+function targetAppvHearIdChg($obj){
+
+	if($obj.val()!="new") return;
+
+	$obj.parent().hide();
+	$obj.parent().next().show();
+}
+
+//복사
+function doCopy(){
+	var oriAppvHeaderId = $("#appvHeaderNameArea0").find("select[name = 'appvHeaderId']").val();
+	if(oriAppvHeaderId == ""||oriAppvHeaderId == undefined){
+		alert("원본을 선택해주세요.");
+		return;
+	}
+
+	if($("select[name = 'appvHeaderId']").length == 1){
+		alert("복사 대상 결재라인을 추가해주세요.");
+		return;
+	}
+	var chk = true;
+	var $falseObj;
+
+	var insertCnt = 0;
+	var updateCnt = 0;
+
+	var copyStr = "";
+	$("select[name = 'appvHeaderId']").each(function(i){
+
+		var targetAppvHeaderId =$(this).val();
+		var targetAppvHeaderName = $(this).parent().next().find("#appvHeaderName").val();
+
+		if(i!=0){
+			if(targetAppvHeaderId != "new"&&targetAppvHeaderId == ""){
+				alert("결재라인을 선택해 주세요.");
+				$falseObj = $(this);
+				chk = false;
+				return false;
+			}else if(targetAppvHeaderId == "new"&&targetAppvHeaderName == ""){
+				alert("결재라인을 입력해 주세요.");
+				$falseObj = $(this);
+				chk = false;
+				return false;
+			}
+		}
+
+		var copyIndex = i;
+
+		if(i>0) copyStr += ",";
+
+		var copyArea = $(this).parent().parent().parent();
+
+		if(i == 0) copyStr+="ori|";
+		else if(targetAppvHeaderName == ""){
+			copyStr+="update|";
+			updateCnt++;
+		}else{
+			copyStr+="insert|";
+			insertCnt++;
+		}
+
+		copyStr+= copyArea.find("#appvDocClass").val()+"|";
+		copyStr+= copyArea.find("#appvDocType").val()+"|";
+		copyStr+= targetAppvHeaderId+"|";
+		if(i != 0){
+			copyStr+= targetAppvHeaderName;
+		}
+	});
+
+	if(!chk){
+		$falseObj.focus();
+		return;
+	}
+
+	var url = contextRoot +"/approve/processCopyAppvLine.do";
+	var param = {copyStr:copyStr};
+	var callback = function(result){
+		var data = JSON.parse(result);
+		if(data.resultObject.result =="SUCCESS"){
+			alert("복사되었습니다.");
+			parent.myModal2.close();
+		}else{
+
+			var msgStr = data.resultObject.msg;
+
+			var msgStrBuf = msgStr.split("|");
+
+			var msgClass = $("#appvDocClass option[value='"+msgStrBuf[1]+"']").text();
+
+
+			var msgType =$("input[name = 'appvDocType'][value='"+msgStrBuf[2]+"']").parent().text();
+
+			var msg = "["+msgClass + ">" + msgType +"]\n";
+				msg+= +msgStrBuf[3]
+			alert(msg);
+			return;
+		}
+	}
+
+	var confirmMsg = "";
+	if(insertCnt>0&&updateCnt>0){
+		confirmMsg = insertCnt+"건의 신규추가,\n"+updateCnt+"건의 덮어쓰기를 설정하셨습니다.\n\n+설정대로 일괄 복사 하시겠습니까?";
+	}else if(updateCnt == 0 && insertCnt>0){
+		confirmMsg = insertCnt+"건의 신규추가를 설정하셨습니다.\n\n+설정대로 일괄 복사 하시겠습니까?";
+	}else if(insertCnt == 0 && updateCnt>0){
+		confirmMsg = updateCnt+"건의 덮어쓰기를 설정하셨습니다.\n\n+설정대로 일괄 복사 하시겠습니까?";
+	}
+
+	if(confirm(confirmMsg)){
+		commonAjax("POST", url, param, callback,false);
+	}
+
+
+}
+</script>
+<div class="mo_container">
+		<form id = "searchFrm" name = "searchFrm">
+			<input type="hidden" id = "appvDocType" name = "appvDocType">
+			<input type="hidden" id = "appvDocClass" name = "appvDocClass">
+		</form>
+		<table class="tb_basic_left">	<!-- AXFormTable : width 100% >> 98% (재정의) -->
+	    	<colgroup>
+				<col width="40">
+				<col width="150">
+				<col width="*">
+				<col width="*">
+			</colgroup>
+			<tbody>
+				<tr>
+					<th></th>
+					<th scope="row" colspan="3" style="text-align: center;">복사 원본</th>
+
+		 		</tr>
+		 		<tr>
+		 			<th scope="col"></th>
+		 			<th scope="row">문서종류</th>
+		 			<th scope="row">문서타입</th>
+		 			<th scope="row">결재라인명</th>
+		 		</tr>
+		 		<tr>
+		 			<td></td>
+		 			<td>
+	 					<span id="appvDocClassTag0"></span><!-- 문서종류선택 -->
+	 				</td>
+		 			<td>
+		 				<span id="appvDocTypeTag0" >
+	                  		<select id = "selectAppvDocType" name = "selectAppvDocType" class="select_b w100pro">
+	                  			<option value="">문서타입선택</option>
+	                  		</select>
+	                   </span><!-- 문서타입선택 :선택한 문서종류-->
+		 			</td>
+		 			<td>
+						<span id = "appvHeaderNameArea0">
+							<select id = "appvHeaderId" name = "appvHeaderId" class="select_b w100pro">
+	                  			<option value="">결재라인명선택</option>
+	                  		</select>
+						</span>
+		 			</td>
+		 		</tr>
+		 		<!-- -------------------------------------------- -->
+				<tr>
+		 			<td colspan="4" class="txt_center"><i class="axi axi-ion-arrow-down-a" style="font-size:20px; color:#d1d1d1;"></i></td>
+		 		</tr>
+				<!-- -------------------------------------------- -->
+	 			<tr>
+	 				<th scope="col"><label><input type="checkbox" id = "chkAll"/><em class="hidden">전체선택</em></label></th>
+					<th scope="row" colspan="3" style="text-align: center;">복사 대상</th>
+		 		</tr>
+	 			<tr id = "addItemArea">
+	 				<td>
+					</td>
+		 			<td>
+	 					<span id="appvDocClassTag1" ></span><!-- 문서종류선택 --></td>
+		 			<td>
+		 				<span id="appvDocTypeTag1" >
+	                  		<select id = "appvDocType" name = "selectAppvDocType" class="select_b w100pro">
+	                  			<option value="">문서타입선택</option>
+	                  		</select>
+	                   </span><!-- 문서타입선택 :선택한 문서종류-->
+		 			</td>
+		 			<td style="text-align: center;">
+		 				<a href="javascript:addCopyLine()" class="btn_s_type_blue2"><em>추가</em></a>
+						<!-- <span id = "appvHeaderNameArea1">
+							<select id = "appvDocType" name = "selectAppvDocType" class="select_b w100pro">
+	                  			<option value="">문서타입선택</option>
+	                  		</select>
+						</span> -->
+		 			</td>
+		 		</tr>
+		</tbody>
+		</table>
+		<div class="btnZoneBox">
+			<button id="btnDel" type="button" onclick="doCopy();" class="p_blueblack_btn">복사</button>
+			<button id="btnDel" type="button" onclick="deleteCopyLine();" class="p_withelin_btn">삭제</button>
+		</div>
+		<div class="btnZoneBox">
+			<button id="btnSave" type="button" onclick="parent.myModal2.close();" class="p_withelin_btn"><strong>닫기</strong></button>
+		</div>
+	</div>
+
+	<script type="text" id = "addItem">
+		<tr>
+	 		<td>
+				<label>
+					<input type="checkbox" id = "chkedDoc" name = "chkedDoc"/><em class="hidden">선택</em>
+				</label>
+			</td>
+			<td>
+	 			<span id="appvDocClassTag##index##" >
+					<input type = "hidden" id = "appvDocClass" name = "appvDocClass" value = "##appvDocClass##">
+					##appvDocClassNm##
+				</span><!-- 문서종류선택 --></td>
+			<td>
+				<span id="appvDocTypeTag##index##" >
+					<input type = "hidden" id = "appvDocType" name = "appvDocType" value = "##selectAppvDocType##">
+					##selectAppvDocTypeNm##
+	           </span><!-- 문서타입선택 :선택한 문서종류-->
+			</td>
+			<td style="text-align: center;">
+
+				 <span id = "appvHeaderNameArea##index##">
+					<select id = "appvDocType" name = "selectAppvDocType" class="select_b w100pro">
+	          			<option value="">문서타입선택</option>
+	          		</select>
+				</span>
+
+				<span id = "appvHeaderNameDicArea" style = 'display:none;'>
+					<input type = 'text' id = "appvHeaderName" name = "appvHeaderName" class = "input_b w100pro">
+				</span>
+			</td>
+		</tr>
+	</script>
+<!--
+
+//-->
+</script>

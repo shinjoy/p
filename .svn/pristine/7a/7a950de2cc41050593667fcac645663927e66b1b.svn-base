@@ -1,0 +1,247 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+<%
+ response.setHeader("Cache-Control","no-cache");
+ response.setHeader("Pragma","no-cache");
+ response.setDateHeader("Expires",0);
+%>
+
+<!DOCTYPE html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>재전송</title>
+<link href="<c:url value='/css/content.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/css/btn.css'/>" rel="stylesheet" type="text/css">
+
+<link href="<c:url value='/css/new_ib.css'/>" rel="stylesheet" type="text/css">
+
+<script type="text/JavaScript" src="<c:url value='/js/html5.js'/>"></script>
+<script type="text/JavaScript" src="<c:url value='/js/jquery.min.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/process.js'/>" ></script>
+
+
+<script>var contextRoot="${pageContext.request.contextPath}";</script>
+<script type="text/JavaScript" src="${pageContext.request.contextPath}/js/sys/utils.js?ver=0.1" ></script>
+<script type="text/JavaScript" src="${pageContext.request.contextPath}/js/common.js?ver=0.1"></script><!-- ajaxRequest, etc -->
+
+<!-- -------------- axisj source include (JS, CSS) :S -------------- -->
+<%@ include file="/includeAxisj.jsp" %>
+<!-- -------------- axisj source include (JS, CSS) :E -------------- -->
+
+<!-- -------------- sjs (JS) :S -------------- -->
+<script type="text/javascript" src="${pageContext.request.contextPath}/sjs/SGrid.js"></script>
+<!-- -------------- sjs (JS) :E -------------- -->
+
+
+<style>
+.selUserStyle{
+	height:25px;
+	font-size:12px;
+}
+
+.net_table_apply {
+    border-top: #a0a7b3 solid 0px;
+    border-left: #b9c1ce solid 0px;
+    border-right: #b9c1ce solid 1px;
+    border-bottom: #b9c1ce solid 1px;
+    width: 100%;
+    vertical-align: middle;
+    line-height: 16px;
+    font-size: 12px;
+    letter-spacing: -0.8px;
+    margin-top: 1px;
+    margin-right: 50px;
+}
+.net_table_apply tbody th {
+    border-left: #b9c1ce solid 0px;
+}
+</style>
+
+
+</head>
+<base target="_self">
+<body>
+
+	<jsp:scriptlet>
+		pageContext.setAttribute("cr", "\r");
+		pageContext.setAttribute("lf", "\n");
+		pageContext.setAttribute("crlf", "\r\n");
+	</jsp:scriptlet>
+
+<form id="searchCst" name="searchCst" action="<c:url value='/person/main.do' />" method="post">
+	<input type="hidden" id="nameSearch" name="cstNm">
+</form>
+
+<form id="personLeft" name="personLeft" action="<c:url value='/person/personMgmt.do' />" method="post"></form>
+<input type="hidden" id="rgstId" value="<c:out value='${baseUserLoginInfo.loginId}'/>">
+<input type="hidden" id="cst_snb" value="">
+<input type="hidden" id="rtn" value="">
+
+<input type="hidden" id="fromMain" value="${fromMain}"> <!-- 메인페이지 위젯 추가를 통해 등록하는 것인지 체크 ...fromMain=='y' -->
+
+<form id="customerName" name="customerName" action="<c:url value='/person/main.do' />" method="post">
+	<input type="hidden" id="s_Name" name="sNb">
+</form>
+
+<form name="rgstForm">
+
+	<table class="net_table_apply" summary="재전송 메모 내용">
+        <caption>
+            재전송 메모 내용
+        </caption>
+        <colgroup>
+        	<col width="40" />
+            <col width="400" />
+        </colgroup>
+        <tbody>
+            <tr>
+                <th scope="row">내용</th>
+                <td>
+                	<textarea rows="17" id="cntnt" style="width:410px!important;">[재전송] ${dt} 전송 내용입니다.
+----------------------------------------------------
+${comment}
+----------------------------------------------------
+                	</textarea>
+                </td>
+
+            </tr>
+        </tbody>
+    </table>
+
+    <div style="padding-left:10px;color:#aaa;">* 다음 영업일(${resendDate}) 날짜로 전송 됩니다</div>
+
+	<div class="table_btnZone"><a href="javascript:fnObj.doSave();"><img src="<c:url value='/images/network/btn_save.gif'/>" alt="전송" /></a></div>
+
+</form>
+
+</body>
+</html>
+
+
+
+
+
+<script type="text/javascript">
+
+//Global variables :S ---------------
+
+//공통코드
+//var comCodeRoleCd;				//권한코드
+//var comCodeMenuType;			//메뉴타입
+var comCodeCstType;			//고객구분
+
+//var myModal = new AXModal();	// instance
+
+var myGrid = new SGrid();		// instance		new sjs
+var myPaging = new SPaging();	// instance		new sjs
+var mySorting = new SSorting();	// instance		new sjs
+
+
+//div popup 방식을 위한 글쓰기,수정 위한 변수
+var mode;						//"new", "view", "update"
+
+//Global variables :E ---------------
+
+
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+var fnObj = {
+
+	//################# init function :S #################
+
+	//선로딩코드
+	preloadCode: function(){
+
+		//페이지크기 세팅
+		//fnObj.setPageSize();
+	},
+
+
+	//화면세팅
+    pageStart: function(){
+
+    },//end pageStart.
+  	//################# init function :E #################
+
+
+    //################# else function :S #################
+
+  	//저장
+    doSave: function(){
+
+    	var cntnt = $('#cntnt');
+
+		if(cntnt.val().is_null()){
+			cntnt.focus();
+			alert("내용을 입력하세요.");return;
+		}
+
+
+		//---------- 해당 이름 존재 여부 체크
+
+		var url = contextRoot + "/work/memoResend.do";
+    	var param = {
+    			sNb : '${sNb}',
+    			comment : cntnt.val(),
+    			tmDt : '${resendDate}'
+    	};
+
+    	var callback = function(result){
+
+    		var obj = JSON.parse(result);
+
+    		var rsltObj = obj.resultObject;	//결과수
+
+    		if(obj.result == "SUCCESS"){
+    			window.close();
+    			opener.location.reload();
+    		}
+
+    	};
+
+
+    	commonAjax("POST", url, param, callback);
+
+
+    },//end doSave
+
+
+    //친밀도 체크
+    chkRelationDegree: function(th, val){
+    	var end = false;	//체크 완료
+    	var colV = 'pink';
+    	for(var i=1; i<=5; i++){
+
+    		$('#relDeg'+i).css('background-color', colV);
+
+    		if(i == val){
+    			end = true;
+    			colV = 'white';
+    			$('#relDegV').val('0000'+i);		//친밀도 세팅
+    		}
+    	}
+    }
+
+  	//################# else function :E #################
+
+
+
+};//end fnObj.
+
+
+/*
+ * 화면로딩완료후, 자바스크립트 화면세팅 과 그외동작들 호출.
+ */
+$(function(){
+	fnObj.preloadCode();	//공통코드 or 각종선로딩코드
+	//fnObj.pageStart();		//화면세팅
+	//fnObj.doSearch();		//검색
+	//fnObj.setTooltip();
+});
+</script>

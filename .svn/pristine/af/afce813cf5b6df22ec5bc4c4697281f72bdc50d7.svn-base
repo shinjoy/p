@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="login">
+
+	<!--
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="carVO" type="ib.car.service.CarVO"/>
+	 -->
+
+	<!-- 로그인 사용자정보 -->
+	<select id="login.selectUserLoginInfo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.USER_ID						AS userId			<!-- 사용자키 -->
+			  ,A.EMP_NO							AS empNo			<!-- 사번 -->
+			  ,B.ROLE_ID						AS userRoleId		<!-- 권한아이디 -->
+			  ,C.LOGIN_ATTEND  AS loginAttend
+
+			  ,(SELECT ORG_ACCESS_AUTH_TYPE FROM BS_RELATION_COMPANY_ACCESS_AUTH WHERE USER_ID = A.USER_ID AND ORG_ID = B.ORG_ID)	AS orgBasicAuth	<!-- 해당 관계사 기본 read/write 권한 -->
+
+			  ,(SELECT ROLE_CODE FROM BS_ROLE_LIST WHERE ROLE_ID = B.ROLE_ID) as userRole	<!-- 권한코드 -->
+
+			  ,A.NAME							AS userName			<!-- 사원명 -->
+			  ,A.RANK							AS rank				<!-- 직급코드 -->
+			  ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = A.ORG_ID)	AS rankNm				<!-- 직급명 -->
+			  ,A.LOGIN_ID						AS loginId          <!-- 아이디 -->
+			  ,A.PASSWORD						AS loginPwd	        <!-- 패스워드 -->
+			  ,A.MOBILE_TEL						AS mobile			<!-- 모바일 -->
+			  ,A.EMAIL							AS email			<!-- 이메일 -->
+
+			  ,A.CUS_ID							AS cusId			<!-- 고객테이블 id -->
+
+			  ,(SELECT USER_LANG FROM BS_USER_PROFILE WHERE USER_ID = A.USER_ID) 	AS lang		<!-- 언어(메뉴 등 화면표시 언어) -->
+
+			  ,DATE(A.JOIN_DATE)				AS joinDate			<!-- 입사일 -->
+			  ,A.COMPANY_TEL					AS companyTel		<!-- 회사자리전화번호 -->
+			  ,CONCAT(A.HOME_ADDR1, ' ', A.HOME_ADDR2) 	AS homeAddr	<!-- 집주소 -->
+			  
+			  ,A.USER_RULE_INFO_YN				AS userRuleInfoYn	<!-- 이용약관 동의여부 -->
+			  ,A.USER_PROCESS_INFO_YN			AS userProcessInfoYn<!-- 개인정보 처리방침 동의여부 -->
+
+			  ,D.DEPT_ID 						AS deptId			<!-- 부서 id -->
+			  <!-- ,(SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = D.DEPT_ID) as deptNm		2016.10.24. 이인희 수정 부서명 -->
+			  , G.KOR_NAME  					AS deptNm  			<!-- 부서명 -->
+			  , G.PARENT_DEPT_ID  				AS parentDeptId  	<!-- 상위부서ID -->
+			   ,(SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = G.PARENT_DEPT_ID) 	AS parentDeptNm     <!-- 상위부서명 -->
+			  ,(SELECT EMP_NO FROM BS_USER_MASTER WHERE USER_ID = F.USER_ID) 			AS deptMngrEmpNo	<!-- 부서장 사번 -->
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = F.USER_ID) 				AS deptMngrNm		<!-- 부서장 이름 -->
+			  ,(CASE WHEN (SELECT COUNT(1)
+                                FROM BS_DEPT_MANAGER
+                                WHERE USER_ID = A.USER_ID
+                                AND DELETE_FLAG ='N'
+                                AND ENABLE = 'Y') <![CDATA[>]]> 0 THEN 'Y'
+                       ELSE 'N'
+                END) AS deptMngrYn  <!-- 부서장 여부-->
+
+			  ,C.PERMISSION						AS permission		<!-- PERMISSION 코드 -->
+			  ,(SELECT 'Y' FROM BS_CODE_GV WHERE CODE_NAME = 'ANAL_MASTER' AND CAST(CODE_VALUE AS UNSIGNED) = A.USER_ID AND ORG_ID = A.ORG_ID)	AS analMaster	<!-- 분석의견수정권한자 -->
+			  ,C.INFO_LEVEL						AS infoLevel		<!-- 정보 권한 레벨 -->
+			  ,C.MNA_LEVEL						AS mnaLevel			<!-- M&A정보 권한 레벨 -->
+			  ,C.REVIEW_LEVEL					AS reviewLevel		<!-- 투심 권한 레벨 -->
+			  ,C.BUSINESS_INFO_LEVEL			AS businessInfoLevel<!-- 영업정보 조회 권한	C < E < G -->
+			  ,C.BOARD_INFO_LEVEL				AS boardInfoLevel	<!-- 업무게시판 조회 권한	C < E < G -->
+			  ,C.CUSTOMER_INFO_LEVEL			AS customerInfoLevel<!-- 고객정보 조회 권한	C < E < G -->
+
+			  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY)		AS cpnNm	<!-- 회사명 -->
+			  ,A.ORG_ID							AS orgId								<!-- ORG id -->
+			  ,A.ORG_ID							AS applyOrgId							<!-- ORG id -->
+			  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = E.COMPANY_SNB)	AS orgNm	<!-- ORG 명 -->
+			  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = E.COMPANY_SNB)	AS applyOrgNm	<!-- ORG 명 -->
+
+			  ,IFNULL(C.CAR_WORK_YN, 'N') 		AS carWorkYn							<!-- 차량사용자 -->
+			  ,IFNULL(C.MEZZ_L, 'N') 			AS mezzL								<!-- 메자닌 상장   정보 권한 -->
+			  ,IFNULL(C.MEZZ_N, 'N') 			AS mezzN								<!-- 메자닌 비상장 정보 권한 -->
+
+			  ,E.CODE_MGMT_ADMIN_YN				AS codeMgmtAdminYn						<!-- 시스템코드 최상위 관리자 권한(시스템코드 관리 화면에서 일괄적용버튼 사용) -->
+
+			  ,IFNULL((SELECT FILE_SEQ
+				  FROM bs_file_list
+				 WHERE upload_id = A.USER_ID
+				   AND UPLOAD_TYPE = 'PROFILEIMG'
+				   AND DELETE_FLAG = 'N'),0)	AS myPhoto			<!-- 내 사진 -->
+
+              ,IFNULL((SELECT CONCAT(SUBSTRING_INDEX(FL.file_path, '/', -3), FL.NEW_FILE_NM)
+                  FROM bs_file_list FL
+                 WHERE upload_id = A.USER_ID
+                   AND UPLOAD_TYPE = 'PROFILEIMG'
+                   AND DELETE_FLAG = 'N'),'')   AS myPhotoNm     <!-- 사진 경로 -->
+
+			  ,C.SYSTEM_YN  					AS systemYn  		<!-- 시스템 사용여부 -->
+			  ,C.WHOLE_MEMO_VIEW_YN 			AS wholeMemoViewYn  <!-- 메모 보기 권한 -->
+			  ,C.EXPENSE_YN  					AS expenseYn  		<!-- 지출 입력 여부(지출입력 필수자 여부) -->
+			  ,C.OPEN_CALENDAR  				AS openCalendar 	<!-- 달력 오픈 가능 여부 -->
+			  ,C.CLOSE_CALENDAR  				AS closeCalendar  	<!-- 달력 마감 가능 여부 -->
+			  
+			  
+			  ,E.ENABLE 						AS enable 			<!-- 유효여부 -->
+			  ,E.USE_YN 						AS useYn 			<!-- 사용가능여부 -->
+
+			  ,E.MAIL_USE_YN					AS mailUseYn		<!-- bs_org 속성 -->
+    		  ,E.MAIL_SERVICE_NAME				AS mailServiceName	<!-- bs_org 속성 -->
+    		  ,E.MAIL_URL						AS mailUrl			<!-- bs_org 속성 -->
+    		  ,E.MAIL_LINK_TYPE					AS mailLinkType 	<!-- bs_org 속성 -->
+    		  ,E.PROJECT_TITLE					AS projectTitle		<!-- 프로젝트 타이틀 -->
+    		  ,E.ACTIVITY_TITLE					AS activityTitle	<!-- 엑티비티 타이틀 -->
+			  ,A.MAIL_LINK_FLAG					AS mailLinkFlag		<!-- 사용자 메일 속성 -->
+    		  ,IFNULL(A.MAIL_ID,'')				AS mailId			<!-- 사용자 메일 속성 -->
+    		  ,IFNULL(A.MAIL_PASSWORD,'')		AS mailPassword   	<!-- 사용자 메일 속성 -->
+
+			  ,C.MY_FAVOR_USER					AS myFavorUser		<!-- 사용자 즐겨찾기 보기 기본설정값 -->
+			  ,IFNULL(E.DOMAIN,'')                AS domain               <!-- 기관 접속 도메인정보 -->
+			  ,E.APPROVE_USE_YN  AS approveUseYn
+			  ,E.ORG_CODE  AS orgCode
+			  ,IFNULL(G.DEPT_LEVEL,'') AS deptLevel
+			  ,(CASE WHEN G.DEPT_LEVEL IN ('L00','L10','L20') THEN 'Y'
+			           WHEN A.CUS_ID = '1133368' THEN 'Y'
+			           ELSE 'N'
+			   END) AS deptBossLevelYn  <!-- 부서가 회장, 그룹대표, 대표 여부(시너지유저포함) -->
+              ,(CASE WHEN A.CUS_ID != '1133368' THEN 'Y' ELSE 'N' END) AS hideSynergyUserYn  <!-- 관계사 시너지 유저 목록 숨김여부 -->
+              ,C.MAIN_BOARD_HEADLINE_YN AS mainBoardHeadlineYn
+              , DATE_FORMAT(E.IN_TIME,'%H:%i') AS inTime
+              , DATE_FORMAT(E.OUT_TIME, '%H:%i') AS outTime
+              , (CASE WHEN E.ORG_ID = 1 THEN 'Y' ELSE 'N' END) AS isSynergyYn
+		  FROM BS_USER_MASTER			A
+		  JOIN BS_USER_ROLE_LIST 		B	ON A.USER_ID = B.USER_ID
+		  LEFT JOIN BS_USER_PROFILE		C	ON A.USER_ID = C.USER_ID
+		  LEFT JOIN BS_USER_DEPARTMENT 	D	ON A.USER_ID = D.USER_ID
+		  LEFT JOIN BS_ORG				E	ON A.ORG_ID = E.ORG_ID
+		  LEFT JOIN BS_DEPT_MANAGER		F	ON D.DEPT_ID = F.DEPT_ID
+		  LEFT JOIN BS_DEPARTMENT       G   ON G.DEPT_ID = D.DEPT_ID
+
+		 WHERE 1=1
+
+		<isEmpty prepend="AND" property="orgId">
+			B.ORG_ID = A.ORG_ID
+		</isEmpty>
+		<isNotEmpty prepend="AND" property="orgId">
+			B.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		   AND A.LOGIN_ID = #loginId#
+		   AND A.PASSWORD = #userPwd#
+		   AND A.USER_STATUS NOT IN ('F','R')
+		   AND A.DELETE_FLAG = 'N'
+		   AND B.ENABLE = 'Y'
+		   AND D.DELETE_FLAG = 'N'
+		   AND D.ENABLE = 'Y'
+		   AND D.MAIN_YN = 'Y'
+		   <!-- AND F.DELETE_FLAG = 'N'
+		   AND F.ENABLE = 'Y' -->
+
+		/* login.selectUserLoginInfo */
+	</select>
+
+	<!-- 로그인 사용자정보 -->
+	<select id="login.selectBaseUserInfo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.USER_ID						AS userId			<!-- 사용자키 -->
+			  ,A.EMP_NO							AS empNo			<!-- 사번 -->
+			  ,B.ROLE_ID						AS userRoleId		<!-- 권한아이디 -->
+
+			  ,(SELECT ORG_ACCESS_AUTH_TYPE FROM BS_RELATION_COMPANY_ACCESS_AUTH WHERE USER_ID = A.USER_ID AND ORG_ID = B.ORG_ID)	AS orgBasicAuth	<!-- 해당 관계사 기본 read/write 권한 -->
+
+			  ,(SELECT ROLE_CODE FROM BS_ROLE_LIST WHERE ROLE_ID = B.ROLE_ID) as userRole	<!-- 권한코드 -->
+
+			  ,A.NAME							AS userName			<!-- 사원명 -->
+			  ,A.RANK							AS rank				<!-- 직급코드 -->
+			  ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK
+		  		   AND G.ORG_ID = A.ORG_ID)		AS rankNm			<!-- 직급명 -->
+			  ,A.LOGIN_ID						AS uId				<!-- 아이디 -->
+			  ,A.PASSWORD						AS uPwd				<!-- 패스워드 -->
+			  ,A.MOBILE_TEL						AS mobile			<!-- 모바일 -->
+			  ,A.EMAIL							AS email			<!-- 이메일 -->
+
+			  ,A.CUS_ID							AS cusId			<!-- 고객테이블 id -->
+
+			  ,(SELECT USER_LANG FROM BS_USER_PROFILE WHERE USER_ID = A.USER_ID) 	AS lang		<!-- 언어(메뉴 등 화면표시 언어) -->
+
+			  ,DATE(A.JOIN_DATE)				AS joinDate			<!-- 입사일 -->
+			  ,A.COMPANY_TEL					AS companyTel		<!-- 회사자리전화번호 -->
+			  ,CONCAT(A.HOME_ADDR1, ' ', A.HOME_ADDR2) 	AS homeAddr	<!-- 집주소 -->
+
+			  ,D.DEPT_ID 						AS deptId			<!-- 부서 id -->
+			  ,(SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = D.DEPT_ID) AS deptNm		<!-- 부서명 -->
+			  ,(SELECT EMP_NO FROM BS_USER_MASTER WHERE USER_ID = F.USER_ID) AS deptMngr	<!-- 부서장 사번 -->
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = F.USER_ID) AS deptMngrNm	<!-- 부서장 이름 -->
+
+			  ,C.PERMISSION						AS permission		<!-- PERMISSION 코드 -->
+			  ,(SELECT 'Y' FROM BS_CODE_GV WHERE CODE_NAME = 'ANAL_MASTER'
+			  								 AND CAST(CODE_VALUE AS UNSIGNED) = A.USER_ID
+			  								 AND ORG_ID = A.ORG_ID)	AS analMaster	<!-- 분석의견수정권한자 -->
+			  ,C.INFO_LEVEL						AS infoLevel		<!-- 정보 권한 레벨 -->
+			  ,C.MNA_LEVEL						AS mnaLevel			<!-- M&A정보 권한 레벨 -->
+			  ,C.REVIEW_LEVEL					AS reviewLevel		<!-- 투심 권한 레벨 -->
+			  ,C.BUSINESS_INFO_LEVEL			AS businessInfoLevel<!-- 영업정보 조회 권한	C < E < G -->
+			  ,C.BOARD_INFO_LEVEL				AS boardInfoLevel	<!-- 업무게시판 조회 권한	C < E < G -->
+			  ,C.CUSTOMER_INFO_LEVEL			AS customerInfoLevel<!-- 고객정보 조회 권한	C < E < G -->
+
+			  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY)		AS cpnNm	<!-- 회사명 -->
+			  ,A.ORG_ID							AS orgId								<!-- ORG id -->
+			  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = E.COMPANY_SNB)	AS orgNm	<!-- ORG 명 -->
+
+			  ,(SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = (SELECT COMPANY_SNB FROM BS_ORG WHERE ORG_ID = B.ORG_ID))	AS applyOrgNm	<!-- ORG 명 -->
+
+			  ,IFNULL(C.CAR_WORK_YN, 'N') 		AS carWorkYn							<!-- 차량사용자 -->
+			  ,IFNULL(C.MEZZ_L, 'N') 			AS mezzL								<!-- 메자닌 상장   정보 권한 -->
+			  ,IFNULL(C.MEZZ_N, 'N') 			AS mezzN								<!-- 메자닌 비상장 정보 권한 -->
+
+			  ,IFNULL((SELECT FILE_SEQ
+				  FROM bs_file_list
+				 WHERE upload_id = A.USER_ID
+				   AND UPLOAD_TYPE = 'PROFILEIMG'
+				   AND DELETE_FLAG = 'N'),0)	AS myPhoto	<!-- 내 사진 -->
+			  ,G.PROJECT_TITLE					AS projectTitle		<!-- 프로젝트 타이틀 -->
+    		  ,G.ACTIVITY_TITLE					AS activityTitle	<!-- 엑티비티 타이틀 -->
+		  FROM BS_USER_MASTER			A
+		  JOIN BS_USER_ROLE_LIST 		B	ON A.USER_ID = B.USER_ID
+		  LEFT JOIN BS_USER_PROFILE		C	ON A.USER_ID = C.USER_ID
+		  LEFT JOIN BS_USER_DEPARTMENT 	D	ON A.USER_ID = D.USER_ID
+		  LEFT JOIN BS_ORG				E	ON A.ORG_ID = E.ORG_ID
+		  LEFT JOIN BS_DEPT_MANAGER		F	ON D.DEPT_ID = F.DEPT_ID
+		  LEFT JOIN BS_ORG				G	ON B.ORG_ID = G.ORG_ID
+		 WHERE 1=1
+		<isNotEmpty prepend="AND" property="userId">
+			A.USER_ID = #userId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="loginId">
+			A.LOGIN_ID = #loginId#
+		</isNotEmpty>
+
+		<isEmpty prepend="AND" property="orgId">
+			B.ORG_ID = A.ORG_ID
+		</isEmpty>
+		<isNotEmpty prepend="AND" property="orgId">
+			B.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		   AND B.ENABLE = 'Y'
+		   AND D.DELETE_FLAG = 'N'
+		   AND D.ENABLE = 'Y'
+		   AND D.MAIN_YN = 'Y'
+		   <!-- AND F.DELETE_FLAG = 'N'
+		   AND F.ENABLE='Y' -->
+
+		/* login.selectBaseUserInfo */
+	</select>
+
+
+	<!-- 로그인 사용자정보 -->
+	<select id="login.selectLoginInfo" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.USER_ID		as userId			<!-- 사용자키 -->
+			  ,A.EMP_NO			as empNo			<!-- 사번 -->
+			  ,B.ROLE_ID		as userRoleId		<!-- 권한아이디 -->
+			  ,(SELECT ROLE_CODE FROM BS_ROLE_LIST WHERE ROLE_ID = B.ROLE_ID) as userRole	<!-- 권한코드 -->
+
+			  ,A.NAME			as userName			<!-- 사원명 -->
+			  ,A.RANK			as rankNm			<!-- 직급명 -->
+			  ,A.LOGIN_ID		as uId				<!-- 아이디 -->
+			  ,A.PASSWORD		as uPwd				<!-- 패스워드 -->
+			  ,A.MOBILE_TEL		as mobile			<!-- 모바일 -->
+			  ,A.EMAIL			as email			<!-- 이메일 -->
+
+			  <!-- ,(SELECT VALUE FROM BASE.PROFILE WHERE NAME = 'LANGUAGE') as lang		언어(메뉴 등 화면표시 언어) -->
+			  ,(SELECT USER_LANG FROM BS_USER_PROFILE WHERE USER_ID = A.USER_ID) as lang	<!-- 언어(메뉴 등 화면표시 언어) -->
+			  <!-- 임시로 BASE.PROFILE 로 하고, 사용자테이블도 다 넘어오고 할때 위의 BASE.BS_USER_PROFILE 로 바꾸자!!!!!!!!!!!!!! -->
+
+			  ,(SELECT DEPT_ID FROM BS_USER_DEPARTMENT WHERE USER_ID = A.USER_ID AND DELETE_FLAG = 'N' AND MAIN_YN = 'Y') as deptId
+			  ,(SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = (
+			  							SELECT DEPT_ID FROM BS_USER_DEPARTMENT WHERE USER_ID = A.USER_ID AND DELETE_FLAG = 'N' AND MAIN_YN = 'Y')) as deptNm
+
+		  FROM BS_USER_MASTER		A
+		  JOIN BS_USER_ROLE_LIST 	B ON A.USER_ID = B.USER_ID
+		 WHERE 1=1
+
+		<isEmpty prepend="AND" property="orgId">
+			B.ORG_ID = A.ORG_ID
+		</isEmpty>
+		<isNotEmpty prepend="AND" property="orgId">
+			B.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		   AND A.LOGIN_ID = #uId#
+		   AND A.PASSWORD = #uPwd#
+		   AND B.ENABLE = 'Y'
+
+		/* login.selectLoginInfo */
+	</select>
+
+
+</sqlMap>

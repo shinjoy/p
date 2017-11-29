@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="FormDoc">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="formVO" type="ib.schedule.service.FormDocVO"/>
+	<typeAlias alias="spCmmVO" type="ib.schedule.service.SpCmmVO"/>
+
+	<!-- 사원리스트 받아오기 -->
+	<select id="formDAO.GetPerList" parameterClass="HashMap" resultClass="egovMap">
+		SELECT A.EMP_NO				AS perSabun
+			 , A.NAME				AS perNm
+			 , A.MOBILE_TEL			AS perPhone
+			 , (SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY)	AS comPosition
+			 , (SELECT VALUE_MEAN_KOR FROM BS_CODE_GV WHERE CODE_NAME = 'RANK' AND CODE_VALUE = A.RANK AND ORG_ID = #orgId#)	AS perPositionNm
+			 , B.DEPT_ID			AS perDept
+			 , DATE_FORMAT(A.JOIN_DATE,'%Y-%m-%d')	AS perJoinCom
+			 , A.DELETE_FLAG		AS delFlag
+			 , A.ORG_ID				AS division
+			 , A.EMP_NO				AS perSabun
+			 , D.KOR_NAME			AS deptNm
+			 , D.DEPT_ID			AS deptSeq
+
+		  FROM BS_USER_MASTER			A
+		  LEFT JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID
+		  LEFT JOIN BS_ORG				C	ON A.ORG_ID  = C.ORG_ID
+		  LEFT JOIN BS_DEPARTMENT		D	ON B.DEPT_ID = D.DEPT_ID
+
+		 WHERE 1=1
+		   AND A.DELETE_FLAG = 'N'
+		   AND A.USER_STATUS IN ('W','H')
+
+		<isNotEmpty prepend="AND" property="orgId">
+			A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="sabun"> <!-- 사번에 따른 검색 -->
+			A.EMP_NO IN ($sabun$)
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="mainYn"><!--  메인 팀에따른 유저검색 -->
+			B.main_yn ='Y'
+		</isNotEmpty>
+
+		<isNotEqual property="deptOrder" compareValue="Y">
+		  ORDER BY A.ORG_ID ASC, A.NAME ASC
+		</isNotEqual>
+		<isEqual property="deptOrder" compareValue="Y">
+		  ORDER BY D.DEPT_SEQ ASC, A.NAME ASC
+		</isEqual>
+
+	</select>
+
+	<!-- 선택 사원 정보 받아오기 -->
+	<select id="formDAO.GetPerInfo" resultClass="formVO">
+		SELECT A.EMP_NO									AS perSabun
+			 , A.NAME									AS PER_NM
+			 , B.DEPT_ID								AS perDept
+			 , IFNULL((SELECT NAME
+			 			 FROM BS_DEPARTMENT
+			 			WHERE DEPT_ID = B.DEPT_ID), '')	AS deptNm
+
+			 , (SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'RANK'
+		  		   AND G.CODE_VALUE = A.RANK)			AS perPositionNm
+
+			 , (SELECT CPN_NM FROM IB_COMPANY WHERE S_NB = A.COMPANY) AS comPosition
+			 , DATE(A.JOIN_DATE)						AS perJoinCom
+			 , DATE(A.FIRED_DATE)						AS perOutCom
+			 , CONCAT(A.HOME_ADDR1, ' ', A.HOME_ADDR2)	AS perAddr
+
+		  FROM BS_USER_MASTER			A
+		  LEFT JOIN BS_USER_DEPARTMENT	B	ON A.USER_ID = B.USER_ID
+		 WHERE A.EMP_NO = #TargetPerSabun#
+		   AND B.MAIN_YN = 'Y'
+		   AND B.ENABLE = 'Y'
+		   AND B.DELETE_FLAG = 'N'
+	</select>
+
+	<!-- 증명서 발급 요청 완료 -->
+	<insert id="formDAO.FormDocReqEnd">
+		INSERT INTO ERP_FORM_DOC (
+									  REQ_PER_SABUN
+									, TARGET_PER_SABUN
+									, FORM_DOC_CD
+									, JUMIN1
+									, JUMIN2
+									, JUMIN_FLAG
+									, PER_ADDR
+									, PER_DEPT
+									, PER_POSITION_NM
+									, PERIOD
+									, FORM_DOC_ETC
+									, FORM_DOC_USE
+									, FORM_DOC_REASON
+									, COM_POSITION
+									, ORG_ID
+									, REQ_DATE
+									, REQ_STATUS
+									, DEL_FLAG
+									) VALUES (
+												#reqPerSabun#
+											  , #targetPerSabun#
+											  , #formDocCd#
+											  , #jumin1#
+											  , #jumin2#
+											  , #juminFlag#
+											  , #perAddr#
+											  , #perDept#
+											  , #perPositionNm#
+											  , #period#
+											  , #formDocEtc#
+											  , #formDocUse#
+											  , #formDocReason#
+											  , #comPosition#
+											  , #orgId#
+											  , NOW()
+											  , 'New'
+											  , 'N'
+											  )
+	</insert>
+
+	<!-- 증명서 정보 받아오기 -->
+	<select id="formDAO.GetFormDocInfo" resultClass="formVO">
+		SELECT FORM_DOC_REQ_SEQ AS FORM_DOC_REQ_SEQ
+			 , REQ_PER_SABUN AS reqPerSabun
+			 , TARGET_PER_SABUN AS targetPerSabun
+			 , A.FORM_DOC_CD AS formDocCd
+			 , B.FORM_DOC_NM AS formDocNm
+			 , JUMIN1 AS jumin1
+			 , CASE JUMIN_FLAG WHEN 'Y' THEN JUMIN2 ELSE RPAD(SUBSTRING(JUMIN2, 1, 1), 7, '*') END  AS jumin2
+			 , JUMIN_FLAG AS juminFlag
+			 , (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = REQ_PER_SABUN)  AS reqPerNm
+			 , (SELECT NAME FROM BS_USER_MASTER WHERE EMP_NO = TARGET_PER_SABUN)  AS targetPerNm
+			 , PER_ADDR AS perAddr
+			 , PER_DEPT AS perDept
+			 , IFNULL((SELECT KOR_NAME FROM BS_DEPARTMENT WHERE DEPT_ID = PER_DEPT), '')  AS deptNm
+			 , PER_POSITION_NM AS perPositionNm
+			 , PERIOD AS period
+			 , FORM_DOC_ETC AS formDocEtc
+			 , FORM_DOC_USE AS FORM_DOC_USE
+			 , FORM_DOC_REASON AS formDocReason
+			 , COM_POSITION AS comPosition
+			 , CASE COM_POSITION
+				WHEN '시너지파트너스' THEN 'part_name.jpg' WHEN '시너지투자자문' THEN 'asset_name.jpg'
+				WHEN '시너지아이비투자' THEN 'ib_name.jpg' WHEN '시너지벤처투자' THEN 'ven_name.jpg'
+			END  AS nameStamp
+			, DATE_FORMAT(REQ_DATE, '%Y-%m-%d')  AS reqDate
+			, DATE_FORMAT(REQ_STATUS, '%Y-%m-%d')  AS reqEndDate
+			, REQ_STATUS AS reqStatus
+		FROM ERP_FORM_DOC A, ERP_FORM_DOC_TYPE B
+		WHERE A.FORM_DOC_CD = B.FORM_DOC_CD AND FORM_DOC_REQ_SEQ = #formDocReqSeq#
+	</select>
+
+	<!-- 증명서 상태 변경 완료 -->
+	<update id="formDAO.FormDocStatusEditEnd">
+		UPDATE ERP_FORM_DOC
+		   SET REQ_END_PER_SABUN = #regPerSabun#
+		     , REQ_STATUS = #reqStatus#
+		     , REQ_END_DATE = NOW()
+		     , ORG_ID = #orgId#
+		     , Jumin1 = ''
+		     , Jumin2 = ''
+		 WHERE FORM_DOC_REQ_SEQ = #formDocReqSeq#
+	</update>
+
+	<!-- 증명서 요청 취소 완료 -->
+	<update id="formDAO.FormDocCancelEnd">
+		UPDATE ERP_FORM_DOC
+		   SET DEL_FLAG = 'Y'
+		     , DEL_DATE = NOW()
+		 WHERE FORM_DOC_REQ_SEQ = #formDocReqSeq#
+	</update>
+</sqlMap>

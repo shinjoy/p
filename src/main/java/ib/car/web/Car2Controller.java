@@ -1,0 +1,331 @@
+package ib.car.web;
+
+import ib.car.service.Car2Service;
+import ib.cmm.IBsMessageSource;
+
+import ib.cmm.service.CmmUseService;
+import ib.cmm.util.sim.service.AjaxResponse;
+import ib.login.service.StaffVO;
+import ib.person.service.PersonMgmtService;
+import ib.system.service.CertificationRqmtService;
+
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+
+
+/**
+ * <pre>
+ * package  : ib.car.web
+ * filename : CarController.java
+ * </pre>
+ *
+ * @author  : ChanWoo Lee
+ * @since   : 2012. 11. 23.
+ * @version : 1.0.0
+ */
+@Controller
+public class Car2Controller {
+
+	/** CmmUseService */
+	@Resource(name="CmmUseService")
+	private CmmUseService cmm;
+
+	/** MessageSource */
+    @Resource(name="IBsMessageSource")
+    IBsMessageSource MessageSource;
+
+    @Resource(name = "car2Service")
+    private Car2Service car2Service;
+
+    @Resource(name = "personMgmtService")
+    private PersonMgmtService personMgmtService;
+
+    @Resource(name = "certificationRqmtService")
+	private CertificationRqmtService certificationRqmtService;
+	/** log */
+    protected static final Log LOG = LogFactory.getLog(Car2Controller.class);
+
+    // 카운트 prefix
+ 	String prefix = "<span class=\"menuRipple\">(";
+ 	// 카운트 suffix
+ 	String suffix = ")</span>";
+
+    @ModelAttribute
+   	public void common(Model model, HttpServletRequest request, HttpSession session) {
+   		Map<String, Object> menuMap = new HashMap<String, Object>();
+
+   		///////////////// ajax조회면 실행하지 않는다 : S
+   		String ajaxHeader = request.getHeader("X-Requested-With");
+   		String winId = request.getParameter("winID");	//AxisModal
+
+		if ((ajaxHeader != null && ajaxHeader.equals("XMLHttpRequest"))||winId!=null)
+			return;
+   		///////////////// ajax조회면 실행하지 않는다 : E
+   		try{
+   			Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+
+			Map<String,Object> paramMap = new HashMap<String, Object>();
+			paramMap.put("targetOrgId", baseUserLoginInfo.get("applyOrgId").toString());
+
+			Calendar car = Calendar.getInstance();
+
+			String month = (car.get(Calendar.MONTH)+1)+"";
+			month = String.format("%02d", Integer.parseInt(month));
+			paramMap.put("month", month);
+			paramMap.put("year", car.get(Calendar.YEAR));
+
+			Integer certDocRqmtListCnt = certificationRqmtService.getCertDocRqmtListCnt(paramMap);
+			menuMap.put("MENU_CERT_DOC_RQMT_MNG",prefix + certDocRqmtListCnt + suffix);
+
+			model.addAttribute("menuSummaryMap", menuMap);
+   		}catch(Exception e){
+   			LOG.info(
+   					"=========================================업무지원 좌측메뉴 새글알림 조회도중 오류발생=============================== ");
+   			e.printStackTrace();
+   		}
+       }
+
+	/**
+	 * 차량일지
+	 *
+	 * @MethodName : index
+	 * @param carVO
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/car2/index.do")
+	public String index(
+
+			StaffVO staffVO,
+			HttpSession session,
+			ModelMap model) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "redirect:basic/Content";
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		return "car/car2Main";
+    }
+
+
+	@RequestMapping(value="/car2/userList.do")
+	public void userList(StaffVO staffVO,HttpServletResponse response,HttpSession session,@RequestParam Map<String,Object> map) throws Exception{
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("applyOrgId", baseUserLoginInfo.get("applyOrgId"));
+		List<Map> resultMap = personMgmtService.selectStaffList(map);
+		LOG.info(resultMap);
+
+		AjaxResponse.responseAjaxSelect(response, resultMap);
+	}
+
+
+	/**
+	 * 차량 리스트 콤보
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 10. 25.
+	 */
+	@RequestMapping(value="/car2/carList.do")
+	public void carList(HttpServletResponse response,HttpSession session,@RequestParam Map<String,Object> map) throws Exception{
+
+		Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+		map.put("applyOrgId", baseUserLoginInfo.get("applyOrgId"));
+		List<Map> resultMap = car2Service.selectCarList(map);
+
+		AjaxResponse.responseAjaxSelect(response, resultMap);
+	}
+
+
+	/**
+	 * 차량 사용 내역
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 10. 25.
+	 */
+	@RequestMapping(value="/car2/getCarLogList.do")
+	public void carLogList(HttpServletResponse response,HttpSession session,@RequestParam Map<String,Object> map) throws Exception{
+
+		Map resultMap = new HashMap();
+		String max= car2Service.maxDistance(map);
+		List<Map> logList = car2Service.selectCarLogList(map);
+
+		resultMap.put("logList", logList);
+		resultMap.put("max", max);
+
+		AjaxResponse.responseAjaxMap(response, resultMap);
+	}
+
+
+	@RequestMapping(value="/car2/popUpmemo.do")
+	public String popUpmemo(HttpServletResponse response,HttpSession session,@RequestParam Map<String,Object> map,ModelMap model) throws Exception{
+
+		model.addAttribute("date",map.get("date"));
+		model.addAttribute("carNick",map.get("carNick"));
+		model.addAttribute("carNick",map.get("carNick"));
+
+		return "car/popUpmemo/ajax";
+	}
+
+	@RequestMapping(value="/car2/popUpmemoAjax.do")
+	public void popUpmemoAjax(HttpServletResponse response,HttpSession session,@RequestParam Map<String,Object> map,ModelMap model) throws Exception{
+
+		Map baseUserLoginInfo = (Map) session.getAttribute("baseUserLoginInfo");
+
+		map.put("sessionUserId", baseUserLoginInfo.get("userId").toString());
+		map.put("deptLevel", baseUserLoginInfo.get("deptLevel").toString());
+		map.put("vipAuthYn", baseUserLoginInfo.get("vipAuthYn").toString());
+
+		List<Map> resultMap =car2Service.selectScheList(map);
+
+		AjaxResponse.responseAjaxSelect(response, resultMap);
+	}
+
+
+	/**
+	 * 차량 이용 등록
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 10. 25.
+	 */
+	@RequestMapping(value="/car2/insertCarLog.do")
+	public void carLogInsert(HttpServletResponse response,HttpSession session,@RequestParam Map<String,Object> map,ModelMap model)throws Exception{
+
+			int cnt =0;
+			int errDis=0;
+			Map result= new HashMap();
+
+
+			//판별
+
+			List<Map>list = car2Service.chkDistance(map);
+
+			int totalDis = Integer.parseInt((String)map.get("totalDistance"));
+			int beDis = Integer.parseInt(list.get(0).get("beDayMile").toString());
+			int afDis = Integer.parseInt(list.get(0).get("afDayMile").toString());
+			int nowDis = Integer.parseInt(list.get(0).get("nowDayMile").toString());
+
+
+			Map baseUserLoginInfo = (Map)session.getAttribute("baseUserLoginInfo");
+			String applyOrgId = baseUserLoginInfo.get("applyOrgId").toString();
+
+			//String mode = map.get("mode").toString();
+			String mode = "create";
+
+			map.put("orgId", applyOrgId);		//applyOrgId
+
+
+			if(!(-1==beDis)&&totalDis<=beDis){cnt=-2; errDis=beDis;} 		//전날보다 작으면
+			else if(!(-1==afDis)&&afDis<=totalDis){cnt=-3;errDis=afDis;}	//다음날보다 크면
+			else if(!(-1==nowDis)&&mode.equals("create")){											//해당 날짜에 같은 입력값이 있다면
+				cnt=-4;
+				errDis=nowDis;
+			}else{
+
+				if(mode.equals("create")){
+					cnt = car2Service.insertCarLog(map);
+				}else if(mode.equals("update")){
+					cnt = car2Service.updateCarLog(map);
+				}
+
+			}
+
+			result.put("cnt", cnt);
+			result.put("errDis", errDis);
+
+			AjaxResponse.responseAjaxObject(response, result);
+	}
+
+
+	/**
+	 * 운행관리 화면
+	 *
+	 * @MethodName : index
+	 * @param carVO
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/car2/carMgmt.do")
+	public String carMgmt(
+			StaffVO staffVO,
+			HttpSession session,
+			ModelMap model) throws Exception{
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+
+    	return "car/carMgmt";
+    }
+
+
+	/**
+	 * 운행관리 화면 _ 인쇄
+	 *
+	 * @MethodName : index
+	 * @param carVO
+	 * @param session
+	 * @param model
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value="/car2/carMgmtPrint.do")
+	public String carMgmtPrint(
+			StaffVO staffVO,
+			HttpSession session,
+			ModelMap model,
+			@RequestParam Map<String,Object> map) throws Exception{
+
+		if(session.getAttribute("baseUserLoginInfo")==null) return "basic/Content";
+
+		model.addAllAttributes(map);	//받은 파라미터 화면으로 그대로 전달.
+
+    	return "car/carMgmtPrint/pop";
+    }
+
+	/**
+	 * 차량 삭제
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: psj
+	 * @date		: 2016. 10. 25.
+	 */
+	@RequestMapping(value="/car2/deleteCarLog.do")
+	public void deleteCarLog(HttpServletResponse response,HttpSession session,@RequestParam Map<String,Object> map) throws Exception{
+
+		Map resultMap = new HashMap();
+
+		car2Service.deleteCarLog(map);
+		AjaxResponse.responseAjaxMap(response, resultMap);
+	}
+
+}

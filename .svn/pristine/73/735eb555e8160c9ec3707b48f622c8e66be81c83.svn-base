@@ -1,0 +1,1325 @@
+package ib.work.service.impl;
+
+import ib.basic.service.CpnExcelVO;
+import ib.cmm.FileUpDbVO;
+import ib.cmm.service.impl.ComAbstractDAO;
+import ib.login.service.StaffVO;
+import ib.person.service.PersonVO;
+import ib.recommend.service.RecommendVO;
+import ib.reply.service.ReplyVO;
+import ib.work.service.WorkVO;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+/**
+ * <pre>
+ * package  : ib.work.service.impl
+ * filename : WorkDAO.java
+ * </pre>
+ *
+ * @author  : ChanWoo Lee
+ * @since   : 2012. 8. 28.
+ * @version : 1.0.0
+ */
+@Repository("workDAO")
+public class WorkDAO extends ComAbstractDAO{
+
+	/**
+	 *
+	 * @MethodName : selectStaffList
+	 * @param staffVO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectStaffList(StaffVO staffVO) throws Exception{
+		return list("workDAO.selectStaffList", staffVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectBusinessRecordList
+	 * @param vo
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectBusinessRecordList(WorkVO workVO) throws Exception{
+		return list("workDAO.selectBusinessRecordList", workVO);
+	}
+
+    /**
+     *
+     * @MethodName : updateBusinessRecord
+     * @param workVO
+     * @throws Exception
+     */
+    public int updateBusinessRecord(WorkVO workVO) throws Exception {
+    	return (Integer)update("workDAO.updateBusinessRecord", workVO);
+    }
+
+	/**
+	 *
+	 * @MethodName : deleteBusinessRecord
+	 * @param workVO
+	 * @throws Exception
+	 */
+	public int deleteBusinessRecord(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.deleteBusinessRecord",workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectMemoList
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectMemoList(WorkVO workVO) throws Exception {
+		return list("workDAO.selectMemoList", workVO);
+	}
+	/**
+	 *
+	 * @MethodName : selectMemoList
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectReplyList(WorkVO workVO) throws Exception {
+		return list("reply.selectReplyList", workVO);
+	}
+
+    /**
+     *
+     * @MethodName : insertMemo
+     * @param workVO
+     * @return
+     * @throws Exception
+     */
+    public int insertMemo(WorkVO workVO) throws Exception {
+    	return (Integer)update("workDAO.insertMemo", workVO);
+    }
+
+    /**
+     *
+     * @MethodName : checkMemo
+     * @param workVO
+     * @return
+     * @throws Exception
+     */
+    public int checkMemo(WorkVO workVO) throws Exception {
+    	return (Integer)update("workDAO.checkMemo", workVO);
+    }
+
+    /**
+     *
+     * @MethodName : updateMemo
+     * @param workVO
+     * @return
+     * @throws Exception
+     */
+    public int updateMemo(WorkVO workVO) throws Exception {
+    	return (Integer)update("workDAO.updateMemo", workVO);
+    }
+
+    /**
+     *
+     * @MethodName : selectOfferList
+     * @param workVO
+     * @return
+     * @throws Exception
+     */
+    @SuppressWarnings("unchecked")
+	public List<WorkVO> selectOfferList(WorkVO workVO) throws Exception {
+    	return list("workDAO.selectOfferList", workVO);
+	}
+
+    /**
+     *
+     * @MethodName : selectOfferListNfile
+     * @param workVO
+     * @return
+     * @throws Exception
+     */
+    @SuppressWarnings("unchecked")
+    public List<WorkVO> selectOfferListNfile(WorkVO workVO) throws Exception {
+    	return list("workDAO.selectOfferListNfile", workVO);
+    }
+
+	/**
+	 *
+	 * @MethodName : updateFeedback
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int updateFeedback(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.updateFeedback", workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateprogressCd
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int updateprogressCd(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.updateprogressCd", workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : deleteMemo
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int deleteMemo(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.deleteMemo",workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateDealMemo
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int updateDealMemo(WorkVO workVO) throws Exception {
+    	return (Integer)update("workDAO.updateDealMemo", workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateDueDate
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int updateDueDate(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.updateDueDate", workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateDealResult
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int updateDealResult(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.updateDealResult", workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOfferMainList
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	/*@SuppressWarnings("unchecked")
+	public List<WorkVO> selectOfferMainList(WorkVO workVO) throws Exception {
+    	return list("workDAO.selectOfferMainList", workVO);
+	}*/
+
+	/**
+	 *
+	 * @MethodName : selectOfferCpnList
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectOfferCpnList(WorkVO workVO) throws Exception {
+    	return list("workDAO.selectOfferCpnList", workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertBusinessRecord
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int insertBusinessRecord(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.insertBusinessRecord", workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateDeal
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int updateDeal(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.updateDeal", workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOffercontactPoint
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectOffercontactPoint(WorkVO workVO) throws Exception {
+    	return list("workDAO.selectOffercontactPoint", workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertDeal
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int insertDeal(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.insertDeal", workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updatePrecessResult
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int updatePrecessResult(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.updatePrecessResult", workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectBusinessRecordStaffList
+	 * @param staffVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectBusinessRecordStaffList(WorkVO VO) throws Exception {
+    	return list("workDAO.selectBusinessRecordStaffList", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectMaxSnb
+	 * @param VO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectMaxSnb(WorkVO VO) throws Exception {
+    	return list("workDAO.selectMaxSnb", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertFileInfo
+	 * @param fileVo
+	 * @return
+	 */
+	public int insertFileInfo(FileUpDbVO VO) throws Exception {
+		return (Integer)update("workDAO.insertFileInfo", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOfferCpnList2
+	 * @param VO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectOfferCpnList2(WorkVO VO) throws Exception {
+    	return list("workDAO.selectOfferCpnList2", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOfferCpnList2
+	 * @param VO
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectOffercontactPoint2(WorkVO VO) throws Exception {
+		return list("workDAO.selectOffercontactPoint2", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOutStaffList
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectOutStaffList(StaffVO staffVO) throws Exception {
+		return list("workDAO.selectOutStaffList", staffVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectFileInfo
+	 * @param fileVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<FileUpDbVO> selectFileInfo(FileUpDbVO VO) throws Exception {
+		return list("workDAO.selectFileInfo", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateOfferCoworker
+	 * @param workVO
+	 * @return
+	 */
+	public int updateOfferCoworker(WorkVO VO) throws Exception {
+		return (Integer)update("workDAO.updateOfferCoworker", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateOfferProcess
+	 * @param workVO
+	 * @return
+	 */
+	public int updateOfferProcess(WorkVO VO) throws Exception {
+		return (Integer)update("workDAO.updateOfferProcess", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateSendedMemo
+	 * @param workVO
+	 * @return
+	 */
+	public int updateSendedMemo(WorkVO workVO) throws Exception {
+    	return (Integer)update("workDAO.updateSendedMemo", workVO);
+    }
+
+	/**
+	 *
+	 * @MethodName : deleteOffer
+	 * @param workVO
+	 * @return
+	 */
+	public int deleteOffer(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.deleteOffer",workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateFileInfo
+	 * @param fileVo1
+	 * @return
+	 */
+	public int updateFileInfo(FileUpDbVO VO) throws Exception {
+    	return (Integer)update("workDAO.updateFileInfo", VO);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectSMS
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectSMS(WorkVO VO) throws Exception {
+		return list("workDAO.selectSMS", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertReply
+	 * @param workVO
+	 * @return
+	 */
+	public int insertReply(WorkVO VO) throws Exception {
+    	return (Integer)update("reply.insertReply", VO);
+    }
+
+	/**
+	 *
+	 * @MethodName : checkReply
+	 * @param workVO
+	 * @return
+	 */
+	public int checkReply(WorkVO VO) throws Exception {
+    	return (Integer)update("reply.checkReply", VO);
+    }
+
+	/**
+	 *
+	 * @MethodName : updateReply
+	 * @param workVO
+	 * @return
+	 */
+	public int updateReply(WorkVO VO) throws Exception {
+    	return (Integer)update("reply.updateReply", VO);
+    }
+
+	/**
+	 *
+	 * @MethodName : deleteReply
+	 * @param workVO
+	 * @return
+	 */
+	public int deleteReply(WorkVO VO) throws Exception {
+		return (Integer)update("reply.deleteReply",VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateOfferInfoProcess
+	 * @param workVO
+	 * @return
+	 */
+	public int updateOfferInfoProcess(WorkVO VO) throws Exception {
+		return (Integer)update("workDAO.updateOfferInfoProcess",VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOfferInfo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectOfferInfo(WorkVO VO) throws Exception {
+		return list("workDAO.selectOfferInfo", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertOfferInfo
+	 * @param workVO
+	 * @return
+	 */
+	public int insertOfferInfo(WorkVO VO) throws Exception {
+		return (Integer)update("workDAO.insertOfferInfo",VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateOfferInfo
+	 * @param workVO
+	 * @return
+	 */
+	public Integer updateOfferInfo(WorkVO VO) throws Exception {
+		return (Integer)update("workDAO.updateOfferInfo",VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateOfferInfoLv
+	 * @param wVO
+	 * @return
+	 */
+	public int updateOfferInfoLv(WorkVO VO) throws Exception {
+		return (Integer)update("workDAO.updateOfferInfoLv",VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectComment
+	 * @param wVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectComment(WorkVO VO) throws Exception {
+		return list("workDAO.selectComment", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertMemoOfDealResult
+	 * @param workVO
+	 * @return
+	 */
+	public Integer insertMemoOfDealResult(WorkVO VO) throws Exception {
+		return (Integer)update("workDAO.insertMemoOfDealResult",VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectNetPoint
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectNetPoint(WorkVO VO) throws Exception {
+		return list("workDAO.selectNetPoint", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectCstDealInfo
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectCstDealInfo(WorkVO VO) throws Exception {
+		return list("workDAO.selectCstDealInfo", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectRecommendOne
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectRecommendOne(WorkVO VO) throws Exception {
+		return list("workDAO.selectRecommendOne", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectBusinessTmdt
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectBusinessTmdt(WorkVO VO) throws Exception {
+		return list("workDAO.selectBusinessTmdt", VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateBusinessTmdt
+	 * @param workVO
+	 * @return
+	 */
+	public Integer updateBusinessTmdt(WorkVO VO) throws Exception {
+		return (Integer)update("workDAO.updateBusinessTmdt",VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectFileInfoList
+	 * @param vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<FileUpDbVO> selectFileInfoList(FileUpDbVO vo) throws Exception {
+		return list("workDAO.selectFileInfoList", vo);
+	}
+
+	/**
+	 *
+	 * @param vo
+	 * @MethodName : selectFileInfoListCnt
+	 * @param vo
+	 * @return
+	 */
+	public int selectFileInfoListCnt(FileUpDbVO vo) throws Exception {
+    	return (Integer)getSqlMapClientTemplate().queryForObject("workDAO.selectFileInfoListCnt",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : deleteFileInfo
+	 * @param vo
+	 */
+	public int deleteFileInfo(FileUpDbVO VO) throws Exception {
+		return (Integer)update("workDAO.deleteFileInfo",VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectSameCommentStaffName
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectSameCommentStaffName(WorkVO vo) throws Exception {
+		return list("workDAO.selectSameCommentStaffName", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectStaffList4ib
+	 * @param staffVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<StaffVO> selectStaffList4ib(StaffVO vo) throws Exception {
+		return list("workDAO.selectStaffList4ib", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOfferJointProgress
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectOfferJointProgress(WorkVO vo) throws Exception {
+		return list("workDAO.selectOfferJointProgress",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : updateOfferJointProgress
+	 * @param workVO
+	 * @return
+	 */
+	public int updateOfferJointProgress(WorkVO VO) throws Exception {
+		return (Integer)update("workDAO.updateOfferJointProgress",VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertOfferJointProgress
+	 * @param workVO
+	 * @return
+	 */
+	public int insertOfferJointProgress(WorkVO VO) throws Exception {
+		return (Integer)update("workDAO.insertOfferJointProgress",VO);
+	}
+
+	/**
+	 *
+	 * @MethodName : deleteOfferJointProgress
+	 * @param workVO
+	 * @return
+	 * @throws Exception
+	 */
+	public int deleteOfferJointProgress(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.deleteOfferJointProgress",workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectInsideList
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectInsideList(WorkVO vo) throws Exception {
+		return list("workDAO.selectInsideList",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : updateCompanyExloring
+	 * @param vo
+	 */
+	public int updateCompanyExloring(CpnExcelVO vo) throws Exception {
+		return (Integer)update("workDAO.updateCompanyExloring",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateCompanyPbr
+	 * @param vo
+	 */
+	public int updateCompanyPbr(CpnExcelVO vo) throws Exception {
+		return (Integer)update("workDAO.updateCompanyPbr",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateCompanyOpinion
+	 * @param vo
+	 */
+	public int updateCompanyOpinion(CpnExcelVO vo) throws Exception {
+		return (Integer)update("workDAO.updateCompanyOpinion",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectStaffOfferList
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectStaffOfferList(WorkVO vo) throws Exception {
+		return list("workDAO.selectStaffOfferList",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : updateKeyPointChkMemo
+	 * @param vo
+	 * @return
+	 * @throws Exception
+	 */
+	public int updateKeyPointChkMemo(WorkVO vo) throws Exception {
+		return (Integer)update("workDAO.updateKeyPointChkMemo",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectAuditResourceDetailList
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectAuditResourceDetailList(WorkVO vo) throws Exception {
+		return list("workDAO.selectAuditResourceDetailList",vo);
+    }
+	/**
+	 *
+	 * @MethodName : selectOfferAllDealList
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectOfferAllDealList(WorkVO vo) throws Exception {
+		return list("workDAO.selectOfferAllDealList",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : insertMainTableCheck
+	 * @param wvo
+	 * @return
+	 */
+	public int insertMainTableCheck(WorkVO vo) throws Exception {
+		return (Integer)update("workDAO.insertMainTableCheck",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectMaxSnbINopinion
+	 * @param wvo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectMaxSnbINopinion(WorkVO vo) throws Exception {
+		return list("workDAO.selectMaxSnbINopinion",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectCompanyOpinion
+	 * @param wvo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectCompanyOpinion(WorkVO wvo) throws Exception {
+		return list("workDAO.selectCompanyOpinion",wvo);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectBusinessRecordOne
+	 * @param vo
+	 * @return
+	 */
+	public Object selectBusinessRecordOne(WorkVO vo) throws Exception {
+		return list("workDAO.selectBusinessRecordOne",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectInsideOne
+	 * @param vo
+	 * @return
+	 */
+	public Object selectInsideOne(WorkVO vo) throws Exception {
+		return list("workDAO.selectInsideOne",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectAnalysisCommentsList
+	 * @param vo
+	 * @return
+	 */
+	public Object selectAnalysisCommentsList(WorkVO vo) throws Exception {
+		return list("workDAO.selectAnalysisCommentsList",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : insertMainMemoNreturnSnb
+	 * @param workVO
+	 */
+	public void insertMainMemoNreturnSnb(WorkVO vo) {
+		getSqlMapClientTemplate().insert("workDAO.insertMainMemoNreturnSnb", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateProgressCdNmatchCpn
+	 * @param workVO
+	 * @return
+	 */
+	public int updateProgressCdNmatchCpn(WorkVO vo) throws Exception {
+		return (Integer)update("workDAO.updateProgressCdNmatchCpn",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOfferMnaStaff
+	 * @param vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectOfferMnaStaff(WorkVO vo) throws Exception {
+		return list("workDAO.selectOfferMnaStaff",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : deleteOfferMnaStaff
+	 * @param vo
+	 */
+	public void deleteOfferMnaStaff(WorkVO vo) throws Exception {
+		update("workDAO.deleteOfferMnaStaff",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertOfferMnaStaff
+	 * @param vo
+	 * @return
+	 */
+	public void insertOfferMnaStaff(WorkVO vo) throws Exception {
+		insert("workDAO.insertOfferMnaStaff",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectStaffOfferListCnt
+	 * @param workVO
+	 * @return
+	 */
+	public int selectStaffOfferListCnt(WorkVO vo) throws Exception {
+    	return (Integer)getSqlMapClientTemplate().queryForObject("workDAO.selectStaffOfferListCnt", vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOpinion
+	 * @param w1vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectOpinion(WorkVO vo) throws Exception {
+		return list("workDAO.selectOpinion",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : deleteFileInfoOfOfferSnb
+	 * @param fvo
+	 */
+	public void deleteFileInfoOfOfferSnb(FileUpDbVO vo) throws Exception {
+		update("workDAO.deleteFileInfoOfOfferSnb",vo);
+	}
+
+
+	/**
+	 *
+	 * @MethodName : selectMainOfferList
+	 * @param w3vo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectMainOfferList(WorkVO vo) throws Exception {
+		return list("workDAO.selectMainOfferList",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectofferInfoInCpnCst
+	 * @param workVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectofferInfoInCpnCst(WorkVO vo) throws Exception {
+		return list("workDAO.selectofferInfoInCpnCst",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectMemo4insertFile
+	 * @return
+	 */
+	public String selectMemo4insertFile(WorkVO vo) throws Exception {
+		return (String)getSqlMapClientTemplate().queryForObject("workDAO.selectMemo4insertFile",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : getStaffName
+	 * @param rgId
+	 * @return
+	 */
+	public String getStaffName(String rgId) {
+		return (String)getSqlMapClientTemplate().queryForObject("workDAO.getStaffName",rgId);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectReply4insertFile
+	 * @param vo
+	 * @return
+	 */
+	public String selectReply4insertFile(WorkVO vo) throws Exception {
+		return (String)getSqlMapClientTemplate().queryForObject("workDAO.selectReply4insertFile",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : deleteOfferInfo
+	 * @param vo
+	 */
+	public int deleteOfferInfo(WorkVO vo) throws Exception {
+		return (Integer)update("workDAO.deleteOfferInfo",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : deleteSubMemo
+	 * @param workVO
+	 * @return
+	 */
+	public int deleteSubMemo(WorkVO vo) throws Exception {
+		return (Integer)update("workDAO.deleteSubMemo",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOpinionNdeal
+	 * @param vo
+	 * @return
+	 */
+	public Object selectOpinionNdeal(WorkVO vo) throws Exception {
+		return list("workDAO.selectOpinionNdeal",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : modifySttsCd
+	 * @param workVO
+	 */
+	public int modifySttsCd(WorkVO vo) throws Exception {
+		return (Integer)update("workDAO.modifySttsCd",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : deleteMaintableCheck
+	 * @param workVO
+	 * @return
+	 */
+	public Integer deleteMaintableCheck(WorkVO workVO) throws Exception {
+		return (Integer)update("workDAO.deleteMaintableCheck",workVO);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectDisposalList
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 2. 5.
+	 */
+	@SuppressWarnings("unchecked")
+	public List<ReplyVO> selectDisposalList(ReplyVO vo) throws Exception {
+		return list("reply.selectDisposalList",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectEncrypt
+	 * @return
+	 * @author : user
+	 * @since : 2015. 2. 11.
+	 */
+	public String selectEncrypt(WorkVO vo) throws Exception {
+		return (String)getSqlMapClientTemplate().queryForObject("workDAO.selectEncrypt",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectSupporterList
+	 * @param staffVO
+	 * @return
+	 * @author : user
+	 * @since : 2015. 2. 23.
+	 */
+	public Object selectSupporterList(ReplyVO vo) throws Exception {
+		return list("reply.selectSupporterList",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : updateDisposal
+	 * @param vo1
+	 * @author : user
+	 * @return
+	 * @since : 2015. 2. 23.
+	 */
+	public Integer updateDisposal(ReplyVO vo) throws Exception {
+		return (Integer)update("reply.updateDisposal",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertDisposal
+	 * @param vo1
+	 * @author : user
+	 * @since : 2015. 2. 23.
+	 */
+	public String insertDisposal(ReplyVO vo) throws Exception {
+		return (String)insert("reply.insertDisposal",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertSupporter
+	 * @param vo2
+	 * @author : user
+	 * @return
+	 * @since : 2015. 2. 23.
+	 */
+	public Integer insertSupporter(ReplyVO vo) throws Exception {
+		return (Integer)insert("reply.insertSupporter",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : deleteDisposal
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 2. 24.
+	 */
+	public Integer deleteDisposal(ReplyVO vo) throws Exception {
+		return (Integer)update("reply.deleteDisposal",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : deleteSupporter
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 2. 24.
+	 */
+	public Integer deleteSupporter(ReplyVO vo) throws Exception {
+		return (Integer)update("reply.deleteSupporter",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectOutcomeList
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 2. 25.
+	 */
+	public Object selectOutcomeList(WorkVO vo) throws Exception {
+		return list("workDAO.selectOutcomeList",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : selectDisposalList4stats
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 3. 9.
+	 */
+	@SuppressWarnings("unchecked")
+	public List<ReplyVO> selectDisposalList4stats(ReplyVO vo) throws Exception {
+		return list("reply.selectDisposalList4stats",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : insertMnaMatchCpn
+	 * @author : user
+	 * @since : 2015. 3. 25.
+	 */
+	public Integer insertMnaMatchCpn(WorkVO vo) throws Exception {
+		return (Integer)insert("workDAO.insertMnaMatchCpn",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectMnaMatchCpnList
+	 * @param rcmdVO
+	 * @return
+	 * @author : user
+	 * @since : 2015. 3. 26.
+	 */
+	@SuppressWarnings("unchecked")
+	public List<RecommendVO> selectMnaMatchCpnList(RecommendVO vo) throws Exception {
+		return list("workDAO.selectMnaMatchCpnList",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : deleteMnaMatchCpn
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 3. 31.
+	 */
+	public int deleteMnaMatchCpn(WorkVO vo) throws Exception {
+		return (Integer)update("workDAO.deleteMnaMatchCpn",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectMatrixList
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 4. 10.
+	 */
+	@SuppressWarnings("unchecked")
+	public List<WorkVO> selectMatrixList(WorkVO vo) throws Exception {
+		return list("workDAO.selectMatrixList",vo);
+    }
+
+	/**
+	 *
+	 * @MethodName : updateFileInfoCheckReport
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 4. 23.
+	 */
+	public int updateFileInfoCheckReport(WorkVO vo) {
+		return (Integer)update("workDAO.updateFileInfoCheckReport",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateMnaMatchComment
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 5. 15.
+	 */
+	public int updateMnaMatchComment(WorkVO vo) {
+		return (Integer)update("workDAO.updateMnaMatchComment",vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateMiddleOfferCd
+	 * @param vo
+	 * @return
+	 * @author : user
+	 * @since : 2015. 6. 9.
+	 */
+	public int updateMiddleOfferCd(WorkVO vo) {
+		return (Integer)update("workDAO.updateMiddleOfferCd",vo);
+	}
+
+
+	/**
+	 *
+	 * @MethodName : deleteFile
+	 * @param
+	 * @return
+	 * @author : oys
+	 * @since : 2015. 10. 1.
+	 */
+	public int deleteFile(Map<String, String> map) throws Exception {
+		return update("workDAO.deleteFile", map);
+	}
+
+
+
+	/**
+	 * 정보등급별 사용자 리스트
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 5. 2.
+	 */
+	public List<Map> getInfoLevelUser(Map<String, String> map) throws Exception {
+
+		return list("work.selectInfoLevelUser", map);
+	}
+
+
+	/**
+	 * 정보등급별 사용자 리스트(M&A)
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 5. 2.
+	 */
+	public List<Map> getMnaLevelUser(Map<String, String> map) throws Exception {
+
+		return list("work.selectMnaLevelUser", map);
+	}
+
+
+	/**
+	 * 정보등급 리스트
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 5. 3.
+	 */
+	public List<String> getInfoLevelList() throws Exception {
+
+		return list("work.selectInfoLevelList", null);
+	}
+
+
+	/**
+	 * 투자심의 정보 리스트
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 5. 25.
+	 */
+	public List<Map> getInvestInfo(Map<String, String> map) {
+		return list("work.selectInvestInfo", map);
+	}
+
+
+
+	/**
+	 * 투자심의 정보 저장
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2016. 5. 27.
+	 */
+	public int regMyInvest(Map<String, Object> map) {
+		return update("work.insertMyInvest", map);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectNetworkCnt
+	 * @param workVO
+	 * @return
+	 */
+	public int selectNetworkCnt(WorkVO vo) {
+		return (Integer)getSqlMapClientTemplate().queryForObject("workDAO.selectNetworkCnt",vo);
+	}
+
+
+}

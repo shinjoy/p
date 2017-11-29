@@ -1,0 +1,434 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+<%@ include file="js/personMain_JS.jsp" %>
+<style>
+.wrap-loading{ /*화면 전체를 어둡게 합니다.*/
+    position: fixed;
+    left:0;
+    right:0;
+    top:0;
+    bottom:0;
+    background: rgba(0,0,0,0.2); /*not in ie */
+    filter: progid:DXImageTransform.Microsoft.Gradient(startColorstr='#20000000', endColorstr='#20000000');    /* ie */
+    z-index: 1000000;
+}
+.wrap-loading div{ /*로딩 이미지*/
+    position: fixed;
+    top:50%;
+    left:50%;
+    margin-left: -21px;
+    margin-top: -21px;
+    z-index: 1000000;
+}
+.display-none{ /*감추기*/
+    display:none;
+}
+
+</style>
+<div class="wrap-loading display-none">
+    <div><img src="${pageContext.request.contextPath}/images/ajax_loading.gif" /></div>
+</div>
+<form id="personForm" name="personForm" action="<c:url value='/person/main.do' />"  method="post">
+<input type="hidden" id="rgstId" value="<c:out value='${baseUserLoginInfo.loginId}'/>">
+<input type="hidden" id="rtn" value="">
+<input type="hidden" name="tabType" id="tabType" value="${tabType }"/>
+
+<input type="hidden" id="sNb" name="sNb">
+<input type="hidden" id="cst_snb" value="${cst.sNb}">
+
+<input type="hidden" id="netSnb" name="netSnb" >
+<input type="hidden" id="snb1st" name="snb1st" >
+<input type="hidden" id="snb2nd" name="snb2nd">
+
+<input type="hidden" id="rgId" name="rgId">
+<input type="hidden" id="type" name="type" name="personMain">
+
+<input type="hidden" id="pageIndex" name="pageIndex" value="1">
+
+
+    <div id="figure_dinfo">
+        <!--인물상세보기(인물정보)-->
+        <div class="modalWrap2">
+            <h1><strong>인물상세보기 (${cst.cstNm})</strong></h1>
+            <!--tab-->
+            <div class="gtabZone">
+                <ul>
+                    <li id="liPerson" class="on"><a href="javascript:changeTab('PERSON');">인물 기본정보</a></li>
+                    <li id="liNetwork">
+                        <c:if test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G' || baseUserLoginInfo.customerInfoLevel eq 'E'}">
+                            <a href="javascript:changeTab('NETWORK');">네트워크</a>
+                        </c:if>
+                    </li>
+                </ul>
+            </div>
+            <!--//tab//-->
+<!--------------------------------------------------------------------------------------
+-- 인물기본정보
+---------------------------------------------------------------------------------------->
+            <div id="divPersonTab" class="mo_container">
+                <div class="RegistPersonBox">
+                    <h2 class="title_arrow"><span>인물정보</span></h2>
+                    <table class="net_table_apply" summary="인물정보 (구분,이름,소속회사,부서,직위,연락처,이메일,친밀도,이력 등)">
+                        <caption>인물상세보기</caption>
+                        <colgroup>
+                            <col width="11%" />
+                            <col width="35.8%" />
+                            <col width="11%" />
+                            <col width="*" />
+                        </colgroup>
+                        <tbody>
+                            <tr>
+                                <th scope="row">인물구분</th>
+                                <td colspan="3" class="point_cont">
+                                    ${cst.categoryPersonNm}
+                                </td>
+                            </tr>
+                            <tr class="point">
+                                <th scope="row">이름</th>
+                                <td class="point_cont">
+                                    ${cst.cstNm}
+                                    &nbsp;&nbsp;&nbsp;
+                                    <c:if test="${fn:length(cst.cstNm) == 0}">
+			                            <spring:message code="info.nodata.msg" />
+			                        </c:if>
+                                </td>
+                                <th scope="row">성별</th>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G' || baseUserLoginInfo.customerInfoLevel eq 'E'}">
+                                            <c:if test="${not empty cst.mfSex}">${cst.mfSex eq 'M' ? '남자':'여자'}</c:if>
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">소속회사</th>
+                                <td class="point_cont"><c:if test="${not empty cst.cpnNm }"><b>${cst.cpnNm}(${cst.cpnId})</b></c:if></td>
+                                <th scope="row">생년월일</th>
+                                <td class="numst">
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G' || baseUserLoginInfo.customerInfoLevel eq 'E'}">
+                                            ${cst.birth}
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                 </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">소속부서</th>
+                                <td class="point_cont">${cst.team}</td>
+                                <th scope="row">결혼여부</th>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G' || baseUserLoginInfo.customerInfoLevel eq 'E'}">
+                                            <c:if test="${not empty cst.married}">${cst.married eq 'Y' ? '기혼':'미혼'}</c:if>
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">직위</th>
+                                <td class="point_cont">${cst.position}</td>
+                                <th>자녀관계</th>
+                                <td class="numst">
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G' || baseUserLoginInfo.customerInfoLevel eq 'E'}">
+                                            ${cst.childM}男 , ${cst.childF}女
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">담당업무</th>
+                                <td class="point_cont">${cst.myWork}</td>
+                                <th>출생지</th>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G' || baseUserLoginInfo.customerInfoLevel eq 'E'}">
+                                            ${cst.hometown}
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">핸드폰</th>
+                                <td class="point_cont numst">
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G'}">
+                                            <c:if test="${cst.domesticYn eq 'N' and fn:length(fn:split(cst.phn1,'-'))>1}">+</c:if>${cst.phn1}
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <th rowspan="3">학력</th>
+                                <td rowspan="3" class="acaAbilitycon">
+                                    <ul class="acaAbilityList">
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G' || baseUserLoginInfo.customerInfoLevel eq 'E'}">
+	                                        <c:forEach var="custScho" items="${customerSchoolList}" varStatus="status">
+	                                            <li class="pdlem1">${custScho.schoolNm} ${custScho.schoolTypeNm}<span>(${custScho.major} ${custScho.graduateNm})</span></li>
+	                                        </c:forEach>
+                                        </c:when>
+                                        <c:otherwise><li class="pdlem1">비노출</li></c:otherwise>
+                                    </c:choose>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">회사직통전화</th>
+                                <td class="numst">
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G'}">
+                                            <c:if test="${cst.domesticYn eq 'N'  and fn:length(fn:split(cst.phn2,'-'))>1  }">+</c:if>${cst.phn2}
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">팩스</th>
+                                <td class="numst">
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G'}">
+                                            <c:if test="${cst.domesticYn eq 'N'  and fn:length(fn:split(cst.fax,'-'))>1 }">+</c:if>${cst.fax}
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">이메일</th>
+                                <td class="numst">
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G'}">
+                                            <a href="mailto:${cst.email}" class="font_mail">${cst.email}</a>
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <th>집전화</th>
+                                <td class="numst">
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G'}">
+                                            <c:if test="${cst.domesticYn eq 'N'  and fn:length(fn:split(cst.homePhone,'-'))>1 }">+</c:if>${cst.homePhone}
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">담당자<br/>(직원)</th>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G' || baseUserLoginInfo.customerInfoLevel eq 'E'}">
+                                            <c:if test="${cst.managerId ne null }">
+                                            	<div class="vm">
+			                                        <span>${cst.managerNm} 과(와)의</span> <strong>친밀도</strong>
+			                                        <ul class="relationGrade mgl5">
+			                                            <li><a class="${cst.lvCd >= '00001'? 'on':'' }"><em>+1</em></a></li>
+			                                            <li><a class="${cst.lvCd >= '00002'? 'on':'' }"><em>+2</em></a></li>
+			                                            <li><a class="${cst.lvCd >= '00003'? 'on':'' }"><em>+3</em></a></li>
+			                                            <li><a class="${cst.lvCd >= '00004'? 'on':'' }"><em>+4</em></a></li>
+			                                            <li><a class="${cst.lvCd >= '00005'? 'on':'' }"><em>+5</em></a></li>
+			                                            <li><span class="count">(+${fn:substring(cst.lvCd, 4, 5)})</span></li>
+			                                        </ul>
+		                                        </div>
+		                                        <c:if test="${not empty cst.memo}">
+		                                            <div class="mgt3"><strong>관계메모</strong> : ${cst.memo}</div>
+		                                        </c:if>
+		                                    </c:if>
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <th scope="row">담당자<br/>(다른관계사)</th>
+                                <td class="vm">
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G' || baseUserLoginInfo.customerInfoLevel eq 'E'}">
+                                            <select id = "otherOrgId" name = "otherOrgId"  class = "select_b mgr10" onchange="getOtherOrgStaff()">
+		                                        <option value="" managerid = "0">선택</option>
+		                                        <c:forEach items="${orgIdList}" var="items">
+		                                            <c:if test="${items.orgId ne personVO.searchOrgId }">
+		                                                <option value="${items.orgId }" managerid = "${items.managerId }">${items.cpnNm }</option>
+		                                            </c:if>
+		                                        </c:forEach>
+		                                    </select>
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                	<span id = "otherOrgStaffArea"></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>최근미팅이력</th>
+                                <td class="recentlyMList" colspan="3">
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G' || baseUserLoginInfo.customerInfoLevel eq 'E'}">
+                                            <c:forEach var="meet" items="${meetList}" varStatus="status">
+		                                        <span class="comName">${meet.cpnNm}</span>
+		                                        <span class="dealKind">[${meet.projectNm}-${meet.activityNm}]</span>
+		                                        <span class="contact">${meet.perNm}
+		                                         <em>('${fn:replace(fn:substring(meet.scheSDate,2,10),'-','.')})</em></span>
+		                                         <span class="opinion">${meet.scheTitle}</span>
+		                                         <br/>
+		                                    </c:forEach>
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    이력
+                                </th>
+                                <td colspan="3">
+                                    <c:choose>
+                                        <c:when test="${baseUserLoginInfo.userId eq cst.managerId || baseUserLoginInfo.customerInfoLevel eq 'G' || baseUserLoginInfo.customerInfoLevel eq 'E'}">
+                                            <ul class="profileList">
+		                                        <c:forEach var="custCare" items="${customerCareerList}" varStatus="status">
+		                                            <li><span class="point_blue">${custCare.cpnNm} ${custCare.departTeam}</span>${custCare.memo}<em>(재직기간 : ${custCare.startDate} ~ ${custCare.endDate})</em></li>
+		                                        </c:forEach>
+		                                    </ul>
+                                        </c:when>
+                                        <c:otherwise>비노출</c:otherwise>
+                                    </c:choose>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="btnZoneBox">
+                       	<span class="btn_auth" <c:if test="${!(baseUserLoginInfo.userId eq cst.managerId or cst.managerId eq null)}">style="display:none"</c:if>>
+                       	<a href="#" onclick="updateCustomerPopup('${cst.sNb}')" class="p_blueblack_btn"><strong>수정</strong></a></span>
+                        <a href="javascript:reloadMainPage();" class="p_withelin_btn">닫기</a>
+
+                         <c:if test="${empty companyDetail.refOrgId and baseUserLoginInfo.vipAuthYn eq 'Y' }">
+					    	<span class="btn_auth mgl6"><a href="javascript:deleteCustomer('${cst.sNb}')" class="p_blueblack_btn"><strong>삭제</strong></a></span>
+					    </c:if>
+                     </div>
+                </div>
+            </div>
+            <!--//인물기본정보//-->
+            <!--인물상세보기(인물네트워크)-->
+            <div id="divNetworkTab" style="display:none" class="mo_container">
+                <div class="RegistPersonBox">
+<!--------------------------------------------------------------------------------------
+-- 인물네트워크 목록
+---------------------------------------------------------------------------------------->
+            <div id="listArea1">
+                <jsp:include page="include/PersonMain_content1_INC.jsp"></jsp:include>
+            </div>
+<!--------------------------------------------------------------------------------------
+-- 관련인물추가
+---------------------------------------------------------------------------------------->
+
+                    <!--네트워크 추가-->
+                <div id="addPerson" style="display:none;">
+                    <h2 class="title_arrow mgt30"><span>관련인물추가</span></h2>
+                    <table class="net_table_apply" summary="관계인물추가(이름, 소속회사, 소속부서, 직위, 관계메모, 친밀도, 관계이력)">
+                        <caption>
+                            고객정보입력
+                        </caption>
+                        <colgroup>
+                            <col width="11%" />
+                            <col width="35.8%" />
+                            <col width="11%" />
+                            <col width="*" />
+                        </colgroup>
+                        <tbody>
+                            <tr>
+                                <th scope="row"><label for="IDName01">이름<span class="star">*</span></label></th>
+                                <td colspan="3"><input class="applyinput_B w_st01" id="cstNm"  name="cstNm" readonly="readonly"/>
+                                    <a href="javascript:customerPopUp('_0','C','${cst.cstNm}','${cst.sNb}');" class="s_violet01_btn mgl6"><em class="search">검색</em></a>
+                                </td>
+                            </tr>
+                            <tr class="point">
+                                <th scope="row"><label for="IDName02">소속회사</label></th>
+                                <td><input class="applyinput_B w_st01" id="cpnNm"  name="cpnNm" readonly="readonly"/>
+                                <th scope="row"><label for="note">관계메모<span class="star">*</span></label></th>
+                                <td><input type="text" class="applyinput_B w_st01" id="note"  name="note"/></td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="team">소속부서</label></th>
+                                <td><input type="text" class="applyinput_B w_st01" id="team" name="team" readonly="readonly"/></td>
+                                <th scope="row">친밀도<span class="star">*</span></th>
+                                <td>
+                                    <input type="hidden" name="relDegree" id="relDegree" ><!-- default value 1 -->
+                                    <ul class="relationGrade">
+                                        <li><a href="javascript:chkRelationDegree(this,1);" id="relDeg1"><em>+1</em></a></li>
+                                        <li><a href="javascript:chkRelationDegree(this,2);" id="relDeg2" ><em>+2</em></a></li>
+                                        <li><a href="javascript:chkRelationDegree(this,3);" id="relDeg3" ><em>+3</em></a></li>
+                                        <li><a href="javascript:chkRelationDegree(this,4);" id="relDeg4" ><em>+4</em></a></li>
+                                        <li><a href="javascript:chkRelationDegree(this,5);" id="relDeg5" ><em>+5</em></a></li>
+                                        <li><span id="spanRelDeg"  class="count">(0)</span></li>
+                                    </ul>
+                                    <span class="explain_tooltip mgl10">
+                                        <div id="relationLevel" class="tooltip_box">
+                                            <span class="intext">
+                                                <ul class="levelList">
+                                                    <li class="level01"><strong>+1</strong> : 한두번 만난사이</li>
+                                                    <li class="level02"><strong>+2</strong> : 명함없이 서로 인지하는 사이</li>
+                                                    <li class="level03"><strong>+3</strong> : 사적으로 술한잔 할수있는사이</li>
+                                                    <li class="level04"><strong>+4</strong> : 딜에 대한 정보를 공유할 수있는 사이</li>
+                                                    <li class="level05"><strong>+5</strong> : 사적 고민을 상담할 수 있는 사이</li>
+                                                </ul>
+                                            </span>
+                                            <em class="edge_topcenter"></em>
+                                        </div>
+                                        <img src="../images/common/icon_question2.png" alt="?">
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="position">직위</label></th>
+                                <td><input type="text" class="applyinput_B w_st01" id="position" name="position" readonly="readonly"/></td>
+                                <!-- <td>
+                                    <select class="sel_position"  id="position" name="position">
+                                        <option>직위을 선택하세요</option>
+                                        <option>대표이사</option>
+                                        <option>상무</option>
+                                        <option>전무</option>
+                                        <option>이사</option>
+                                        <option>부사장</option>
+                                        <option>팀장</option>
+                                        <option>차장</option>
+                                        <option>과장</option>
+                                        <option>대리</option>
+                                        <option>사원</option>
+                                    </select>
+                                </td> -->
+                                <th>관계이력</th>
+                                <td>
+                                    <!-- 일단주석 이인희<span>시너지와의 이력</span><span class="title_count">미팅(<strong>15</strong>), 전화(<strong>28</strong>), 기타(<strong>3</strong>)</span>수정일땐 나오고 신규등록일땐 비워주세요 -->
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="btnZoneBox">
+                        <a href="javascript:saveNetPoint();" class="p_blueblack_btn"><strong>저장</strong></a>
+                        <a href="javascript:resetPerson('HIDE');" class="p_withelin_btn">취소</a>
+                    </div>
+                    <!--//네트워크 추가//-->
+                </div>
+
+<!--------------------------------------------------------------------------------------
+-- 추천 네트워크
+---------------------------------------------------------------------------------------->
+                    <div id="listArea2">
+                       <%--  <jsp:include page="include/PersonMain_content2_INC.jsp"></jsp:include> --%>
+                    </div>
+
+                </div>
+                <!--//인물기본정보//-->
+            </div>
+        </div>
+        <!--//인물상세보기(인물네트워크)//-->
+    </div>
+</form>

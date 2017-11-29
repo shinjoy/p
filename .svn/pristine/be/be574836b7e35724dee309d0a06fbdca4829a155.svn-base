@@ -1,0 +1,98 @@
+package ib.pass.service.impl;
+
+
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Service;
+
+import egovframework.rte.fdl.cmmn.AbstractServiceImpl;
+import ib.pass.service.PassService;
+import ib.personnel.service.impl.ManagementDAO;
+
+
+@Service("passService")
+public class PassServiceImpl extends AbstractServiceImpl implements PassService {
+
+    @Resource(name="passDAO")
+    private PassDAO passDAO;
+
+    @Resource(name="managementDAO")
+    private ManagementDAO managementDAO;
+
+    protected static final Log logger = LogFactory.getLog(PassServiceImpl.class);
+
+	//사용자 패스워드
+	public String getUserPwdByLoginId(Map<String, String> map) throws Exception {		
+		return passDAO.getUserPwdByLoginId(map);
+	}
+
+
+	//각종 신규 정보 (개선요청게시판 신규건 등..)
+	public List<Map> getNewArticleList(Map<String, Object> map) throws Exception {		
+		return passDAO.getNewArticleList(map);
+	}
+
+	
+	//시너지 사용자 상태 정보
+	public List<Map> getSynergyUserStatusList(Map<String, Object> map) throws Exception {		
+		return passDAO.getSynergyUserStatusList(map);
+	}
+
+	//시너지 사용자 BASE 공통 코드 20170919 ksm
+	public List<Map> getSynergyUserBaseCodeList(Map<String, Object> map) throws Exception {
+		return passDAO.getSynergyUserBaseCodeList(map);
+	}
+
+	//시너지 사용자 권한코드(콤보용) 20170919 ksm
+	public List<Map> getSynergyUserRoleCodeCombo(Map<String, Object> map) throws Exception {
+		return passDAO.getSynergyUserRoleCodeCombo(map);
+	}
+
+	//시너지 사용자 소속회사(콤보용) 20170920 ksm
+	public List<Map> getSynergyUserRoleCompanyCombo(Map<String, Object> map) throws Exception {
+		return passDAO.getSynergyUserRoleCompanyCombo(map);
+	}
+
+	//시너지 사용자 부서(콤보용) 20170920 ksm
+	public List<Map> getSynergyDeptCombo(Map<String, Object> map) throws Exception {
+		return passDAO.getSynergyDeptCombo(map);
+	}
+
+	//IB LOGIN ID로 해당 PASS 사용자 정보 가져오기 20170921 ksm
+	public Map getUserInfoByLoginId(Map<String, Object> map) throws Exception {
+		return passDAO.getUserInfoByLoginId(map);
+	}
+
+	//퇴직처리 20170921 ksm
+	public int doSynergyUserFire(Map<String, Object> map) throws Exception {
+		int cnt = -1;
+		
+		Object userStatus = map.get("userStatus");
+		if(userStatus!=null && !userStatus.toString().equals("")){
+			//사용자 해고/퇴직 정보 삭제
+			cnt = managementDAO.deleteUserSttsHistFireInfo(map);
+		
+			//퇴사시 퇴사일 이후 출근부 삭제
+			cnt = managementDAO.deleteWorktimeForFire(map);
+		
+			//퇴사시 퇴사일 이후 출근이력 삭제
+			cnt = managementDAO.deleteLoginHistForFire(map);
+		
+			//hist에 퇴사유저정보 insert
+			cnt = managementDAO.insertUserSttsHist(map);
+		
+			//hist에있는 퇴사유저정보 업데이트
+			cnt = managementDAO.updateUserStatus(map);
+			
+			//퇴사,해고 유저의 CUS_ID를67030 으로 업데이트
+			cnt = managementDAO.updateFireUserCpnId(map);
+		}
+		
+		return cnt;
+	}
+}

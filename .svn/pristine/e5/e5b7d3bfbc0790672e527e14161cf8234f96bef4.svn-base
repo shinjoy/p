@@ -1,0 +1,107 @@
+@charset "utf-8";
+
+@font-face {
+    font-family: 'notokr-regular';
+    src: url('../css/font/notokr-regular.eot');
+    src: url('../css/font/notokr-regular.eot?#iefix') format('embedded-opentype'),
+         url('../css/font/notokr-regular.woff') format('woff'),
+         url('../css/font/notokr-regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+	
+}
+
+@font-face {
+	
+	font-family: 'notokr-medium';
+    src: url('../css/font/notokr-medium.eot');
+    src: url('../css/font/notokr-medium.eot?#iefix') format('embedded-opentype'),
+         url('../css/font/notokr-medium.woff') format('woff'),
+         url('../css/font/notokr-medium.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+	
+	font-family: 'notokr-blod';
+    src: url('../css/font/notokr-bold.eot');
+    src: url('../css/font/notokr-bold.eot?#iefix') format('embedded-opentype'),
+         url('../css/font/notokr-bold.woff') format('woff'),
+         url('../css/font/otokr-bold.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+	
+}
+
+
+/* 본고딕 */
+@font-face 
+{
+	font-family:"NotoM";
+	src:url('../css/font/notokrM.eot');
+    src:url('../css/font/notokrM.eot?#iefix') format('embedded-opentype'),
+        url('../css/font/notokrM.woff2') format('woff2'),
+        url('../css/font/notokrM.woff') format('woff');
+}
+@font-face 
+{
+	font-family:"NotoR";
+	src:url('../css/font/notokrR.eot');
+    src:url('../css/font/notokrR.eot?#iefix') format('embedded-opentype'),
+        url('../css/font/notokrR.woff2') format('woff2'),
+        url('../css/font/notokrR.woff') format('woff');
+}
+@font-face 
+{
+	font-family:"NotoL";
+	src:url('../css/font/notokrL.eot');
+    src:url('../css/font/notokrL.eot?#iefix') format('embedded-opentype'),
+        url('../css/font/notokrL.woff') format('woff');
+}
+@font-face 
+{
+	font-family:"NotoT";
+	src:url('../css/font/notokrT.eot');
+    src:url('../css/font/notokrT.eot?#iefix') format('embedded-opentype'),
+        url('../css/font/notokrT.woff2') format('woff2'),
+        url('../css/font/notokrT.woff') format('woff');
+}
+
+/* 나눔바른고딕 */
+@font-face 
+{
+	font-family:"NanumBarun";
+	src:url('../css/font/NanumBarunGothicWeb.eot');
+    src:url('../css/font/NanumBarunGothicWeb.eot?#iefix') format('embedded-opentype'),
+        url('../css/font/NanumBarunGothicWeb.woff') format('woff'),
+		url("../css/font/NanumBarunGothicWeb.ttf") format("truetype");
+}
+@font-face 
+{
+	font-family:"NanumBarunL";
+	src:url('../css/font/NanumBarunGothicWebUltraLight.eot');
+    src:url('../css/font/NanumBarunGothicWebUltraLight.eot?#iefix') format('embedded-opentype'),
+        url('../css/font/NanumBarunGothicWebUltraLight.woff') format('woff'),
+		url("../css/font/NanumBarunGothicWebUltraLight.ttf") format("truetype");
+}
+
+
+/* 나눔스퀘어 */
+@font-face 
+{
+	font-family:"NanumSquareR";
+	src:url('../css/font/NanumSquareR.eot');
+    src:url('../css/font/NanumSquareR.eot?#iefix') format('embedded-opentype'),
+        url('../css/font/NanumSquareR.woff') format('woff'),
+		url("../css/font/NanumSquareR.ttf") format("truetype");
+}
+
+@font-face 
+{
+	font-family:"NanumSquareB";
+	src:url('../css/font/NanumSquareB.eot');
+    src:url('../css/font/NanumSquareB.eot?#iefix') format('embedded-opentype'),
+        url('../css/font/NanumSquareB.woff') format('woff'),
+		url("../css/font/NanumSquareB.ttf") format("truetype");
+}

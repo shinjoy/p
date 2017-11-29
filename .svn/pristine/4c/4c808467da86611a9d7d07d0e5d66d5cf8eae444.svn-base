@@ -1,0 +1,800 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%
+response.setHeader("Cache-Control","no-cache");
+response.setHeader("Pragma","no-cache");
+response.setDateHeader("Expires",0);
+%>
+<!DOCTYPE html>
+<html>
+<head>
+
+<link href="<c:url value='/css/new_ib.css'/>" rel="stylesheet" type="text/css"/>
+<link href="<c:url value='/css/content.css'/>" rel="stylesheet" type="text/css"/>
+<link href="<c:url value='/css/btn.css'/>" rel="stylesheet" type="text/css"/>
+<link href="<c:url value='/css/jquery.jqplot.css'/>" rel="stylesheet" type="text/css"/>
+
+<script type="text/JavaScript" src="<c:url value='/js/html5.js'/>"></script>
+<script type="text/javascript" src="<c:url value='/js/jquery.min.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/process.min.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/part/stats.js'/>" ></script>
+<script type="text/JavaScript" src="<c:url value='/js/ajaxRequest.js'/>" ></script>
+
+<script type="text/javascript" src="<c:url value='/js/jqplot/jquery.jqplot.min.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.barRenderer.min.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.categoryAxisRenderer.min.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.barRenderer.min.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.pieRenderer.min.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.highlighter.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.cursor.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.pointLabels.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.donutRenderer.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.canvasAxisTickRenderer.min.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.canvasAxisTickRenderer.min.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.canvasTextRenderer.min.js'/>" ></script>
+<script type="text/javascript" src="<c:url value='/js/jqplot/plugins/jqplot.dateAxisRenderer.min.js'/>" ></script>
+
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Main</title>
+</head>
+
+<body>
+
+<div id="ib_sumarry_wrap">
+	<div id="ib_sumarry_wrap2">
+        <ul class="tabZone_ib">
+            <li><a href="<c:url value='/stats/eisSummary.do' />" ><img src="../images/stats/tab_01.gif" alt="EIS SUMMARY"></a></li>
+            <li><a href="<c:url value='/stats/eisPeriodRecord.do' />" ><img src="../images/stats/tab_02.gif" alt="기간별 실적현황"></a></li>
+            <li><a href="<c:url value='/stats/eisMemberRecord.do' />" ><img src="../images/stats/tab_03.gif" alt="직원별 실적현황"></a></li>
+            <li><a href="<c:url value='/stats/eisMediation.do' />" ><img src="../images/stats/tab_04_on.gif" alt="중개현황"></a></li>
+        </ul>
+        <h3 class="ib_h3_title">시너지 파트너스 실적현황<span>
+        	<select id="sel_year" class="select_b mgl25" onchange="fnObj.doSearch();">
+        		<option selected value="2015">2015년</option>
+        		<option value="2014">2014년</option>
+        		<option value="2013">2013년</option>
+       		</select>
+       		<!--  <a href="#" class="btn_compare2" onclick="fnObj.doSearch(1);"><em class="blind">실적현황</em></a>-->
+       		</span></h3>
+        <div class="Point_infoBox_03">
+        	<div id="title_year_div" class="title_year">2015</div>
+           <div class="summaryinfo">
+            	<table class="summary_table_b">
+                    <thead>
+                        <tr>
+                            <th scope="col">구분</th>
+                            <th scope="col">총투자</th>
+                            <th scope="col">직접투자</th>
+                            <th scope="col">중개</th>
+                            <th scope="col">중개이익</th>
+                            <th scope="col">건수</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr id="summary_table_total" >
+                            <th scope="row">Total</th>
+                            <td class="numtype_right investmoney">3271.6 억</td>
+                            <td class="numtype_right investmoney">2781.4 억</td>
+                            <td class="numtype_right investmoney">490.2 억</td>
+                            <td class="numtype_right getmoney">32.1 억</td>
+                            <td class="numtype_right getmoney">75 건</td>
+                        </tr>
+                        <tr id="summary_table_mezza" class="point">
+                            <th scope="row">메자닌</th>
+                            <td class="numtype_right">2519.5 억</td>
+                            <td class="numtype_right">2284.7 억</td>
+                            <td class="numtype_right">234.8 억</td>
+                            <td class="numtype_right">4.1 억</td>
+                            <td class="numtype_right">45 건</td>
+                        </tr>
+                        <tr id="summary_table_x-mezza" >
+                            <th scope="row">메자닌 외</th>
+                            <td class="numtype_right">752.1 억</td>
+                            <td class="numtype_right">496.7 억</td>
+                            <td class="numtype_right">255.4 억</td>
+                            <td class="numtype_right">28 억</td>
+                            <td class="numtype_right">33 건</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 첫번째 라인 -->
+        <div class="divBlockWrap">
+            <div class="left_block">
+                <h4 class="h4_box_title">중개회사 순위 <span class="lankingType">(상위 20위)</span></h4>
+                <div class="graphBox">
+                    <table class="data_table_b">
+                    	<colgroup>
+                        	<col width="8%">
+                            <col width="*">
+                            <col width="16%">
+                            <col width="16%">
+                            <col width="10%">
+                            <col width="12%">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th scope="col">순위</th>
+                                <th scope="col">중개회사</th>
+                                <th scope="col"><a id="medi_corp_pcount" href="#" class="sort_normal" onclick="fnObj.doLoadMediCorp(0, this.id, 'p_count'); return false;">받은제안<em>정렬</em></a></th>
+                                <th scope="col"><a id="medi_corp_icount" href="#" class="sort_normal" onclick="fnObj.doLoadMediCorp(0, this.id, 'i_count'); return false;">성사건수<em>오름차순</em></a></th>
+                                <th scope="col">성사율</th>
+                                <th scope="col"><a id="medi_corp_amount" href="#" class=sort_normal onclick="fnObj.doLoadMediCorp(0, this.id, 'amount'); return false;">금액<em>내림차순</em></a></th>
+                            </tr>
+                        </thead>
+                        <tbody id="medi_corp_rank">
+
+                        </tbody>
+                    </table>
+                    <!-- 중개회사분석 파이차트 -->
+                    <div class="posi_Relative">
+                    	<div id="medi_corp_rank_chart" class="mgt20"></div>
+                    	<div class="PointTotal_tab4"><p class="title">받은제안수</p><p id="medi_corp_total" class="totalnum">193</p></div>
+                    </div>
+                    <!--// 중개회사분석 파이차트 //-->
+
+                </div>
+            </div>
+            <div class="right_block">
+                <h4 class="h4_box_title">중개인 순위 <span class="lankingType">(상위 20위)</span></h4>
+                <div class="graphBox">
+                    <table class="data_table_b">
+                    	<colgroup>
+                        	<col width="8%">
+                            <col width="15%">
+                            <col width="*">
+                            <col width="16%">
+                            <col width="16%">
+                            <col width="10%">
+                            <col width="12%">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th scope="col">순위</th>
+                                <th scope="col">중개인</th>
+                                <th scope="col">중개회사</th>
+                                <th scope="col"><a id="broker_pcount" href="#" class="sort_normal" onclick="fnObj.doLoadBroker(0, this.id, 'p_count'); return false;" >받은제안<em>정렬</em></a></th>
+                                <th scope="col"><a id="broker_icount" href="#" class="sort_normal" onclick="fnObj.doLoadBroker(0, this.id, 'i_count'); return false;">성사건수<em>오름차순</em></a></th>
+                                <th scope="col">성사율</th>
+                                <th scope="col"><a id="broker_amount" href="#" class="sort_normal" onclick="fnObj.doLoadBroker(0, this.id, 'amount'); return false;">금액<em>내림차순</em></a></th>
+                            </tr>
+                        </thead>
+                        <tbody id="broker_rank">
+                        </tbody>
+                    </table>
+
+                    <!-- 중개인분석 파이차트 -->
+                    <div class="posi_Relative">
+                    	<div id="broker_chart" class="mgt20"></div>
+                    	<div class="PointTotal_tab4_2"><p class="title">받은제안수</p><p id="broker_total" class="totalnum">192</p></div>
+                    </div>
+                    <!--// 중개인분석 파이차트 //-->
+
+                </div>
+            </div>
+        </div>
+
+
+        <%--<img src="/IBsystem/images/imsi/@test.jpg" alt="">--%>
+    </div>
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+var currMediOrder;
+var currBrokerOrder;
+var fnObj = {
+
+		//################# init function :S #################
+
+		//선로딩코드
+		preloadCode: function(){
+			var html = "";
+			for(var i = 1; i< 13; i++){
+				html += "<option value=" + i + ">" + i + "월</option>";
+			}
+
+			$("#compare_12month_select").html(html);
+
+			var today = new Date();
+			var curYear = today.getFullYear();
+			var curMonth = today.getMonth() + 1;
+
+			/** 년도 정보 채우기 **/
+			var html = "";
+			for( var i = curYear; i > 2012; i-- ){
+				if( curYear == i ){
+					html += "<option value='" + i + "' selected>" + i + "년</option>";
+				}
+				else{
+					html += "<option value='" + i + "'>" + i + "년</option>";
+				}
+			}
+
+			$("#sel_year").html(html);
+		},
+
+		//화면세팅
+	    pageStart: function(){
+	    	$("#title_year_div").html($("#sel_year").val());
+	    },
+
+	    doSearch: function(first){
+	    	var selYear = ($("#sel_year").val());
+	    	$("#title_year_div").html(selYear);
+
+	    	//fnObj.doLoadInvestAmountSummary(selYear);
+	    	fnObj.doLoadTotalInvestAmountSummary(selYear);
+	    	fnObj.doLoadMediCorp(first, 'medi_corp_pcount', 'p_count');
+	    	fnObj.doLoadBroker(first, 'broker_pcount', 'p_count');
+	    },
+
+	    // 투자규모 및 총액
+	    doLoadInvestAmountSummary: function(selYear){
+	    	var url = "<c:url value='/stats/doLoadInvestAmountSummary.do' />";
+	    	var param= {
+	    			year:selYear
+	    	};
+
+			var callback = function(result){
+
+	    		var obj = JSON.parse(result);
+	    		var resultObj = obj.resultObject;
+
+	    		if( resultObj.result.length == 1 ){
+	    			var investAmout = resultObj.result[0];
+
+	    			// INVEST : 전체 투자 금액
+					// SELF_INVEST : 직접 투자 규모
+					// SELL_PRICE : 중개 투자 금액
+					// MARGIN : 중개 투자 이익
+					// COUNT : 직접 투자 건수
+
+					var htmlValue = "<li class='sumtitle'><strong>투자총규모</strong><span class='investmoney'>##INVEST## 억</span></li><li><strong>직접투자규모</strong><span class=''>##SELF_INVEST## 억</span></li><li><strong>중개매각규모</strong><span class=''>##SELL_PRICE## 억</span></li>";
+					htmlValue = htmlValue.replace("##INVEST##", investAmout.INVEST).replace("##SELF_INVEST##", investAmout.SELF_INVEST).replace("##SELL_PRICE##", investAmout.SELL_PRICE);
+					$("#invest_amount").html(htmlValue);
+
+	                htmlValue = "<li class='sumtitle'><strong>Total 이익</strong><span class='getmoney'>##TOTAL_MARGIN## 억</span></li><li><strong>영업이익</strong><span class=''>-</span></li><li><strong>중개이익</strong><span class=''>##MARGIN## 억</span></li>";
+	                htmlValue = htmlValue.replace("##TOTAL_MARGIN##", investAmout.MARGIN).replace("##MARGIN##", investAmout.MARGIN);
+	                $("#invest_gain").html(htmlValue);
+	    		}
+
+	    	};
+	    	commonAjax("POST", url, param, callback);
+	    },
+
+	 // 투자규모 및 총액 - 메쟈닌 & 비메쟈닌 구분
+	    doLoadTotalInvestAmountSummary: function(selYear){
+	    	var url = "<c:url value='/stats/doLoadTotalInvestAmountSummary.do' />";
+	    	var param= {
+	    			year:selYear
+	    	};
+
+			var callback = function(result){
+
+				var htmlValue;
+	    		var obj = JSON.parse(result);
+	    		//console.debug(result);
+	    		var resultObj = obj.resultObject;
+	    		//console.debug('## doLoadTotalInvestAmountSummary ##');
+	    		//console.debug(resultObj);
+
+	    		//console.debug("#SERFSFAE#$#");
+
+	    		// INVEST : 전체 투자 금액
+				// SELF_INVEST : 직접 투자 규모
+				// SELL_PRICE : 중개 투자 금액
+				// MARGIN : 중개 투자 이익
+				// COUNT : 직접 투자 건수
+
+
+	    		var totalMezza = resultObj.total;
+				htmlValue = "<th scope='row'>Total</th>";
+				htmlValue += "<td class='numtype_right investmoney'>" + totalMezza.TOTAL_INVEST+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + totalMezza.SELF_INVEST+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + totalMezza.SELL_PRICE+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + totalMezza.MARGIN+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + totalMezza.COUNT+ " 건</td>";
+				$("#summary_table_total").html(htmlValue);
+
+				var mezza = resultObj.mezza;
+				htmlValue = "<th scope='row'>메자닌</th>";
+				htmlValue += "<td class='numtype_right investmoney'>" + mezza.TOTAL_INVEST+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + mezza.SELF_INVEST+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + mezza.SELL_PRICE+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + mezza.MARGIN+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + mezza.COUNT+ " 건</td>";
+				$("#summary_table_mezza").html(htmlValue);
+
+				var xmezza = resultObj.xmezza;
+				htmlValue = "<th scope='row'>메자닌 외</th>";
+				htmlValue += "<td class='numtype_right investmoney'>" + xmezza.TOTAL_INVEST+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + xmezza.SELF_INVEST+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + xmezza.SELL_PRICE+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + xmezza.MARGIN+ " 억</td>";
+				htmlValue += "<td class='numtype_right investmoney'>" + xmezza.COUNT+ " 건</td>";
+				$("#summary_table_x-mezza").html(htmlValue);
+
+	    	};
+	    	commonAjax("POST", url, param, callback);
+	    },
+
+	    doLoadMediCorp: function(first, id, orderColumn){
+	    	//소싱성사율
+	    	// id : sourcing_success_rate
+	    	// <span class="current">18%</span><span class="totalNum"><strong>124</strong> / 2154</span>
+
+	    	//투자성사율
+	    	//id : invest_success_rate_chart
+
+	    	// 딜서머리
+	    	// id : deal_summary_data
+	    	//console.debug(selYear);
+
+	    	// 정렬순서 및 정렬컬럼 적용하기
+	    	var selYear = ($("#sel_year").val());
+	    	var classId = $("#" + id);
+
+	    	var orderClass = classId.attr('class');
+	    	var order = 'asc';
+	    	var currMediCorpOrderAttr = 'sort_normal';
+
+	    	if( first == 1 ){
+	    		currMediCorpOrderAttr = 'sort_hightolow';
+	    		order = 'desc';
+	    	}
+	    	else if( orderClass == 'sort_hightolow' ) {
+	    		currMediCorpOrderAttr = 'sort_lowtohigh';
+	    		order = 'asc';
+	    	}
+	    	else {
+	    		currMediCorpOrderAttr = 'sort_hightolow';
+	    		order = 'desc';
+	    	}
+
+	    	fnObj.doChangeMediCorpOrderIcon(id, currMediCorpOrderAttr);
+
+	    	var url = "<c:url value='/stats/doLoadMediCorp.do' />";
+	    	var param= {
+	    			year:selYear,
+	    			orderColumn:orderColumn,
+	    			order:order
+	    	};
+
+	    	var callback = function(result){
+
+	    		//console.debug(result);
+
+	    		var obj = JSON.parse(result);
+	    		var resultObj = obj.resultObject;
+	    		var resultList = resultObj.resultList;
+	    		var dataMap = resultObj.dataMap;
+	    		var tickList = resultObj.tickList;
+	    		var totalCount = resultObj.totalCount;
+	    		var htmlData;
+
+	    		var idx = 0;
+
+	    		//console.debug(resultList);
+
+	    		var jqplotData = new Array();
+	    	    var chartIdx=0;
+	    	    var total = 0;
+
+	    		for(var key in resultList){
+
+	    			if ( idx < 3 ){
+	    				htmlData += "<tr class='tr_selected'><th scope='row'>" + ++idx + "</th>";
+	    			}
+	    			else{
+	    				htmlData += "<tr ><th scope='row'>" + ++idx + "</th>";
+	    			}
+
+	    			htmlData += "<td class='numtype'>" + resultList[key].COMPANY + "</td>";
+	    			htmlData += "<td class='numtype'>" + resultList[key].P_COUNT + "</td>";
+	    			htmlData += "<td class='numtype'>" + resultList[key].I_COUNT + "</td>";
+	    			htmlData += "<td class='numtype'>" + resultList[key].RATE + "</td>";
+	    			htmlData += "<td class='numtype'>" + resultList[key].AMOUNT + "</td></tr>";
+
+	    			if( chartIdx < 6 ){
+		    			var item = new Array();
+		    			if( currMediOrder == "medi_corp_icount"){
+		    				item.push(resultList[key].COMPANY,Number(resultList[key].I_COUNT));
+		    			}
+		    			else if( currMediOrder == "medi_corp_amount"){
+		    				item.push(resultList[key].COMPANY,Number(resultList[key].AMOUNT));
+						}
+		    			else{
+		    				item.push(resultList[key].COMPANY,Number(resultList[key].P_COUNT));
+		    			}
+
+		    	    	jqplotData[chartIdx++] = item;
+	    			}
+	    		}
+
+	    		$('#medi_corp_rank').html(htmlData);
+	    		$('#medi_corp_total').html(totalCount);
+
+
+				/*for(var key in tickList){
+					if( idx > 5 ) break;
+	    			var item = new Array();
+	    			item.push(tickList[key],Number(dataMap[tickList[key]]));
+	    			jqplotData[idx++] = item;
+	    			total += Number(dataMap[tickList[key]]);
+	    	    }*/
+
+				//console.debug("## JQPLOT : " + jqplotData);
+
+	    		var jqPlot;
+				chartObj.drawDonutChart(jqPlot, 'medi_corp_rank_chart', jqplotData, tickList);
+
+	    	};
+	    	commonAjax("POST", url, param, callback);
+	    },
+
+	    doChangeMediCorpOrderIcon: function(id, order){
+	    	currMediOrder = id;
+	    	$("#medi_corp_pcount").attr('class', 'sort_normal');
+	    	$("#medi_corp_icount").attr('class', 'sort_normal');
+    		$("#medi_corp_rate").attr('class', 'sort_normal');
+    		$("#medi_corp_amount").attr('class', 'sort_normal');
+    		$("#" + id).attr('class', order);
+	    },
+	    doLoadBroker: function(first, id, orderColumn){
+
+	    	var selYear = ($("#sel_year").val());
+	    	var classId = $("#" + id);
+
+	    	var orderClass = classId.attr('class');
+	    	//console.debug(orderClass);
+
+	    	var order = 'asc';
+	    	var brokerOrderAttr = 'sort_normal';
+
+	    	if( first == 1 ){
+	    		brokerOrderAttr = 'sort_hightolow';
+	    		order = 'desc';
+	    	}
+	    	else if( orderClass == 'sort_hightolow' ) {
+	    		brokerOrderAttr = 'sort_lowtohigh';
+	    		order = 'asc';
+	    	}
+	    	else {
+	    		brokerOrderAttr = 'sort_hightolow';
+	    		order = 'desc';
+	    	}
+
+	    	fnObj.doChangeBrokerOrderIcon(id, brokerOrderAttr);
+
+
+	    	var url = "<c:url value='/stats/doLoadBroker.do' />";
+	    	var param= {
+	    			year:selYear,
+	    			orderColumn:orderColumn,
+	    			order:order
+	    	};
+
+	    	var callback = function(result){
+
+	    		//console.debug(result);
+
+	    		var obj = JSON.parse(result);
+	    		var resultObj = obj.resultObject;
+	    		var resultList = resultObj.resultList;
+	    		var dataMap = resultObj.dataMap;
+	    		var tickList = resultObj.tickList;
+	    		var totalCount = resultObj.totalCount;
+	    		var htmlData;
+
+	    		var idx = 0;
+	    		var jqplotData = new Array();
+	    	    var chartIdx=0;
+	    		for(var key in resultList){
+
+	    			if ( idx < 3 ){
+	    				htmlData += "<tr class='tr_selected'><th scope='row'>" + ++idx + "</th>";
+	    			}
+	    			else{
+	    				htmlData += "<tr ><th scope='row'>" + ++idx + "</th>";
+	    			}
+
+	    			htmlData += "<td class='numtype'>" + resultList[key].AGENT + "</td>";
+	    			htmlData += "<td class='numtype'>" + resultList[key].COMPANY + "</td>";
+	    			htmlData += "<td class='numtype'>" + resultList[key].P_COUNT + "</td>";
+	    			htmlData += "<td class='numtype'>" + resultList[key].I_COUNT + "</td>";
+	    			htmlData += "<td class='numtype'>" + resultList[key].RATE + "</td>";
+	    			htmlData += "<td class='numtype'>" + resultList[key].AMOUNT + "</td></tr>";
+
+
+	    			if( chartIdx < 6 ){
+		    			var item = new Array();
+		    			if( currBrokerOrder == "broker_icount"){
+		    				item.push(resultList[key].AGENT,Number(resultList[key].I_COUNT));
+		    			}
+		    			else if( currBrokerOrder == "broker_amount"){
+		    				item.push(resultList[key].AGENT,Number(resultList[key].AMOUNT));
+						}
+		    			else{
+		    				item.push(resultList[key].AGENT,Number(resultList[key].P_COUNT));
+		    			}
+
+		    	    	jqplotData[chartIdx++] = item;
+	    			}
+	    		}
+
+	    		$('#broker_rank').html(htmlData);
+	    		$('#broker_total').html(totalCount);
+
+	    		/*var jqplotData = new Array();
+	    	    var idx=0;
+	    	    var total = 0;
+				for(var key in tickList){
+					if( idx > 5 ) break;
+	    			var item = new Array();
+	    			item.push(tickList[key],Number(dataMap[tickList[key]]));
+	    			jqplotData[idx++] = item;
+	    			total += Number(dataMap[tickList[key]]);
+	    	    }*/
+
+	    		var jqPlot;
+				chartObj.drawDonutChart(jqPlot, 'broker_chart', jqplotData, tickList);
+
+	    	};
+	    	commonAjax("POST", url, param, callback);
+	    },
+
+		doChangeBrokerOrderIcon: function(id, order){
+	    	currBrokerOrder = id;
+			//console.debug("## ID : " + id);
+	    	//console.debug("## ORDER : " + order);
+
+	    	$("#broker_pcount").attr('class', 'sort_normal');
+	    	$("#broker_icount").attr('class', 'sort_normal');
+    		$("#broker_rate").attr('class', 'sort_normal');
+    		$("#broker_amount").attr('class', 'sort_normal');
+    		$("#" + id).attr('class', order);
+	    }
+}
+
+var chartObj = {
+
+		drawBarChart: function(jqplot, divId, chartData, ticks){
+			jqplot = $.jqplot(divId, chartData, {
+    	        // The "seriesDefaults" option is an options object that will
+    	        // be applied to all series in the chart.
+    	        //seriesColors:['#3CABC7', '#FB7471',  '#F49A10'],
+    	        seriesDefaults:{
+    	            renderer:$.jqplot.BarRenderer,
+    	            pointLabels: { show: true ,location: 's',  formatString: '%.1f%'},
+    	            shadowAlpha:0.9,
+    	            rendererOptions: {
+    	                // Speed up the animation a little bit.
+    	                // This is a number of milliseconds.
+    	                // Default for bar series is 3000.
+    	                barWidth:50,
+    	                shadowOffset:0,
+    	                varyBarColor: true, // 다양한 색상
+    	                animation: {
+    	                    speed: 1500
+    	                }
+
+    	            }
+    	        },
+
+    	        legend: {
+    	            show: false,
+    	            placement: 'insideGrid'
+    	        },
+    	        grid: {
+    	        	drawGridLines:true,
+    	            gridLineColor: '#333333',
+    	        	background: '#ffffff',
+    	        	borderColor: '#333333',     // CSS color spec for border around grid.
+    	            borderWidth: 1,
+    	            shadow:false
+    	        },
+    	        series:[],
+    	        axes: {
+    	            // Use a category axis on the x axis and use our custom ticks.
+    	            xaxis: {
+    	                renderer: $.jqplot.CategoryAxisRenderer,
+    	                ticks: ticks,
+    	                tickOptions: {
+    	                	showGridline: false
+    	                }
+
+    	            },
+    	            // Pad the y axis just a little so bars can get close to, but
+    	            // not touch, the grid boundaries.  1.2 is the default padding.
+    	            yaxis: {
+    	            	tickOptions: {
+    	                	showGridline: false
+    	                }
+    	            }
+    	        }
+    	    });
+
+    	    //$(".jqplot-xaxis-tick").hide();
+    	   // $(".jqplot-yaxis-tick").hide();
+    	    jqplot.replot();
+		},
+		drawLineChart : function(jqplot, divId, lineChartData, series){
+
+		    var plot1 = $.jqplot (divId,  lineChartData, {
+		        seriesDefaults: {
+		        	 pointLabels: {
+		                 show: false
+		             	},
+		            rendererOptions: {
+		                //////
+		                // Turn on line smoothing.  By default, a constrained cubic spline
+		                // interpolation algorithm is used which will not overshoot or
+		                // undershoot any data points.
+		                //////
+		                smooth: true
+		            }
+		        },
+		        legend: { show: true },
+		        series: series,
+		        axes: {
+		            // options for each axis are specified in seperate option objects.
+		            xaxis: {
+
+		              pad: 1,
+		                // a factor multiplied by the data range on the axis to give the
+		                renderer: $.jqplot.CategoryAxisRenderer,
+		                // renderer to use to draw the axis,
+		                tickOptions: {
+		                    formatString: '%b %#d'
+		                }
+		              // Turn off "padding".  This will allow data point to lie on the
+		              // edges of the grid.  Default padding is 1.2 and will keep all
+		              // points inside the bounds of the grid.
+
+		            },
+		            yaxis: {
+		              label: "건수"
+		            }
+		        },
+		        grid: {
+    	        	drawGridLines:true,
+    	            gridLineColor: '#BBBBBB',
+    	        	background: '#ffffff',
+    	        	borderColor: '#333333',     // CSS color spec for border around grid.
+    	            borderWidth: 1,
+    	            shadow:false
+    	        },
+		    });
+
+		    plot1.replot();
+		},
+		drawBarLineChart: function(jqplot1, divId, barChartData, lineChartData, ticks){
+
+			var jqplot = $.jqplot(divId, [barChartData, lineChartData], {
+				series:[
+				        {renderer:$.jqplot.BarRenderer},
+				        {xaxis:'x2axis', yaxis:'y2axis'}],
+
+			    seriesDefaults:{
+			    	rendererOptions: {
+			            highlightMouseOver: false
+			         },
+    	            pointLabels: { show: true ,location: 'n',  formatString: '%d'}
+    	        },
+
+    	        grid: {
+    	        	drawGridLines:true,
+    	            gridLineColor: '#333333',
+    	        	background: '#ffffff',
+    	        	borderColor: '#333333',     // CSS color spec for border around grid.
+    	            borderWidth: 1,
+    	            shadow:false
+    	        },
+			    axes: {
+			      xaxis: {
+			        renderer: $.jqplot.CategoryAxisRenderer,
+			        tickOptions: {
+	                	showGridline: false
+			        }
+			      },
+			      x2axis: {
+			        renderer: $.jqplot.CategoryAxisRenderer,
+			        tickOptions: {
+	                	showGridline: false
+			        }
+			      },
+			      yaxis: {
+			        autoscale:true,
+			        tickOptions: {
+			        	showMark: true,
+			        	formatString: "%d",
+	                	showGridline: false
+			        }
+			      },
+			      y2axis: {
+			        autoscale:true,
+			        tickOptions: {
+	                	showGridline: false
+			        }
+			      }
+			    }
+    	    });
+
+    	    //$(".jqplot-xaxis-tick").hide();
+    	   // $(".jqplot-yaxis-tick").hide();
+    	    jqplot.replot();
+		},
+		drawDonutChart: function(jqplot, divId, chartData, ticks){
+			jqplot = $.jqplot(divId, [chartData], {
+			      seriesDefaults: {
+			        shadow: true,
+			        renderer: jQuery.jqplot.DonutRenderer,
+			        rendererOptions: {
+			          startAngle: -90,
+			          //sliceMargin: 5,
+			          shadowOffset :8,
+			          shadowDepth:1,
+			          shadowAlpha:0,
+			          //dataLabels:'value',
+			          innerDiameter: 80,
+			          showDataLabels : true,
+			          dataLabelThreshold :0,
+			          dataLabelPositionFactor : 0.52,
+			          highlightMouseOver:false
+
+			          }
+			      },
+			      seriesColors:['#4b78d3', '#fb7471', '#ffa800', '#51a7d2',  '#33577b', '#7bbf62', '#26a687', '#9e9e9e'],
+			      highlighter: {
+		              show:true,
+		              tooltipLocation:'sw',
+		              useAxesFormatters: false,
+		              formatString:'%s'
+
+		          },
+		          grid: {
+	    	        	drawGridLines:false,
+	    	            gridLineColor: '#333333',
+	    	        	background: '#ffffff',
+	    	        	borderColor: '#333333',     // CSS color spec for border around grid.
+	    	            borderWidth: 0,
+	    	            shadow:false
+	    	        },
+			      legend: {
+			    	  show:true
+			    	  ,location: 'e'
+			    	  ,showSwatches:false
+			    	  ,placement:'insideGrid'
+					  ,negativeSeriesColors : $.jqplot.config.defaultNegativeColors
+					  ,stackSeries : false
+					  ,fontSize: '11px'
+					  ,rowSpacing: '1px'
+					  ,rendererOptions:{
+						  numberRows : 6,
+			              numberColumns : 1
+					  }
+	    	        }
+	    	  	}
+			  );
+
+			$('.jqplot-data-label').css("color","white");
+			jqplot.replot();
+		}
+}
+
+$(function(){
+	fnObj.preloadCode();	//공통코드 or 각종선로딩코드
+	fnObj.pageStart();		//화면세팅
+	fnObj.doSearch();
+
+});
+
+</script>
+

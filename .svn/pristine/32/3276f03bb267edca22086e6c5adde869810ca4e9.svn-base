@@ -1,0 +1,237 @@
+package ib.system.service.impl;
+
+import ib.cmm.service.impl.ComAbstractDAO;
+
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Repository;
+
+import egovframework.rte.psl.dataaccess.util.EgovMap;
+
+
+/**
+ * <pre>
+ * package	: ibiss.system.service.impl
+ * filename	: DeptRegDAO.java
+ * </pre>
+ *
+ *
+ *
+ * @author	: SangHyun Park
+ * @date	: 2015. 9. 14.
+ * @version :
+ *
+ */
+@Repository("deptRegDAO")
+public class DeptRegDAO extends ComAbstractDAO{
+
+
+	protected static final Log logger = LogFactory.getLog(DeptRegDAO.class);
+
+
+	/**
+	 * 부서목록
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	public List<Map> getDeptList(Map<String, String> map) throws Exception{
+		return  list("system.selectDeptList", map);
+	}
+
+	/**
+	 * 부서조회
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	public List<Map> getDept(String deptId) throws Exception{
+		return  list("system.selectDept", deptId);
+	}
+
+	/**
+	 * 부서등록(신규)
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	public int insertDept(Map<String, Object> map) throws Exception{
+		return (Integer) insert("system.insertDept", map);
+	}
+
+
+	/**
+	 * 부서수정
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	public int updateDept(Map<String, Object> map) throws Exception{
+		return update("system.updateDept", map);
+	}
+
+
+	/**
+	 * 부서삭제(DELETE_FLAG 컬럼수정)
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	public int deleteDept(Map<String, Object> param) throws Exception{
+		return update("system.deleteDept", param);
+	}
+
+
+	/**
+	 * 부서목록(콤보박스용)
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	public List<Map> getDeptListCombo(Map<String, String> map) throws Exception{
+		return  list("system.selectDeptListCombo", map);
+	}
+
+
+	/**
+	 * 부서 인원 목록(콤보박스용)
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	public List<Map> getUserListOfDept(Map<String, String> map) throws Exception{
+		return  list("system.selectUserListOfDept", map);
+	}
+
+
+	/**
+	 * 부서장 지정
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	public int doSaveManager(Map<String, String> map) throws Exception{
+		return  update("system.doSaveManager", map);
+	}
+
+
+
+	/**
+	 * 부서장 지정
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	public int doSaveParentDept(Map<String, String> map) throws Exception{
+		return  update("system.doSaveParentDept", map);
+	}
+
+
+	/**
+	 * 부서 depth => level_seq 변경
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		:
+	 * @date		:
+	 */
+	public int updateLevelSeqDept(Map<String, String> map) throws Exception{
+		return  update("system.updateLevelSeqDept", map);
+	}
+
+
+	/**
+	 * 부서 트리 정보 저장
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: oys
+	 * @date		: 2017. 2. 21.
+	 */
+	public void updateMoveDeptInfo(Map map) throws Exception{
+		update("system.updateMoveDeptInfo", map);
+	}
+
+
+	/**
+	 * 관계사  그룹카운트
+	 * @param map
+	 * @throws Exception
+	 */
+	public int getBusinessGroupCnt(Map<String, Object> map) throws Exception{
+		return (Integer) super.getSqlMapClientTemplate().queryForObject("system.getBusinessGroupCnt", map);
+	}
+
+	/**
+	 * 사용자 부서정보 가져오기
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	/*public List<EgovMap> getUserDepartmentListByDept(Map<String, Object> map) throws Exception{
+		return  list("system.getUserDepartmentListByDept", map);
+	}*/
+
+	/**
+	 * 이전 부서 내용 지우기
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	public int updateUserDepartmentForMove(Map<String, Object> map) throws Exception{
+		return update("system.updateUserDepartmentForMove", map);
+	}
+
+	/**
+	 * 사용자 부서장 초기화(없애기)
+	 *
+	 * @param		:
+	 * @return		:
+	 * @exception	:
+	 * @author		: SangHyun Park
+	 * @date		: 2015. 9. 14.
+	 */
+	public int deleteDeptManageForMove(Map<String, Object> map) throws Exception{
+		return update("system.deleteDeptManageForMove", map);
+	}
+
+
+}

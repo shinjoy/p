@@ -1,0 +1,72 @@
+package ib.system.service.impl;
+
+
+import ib.system.service.RoleRegService;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Service;
+
+import egovframework.rte.fdl.cmmn.AbstractServiceImpl;
+
+
+@Service("roleRegService")
+public class RoleRegServiceImpl extends AbstractServiceImpl implements RoleRegService {
+
+    @Resource(name="roleRegDAO")
+    private RoleRegDAO roleRegDAO;
+    
+    protected static final Log logger = LogFactory.getLog(RoleRegServiceImpl.class);
+
+    
+    //권한코드(콤보박스용)
+    public List<Map> getRoleCodeCombo(Map<String, String> map) throws Exception {
+    	
+    	return roleRegDAO.getRoleCodeCombo(map);
+	}
+     
+    
+  	//권한코드
+	public List<Map> getRoleCodeList(Map<String, String> map) throws Exception {
+
+		return roleRegDAO.getRoleCodeList(map);
+	}
+
+	
+	//권한등록(신규)
+	public int insertRole(Map<String, Object> map) throws Exception {
+		
+		int boardSeq = roleRegDAO.insertRole(map);			//권한등록
+				
+		return boardSeq;
+	}
+
+
+	//권한등록(수정)
+	public int updateRole(Map<String, Object> map) throws Exception {
+		
+		int svCnt = roleRegDAO.updateRole(map);				//권한수정
+		
+		return svCnt;
+	}
+
+
+	//권한삭제
+	public int deleteRole(Map<String, Object> param) throws Exception {
+		
+		return roleRegDAO.deleteRole(param);
+	}
+
+
+	//관계사별 권한코드(콤보박스용)
+	public List<Map> getRoleCodeByOrgCombo(Map<String, String> map) throws Exception {
+		return roleRegDAO.getRoleCodeByOrgCombo(map);
+	}
+
+
+}

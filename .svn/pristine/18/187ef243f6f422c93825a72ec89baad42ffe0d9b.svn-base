@@ -1,0 +1,127 @@
+﻿.clr1{color:green;}.clr2{color:blue;}.clr3{color:red;}
+.hand {
+	cursor: pointer;
+}
+.M_basicInfoL {
+    width:45px;
+    margin:0;
+    padding:3px 5px;
+    display:block;
+    float:left;
+    font-size:12px;
+    font-weight:bold;
+    text-align: center;
+}
+.M_basicInfoR {
+    width:65px;
+    margin:0;
+    padding:3px 5px;
+    display:block;
+    float: right;
+    font-size:12px;
+    font-weight:bold;
+    text-align: center;
+}
+.M_comL
+,.M_comR
+,.M_comRinTA
+,.M_comRinTAn
+,.M_comRinTA textarea
+,.M_comRinTAn textarea{
+	font-size: 12px;
+	font-family: 맑은 고딕, Trebuchet MS, Verdana, Geneva, sans-serif;
+}
+.M_comL {
+	width: auto;
+	max-width: 370px;
+	/* width: 400px !important; */
+    margin:0;
+    padding:5px 10px;
+    display:block;
+    float:left;
+    font-size:12px;
+    border-radius: 8px;
+    background-color:#E9C0E6;
+}
+.M_comR {
+	width: auto;
+	max-width: 370px;
+	/* width: 400px !important; */
+    margin:0;
+    padding:5px 10px;
+    display:block;
+    float: right;
+    font-size:12px;
+    border-radius: 8px;
+    background-color:#C0E9C0;
+    cursor:pointer;
+}
+.M_comRinTA {
+    margin:0;
+    display:block;
+    float: right;
+}
+.M_comRinTA textarea{
+    padding:5px 10px;
+    margin:0;
+	overflow:hidden;
+	max-width: 370px;
+	/* width: 400px !important; */
+	border: none;
+    border-radius: 8px;
+    background-color:#C0E9C0;
+	
+}
+.M_comRinTAn {
+    margin:0;
+    display:block;
+    float: right;
+}
+.M_comRinTAn textarea{
+    padding:5px 10px;
+    margin:0;
+	overflow:hidden;
+	max-width: 370px;
+	/* width: 400px !important; */
+	border: none;
+    border-radius: 8px;
+    background-color:#fff;
+	min-height:130px;
+}
+
+.triL {
+	width: 0px;
+    float:left;
+    margin-top: 6px;
+    border-top: 9px solid #E9C0E6;
+    border-left: 15px solid transparent;
+}
+
+.triR {
+	width: 0px;
+    float: right;
+    margin-top: 6px;
+    border-top: 9px solid #C0E9C0;
+    border-right: 15px solid transparent;
+}
+.triRn {
+	width: 0px;
+    float: right;
+    margin-top: 6px;
+    border-top: 9px solid #fff;
+    border-right: 15px solid transparent;
+}
+.triRorg {
+	width: 0px;
+    float: right;
+    margin-top: 6px;
+    border-top: 9px solid #FAAC58;
+    border-right: 15px solid transparent;
+}
+.triLorg{
+	width: 0px;
+    float:left;
+    margin-top: 6px;
+    border-top: 9px solid #FAAC58;
+    border-left: 15px solid transparent;
+}

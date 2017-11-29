@@ -1,0 +1,1029 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+
+<section id="detail_contents">
+	<div class="sys_halfWrap">
+		<div class="fl_halfBox">
+			<h3 class="h3_title_basic mgb10">리스트</h3>
+			<div class="sys_search_box">
+				<div id="AXSearchTarget" class="fl_block"></div>
+				<!-- <div class="fr_block">
+					<button name="reg_btn" class="btn_b2_skyblue" onclick="fnObj.excelDownload();"><em class="icon_XLS">파일로 저장</em></button>
+				</div> -->
+			</div>
+			<div id="AXGridTarget" class="mgt20"></div>
+		</div>
+		<div class="fr_halfBox">
+			<h3 class="h3_title_basic mgb10">메뉴별 탭 등록</h3>
+			<div id="AXSearchTarget2"></div>
+			<div class="sys_p_noti dotline"><span class="icon_noti"></span><span class="pointB">[등록방법]</span><span> 수정한 메뉴구조를 적용하시려면 재로그인 하시기 바랍니다.</span> <span class="pointred">(사용여부가 'N' 인 메뉴들로 인해 구조가 깨지지않도록 주의)</span></div>
+			<div id="AXGridTarget2"></div>
+			<!-- <div><a href="javascript:fnObj.fullGridSize();"><b><u>FULL SIZE</u></b></a></div> -->
+			<div class="systemBtn_bothz mgt20">
+				<div class="fl_block">														
+					<span class="sub_title">탭순서이동</span>
+				    <button type="button" class="AXButton graarrow_x" onclick="fnObj.moveUp();"><i class="axi axi-chevron-up" style="font-size:12px;"></i></button>
+				    <button type="button" class="AXButton graarrow_x" onclick="fnObj.moveDown();"><i class="axi axi-chevron-down" style="font-size:12px;"></i></button>
+                </div>
+                <div class="fr_block">
+					<button type="button" class="AXButton Classic" onclick="fnObj.setTopMenu();"><i class="axi axi-content-copy"></i> 상위메뉴 설정</button>
+					<button type="button" class="AXButton Classic"  onclick="fnObj.doSave();"><i class="fa fa-check-circle fa-lg"></i> 저장</button>
+                 </div>
+            </div>
+		</div>
+		<div class="btn_arrow_halbox">
+			<button type="button" class="AXButton graarrow" onclick="fnObj.moveRight();"><i class="axi axi-chevron-right2" style="font-size:12px;"></i></button>
+			<button type="button" class="AXButton graarrow" onclick="fnObj.moveLeft();"><i class="axi axi-chevron-left2" style="font-size:12px;"></i></button>
+		</div>
+	</div>
+</section>
+
+
+	
+<script type="text/javascript">
+
+//Global variables :S ---------------
+//사용자언어
+var lang = '${baseUserLoginInfo.lang}';		//language (profile language... 'KOR' or 'ENG')
+
+//공통코드
+var roleCodeCombo;				//권한코드
+
+var mySearch = new AXSearch(); 	// instance
+var mySearch2 = new AXSearch(); // instance (오른쪽)
+var myGrid = new AXGrid(); 		// instance
+var myGrid2 = new AXGrid(); 	// instance	(오른쪽)
+
+var myModal = new AXModal();	// instance
+var myModal2 = new AXModal();	// instance
+
+var pageParam = []; // 상위메뉴 설정 시 저장 전에 메뉴정보 담는 배열
+//Global variables :E ---------------
+
+
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+
+var fnObj = {
+	
+	//################# init function :S #################
+	
+	//선로딩코드
+	preloadCode: function(){
+		//공통코드
+		comCodeMenuType = getBaseCommonCode('MENU_TYPE', lang, 'CD', 'NM', '', '전체보기', 'ALL', { orgId : "${baseUserLoginInfo.orgId}" });		//메뉴타입 공통코드 (Sync ajax)
+		comCodeMenuType.remove(getRowIndexWithValue(comCodeMenuType, 'CD', 'TREE'));				//'CD':'TREE' 인것 삭제
+		
+		roleCodeCombo = getCodeInfo(lang, 'CD', 'NM', null, null, null, '/system/getRoleCodeCombo.do');	 //권한코드(콤보용) 호출
+				
+		//'optionValue','optionText' 프로퍼티를 생성하며 값으로 CD, NM 의 값 할당
+		this.addComCodeArray(comCodeMenuType);
+		this.addComCodeArray(roleCodeCombo);	
+	
+	},
+	
+	
+	//화면세팅
+    pageStart: function(){
+    	
+    
+    	
+    	//=================================================== 왼쪽 :s ======================================================
+    	//-------------------------- 검색 :S ---------------------------
+    	mySearch.setConfig({
+            targetID : "AXSearchTarget",
+            theme : "AXSearch",
+            
+            mediaQuery: {
+                mx:{min:0, max:767}, dx:{min:767}
+            },
+            
+            onsubmit: function(){	// 버튼이 선언되지 않았거나 submit 개체가 있는 경우 발동 합니다.
+				fnObj.doSearch(); 
+			},
+			
+			rows:[
+					{display:true, addClass:"", style:"", list:[   						
+   						{label:"검색", type:"inputText", width:"200", key:"search", placeholder:"검색어입력", addClass:"secondItem", value:"",
+   							onChange: function(changedValue){
+   								//아래 2개의 값을 사용 하실 수 있습니다.
+   								dialog.push(Object.toJSON(this));
+   								dialog.push(changedValue);						
+   							}
+   						},
+   						{label : "", type : "button",  width:"40",value : "검색", addClass:"mgl10",
+   						}
+   						/* {label:"타입", labelWidth:"50", type:"radioBox", width:"", key:"menuType", addClass:"secondItem", valueBoxStyle:"", value:"",	//value:"TREE" 기본선택값
+   							options: comCodeMenuType,
+   							onChange: function(selectedObject, value){
+   								//아래 3개의 값을 사용 하실 수 있습니다.
+   								//toast.push(Object.toJSON(this));
+   								//toast.push(Object.toJSON(selectedObject));
+   								//toast.push(value);
+   								
+   								//검색호출
+   								fnObj.doSearch();
+   								
+   							}
+   						} */
+   					]}
+			     ]
+			
+        });//end mySearch.setConfig
+    	//-------------------------- 검색 :E ---------------------------
+    	
+    	//-------------------------- 그리드 :S -------------------------
+    	myGrid.setConfig({
+            targetID : "AXGridTarget",
+            theme : "AXGrid",
+            
+            fixedColSeq : 4,	//컬럼고정 index
+            fitToWidth : true,	//true,	//넓이에맞게
+            colHeadAlign : "center",	//헤드의 기본 정렬. "left"|"center"|"right"
+            
+            colHeadTool : false,	//컬럼 display 여부를 설정
+            
+            height: 600,		//grid height
+            
+            autoChangeGridView: { // autoChangeGridView by browser width
+                mobile:[0,600], grid:[600]
+            },
+            
+            //passiveMode:true,
+			//passiveRemoveHide:false,
+            
+            colGroup : [
+                {key:"NO", 		label:"NO", 	width:"40", 	align:"center",	sort: false,  formatter:function(){
+                	//return (this.list.length - this.index) + ( ( this.page.pageNo - 1) * this.page.pageSize );		//역순
+                	return ("<font color=silver><b>" + (this.index + 1) + "</b></font>");
+                }},
+                
+                {key:"chk", 	label:"<input type='checkbox' name='allChkLeft' readonly='true' onclick='fnObj.allCheck(0);' />",  width:"30",	align:"center", sort: false,  formatter:function(){return ("<input type='checkbox' name='mCheckLeft' onclick='fnObj.clickCheckboxL(this, " + this.index + ");' " + ((this.value==1)?"checked":"") + " />");}},
+                
+                {key:"menuId", 			label:"ID", 		width:"35",		align:"center",  formatter:function(){return ("<b>" + (this.value) + "</b>");}},
+                //{key:"menuKor",		label:"한글명", 		width:"150",	align:"center",  formatter:function(){return ("<b>" + (this.value) + "</b>");}},
+                //{key:"menuEng", 		label:"영문명", 		width:"150",	align:"center",  formatter:function(){return ("<b>" + (this.value) + "</b>");}},
+                {key:"menuTypeNm",		label:"타입", 		width:"45",		align:"center"},
+                //{key:"menuDesc", 		label:"설명", 		width:"150",	align:"center"},
+                {key:"menuTitleKor", 	label:"제목한글", 	width:"150",	align:"left"},
+                {key:"menuTitleEng", 	label:"제목영문", 	width:"100",	align:"left"},
+                {key:"menuPath", 		label:"URL", 		width:"200",	align:"left"}, 
+                //{key:"enable", 		label:"사용여부", 	width:"70",		align:"center"},
+                //{key:"createDate", 	label:"등록일", 		width:"100",	align:"center"},
+                //{key:"createNm", 		label:"등록자", 		width:"70",		align:"center"},
+                //{key:"updateDate", 	label:"수정일", 		width:"100",	align:"center"},
+                //{key:"updateNm", 		label:"수정자", 		width:"70",		align:"center"}
+                
+                /*{key:"USER_ROLE", label:"권한 <i class='axi axi-help2'></i>", width:"200", align:"center", sort: false, formatter: function(val){
+                		var colorObj = {'DEVELOP':'#F15F5F'};	//{'IT':'#F15F5F', 'ADMIN':'#F2CB61', 'WORK':'#BCE55C', 'USER':'#B2CCFF'};
+						return createSelectTag('selUserRole'+(this.index), roleCodeCombo, 'CD', 'NM', this.item.roleCode, 'fnObj.changeRoleCode(this,' + this.item.userId + ');', colorObj);	//select tag creator 함수 호출 (common.js)
+					}
+				}*/
+                //{key:"USER_ROLE",		label:"권한", 	width:"200",	align:"center"},
+            ],
+            body : {
+                onclick: function(){
+                    //toast.push(Object.toJSON({index:this.index, item:this.item}));
+                	//toast.push("<b>내용</b>:\n" + this.item.CONTENT);
+                	//alert(JSON.stringify(this));
+                	if(this.c == 2 || this.c == 3 || this.c == 4){		//메뉴보기
+                		//fnObj.viewMenu(this.item.menuId);
+                		//fnObj.viewMenu(this.list[this.index]);	//메뉴정보보기 (메뉴정보 객체전달)
+                	}
+                	
+                },
+                
+                ondblclick: function(){
+                	//fnObj.viewArticle(this.list[this.index].BOARD_SEQ);
+                }
+                
+            },
+			page:{
+				fullSizeButton: true,		//grid full size button
+				
+				paging:false, 
+				status:{formatter: null}
+			}
+            
+        });
+    	//-------------------------- 그리드 :E -------------------------
+    	
+    	//-------------------------- 모달창 :S -------------------------
+    	myModal.setConfig({
+    		windowID:"myModalCT",
+    		//openModalID:"kkkkk",
+    		width:740,
+            mediaQuery: {
+                mx:{min:0, max:767}, dx:{min:767}
+            },
+    		displayLoading:true,
+            scrollLock: true,
+    		onclose: function(){
+    			//toast.push("모달 close");
+
+				//if(window[myModal.winID].isSaved == false){		//저장을 안한상태로 창이 닫힐때, 이미 업로드한 파일은 삭제
+    			//	window[myModal.winID].fnObj.deleteFile();	//팝업창 내 파일삭제함수 호출.
+    			//}    			
+    		}
+            ,contentDivClass: "popup_outline"
+    	});
+    	//-------------------------- 모달창 :E -------------------------
+    	//=================================================== 왼쪽 :E ======================================================
+    	
+    		
+    	//=================================================== 오른쪽 :S =====================================================
+    	//-------------------------- 검색 :S ---------------------------
+    	//mySearch2 (오른쪽)
+    
+//         mySearch2.setConfig({
+//             targetID : "AXSearchTarget2",
+//             theme : "AXSearch",
+            
+//             mediaQuery: {
+//                 mx:{min:0, max:767}, dx:{min:767}
+//             },
+            
+//             onsubmit: function(){	// 버튼이 선언되지 않았거나 submit 개체가 있는 경우 발동 합니다.
+// 				fnObj.doSearch2(); 
+// 			},
+			
+// 			rows:[
+// 					{display:true, addClass:"", style:"", list:[
+//    						{label:"권 한", labelWidth:"100", type:"selectBox", width:"150", key:"roleCode", addClass:"secondItem", valueBoxStyle:"", value:"title",
+//    							//options:[{optionValue:"userName", optionText:"이름"}, {optionValue:"userSabun", optionText:"사번"}, {optionValue:"userId", optionText:"아이디"}],
+//    							options: roleCodeCombo,
+//    							AXBind:{
+//    								type:"select", config:{
+//    									onChange:function(){
+//    										//toast.push(Object.toJSON(this));
+//    										fnObj.doSearch2();
+//    									}
+//    								}
+//    							}
+//    						},
+//    						/*
+//    						{label:"메뉴위치", labelWidth:"100", type:"selectBox", width:"150", key:"menuLoc", addClass:"secondItem", valueBoxStyle:"padding-left:10px;", value:"",
+//    							options: comCodeMenuLoc,
+//    							AXBind:{
+//    								type:"select", config:{
+//    									onChange:function(){
+//    										//toast.push(Object.toJSON(this));
+//    										fnObj.doSearch2();
+//    									}
+//    								}
+//    							}
+//    						}
+//    						,
+//    						{label:"", labelWidth:"", type:"button", width:"80", key:"button", addClass:"Red", valueBoxStyle:"padding-left:0px;padding-right:5px;", value:"<span>복사하기</span>",
+// 							onclick: function(){
+
+
+// 								//mySearch.setItemValue("selectbox", "open");
+
+// 								//mySearch.reset();
+
+// 								//mySearch.getItemId("inputText2");
+//                                 axdom("#" + mySearch.getItemId("inputText2")).attr("readonly", "readonly");
+
+//                                 /*
+// 								mySearch.setItemValue("checkbox", ["all","open"]);
+// 								mySearch.setItemValue("radiobox");
+// 								mySearch.setItemValue("inputText2");
+// 								//AXUtil.alert(this);
+								
+// 								var myID = mySearch.getItemId("selectbox");
+// 								$("#"+myID).append("<option value='1'>222222</option>");
+// 								$("#"+myID).bindSelect();
+								
+// 							}
+// 						}
+//    						,
+//    						{label:"입력2", labelWidth:"60", type:"inputText", width:"250", key:"inputText2", addClass:"secondItem", valueBoxStyle:"", value:"입력2", title:"타이틀정보",
+//    							onChange: function(){}
+//    						}*/
+//    					]},
+// 			     ]
+			
+//         });
+    	
+    	//end mySearch2.setConfig
+    	//-------------------------- 검색 :E ---------------------------
+    	
+    	//-------------------------- 그리드 :S -------------------------
+    	myGrid2.setConfig({
+            targetID : "AXGridTarget2",
+            theme : "AXGrid",
+            
+            fixedColSeq : 4,	//컬럼고정 index
+            fitToWidth : true,	//true,	//넓이에맞게
+            colHeadAlign : "center",	//헤드의 기본 정렬. "left"|"center"|"right"
+            colHeadTool : false,	//컬럼 display 여부를 설정
+            height: 600,		//grid height
+            
+            autoChangeGridView: { // autoChangeGridView by browser width
+                mobile:[0,600], grid:[600]
+            },
+            
+            //passiveMode:true,
+			//passiveRemoveHide:false,
+            
+            colGroup : [
+                {key:"NO", 		label:"NO", 	width:"40", 	align:"center",	sort: false,  formatter:function(){
+                	//return (this.list.length - this.index) + ( ( this.page.pageNo - 1) * this.page.pageSize );		//역순
+                	return ("<font color=silver><b>" + (this.index + 1) + "</b></font>");
+                }},
+
+                {key:"chk", 	label:"<input type='checkbox' name='allChkRight' readonly='true' onclick='fnObj.allCheck(1);' />",  width:"30",	align:"center", sort: false,  formatter:function(){return ("<input type='checkbox' name='mCheckRight' onclick='fnObj.clickCheckboxR(this, " + this.index + ");' " + ((this.value==1)?"checked":"") + " />");}},
+                
+                /*
+                {key:"depth",			label:"레벨", 		width:"40",		align:"center",  formatter:function(){
+																										if(this.value == 0) return "<b>"+this.value+"</b>";
+																										else if(this.value == 1) return "<font color=red><b>"+this.value+"</b></font>";
+																										else if(this.value == 2) return "<font color=blue><b>"+this.value+"</b></font>";
+																										else return "<b>"+this.value+"</b>";
+																									}},
+				
+                {key:"menuTree",		label:"탭", 		width:"130",	align:"left",  formatter:function(){
+               																							var levelVal = this.item.depth;
+               																							var result = "";
+               																							for(var i=0;i<levelVal;i++){result+="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";}
+               																							return (result=="")?this.item.menuTitleKor:result+"┗ "+this.item.menuTitleKor;
+               																						}},
+               																						*/
+                {key:"menuId", 			label:"ID", 		width:"30",		align:"center",  formatter:function(){return ("<b>" + (this.value) + "</b>");}},
+                {key:"menuTypeNm",		label:"타입", 		width:"40",		align:"center"},
+                {key:"menuTitleKor", 	label:"제목한글", 	width:"120",	align:"left"},
+                //{key:"menuTitleEng", 	label:"제목영문", 	width:"80",		align:"left"},
+                {key:"menuPath", 		label:"URL", 		width:"150",	align:"left"},
+                {key:"menuRootStr", 	label:"상위메뉴", 	width:"150",	align:"left", formatter: function(){ return "<span name='menuRootStr'>"+this.value+"</span>";} },
+                {key:"menuUpId", 		label:"상위ID", 		width:"50",		align:"center", formatter: function(){ if(this.value == "" || this.value == null) return "<span name='oldMenuUpId'>0</span><input type='hidden' name='menuUpId'>"; else return "<span name='oldMenuUpId'>"+this.value +"</span><input type='hidden' value='"+ this.value+"' name='menuUpId'>";} },
+                {key:"menuRootId", 		label:"루트ID", 		width:"60",		align:"center", formatter: function(){ if(this.value == "" || this.value == null) return "<span name='oldMenuRootId'>0</span><input type='hidden' name='menuRootId'>"; else return "<span name='oldMenuRootId'>"+this.value +"</span><input type='hidden' value='"+ this.value+"' name='menuRootId'>";} }
+            ],
+            body : {
+                onclick: function(){
+                    //toast.push(Object.toJSON({index:this.index, item:this.item}));
+                	//toast.push("<b>내용</b>:\n" + this.item.CONTENT);
+                	//alert(JSON.stringify(this));
+                	if(this.c == 3 || this.c == 4 || this.c == 5 || this.c == 6 ){		//메뉴보기
+                		//fnObj.viewMenu(this.item.menuId);
+                		//fnObj.viewMenu(this.list[this.index]);	//메뉴정보보기 (메뉴정보 객체전달)
+                	}
+                	
+                },
+                
+                ondblclick: function(){
+                	//fnObj.viewArticle(this.list[this.index].BOARD_SEQ);
+                }
+                
+            },
+			page:{
+				fullSizeButton: true,		//grid full size button
+				
+				paging:false, 
+				status:{formatter: null}
+			}
+            
+        });
+        
+      
+    	//-------------------------- 그리드 :E -------------------------
+    	
+    	myModal2.setConfig({
+    		windowID:"myModalCT2",
+    		width:740,
+            mediaQuery: {
+                mx:{min:0, max:767}, dx:{min:767}
+            },
+    		displayLoading:true,
+            scrollLock: true,
+    		onclose: function(){
+    			//toast.push("모달 close");
+  			
+    		}
+    	    ,contentDivClass: "popup_outline"
+    	});
+        
+    	//=================================================== 오른쪽 :E =====================================================
+    	
+    },//end pageStart.
+  	//################# init function :E #################
+    
+    
+    //################# else function :S #################
+    
+  	//검색(메뉴리스트)
+    doSearch: function(page){		//knd : null - 검색버튼, 숫자 - 페이지검색 
+    	
+    	var pars = mySearch.getParam();
+    
+    	var url = contextRoot + "/system/getMenuList.do";
+    	var param = mySearch.getParam().queryToObjectDec();	//query string 을 객체로 바꿔준다.		*queryToObjectDec 디코딩해서
+    	//param.enable = 'Y';	//사용여부 'Y' 인것만 권한별메뉴설정위해 ///////일단 N 도 메뉴설정할 수 있도록 해놓고 바서 바꾸자!!!!!!!!!!!!!!!!!!!!!!!
+    	param.isNotTree = 'Y';		//메뉴타입이 'TREE' 아닌 것만
+    	
+    	var callback = function(result){
+    		
+    		var obj = JSON.parse(result);
+    		
+    		//세션로그아웃 >> 재로그인
+    		if(obj.result=='FAIL' && obj.resultVal=='SESSION'){
+    			window.open('<c:url value="/login/loginPop.do" />', 'loginPop', 'width=500 height=200');
+    			return;
+    		}
+    		
+    		var cnt = obj.resultVal;	//결과수
+    		var list = obj.resultList;	//결과데이터JSON
+    	    		
+    		var gridData = {list:list};
+    		
+    		myGrid.clearSort();			//소팅초기화
+    		myGrid.setData(gridData);	//그리드에결과반영    		
+    	};
+    	
+    	commonAjax("POST", url, param, callback);
+    },//end doSearch
+    
+    
+  	//검색(메뉴별 탭 리스트)
+    doSearch2: function(page){		//knd : null - 검색버튼, 숫자 - 페이지검색 
+    	
+    	//var pars = mySearch2.getParam();
+    
+    	var url = contextRoot + "/system/getTabPerMenu.do";
+    	//var param = mySearch2.getParam().queryToObjectDec();	//query string 을 객체로 바꿔준다.		*queryToObjectDec 디코딩해서
+    	
+    	var param = {};
+    	var callback = function(result){
+    		
+    		var obj = JSON.parse(result);
+    		
+    		//세션로그아웃 >> 재로그인
+    		if(obj.result=='FAIL' && obj.resultVal=='SESSION'){
+    			window.open('<c:url value="/login/loginPop.do" />', 'loginPop', 'width=500 height=200');
+    			return;
+    		}
+    		
+    		var cnt = obj.resultVal;	//결과수    		
+    		var list = obj.resultList;	//결과데이터JSON
+    	    		
+    		var gridData = {list:list};
+    		
+    		myGrid2.clearSort();		//소팅초기화
+    		myGrid2.setData(gridData);	//그리드에결과반영
+    	};
+    	
+    	commonAjax("POST", url, param, callback);
+    },//end doSearch
+    
+    
+    //툴팁 세팅
+    setTooltip: function(){
+    	var tooltipStr = '';    	
+    	/*for(var i=1; i<roleCodeCombo.length; i++){
+    		tooltipStr += roleCodeCombo[i].NM + " : " + roleCodeCombo[i].DESCRIPTION + "<br>";
+    	}*/
+    	tooltipStr += "<font color=#3456c2><strong>[등록방법]</font><br>1. 수정한 메뉴구조를 적용하시려면 재로그인 하시기 바립니다.<br><br><font color=#3456c2>**주의사항**</font><br><strong>1. 사용여부가 'N' 인 메뉴들로 인해 구조가 깨지지않도록 주의</strong>";
+    	
+  		AXPopOver.bind({
+  	        id:"myPopOver",
+  	        theme:"AXPopOverTooltip", 	// 선택항목
+  	        width:"200", 				// 선택항목
+  	        body:tooltipStr				//"설명입니다.<br/>액시스제이는 이렇게 유용 합니다."
+  	    });
+  		$("#ttipUserRole").bind("mouseover", function(event){
+  	        AXPopOver.open({id:"myPopOver", sendObj:{}}, event); // event 직접 연결 방식
+  	    });
+  	},
+  	
+  	
+  	//저장(메뉴구조)
+    doSave: function(){
+    	
+    	//--------------- validation :S ---------------
+    	
+    	//------ 부모아이디, 루트아이디, 정렬값 구해서 세팅
+    	var list = myGrid2.getList();					//그리드 데이터 리스트
+    	
+    	var pArray = [];		//저장을 위해 새로운 배열객체를 만든다.
+    	var sortArray = [];		//저장전 rootID 순대로 sort하기 위해 배열을 만든다.
+    	var rObj;				//row object
+    	var cntLvl0 = 0;		//sort 값 생성 위한 변수		
+    	var cntLvl1 = 0;		//sort 값 생성 위한 변수
+    	var cntLvl2 = 0;		//sort 값 생성 위한 변수
+    	var preLevel = -1;		//이전데이터 레벨
+    	
+    	for(var i=0; i<list.length; i++){
+    		//sortArray.push({ menuId : list[i].menuId.toString() , depth : list[i].depth.toString(), menuParentId : $("input[name='menuUpId']").eq(i).val(), menuRootId : $("input[name='menuRootId']").eq(i).val()});
+    		sortArray.push({ menuId : list[i].menuId.toString() , depth : list[i].depth.toString(), menuParentId : isEmpty(list[i].menuUpId)?'':list[i].menuUpId.toString(), menuRootId : isEmpty(list[i].menuRootId)?'':list[i].menuRootId.toString()});
+    	}
+    	
+    	//최상위메뉴에 따른 sort
+	    sortArray.sort(function(a,b){
+	    	if(a.menuRootId > b.menuRootId){
+	    		return 1;
+	    	}
+	    	
+	    	if(a.menuRootId < b.menuRootId){
+	    		return -1;
+	    	}
+	    	
+	    	if(a.menuRootId == b.menuRootId){
+	    		if(a.menuParentId > b.menuParentId){
+	    			return 1;
+	    		}else if(a.menuParentId < b.menuParentId){
+	    			return -1;
+	    		}else{
+	    			return 0;
+	    		}
+	    	}
+	    	
+	    	return 0;
+	    });
+	        
+	    
+    	
+    	for(var i= 0 ;i <sortArray.length ;i++){
+    		rObj = new Object();	//row object
+    	
+    		rObj.menuId = sortArray[i].menuId.toString();	//메뉴아이디 key,value 추가
+    		rObj.depth  = sortArray[i].depth.toString();			//레벨 key,value 추가
+    		    		
+    		switch(sortArray[i].depth * 1){						//해당 레벨의 값을 1증가, 하위는 0 초기화... (cntLvl0 * 100 + cntLvl1 * 10 + cntLvl2) 가 sort(정렬)값이 된다.
+    			case 0: cntLvl0 ++;
+    					cntLvl1 = 0;
+    					cntLvl2 = 0;
+    					break;
+    			case 1: cntLvl1 ++;
+						cntLvl2 = 0;
+						break;
+    			case 2: cntLvl2 ++;
+    					break;
+    		}
+    		rObj.sort = (cntLvl0 * 100 + cntLvl1 * 10 + cntLvl2).toString();				// sort 값 세팅
+    	
+
+    		rObj.menuParentId 	= sortArray[i].menuParentId;			//부모 id
+    		rObj.menuRootId 	= sortArray[i].menuRootId;		//루트 id
+    
+    		pArray.push(rObj);
+    	}
+    	//--------------- validation :E ---------------
+    	
+    	
+    	//저장		
+    	//var sObj = mySearch2.getParam().queryToObjectDec();	//query string 을 객체로 바꿔준다.		*queryToObjectDec 디코딩해서
+    	
+    	var url = contextRoot + "/system/doSaveTabPerMenu.do";
+    	var param = {
+    			pList:	  JSON.stringify(pArray),		//그리드 데이터 (JSON 문자열)
+    			//roleCode: sObj.roleCode,				//권한코드    			
+    			//roleCode : 'DEVELOP'
+    	}
+    	var callback = function(result){
+    			
+    		var obj = JSON.parse(result);
+    		
+    		//세션로그아웃 >> 재로그인
+    		if(obj.result=='FAIL' && obj.resultVal=='SESSION'){
+    			window.open('<c:url value="/login/loginPop.do" />', 'loginPop', 'width=500 height=200');
+    			return;
+    		}
+    		
+    		var cnt = obj.resultVal;	//결과수
+    		
+    		if(obj.result == "SUCCESS"){
+    			
+    			//parent.fnObj.doSearch(parent.curPageNo);	//목록화면 재조회 호출.
+    			//parent.myModal.close();						//글쓰기 창 닫기.
+    			//parent.dialog.push("등록OK!");	
+    			parent.toast.push("저장OK!");
+    		}else{
+    			//alertMsg();
+    		}
+    		
+    	};
+    	
+    	commonAjax("POST", url, param, callback);
+    	
+    	
+    },//end doSave
+    
+    
+    //권한별 탭 복사
+    copyRole: function(){
+    	var url = "<c:url value='/system/copyRoleTab.do'/>";
+    	var params = {};	//{mode:'new'};	//"btype=1&cate=1".queryToObject();		//게시판유형(board_type), 게시판 카테고리 를 넘긴다. 
+    	
+    	myModal.open({ 
+    		url: url,
+    		pars: params,
+    		titleBarText: '권한별 탭 복사',		//titleBarText 속성 추가하였음.(원 Axisj에는 없었던것)
+    		method:"POST",
+    		top: 200,
+    		width: 450,
+    		closeByEscKey: true				//esc 키로 닫기
+    	});
+    	    	
+    	$('#myModalCT').draggable();
+    },
+    
+    
+    
+    //배열에 새로운 인자로 추가 (공통코드 이상문제해결)
+    addComCodeArray: function(obj){    	
+		for(var i=0; i<obj.length; i++){
+			obj[i].optionValue = obj[i].CD;		//'optionValue' 프로퍼티를 생성하며 값으로 CD 의 값 할당 
+			obj[i].optionText  = obj[i].NM;		//'optionText'  프로퍼티를 생성하며 값으로 NM 의 값 할당
+		}		
+    },
+    
+    
+    
+    //오른쪽으로 이동 (메뉴리스트 >> 메뉴별 탭 등록)
+    moveRight: function(){
+    	var leftList = myGrid.getList();								//왼쪽   그리드 데이터
+    	var rightList= myGrid2.getList();								//오른쪽 그리드 데이터
+    	
+    	var chkCnt = 0;			//이동을 위해 체크한 수
+    	var chkIndex = -1;		//체크한 row index
+    	var moveObj;			//체크해서 이동할 row Object
+    	for(var i=0; i<leftList.length; i++){
+    		if(leftList[i].chk == 1){	//체크되어 있는 것을
+    			chkCnt++;
+    			leftList[i].menuRootStr = "";
+    			moveObj = leftList[i];									//이동할 row data
+    			//leftList.splice(i, 1);									//체크 요소를 삭제
+    			
+    			//추가(key,value)
+    			moveObj.depth = 0;
+    			moveObj.sort = 100;
+    			//moveObj.menuLoc = mySearch2.getParam().queryToObjectDec().menuLoc;		//메뉴위치 코드
+    			//moveObj.menuRootId = moveObj.menuId;
+    			
+    			if(getRowIndexWithValue(rightList, 'menuId', leftList[i].menuId) == -1){	//이미 추가한 것은 제외하고
+    				myGrid2.pushList(moveObj);								//오른쪽 그리드에 추가
+    			}
+    		}
+    	}
+    	
+    	if(chkCnt == 0){
+    		alertM("이동할 메뉴를 먼저 선택해주세요!");
+    		return;
+    	}
+    	
+    	//그리드 싱크 ....pushList 는 싱크도 되는듯
+    	//myGrid.dataSync();
+    	//myGrid2.dataSync();
+    	
+    	//fnObj.fullGridSize();	//그리드 사이즈 조정//
+    	if($('#' + myGrid2.config.targetID + '_FullSizeButton').hasClass('open')){
+    		$('#' + myGrid2.config.targetID + '_FullSizeButton').click();		//전체펼침 버튼 클릭
+    	}
+    },
+    
+  	//왼쪽으로 이동 (메뉴리스트 << 메뉴별 탭 등록) ... 실제는 삭제로 구현
+    moveLeft: function(){
+    	var rightList = myGrid2.getList();								//오른쪽 그리드 데이터
+    	
+    	var chkCnt = 0;			//이동을 위해 체크한 수
+    	var chkIndex = -1;		//체크한 row index
+    	var moveObj;			//체크해서 이동할 row Object
+    	for(var i=rightList.length-1; i>=0; i--){
+    		if(rightList[i].chk == 1){	//체크되어 있는 것을
+    			chkCnt++;
+    			rightList.splice(i, 1);									//체크 요소를 삭제
+    		}
+    	}
+    	
+    	if(chkCnt == 0){
+    		alertM("이동할 메뉴를 먼저 선택해주세요!");
+    		return;
+    	}
+    	
+    	//그리드 싱크
+    	myGrid.dataSync();
+    	//myGrid2.dataSync();
+    	myGrid2.redrawGrid();	//하단 상태바 count(s) 숫자도 반영되게하려면 redrawGrid().
+    },
+    
+    /*
+    //레벨변경
+    chngLevel: function(){
+    	
+    	//변경할 레벨값확인
+    	var rdLevel = document.getElementsByName('rdLevel'); 
+    	var toLevel = -1;
+    	for(var i=0; i<rdLevel.length; i++){
+    		if(rdLevel[i].checked) toLevel = rdLevel[i].value;
+    	}
+    	if(toLevel == -1){
+    		alert("변경하실 레벨을 선택해주세요!");
+    		return;
+    	}
+    	
+    	
+    	//레벨변경
+    	var list = myGrid2.getList();		//권한별메뉴리스트    	
+    	var chkList = document.getElementsByName('mCheckRight');
+    	var zIdx = chkList.length/2;		//** AxisJ 의 고정컬럼 그리드에서는 고정컬럼으로 표현되는 부분은 2중으로 겹치게 표현하는것 같다... 따라서 체크박스가 2배수로 생겼다.
+    	for(var i=zIdx; i<chkList.length; i++){
+    		if(chkList[i].checked){
+    			list[i-zIdx].depth = toLevel;		//레벨 변경(선택한 레벨로)
+    		}
+    		
+    	}
+    	    	
+    	//myGrid2.redrawGrid();	//변경한(DB미적용) 데이터로 화면에서 보이도록(redraw)
+    	myGrid2.dataSync();	//변경한(DB미적용) 데이터로 화면에서 보이도록
+    	
+    	//this.dataSyncCheckboxR();	//'chk' 컬럼 값으로 체크박스 체크상태 싱크
+    	
+    },
+    */
+    
+  	//체크박스 체크 validation (위,아래 이동)
+	checkChkValidUpDown: function(){
+    	
+		var chkList = document.getElementsByName('mCheckRight');
+    	var chkCnt = 0;
+    	var chkIndex = -1;
+    	for(var i=chkList.length/2; i<chkList.length; i++){
+    		if(chkList[i].checked){
+    			chkCnt++;
+    			chkIndex = i-chkList.length/2;
+    		}
+    	}
+    	
+    	if(chkCnt==0){
+    		alertM("이동할 메뉴를 먼저 선택해주세요!");
+    		//dialog.push({body:"<b>확인!</b> ", type:"", onConfirm:function(){}});
+    		return -1;
+    	}else if(chkCnt>1){
+    		alertM("이동할 메뉴는 한번에 1개만 선택해주세요!");
+    		//dialog.push({body:"<b>확인!</b> ", type:"", onConfirm:function(){}});
+    		return -1;
+    	}else{
+    		       	
+    		return chkIndex;
+    	}
+    },
+    
+    //메뉴위치 위로
+    moveUp: function(){
+    	//체크박스 체크 validation
+    	var chkIndex = this.checkChkValidUpDown();
+    	if(chkIndex == -1){		//false(체크된것이 없거나, 2개이상)
+    		return;				//끝낸다.
+    	}
+    	
+    	/////////////////// 이동 ///////////////////
+    	var list = myGrid2.getList();
+    	
+       	//체크된 메뉴 정보
+    	var checkedItem = list[chkIndex];
+    	
+    	if(chkIndex == 0){						//이미 처음 index
+    		return;
+    	}
+    	    	
+    	
+    	//위로 이동되는지 체크하기.
+    	var upItem = list[chkIndex-1];
+    	if(checkedItem.menuRootId != null && upItem.menuRootId != checkedItem.menuRootId){
+    		alert("같은 상위 메뉴 안에서만 이동이 가능합니다.");
+    		return;
+    	}else if(upItem.menuRootId == checkedItem.menuRootId && upItem.menuUpId != checkedItem.menuUpId){
+    		alert("같은 상위 메뉴 안에서만 이동이 가능합니다.");
+    		return;
+    	}
+    	
+    	var chkObj = list[chkIndex];			//이동할 배열객체를 담고
+    	list.splice(chkIndex, 1);				//chkIndex 요소를 원본에서 삭제
+    	
+    	var toIndex = chkIndex - 1;				//위로 1칸
+    	
+    	myGrid2.setData({list:addToArray(list, toIndex, chkObj)});	//이동할 위치로 이동후 그리드에 세팅.
+    	myGrid2.dataSync();						//그리드 data sync (화면)
+    	
+    	$("input:checkbox[name='mCheckRight']").eq(toIndex).trigger("click");
+    },
+    
+  	//메뉴위치 아래로
+    moveDown: function(){
+    	//체크박스 체크 validation
+    	var chkIndex = this.checkChkValidUpDown();
+    	if(chkIndex == -1){		//false(체크된것이 없거나, 2개이상)
+    		return;				//끝낸다.
+    	}
+    	
+    	/////////////////// 이동 ///////////////////
+    	var list = myGrid2.getList();
+     	
+     	//체크된 메뉴 정보
+    	var checkedItem = list[chkIndex];
+    
+    	if(chkIndex == (list.length-1)){		//이미 마지막 index
+    		return;
+    	}
+    	
+    	//아래로 이동시킬수 있을지 체크하기.
+     	var bottomItem = list[chkIndex+1];
+    	if(checkedItem.menuRootId != null && bottomItem.menuRootId != checkedItem.menuRootId){
+    		alert("같은 상위 메뉴 안에서만 이동이 가능합니다.");
+    		return;
+    	}else if(bottomItem.menuRootId == checkedItem.menuRootId && bottomItem.menuUpId != checkedItem.menuUpId){
+    		alert("같은 상위 메뉴 안에서만 이동이 가능합니다.");
+    		return;
+    	}
+    	
+    	
+    	var chkObj = list[chkIndex];			//이동할 배열객체를 담고        
+    	list.splice(chkIndex, 1);				//chkIndex 요소를 원본에서 삭제
+    	
+    	var toIndex = chkIndex + 1;				//아래로 1칸
+    	
+    	myGrid2.setData({list:addToArray(list, toIndex, chkObj)});	//이동할 위치로 이동    	
+    	myGrid2.dataSync();						//그리드 data sync (화면)
+    	
+    	$("input:checkbox[name='mCheckRight']").eq(toIndex).trigger("click");
+    },
+    
+    
+    
+    //왼쪽 그리드 체크박스 클릭 이벤트 핸들러 (그리드 data Sync)
+    clickCheckboxL: function(obj, idx){
+    	var list = myGrid.getList();
+    	if(obj.checked){    		
+    		list[idx].chk = 1;
+    	}else{
+    		list[idx].chk = 0;
+    	}
+    },
+    
+  	//오른쪽 그리드 체크박스 클릭 이벤트 핸들러 (그리드 data Sync)
+    clickCheckboxR: function(obj, idx){
+    	var list = myGrid2.getList();
+    	if(obj.checked){
+    		list[idx].chk = 1;
+    	}else{
+    		list[idx].chk = 0;
+    	}
+    },
+    
+    //체크박스 전체 체크
+    allCheck: function(knd){
+    	if(knd == 0){	//왼쪽 그리드
+    		var chkList = document.getElementsByName('mCheckLeft');
+    		var list = myGrid.getList();
+    		var addIdx = chkList.length/2;
+    		var toBe = document.getElementsByName('allChkLeft')[1].checked;
+    		for(var i=chkList.length/2; i<chkList.length; i++){
+        		chkList[i].checked = toBe;		//체크여부
+        		list[i-addIdx].chk = toBe?1:0;	//그리드데이터도 함께 변환(아직 그리드 데이터는 변하지 않은 상태이기때문에)
+        	}
+    		
+    	}else{	// knd == 1 오른쪽
+    		var chkList = document.getElementsByName('mCheckRight');
+    		var list = myGrid2.getList();
+    		var addIdx = chkList.length/2;
+    		var toBe = document.getElementsByName('allChkRight')[1].checked;
+    		for(var i=chkList.length/2; i<chkList.length; i++){
+        		chkList[i].checked = toBe;		//체크여부
+        		list[i-addIdx].chk = toBe?1:0;	//그리드데이터도 함께 변환(아직 그리드 데이터는 변하지 않은 상태이기때문에)
+        	}
+    		
+    	}
+    },    
+    
+    setTopMenu : function(){
+    	
+     	var url = "<c:url value='/system/setTopMenu.do'/>";
+    	var params = { };
+    	
+    	//params 에 코드리스트 전달------
+    	var list = myGrid2.getList();	//그리드 데이터(array object)
+    	//var roleText = mySearch2.getParam().queryToObjectDec();
+    	var codeList  = [];			//코드리스트(','로 연결된 문자열)
+    	for(var i=0; i<list.length; i++){
+    		if(list[i].chk == 1){
+    			//체크된 경우.
+    			codeList.push(list[i].menuId);
+    		}
+    	}
+    
+    	if(codeList.length < 1){
+    		alertM("설정할 메뉴를 선택해주세요!");
+    		return;
+    	}
+    	
+    	if('${baseUserLoginInfo.userRole}' != 'SYS_MGR'){
+    		alertM("시스템 매니저 권한자만 설정가능합니다!");
+    		return;
+    	}
+    	
+    	params.codeList = codeList;	
+    	params.pageParamMenuList = pageParam;
+    	//params.roleText = roleText.roleCode;
+    	params.roleText = 'SYS_MGR';
+    	//-----------------------------
+    	
+    	
+    	myModal2.open({
+    		url: url,
+    		pars: params,
+    		titleBarText: '메뉴설정',		//titleBarText 속성 추가하였음.(원 Axisj에는 없었던것)
+    		method:"POST",
+    		top: $(window).scrollTop() + 200,
+    		width: 550,
+    		closeByEscKey: true				//esc 키로 닫기
+    	});
+    	    	
+    	$('#myModalCT2').draggable();
+    },
+    //모달창에서 부모창으로 데이터 전달받는 함수.
+    updateValue : function(value){
+    	var sendParam = value;
+    	//페이지에 저장되는 상위 메뉴 정보
+    	pageParam = [];
+    	for(var i = 0 ;i < sendParam.length ; i++){    		
+    		//해당 메뉴 아이디
+    		var menuId_ = sendParam[i].id.substring(5);
+    		//상위 메뉴 아이디
+    		var menuRootId_ = sendParam[i].topMenuId;
+    		//메뉴 한글명
+    		var topStr = sendParam[i].topStr;
+    		var middleStr = sendParam[i].middleStr;
+    		var bottomStr = sendParam[i].bottomStr;
+    		
+    		//depth:2 메뉴아이디 가져옴.
+    		var menuParentId_ = sendParam[i].middleMenuId;
+    		if(menuParentId_ == undefined ||menuParentId_ == ""){
+    			menuParentId_ = 0;
+    			middleStr = "";
+    		}
+    		var bottomMenuId = sendParam[i].bottomMenuId;
+    		if(bottomMenuId != undefined &&  bottomMenuId != ""){
+    			menuParentId_ = bottomMenuId;
+    			middleStr = bottomStr;
+    		}    	
+    		
+    		//뒤에 메뉴 path 부분 제거함.
+    		if(middleStr != null && middleStr != ""){
+    			var inc = middleStr.indexOf("(");
+    			middleStr = middleStr.substring(0,inc);
+    		}
+    	    		
+    		//테이블의 메뉴 아이디 반환.
+    		$("#AXGridTarget2_AX_fixedTbody").find("tr").each(function(index, value){
+    			var tableMenuId = $(this).find("td:eq(2)").find("div b").html();
+    			//테이블 메뉴 아이디와 같은 경우 바뀐 정보로 세팅.
+    			if(tableMenuId == menuId_){
+    				$("input[name='menuUpId']").eq(index).val(menuParentId_);
+    				$("input[name='menuRootId']").eq(index).val(menuRootId_);
+    				$("input[name='menuUpId']").eq(index).parent().find("span[name='oldMenuUpId']").html(menuParentId_);
+    				$("input[name='menuRootId']").eq(index).parent().find("span[name='oldMenuRootId']").html(menuRootId_);
+ 					//메뉴명 설정
+    				$("span[name='menuRootStr']").eq(index).html(topStr + ((middleStr == "")? "" : " > "+middleStr));
+    			
+    			}
+    		});    		
+    	
+    		//저장안된 데이터로 모달 창에서 메뉴 보여주어야 할때 사용하는 파라미터
+    		pageParam.push(menuId_ +":"+ menuRootId_ +":" + ((sendParam[i].middleMenuId == undefined )? null : sendParam[i].middleMenuId) +":"+ ((sendParam[i].bottomMenuId == undefined )? null: sendParam[i].bottomMenuId));
+    	}
+    	
+    },
+    
+    
+  	//그리드 사이즈 full (height all view)
+    /* fullGridSize: function(){
+    	myGrid2.setHeight(myGrid2.getList().length * 35 + 170);
+    } */
+    
+  	//################# else function :E #################
+  	
+  	
+    
+};//end fnObj.
+
+
+/*
+ * 화면로딩완료후, 자바스크립트 화면세팅 과 그외동작들 호출.
+ */
+$(function(){
+	fnObj.preloadCode();	//공통코드 or 각종선로딩코드
+	fnObj.pageStart();		//화면세팅
+	fnObj.doSearch();		//검색(메뉴리스트)
+	fnObj.doSearch2();		//검색(메뉴별 탭)
+	fnObj.setTooltip();
+	
+	//검색버튼 동작
+	$(".searchButtonItem").on("click", function(){
+		fnObj.doSearch();
+	});
+});
+</script>

@@ -1,0 +1,989 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="board">
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+
+	<!-- 게시판 그룹 리스트 -->
+	<select id="board.getBoardGroupList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			group_id		as	groupId,
+			group_uid		as	groupUid,
+			group_name		as	groupName,
+			group_desc		as	groupDesc,
+			delete_flag		as	deleteFlag
+		FROM BS_CBOARD_GROUP
+		WHERE 1=1
+		<isNotEmpty prepend="AND" property="groupId">
+			group_id=#groupId#
+		</isNotEmpty>
+		 ORDER BY GROUP_NAME ASC
+
+
+		/* board.getboardGroupList */
+	</select>
+
+	<!-- 게시판 카테고리 목록 리스트 -->
+	<select id="board.getBoardCateList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			cboard_id			as	cboardId,
+			cboard.group_id		as	groupId,
+			cboard_uid			as	cboardUid,
+			cboard_name			as	cboardName,
+			cboard_desc			as	cboardDesc,
+			notice_yn			as	noticeYn,
+			file_yn				as	fileYn,
+			reply_yn			as	replyYn,
+			list_count			as	listCount,
+			page_count			as	pageCount,
+			created_date		as	createdDate,
+			created_by			as	createdBy,
+			updated_date		as	updatedDate,
+			updated_by			as	updatedBy,
+			deleted_date		as	deletedDate,
+			deleted_by			as	deletedBy,
+			cboard.delete_flag	as	deleteFlag,
+			grp.group_name 		as  groupName
+
+		FROM bs_cboard AS cboard
+		LEFT OUTER JOIN bs_cboard_group AS grp ON cboard.group_id = grp.group_id
+		WHERE 1=1
+		<isNotEmpty prepend="AND" property="groupId">
+			cboard.group_id=#groupId#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="cboardId">
+			cboard_id=#cboardId#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="cboardUid">
+			cboard_uid=#cboardUid#
+		</isNotEmpty>
+		 ORDER BY CBOARD_NAME ASC
+
+
+		/*board.getBoardCateList*/
+	</select>
+
+	<!-- 그룹 Uid 중복체크 -->
+	<select id="board.countChkGroupUid" parameterClass="HashMap" resultClass="java.lang.Integer">
+		SELECT COUNT(1)
+		FROM BS_CBOARD_GROUP
+		WHERE 1=1
+		<isNotEmpty prepend="AND" property="groupUid">
+			group_uid=#groupUid#
+		</isNotEmpty>
+
+		/*board.countChkGroupUid*/
+	</select>
+
+	<!-- 그룹 등록 -->
+	<insert id="board.insertBoardGroup">
+		INSERT INTO BS_CBOARD_GROUP(
+					 group_uid
+					,group_name
+					,group_desc
+					,delete_flag
+
+				)VALUES(
+					 #groupUid#
+					,#groupName#
+					,#groupDesc#
+					,#deleteFlag#
+				)
+
+		<selectKey resultClass="String" keyProperty="groupId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+	</insert>
+
+	<!-- 그룹 수정 -->
+	<update id="board.updateBoardGroup">
+		UPDATE BS_CBOARD_GROUP SET
+					 group_uid 		= #groupUid#
+					,group_name		= #groupName#
+					,group_desc 	= #groupDesc#
+					,delete_flag	= #deleteFlag#
+
+		WHERE group_id = #groupId#
+
+	</update>
+
+	<!-- 게시판 카테고리 Uid 중복체크 -->
+	<select id="board.countChkCboardUid" parameterClass="HashMap" resultClass="java.lang.Integer">
+		SELECT COUNT(1)
+		FROM BS_CBOARD
+		WHERE 1=1
+		<isNotEmpty prepend="AND" property="cboardUid">
+			cboard_uid=#cboardUid#
+		</isNotEmpty>
+
+		/*board.countChkCboardUid*/
+	</select>
+
+	<!-- 게시판 카테고리 등록 -->
+	<insert id="board.insertBoardCate">
+		INSERT INTO BS_CBOARD(
+					 group_id
+					,cboard_uid
+					,cboard_name
+					,cboard_desc
+					,notice_yn
+					,file_yn
+					,reply_yn
+					,list_count
+					,page_count
+					,created_date
+					,created_by
+					,updated_date
+					,updated_by
+					,delete_flag
+
+				)VALUES(
+					 #groupId#
+					,#cboardUid#
+					,#cboardName#
+					,#cboardDesc#
+					,#noticeYn#
+					,#fileYn#
+					,#replyYn#
+					,#listCount#
+					,#pageCount#
+					,now()
+					,#usrId#
+					,now()
+					,#usrId#
+					,#deleteFlag#
+				)
+
+		<selectKey resultClass="String" keyProperty="cboardId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+	</insert>
+
+	<!-- 게시판 카테고리 수정 -->
+	<update id="board.updateBoardCate">
+		UPDATE BS_CBOARD SET
+					 group_id 		=  	#groupId#
+					,cboard_uid 	=  	#cboardUid#
+					,cboard_name	=	#cboardName#
+					,cboard_desc	=	#cboardDesc#
+					,notice_yn		=	#noticeYn#
+					,file_yn		=	#fileYn#
+					,reply_yn		=	#replyYn#
+					,list_count		=	#listCount#
+					,page_count		=	#pageCount#
+					,updated_date	=	now()
+					,updated_by		=	#usrId#
+					,delete_flag	=	#deleteFlag#
+
+		WHERE cboard_id = #cboardId#
+
+	</update>
+
+	<!-- 게시판 글 총 갯수 -->
+	<select id="board.getBoardContentListCount" parameterClass="HashMap" resultClass="java.lang.Integer">
+		SELECT
+			COUNT(*)
+
+		FROM bs_cboard_content AS content
+		WHERE 1=1
+		AND delete_flag ='N'
+
+		<isNotEmpty prepend="AND" property="cboardId">
+			cboard_id=#cboardId#
+		</isNotEmpty>
+
+		<isNotEmpty prepend="AND" property="applyOrgId">
+			org_id = #applyOrgId#
+		</isNotEmpty>
+
+		/*board.getBoardContentListCount*/
+	</select>
+
+	<!-- 게시판 글 리스트 -->
+	<select id="board.getBoardContentList" parameterClass="HashMap" resultClass="HashMap">
+	 	<isNotEqual property="noNotice" compareValue="Y">
+
+	 	 SELECT * FROM(
+		 	SELECT
+				 content_id					AS	contentId
+				,content.cboard_id			AS	cboardId
+				,boardGroup.group_id		AS	groupId
+				,cboard.cboard_uid			AS	cboardUid
+				,boardGroup.group_uid		AS	groupUid
+				,notice_flag				AS	noticeFlag
+				,all_org					AS	allOrg
+				,(SELECT
+					cpn_nm
+				  FROM
+				   BS_ORG AS org
+				  ,IB_COMPANY AS company
+
+				  WHERE content.org_id = org.org_id
+				  AND org.company_snb = company.s_nb)	AS	orgNm
+				,all_board			AS	allBoard
+				,master.name 		AS  createNm
+				,title				AS	title
+				,content			AS	content
+				,open_flag			AS	openFlag
+				,info_level			AS  infoLevel
+				,hit				AS	hit
+				,content.created_by	AS	createdBy
+				,DATE_FORMAT(content.created_date, "%Y.%m.%d") as createdDate
+				,DATE_FORMAT(notice_start_date, '%Y-%m-%d')	as	noticeStartDate
+				,DATE_FORMAT(notice_end_date,   '%Y-%m-%d')	as	noticeEndDate
+				,IFNULL((SELECT COUNT(*) FROM bs_cboard_comment WHERE content_id=content.content_id AND delete_flag='N'),0) AS commentCount
+				,IFNULL((SELECT COUNT(*) FROM bs_file_list WHERE upload_id=content.content_id AND upload_type='BOARD' AND delete_flag='N'),0) AS fileCount
+				,(CASE
+                	WHEN DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN notice_start_date AND notice_end_date THEN 1
+                	ELSE 2
+           		  END) AS sort
+				,'NOTICE' AS contentType
+				<isEqual property="ruleUseYn" compareValue="Y">
+				,CASE WHEN boardGroup.group_uid = 'qna' THEN  CASE
+													                WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(content.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+													                ELSE 'N'
+													            END
+					  WHEN #readTimeYn# = 'Y' THEN IF(content.READ_USER_ID IS NULL OR content.READ_USER_ID NOT LIKE CONCAT('%|',#userId#,'|%') , 'Y' , 'N')
+					  WHEN #readTimeYn# = 'N' THEN IF(DATEDIFF(NOW(),content.CREATED_DATE)<![CDATA[<=]]>#markDayCnt#,'Y','N')
+				 END AS newYn
+				</isEqual>
+				<isEqual property="ruleUseYn" compareValue="N">
+					,IF(boardGroup.group_uid = 'qna',CASE  WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(content.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+											               ELSE 'N'
+													       END , 'N') AS newYn
+				</isEqual>
+			FROM bs_cboard_content AS content
+			LEFT OUTER JOIN bs_user_master AS master ON master.user_id = content.created_by
+			LEFT OUTER JOIN bs_cboard AS cboard ON cboard.cboard_id = content.cboard_id
+			LEFT OUTER JOIN bs_cboard_group AS boardGroup ON boardGroup.group_id = cboard.group_id
+
+			WHERE content.delete_flag='N' AND (DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN notice_start_date AND notice_end_date ) AND notice_flag ='Y' AND (all_org ='Y' OR all_board ='Y')
+			AND (CASE
+					WHEN content.all_org = 'N' AND content.all_board = 'Y' THEN content.org_id = #applyOrgId#
+                    WHEN content.all_org = 'Y' AND content.all_board = 'Y' THEN content.org_id != 0 AND content.cboard_id != '0'
+                    WHEN content.all_org = 'Y' AND content.all_board = 'N' THEN content.cboard_id = #cboardId#
+				END)
+			<!-- AND (CASE WHEN content.all_org = 'N' THEN content.org_id=1 ELSE content.org_id !=0 AND content.cboard_id !=#cboardId# END )
+			AND (CASE WHEN content.all_board = 'Y' THEN content.cboard_id !=#cboardId# ELSE content.cboard_id !=0 END ) -->
+
+			<isNotEmpty prepend="AND" property="searchKeyword">
+				<isNotEmpty property="searchType">
+					<isEqual property="searchType" compareValue="title">
+							title LIKE concat('%', #searchKeyword#, '%')
+						</isEqual>
+						<isEqual property="searchType" compareValue="writer">
+							master.name LIKE concat('%', #searchKeyword#, '%')
+						</isEqual>
+						<isEqual property="searchType" compareValue="content">
+							(content LIKE concat('%', #searchKeyword#, '%') OR title LIKE concat('%', #searchKeyword#, '%'))
+					</isEqual>
+				</isNotEmpty>
+
+				<isEmpty property="searchType">
+					(title LIKE concat('%', #searchKeyword#, '%') OR
+					 master.name LIKE concat('%', #searchKeyword#, '%') OR
+					 content LIKE concat('%', #searchKeyword#, '%'))
+				</isEmpty>
+			</isNotEmpty>
+
+			 ORDER BY content.created_date DESC
+		) AS head
+
+		UNION ALL
+	   </isNotEqual>
+		SELECT * FROM(
+
+			SELECT
+				 content_id			AS	contentId
+				,content.cboard_id			AS	cboardId
+				,boardGroup.group_id		AS	groupId
+				,cboard.cboard_uid	AS	cboardUid
+				,boardGroup.group_uid	AS	groupUid
+				,notice_flag		AS	noticeFlag
+				,all_org			AS	allOrg
+				,''					AS	orgNm
+				,all_board			AS	allBoard
+				,master.name 		AS  createNm
+				,title				AS	title
+				,content			AS	content
+				,open_flag			AS	openFlag
+				,info_level			AS  infoLevel
+				,hit				AS	hit
+				,content.created_by	AS	createdBy
+				,DATE_FORMAT(content.created_date, "%Y.%m.%d") as createdDate
+				,DATE_FORMAT(notice_start_date, '%Y-%m-%d')	as	noticeStartDate
+				,DATE_FORMAT(notice_end_date,   '%Y-%m-%d')	as	noticeEndDate
+				,IFNULL((SELECT COUNT(*) FROM bs_cboard_comment WHERE content_id=content.content_id AND delete_flag='N'),0) AS commentCount
+				,IFNULL((SELECT COUNT(*) FROM bs_file_list WHERE upload_id=content.content_id AND upload_type='BOARD' AND delete_flag='N'),0) AS fileCount
+				,(CASE WHEN DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN notice_start_date AND notice_end_date THEN 1
+	    		 ELSE 2 END )AS sort
+				,'GENERAL' AS contentType
+				<isEqual property="ruleUseYn" compareValue="Y">
+				,CASE WHEN boardGroup.group_uid = 'qna' THEN  CASE
+													                WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(content.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+													                ELSE 'N'
+													            END
+					  WHEN #readTimeYn# = 'Y' THEN IF(content.READ_USER_ID IS NULL OR content.READ_USER_ID NOT LIKE CONCAT('%|',#userId#,'|%') , 'Y' , 'N')
+					  WHEN #readTimeYn# = 'N' THEN IF(DATEDIFF(NOW(),content.CREATED_DATE)<![CDATA[<=]]>#markDayCnt#,'Y','N')
+				 END AS newYn
+				</isEqual>
+				<isEqual property="ruleUseYn" compareValue="N">
+					,IF(boardGroup.group_uid = 'qna',CASE  WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(content.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+													       ELSE 'N'
+													       END , 'N') AS newYn
+				</isEqual>
+			FROM bs_cboard_content AS content
+			LEFT OUTER JOIN bs_user_master AS master ON master.user_id = content.created_by
+			LEFT OUTER JOIN bs_cboard AS cboard ON cboard.cboard_id = content.cboard_id
+			LEFT OUTER JOIN bs_cboard_group AS boardGroup ON boardGroup.group_id = cboard.group_id
+
+			WHERE (content.delete_flag='N'
+			AND CASE WHEN DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN content.notice_start_date AND content.notice_end_date
+					 	THEN (content.all_org = 'N' AND content.all_board = 'N')
+					 ELSE content.content_id !=0
+					 END
+			<isNotEqual property="noNotice" compareValue="Y">
+			OR ((DATE_FORMAT(NOW(),'%Y-%m-%d') NOT BETWEEN notice_start_date AND notice_end_date ) AND notice_flag ='Y' AND (all_org ='Y' AND content.org_id != #applyOrgId#))
+			</isNotEqual>
+				)
+			<isNotEmpty prepend="AND" property="cboardId">
+				content.cboard_id = #cboardId#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="contentId">
+				content.content_id = #contentId#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="applyOrgId">
+				content.org_id = #applyOrgId#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="searchKeyword">
+				<isNotEmpty property="searchType">
+					<isEqual property="searchType" compareValue="title">
+							title LIKE concat('%', #searchKeyword#, '%')
+						</isEqual>
+						<isEqual property="searchType" compareValue="writer">
+							master.name LIKE concat('%', #searchKeyword#, '%')
+						</isEqual>
+						<isEqual property="searchType" compareValue="content">
+							(content LIKE concat('%', #searchKeyword#, '%') OR title LIKE concat('%', #searchKeyword#, '%'))
+					</isEqual>
+				</isNotEmpty>
+
+				<isEmpty property="searchType">
+					(title LIKE concat('%', #searchKeyword#, '%') OR
+					 master.name LIKE concat('%', #searchKeyword#, '%') OR
+					 content LIKE concat('%', #searchKeyword#, '%'))
+				</isEmpty>
+			</isNotEmpty>
+			 ORDER BY
+			<isEqual property="noticeYn" compareValue="Y">
+	   			sort ASC,
+	  		</isEqual>
+
+			 content.created_date DESC
+
+	   )AS general
+	   where general.infoLevel is null or #boardInfoLevel#>=general.infoLevel or createdBy = #userId#
+	   <isNotEmpty prepend="" property="limit">
+			LIMIT #offset#,#limit#
+	   </isNotEmpty>
+
+		/*board.getBoardContentList*/
+	</select>
+
+	<!-- 게시판 이전글 및 다음글 정보-->
+	<select id="board.getBoardContentPrevNext" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			 content_id			AS	contentId
+			,cboard_id			AS	cboardId
+			,notice_flag		AS	noticeFlag
+			,title				AS	title
+			,content			AS	content
+			,open_flag			AS	openFlag
+			,hit				AS	hit
+			,DATE_FORMAT(created_date, "%Y-%m-%d") 		AS createdDate
+			,DATE_FORMAT(notice_start_date, '%Y-%m-%d')	AS	noticeStartDate
+			,DATE_FORMAT(notice_end_date,   '%Y-%m-%d')	AS	noticeEndDate
+			,(CASE WHEN DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN notice_start_date AND notice_end_date THEN 1        ELSE 2 END )AS sort
+
+		FROM bs_cboard_content AS content
+		LEFT OUTER JOIN bs_user_master AS master ON master.user_id = content.created_by
+		WHERE content.delete_flag='N' AND content.org_id = #orgId#
+
+		<isEqual property="searchType" compareValue="prev">
+			AND cboard_id = #cboardId#
+			AND content_id &lt; #contentId#
+			ORDER BY CREATED_DATE DESC LIMIT 1
+		</isEqual>
+
+		<isEqual property="searchType" compareValue="next">
+			AND cboard_id = #cboardId#
+			AND content_id &gt; #contentId#
+			ORDER BY CREATED_DATE ASC LIMIT 1
+		</isEqual>
+
+		/* board.getBoardContentPrevNext */
+	</select>
+
+	<!-- 게시판 글 정보-->
+	<select id="board.getBoardContent" parameterClass="HashMap" resultClass="HashMap">
+
+			SELECT
+				 content_id			AS	contentId
+				,cboard_id			AS	cboardId
+				,notice_flag		AS	noticeFlag
+				,all_org			AS	allOrg
+				,all_board			AS	allBoard
+				,master.name 		AS  createNm
+				,title				AS	title
+				,content			AS	content
+				,open_flag			AS	openFlag
+				,info_level			AS  infoLevel
+				,hit				AS	hit
+				,content.created_by	AS	createdBy
+				,DATE_FORMAT(created_date, "%Y.%m.%d") as createdDate
+				,DATE_FORMAT(notice_start_date, '%Y-%m-%d')	as	noticeStartDate
+				,DATE_FORMAT(notice_end_date,   '%Y-%m-%d')	as	noticeEndDate
+				,IFNULL((SELECT COUNT(*) FROM bs_cboard_comment WHERE content_id=content.content_id AND delete_flag='N'),0) AS commentCount
+				,IFNULL((SELECT COUNT(*) FROM bs_file_list WHERE upload_id=content.content_id AND upload_type='BOARD' AND delete_flag='N'),0) AS fileCount
+
+
+			FROM bs_cboard_content AS content
+			LEFT OUTER JOIN bs_user_master AS master ON master.user_id = content.created_by
+			WHERE content.delete_flag='N'
+
+			<isNotEmpty prepend="AND" property="cboardId">
+				content.cboard_id = #cboardId#
+			</isNotEmpty>
+
+			<isNotEmpty prepend="AND" property="contentId">
+				content.content_id = #contentId#
+			</isNotEmpty>
+
+			ORDER BY created_date DESC
+	</select>
+
+	<!-- 글쓰기 -->
+	<insert id="board.insertBoardContent">
+		INSERT INTO BS_CBOARD_CONTENT(
+							 cboard_id
+							,org_id
+							,notice_flag
+							,all_board
+							,all_org
+							,notice_start_date
+							,notice_end_date
+							,title
+							,content
+							,open_flag
+							,info_level
+							,created_date
+							,created_by
+
+						)VALUES(
+							 #cboardId#
+							,#applyOrgId#
+							,#noticeFlag#
+							,#allBoard#
+							,#allOrg#
+							,#noticeStartDate#
+							,#noticeEndDate#
+							,#title#
+							,#content#
+							,#openFlag#
+							,#infoLevel#
+							,now()
+							,#usrSeq#
+						)
+
+		<selectKey resultClass="int" type="post" keyProperty="contentId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* board.insertBoardContent */
+	</insert>
+
+	<!-- 글수정 -->
+	<update id="board.updateBoardContent">
+		UPDATE BS_CBOARD_CONTENT SET
+							 cboard_id			=	#cboardId#
+							,notice_flag		=	#noticeFlag#
+							,all_board			=	#allBoard#
+							,all_org			=	#allOrg#
+							,notice_start_date	=	#noticeStartDate#
+							,notice_end_date	=	#noticeEndDate#
+							,title				=	#title#
+							,content			=	#content#
+							,open_flag			=	#openFlag#
+							,info_level			=   #infoLevel#
+							,updated_date		=	now()
+							,updated_by			=	#usrSeq#
+
+		WHERE content_id = #contentId#
+
+		/* board.updateBoardContent */
+	</update>
+
+	<!-- 글삭제 처리 delflag  -->
+	<update id="board.updateBoardContentDelFlag">
+		UPDATE BS_CBOARD_CONTENT SET
+
+							 delete_flag		=	'Y'
+							,deleted_date		=	now()
+							,deleted_by			=	#usrSeq#
+
+		WHERE content_id = #contentId#
+
+		/* board.updateBoardContentDelFlag */
+	</update>
+
+	<!-- 댓글쓰기 -->
+	<insert id="board.insertBoardComment">
+		INSERT INTO BS_CBOARD_COMMENT(
+							 content_id
+							,recomment_id
+							,comment_idx
+							,content
+							,created_date
+							,created_by
+							,delete_flag
+
+						)VALUES(
+							 #contentId#
+							,#recommentId#
+							,#commentIdx#
+							,#content#
+							,now()
+							,#usrSeq#
+							,'N'
+						)
+
+		<selectKey resultClass="int" type="post" keyProperty="contentId">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* board.insertBoardComment */
+	</insert>
+
+	<!-- 게시글 댓글 리스트 -->
+	<select id="board.getBoardCommentList" parameterClass="HashMap" resultClass="HashMap">
+		 SELECT
+			 comment.comment_id			AS commentId
+			,comment.content_id			AS contentId
+			,comment.recomment_id		AS recommentId
+			,comment.comment_idx		AS commentIdx
+			,comment.content			AS content
+			,comment.created_by			AS createdBy
+			,comment.delete_flag		AS  deleteFlag
+			,DATE_FORMAT(comment.created_date, "%Y.%m.%d") AS createdDate
+			,(SELECT name FROM BS_USER_MASTER WHERE user_id = comment.created_by)	AS createNm
+			,(SELECT count(1) FROM BS_CBOARD_COMMENT WHERE recomment_id = comment.comment_id AND delete_flag='N')	AS recommentCount
+
+		 	,IFNULL((SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = B.CREATED_BY), '')	AS pUserNm
+
+		 FROM BS_CBOARD_COMMENT comment
+		 LEFT JOIN BS_CBOARD_COMMENT B on comment.RECOMMENT_ID = B.COMMENT_ID
+
+		 WHERE 1=1
+		 <isNotEmpty prepend="" property="contentId">
+		   AND comment.CONTENT_ID = #contentId#
+		 </isNotEmpty>
+
+		 ORDER BY comment.COMMENT_ID ASC, comment.RECOMMENT_ID ASC ,comment.comment_idx ASC
+
+
+		/* board.getBoardCommentList */
+
+	</select>
+
+	<!-- 댓글수정 -->
+	<update id="board.updateBoardComment">
+		UPDATE BS_CBOARD_COMMENT SET
+							 content			=	#content#
+							,updated_date		=	now()
+							,updated_by			=	#usrSeq#
+
+		WHERE comment_id = #commentId#
+
+		/* board.updateBoardComment */
+	</update>
+
+	<!-- 댓글삭제 처리 delflag  -->
+	<update id="board.updateBoardCommentDelFlag">
+		UPDATE BS_CBOARD_COMMENT SET
+
+							 delete_flag		=	'Y'
+							,deleted_date		=	now()
+							,deleted_by			=	#usrSeq#
+
+		WHERE comment_id = #commentId#
+
+		/* board.updateBoardCommentDelFlag */
+	</update>
+
+	<!-- 조회수 증가  -->
+	<update id="board.updateViewCount">
+		UPDATE BS_CBOARD_CONTENT SET
+
+							hit		=	#viewCount#
+
+		WHERE content_id = #contentId#
+
+		/* board.updateViewCount */
+	</update>
+
+
+	<!-- 공지 게시판 : 메인 -->
+	<select id="board.noticeAllForMain" parameterClass="HashMap" resultClass="egovMap">
+		SELECT
+		    A.*
+		FROM
+		    (
+		<isEqual property="noticeYn" compareValue="Y">
+		    SELECT
+					BCA.content_id,
+		            BCA.org_id,
+		            BCA.cboard_id AS BOARD_ID,
+		            BCA.all_org,
+		            BCA.title,
+		            BCA.notice_flag,
+		            BCA.notice_start_date,
+		            BCA.notice_end_date
+		           ,(SELECT
+						cpn_nm
+				  	 FROM  BS_ORG AS org
+				  	 	  ,IB_COMPANY AS company
+
+				 	 WHERE BCA.org_id = org.org_id
+				  	 AND org.company_snb = company.s_nb)	AS	message			<!-- 회사이름 -->
+		           ,BCA.created_date
+		           ,CASE
+		                WHEN
+		                    (DATE_FORMAT(NOW(), '%Y-%m-%d') <![CDATA[ <= ]]>  DATE_FORMAT(BCA.notice_end_date, '%Y-%m-%d')
+		                        AND DATE_FORMAT(NOW(), '%Y-%m-%d') <![CDATA[ >= ]]>  DATE_FORMAT(BCA.notice_start_date, '%Y-%m-%d'))
+		                THEN
+		                    'Y'
+		                ELSE 'N'
+		            END AS check_notice,
+		            DATE_FORMAT(BCA.created_date, '%y/%m/%d') AS cre_date,
+
+		            IFNULL((SELECT
+		                    COUNT(*)
+		                FROM
+		                    bs_cboard_comment
+		                WHERE
+		                    content_id = BCA.content_id
+		                        AND delete_flag = 'N'), 0) AS COMMENT_CNT,
+		           (CASE WHEN D.CBOARD_UID ='noticeAll' THEN 'board_type01'
+                             WHEN D.CBOARD_UID ='improvement' THEN 'board_type03'
+                     END)  AS BOARD_TYPE_CSS,
+                    (CASE WHEN D.CBOARD_UID ='noticeAll' THEN '공지'
+                             WHEN D.CBOARD_UID ='improvement' THEN '요청'
+                     END)  AS BOARD_TYPE_NAME,
+                     D.CBOARD_UID AS BOARD_TYPE,
+                     'Y' AS DTL_YN,
+                     'Y' AS OPEN_FLAG
+                <isEqual property="ruleUseYn" compareValue="Y">
+					,CASE WHEN boardGroup.group_uid = 'qna' THEN  CASE
+														                WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(BCA.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+														                ELSE 'N'
+														            END
+						  WHEN #readTimeYn# = 'Y' THEN IF(BCA.READ_USER_ID IS NULL OR BCA.READ_USER_ID NOT LIKE CONCAT('%|',#userId#,'|%') , 'Y' , 'N')
+						  WHEN #readTimeYn# = 'N' THEN IF(DATEDIFF(NOW(),BCA.CREATED_DATE)<![CDATA[<=]]>#markDayCnt#,'Y','N')
+					 END AS newYn
+					</isEqual>
+					<isEqual property="ruleUseYn" compareValue="N">
+						,IF(boardGroup.group_uid = 'qna',CASE  WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(BCA.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+												               ELSE 'N'
+														       END , 'N') AS newYn
+					</isEqual>
+		    FROM
+		        bs_cboard_content BCA, bs_cboard D, bs_cboard_group boardGroup
+            WHERE BCA.CBOARD_ID = D.CBOARD_ID
+		    AND D.CBOARD_UID IN ('noticeAll','improvement')
+		            AND BCA.delete_flag = 'N'
+		            AND (DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN notice_start_date AND notice_end_date )
+		            AND notice_flag ='Y' AND (all_org ='Y' OR all_board ='Y')
+		            AND (CASE
+							WHEN BCA.all_org = 'N' AND BCA.all_board = 'Y' THEN BCA.org_id = #applyOrgId#
+                   			WHEN BCA.all_org = 'Y' AND BCA.all_board = 'Y' THEN BCA.org_id != 0 AND BCA.cboard_id = 1
+                    		WHEN BCA.all_org = 'Y' AND BCA.all_board = 'N' THEN BCA.cboard_id = 1
+						 END)
+			AND boardGroup.group_id = D.group_id
+			UNION ALL
+        </isEqual>
+				SELECT
+					BCC.content_id,
+		            BCC.org_id,
+		            BCC.cboard_id AS BOARD_ID,
+		            BCC.all_org,
+		            BCC.title,
+		            BCC.notice_flag,
+		            BCC.notice_start_date,
+		            BCC.notice_end_date,
+		            '' AS message,
+		            BCC.created_date,
+		            'N'	AS check_notice,
+		            DATE_FORMAT(BCC.created_date, '%y/%m/%d') AS cre_date,
+		            IFNULL((SELECT
+		                    COUNT(*)
+		                FROM
+		                    bs_cboard_comment
+		                WHERE
+		                    content_id = BCC.content_id
+		                        AND delete_flag = 'N'), 0) AS COMMENT_CNT,
+		            (CASE WHEN D.CBOARD_UID ='noticeAll' THEN 'board_type01'
+		                     WHEN D.CBOARD_UID ='improvement' THEN 'board_type03'
+		             END)  AS BOARD_TYPE_CSS,
+                    (CASE WHEN D.CBOARD_UID ='noticeAll' THEN '공지'
+                             WHEN D.CBOARD_UID ='improvement' THEN '요청'
+                     END)  AS BOARD_TYPE_NAME,
+                      D.CBOARD_UID AS BOARD_TYPE,
+                     'Y' AS DTL_YN,
+                     'Y' AS OPEN_FLAG
+                     <isEqual property="ruleUseYn" compareValue="Y">
+					,CASE WHEN boardGroup.group_uid = 'qna' THEN  CASE
+														                WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(BCC.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+														                ELSE 'N'
+														            END
+						  WHEN #readTimeYn# = 'Y' THEN IF(BCC.READ_USER_ID IS NULL OR BCC.READ_USER_ID NOT LIKE CONCAT('%|',#userId#,'|%') , 'Y' , 'N')
+						  WHEN #readTimeYn# = 'N' THEN IF(DATEDIFF(NOW(),BCC.CREATED_DATE)<![CDATA[<=]]>#markDayCnt#,'Y','N')
+					 END AS newYn
+					</isEqual>
+					<isEqual property="ruleUseYn" compareValue="N">
+						,IF(boardGroup.group_uid = 'qna',CASE  WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(BCC.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+												               ELSE 'N'
+														       END , 'N') AS newYn
+					</isEqual>
+		    FROM
+		        bs_cboard_content BCC, bs_cboard D , bs_cboard_group boardGroup
+		    WHERE BCC.CBOARD_ID = D.CBOARD_ID
+		    AND D.CBOARD_UID IN ('noticeAll','improvement')
+		    AND IF(D.CBOARD_UID = 'improvement',IF(#applyOrgId# = 1 , 1=1 ,BCC.org_id = #applyOrgId#),BCC.org_id = #applyOrgId# )
+		    AND BCC.delete_flag = 'N'
+		    AND CASE WHEN DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN BCC.notice_start_date AND BCC.notice_end_date
+					 	THEN (BCC.all_org = 'N' AND BCC.all_board = 'N')
+					 ELSE BCC.content_id !=0
+					 END
+			AND boardGroup.group_id = D.group_id
+		    UNION ALL
+		    SELECT
+                    BGA.content_id,
+                    BGA.org_id,
+                    BGA.gboard_id AS BOARD_ID,
+                    'N' AS all_org,
+                    BGA.title,
+                    BGA.notice_flag,
+                    BGA.notice_start_date,
+                    BGA.notice_end_date
+                   ,(SELECT
+                        cpn_nm
+                     FROM  BS_ORG AS org
+                          ,IB_COMPANY AS company
+
+                     WHERE BGA.org_id = org.org_id
+                     AND org.company_snb = company.s_nb)    AS  message         <!-- 회사이름 -->
+                   ,BGA.created_date
+                   ,'N'  AS check_notice,
+                    DATE_FORMAT(BGA.created_date, '%y/%m/%d') AS cre_date,
+                    IFNULL((SELECT
+                            COUNT(*)
+                        FROM
+                            bs_gboard_comment
+                        WHERE
+                            content_id = BGA.content_id
+                                AND delete_flag = 'N'), 0) AS COMMENT_CNT,
+                   'board_type02' AS BOARD_TYPE_CSS,
+                   '사내' AS BOARD_TYPE_NAME,
+                   'GBOARD' AS BOARD_TYPE,
+                   (CASE WHEN gboard.WRITER_TYPE = 'ALL' THEN 'Y'
+                        WHEN #deptBossLevelYn# = 'Y' THEN 'Y'
+                      WHEN gboard.READER_TYPE !='ALL' THEN  IF(
+                                (SELECT COUNT(*)
+                                   FROM BS_GBOARD_WRITER X
+                                  LEFT OUTER JOIN BS_GBOARD_READER Y ON X.GBOARD_ID = Y.GBOARD_ID
+                                  WHERE X.GBOARD_ID = gboard.GBOARD_ID
+                                    AND (X.DEPT_ID = #deptId# OR X.USER_ID = #userId# OR Y.DEPT_ID = #deptId# OR Y.USER_ID = #userId#)
+                                 )>0,'Y','N')
+                      ELSE 'Y'
+                    END) AS DTL_YN,
+                   gboard.OPEN_FLAG AS OPEN_FLAG
+                   <isEqual property="ruleUseYn" compareValue="Y">
+					,CASE WHEN #readTimeYn# = 'Y' THEN IF(BGA.READ_USER_ID IS NULL OR BGA.READ_USER_ID NOT LIKE CONCAT('%|',#userId#,'|%') , 'Y' , 'N')
+						  WHEN #readTimeYn# = 'N' THEN IF(DATEDIFF(NOW(),BGA.CREATED_DATE)<![CDATA[<=]]>#markDayCnt#,'Y','N')
+					 END AS NEW_YN
+					</isEqual>
+					<isEqual property="ruleUseYn" compareValue="N">
+						,'N' AS NEW_YN
+					</isEqual>
+	            FROM bs_gboard_content AS BGA
+	            INNER JOIN  bs_gboard AS gboard ON gboard.gboard_id = BGA.gboard_id AND gboard.DELETE_FLAG = 'N'
+	            INNER JOIN  bs_gboard_group AS boardGroup ON boardGroup.group_id = gboard.group_id AND boardGroup.DELETE_FLAG = 'N'
+
+	            WHERE BGA.delete_flag='N'
+	            AND boardGroup.ORG_ID = #applyOrgId#
+	            AND 1 = (
+                    CASE WHEN gboard.OPEN_FLAG = 'Y' THEN 1
+                        WHEN #deptBossLevelYn# = 'Y' THEN 1
+                         WHEN gboard.WRITER_TYPE = 'ALL' THEN 1
+                         WHEN gboard.READER_TYPE !='ALL' THEN IF(
+                                        (SELECT COUNT(*)
+                                           FROM BS_GBOARD_WRITER X
+                                          LEFT OUTER JOIN BS_GBOARD_READER Y ON X.GBOARD_ID = Y.GBOARD_ID
+                                          WHERE X.GBOARD_ID = gboard.GBOARD_ID
+                                            AND (X.DEPT_ID = #deptId# OR X.USER_ID = #userId# OR Y.DEPT_ID = #deptId# OR Y.USER_ID = #userId#)
+                                 )>0,1,0)
+                         ELSE 1
+                    END
+                    )
+	            AND CASE WHEN DATE_FORMAT(NOW(),'%Y-%m-%d') BETWEEN BGA.notice_start_date AND BGA.notice_end_date
+	                        THEN BGA.all_board = 'N'
+	                     ELSE BGA.content_id !=0
+	                     END
+			) A
+			ORDER BY A.check_notice DESC , A.created_date DESC
+			LIMIT 0,100
+	</select>
+
+	<!--  메인 (업무(11), 사내(9) 게시판) -->
+	<select id="board.generalListForMain" parameterClass="HashMap" resultClass="egovMap">
+		SELECT
+		    A.*
+		FROM
+		    (SELECT
+		       		BCA.content_id,
+		            BCA.org_id,
+		            BCA.cboard_id,
+		            BCA.all_org,
+		            BCA.title,
+		            BCA.notice_flag,
+		            BCA.notice_start_date,
+		            BCA.notice_end_date
+		           ,(SELECT
+						cpn_nm
+				  	 FROM  BS_ORG AS org
+				  	 	  ,IB_COMPANY AS company
+
+				 	 WHERE BCA.org_id = org.org_id
+				  	 AND org.company_snb = company.s_nb)	AS	message			<!-- 회사이름 -->
+				  	,BCA.INFO_LEVEL
+		            ,BCA.created_date
+		            ,BCA.created_by
+		            ,(SELECT
+		                    name
+		                FROM
+		                    bs_user_master
+		                WHERE
+		                    user_id = BCA.created_by) AS createNm,
+		            CASE
+		                WHEN
+		                    (DATE_FORMAT(NOW(), '%Y-%m-%d')  <![CDATA[ <= ]]> DATE_FORMAT(BCA.notice_end_date, '%Y-%m-%d')
+		                        AND DATE_FORMAT(NOW(), '%Y-%m-%d') <![CDATA[ >= ]]> DATE_FORMAT(BCA.notice_start_date, '%Y-%m-%d'))
+		                THEN
+		                    'Y'
+		                ELSE 'N'
+		            END AS check_notice,
+		            DATE_FORMAT(BCA.created_date, '%y/%m/%d') AS cre_date,
+		            IFNULL((SELECT
+		                    COUNT(*)
+		                FROM
+		                    bs_cboard_comment
+		                WHERE
+		                    content_id = BCA.content_id
+		                        AND delete_flag = 'N'), 0) AS COMMENT_CNT
+		              <isEqual property="ruleUseYn" compareValue="Y">
+					,CASE WHEN boardGroup.group_uid = 'qna' THEN  CASE
+														                WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(BCA.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+														                ELSE 'N'
+														            END
+						  WHEN #readTimeYn# = 'Y' THEN IF(BCA.READ_USER_ID IS NULL OR BCA.READ_USER_ID NOT LIKE CONCAT('%|',#userId#,'|%') , 'Y' , 'N')
+						  WHEN #readTimeYn# = 'N' THEN IF(DATEDIFF(NOW(),BCA.CREATED_DATE)<![CDATA[<=]]>#markDayCnt#,'Y','N')
+					 END AS newYn
+					</isEqual>
+					<isEqual property="ruleUseYn" compareValue="N">
+						,IF(boardGroup.group_uid = 'qna',CASE  WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(BCA.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+												               ELSE 'N'
+														       END , 'N') AS newYn
+					</isEqual>
+		    FROM
+		        bs_cboard_content BCA
+		    LEFT OUTER JOIN bs_cboard AS cboard ON cboard.cboard_id = BCA.cboard_id
+			LEFT OUTER JOIN bs_cboard_group AS boardGroup ON boardGroup.group_id = cboard.group_id
+		    WHERE
+		        BCA.cboard_id = #boardId# AND BCA.all_org = 'Y'
+		            AND BCA.delete_flag = 'N'
+		            AND (now() BETWEEN notice_start_date AND notice_end_date )
+		UNION ALL SELECT
+					BCC.content_id,
+		            BCC.org_id,
+		            BCC.cboard_id,
+		            BCC.all_org,
+		            BCC.title,
+		            BCC.notice_flag,
+		            BCC.notice_start_date,
+		            BCC.notice_end_date,
+		            '' AS message,
+		            BCC.INFO_LEVEL,
+		            BCC.created_date,
+		            BCC.created_by,
+		            (SELECT
+		                    name
+		                FROM
+		                    bs_user_master
+		                WHERE
+		                    user_id = BCC.created_by) AS createNm,
+		            CASE
+		                WHEN
+		                    (DATE_FORMAT(NOW(), '%Y-%m-%d')  <![CDATA[ <= ]]>DATE_FORMAT(BCC.notice_end_date, '%Y-%m-%d')
+		                        AND DATE_FORMAT(NOW(), '%Y-%m-%d') <![CDATA[ >= ]]> DATE_FORMAT(BCC.notice_start_date, '%Y-%m-%d'))
+		                THEN
+		                    'Y'
+		                ELSE 'N'
+		            END AS check_notice,
+		            DATE_FORMAT(BCC.created_date, '%y/%m/%d') AS cre_date,
+		            IFNULL((SELECT
+		                    COUNT(*)
+		                FROM
+		                    bs_cboard_comment
+		                WHERE
+		                    content_id = BCC.content_id
+		                        AND delete_flag = 'N'), 0) AS COMMENT_CNT
+		            <isEqual property="ruleUseYn" compareValue="Y">
+					,CASE WHEN boardGroup.group_uid = 'qna' THEN  CASE
+														                WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(BCC.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+														                ELSE 'N'
+														            END
+						  WHEN #readTimeYn# = 'Y' THEN IF(BCC.READ_USER_ID IS NULL OR BCC.READ_USER_ID NOT LIKE CONCAT('%|',#userId#,'|%') , 'Y' , 'N')
+						  WHEN #readTimeYn# = 'N' THEN IF(DATEDIFF(NOW(),BCC.CREATED_DATE)<![CDATA[<=]]>#markDayCnt#,'Y','N')
+					 END AS newYn
+					</isEqual>
+					<isEqual property="ruleUseYn" compareValue="N">
+						,IF(boardGroup.group_uid = 'qna',CASE  WHEN (DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(BCC.CREATED_DATE, '%Y-%m-%d')) THEN 'Y'
+												               ELSE 'N'
+														       END , 'N') AS newYn
+					</isEqual>
+		    FROM
+		        bs_cboard_content BCC
+	        LEFT OUTER JOIN bs_cboard AS cboard ON cboard.cboard_id = BCC.cboard_id
+			LEFT OUTER JOIN bs_cboard_group AS boardGroup ON boardGroup.group_id = cboard.group_id
+		    WHERE
+		        BCC.cboard_id =  #boardId#  AND BCC.all_org = 'N'
+		            AND BCC.org_id = #applyOrgId#
+		            AND BCC.delete_flag = 'N') A
+		where A.info_level is null or #boardInfoLevel#>=A.info_level or A.created_by = #userId#
+		ORDER BY A.check_notice DESC , A.created_date DESC
+		LIMIT 0,100
+	</select>
+
+	<!-- 유저 열람정보 저장 -->
+	<update id = "board.updateReadUserId"  parameterClass="HashMap">
+		UPDATE BS_CBOARD_CONTENT
+		   SET READ_USER_ID = CONCAT(IFNULL(READ_USER_ID,''),'|',#userId#,'|')
+		 WHERE CONTENT_ID = #contentId#
+		   AND IFNULL(READ_USER_ID,'') NOT LIKE CONCAT('%|',#userId#,'|%')
+	</update>
+</sqlMap>

@@ -1,0 +1,90 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%
+ response.reset();
+ response.setContentType("application/vnd.ms-excel;charset=utf-8"); 
+ response.setHeader("Content-Disposition", "attachment; filename=mezzanineExcel.xls");
+ response.setHeader("Content-Description", "Tetris GameLog Data");
+%>
+<!DOCTYPE html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>excelDownload</title>
+</head>
+<body>
+
+	<jsp:scriptlet>
+		pageContext.setAttribute("cr", "\r");
+		pageContext.setAttribute("lf", "\n");
+		pageContext.setAttribute("crlf", "\r\n");
+	</jsp:scriptlet>
+	<table>
+		<thead>
+			<tr>
+				<th>접수일자</th>
+				<th>방법</th>
+				<th>구분</th>
+				<th>회사명</th>
+				<th>회차</th>
+				<th>금액(억)</th>
+				<th>쿠폰</th>
+				<th>YTM</th>
+				<th>YTP</th>
+				<th>납입일</th>
+				<th>발행경과일</th>
+				<th>사채만기</th>
+				<th>PUT</th>
+				<th>행사가</th>
+				<th>현재가</th>
+				<th>상승률</th>
+				<th>워런트만기</th>
+				<th>워런트잔여일</th>
+				<th>리픽싱</th>
+				<th>주관회사(담당자)</th>
+				<th>인수자</th>
+				<th>BuyBack</th>
+				<th>프리미엄</th>
+				<th>대상</th>
+				<th>관계</th>
+			</tr>
+		</thead>
+	</table>
+	<table>
+		<tbody>
+			<c:forEach var="nt" items="${NoticeList}" varStatus="ntS">
+				<tr>
+					<td>${nt.tmDt}</td>
+					<td>${nt.way}</td>
+					<td>${nt.categoryCd}</td>
+					<td>${nt.cpnNm}</td>
+					<td>${nt.rank}</td>
+					<td>${nt.price}</td>
+					<td>${nt.coupon}%</td>
+					<td>${nt.ytm}%</td>
+					<td><c:if test="${nt.ytp != '0.0'}">${nt.ytp}</c:if><c:if test="${nt.ytp == '0.0'}">${nt.ytm}%</c:if></td>
+					<td>${nt.payupDt}</td>
+					<td>${nt.btPayUpTmDt}</td>
+					<td>${nt.dueDt}</td>
+					<td>${nt.put}</td>
+					<td>${nt.eventPrice}</td>
+					<td>${nt.curPrice}</td>
+					<td>${nt.ratio}%</td>
+					<td>${nt.wrtDueDt}</td>
+					<td>${nt.btWrtTmDt}</td>
+					<td>${nt.refixSale}</td>
+					<td>${nt.superCpn}</td>
+					<td>${nt.underWriter}</td>
+					<td>${nt.buyback}</td>
+					<td>${nt.premium}</td>
+					<td>${nt.target}</td>
+					<td>${nt.relation}</td>
+				</tr>
+			</c:forEach>
+		</tbody>
+	</table>
+</body>
+</html>

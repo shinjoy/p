@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bookmark">	
+
+	<!-- 좌측 사용자의 선택가능메뉴 리스트
+	<select id="bookmark.selectMenuForBookMark" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.MENU_ID			AS menuId
+			  ,B.MENU_NUM			AS menuNum
+			  ,B.MENU_TYPE			AS menuType
+			  ,B.MENU_KOR			AS menuKor
+  			  ,B.MENU_ENG			AS menuEng
+  			  ,B.MENU_TITLE_KOR		AS menuTitleKor
+  			  ,B.MENU_TITLE_ENG		AS menuTitleEng
+  			  ,B.MENU_ENG			AS menuEng
+			  ,B.MENU_DESC			AS menuDesc
+			  ,B.MENU_PATH			AS menuPath
+			  ,B.MENU_SUB_PATH		AS menuSubPath
+			  ,B.ATTR1				AS attr1
+			  ,B.ATTR2				AS attr2
+			  ,B.ATTR3				AS attr3
+			  ,B.ATTR4				AS attr4
+			  ,B.ATTR5				AS attr5
+
+			  ,A.MENU_LOC			AS menuLoc
+			  ,A.MENU_LEVEL			AS depth
+			  ,A.MENU_PARENT_ID		AS menuUpId
+			  ,A.MENU_ROOT_ID		AS menuRootId
+			  ,A.SORT				AS sort
+
+			  ,0 					AS chk
+			  , (SELECT BM.MENU_TITLE_KOR FROM BS_ROLE_MENU_LIST BS LEFT JOIN BS_MENU_LIST BM ON BM.MENU_ID = BS.MENU_ROOT_ID
+               WHERE BS.ROLE_ID = #roleId# AND BS.MENU_ID = A.MENU_ID ) AS menuRootKor
+
+		  FROM BS_ROLE_MENU_LIST	A
+		  JOIN BS_MENU_LIST			B ON A.MENU_ID = B.MENU_ID
+		 WHERE A.ROLE_ID	= #roleId#
+		   AND A.ORG_ID 	= #orgId#		   
+		   AND A.ENABLE = 'Y'
+		   AND B.MENU_TYPE	= 'TREE'
+		   AND B.MENU_PATH != ''
+		   AND B.ENABLE = 'Y'
+		   <isNotEmpty property="search" prepend="AND">
+		   		B.MENU_KOR LIKE CONCAT('%', #search# , '%')
+		   </isNotEmpty>
+         ORDER BY A.SORT
+         
+		/* bookmark.selectMenuForBookMark */
+	</select> -->
+	
+	<!-- 저장된 즐겨찾기 리스트 반환 -->
+	<select id="bookmark.getBookMarkList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT 
+			   BBM.BOOKMARK_ID		AS bookmarkId
+			  ,BML.MENU_ID			AS menuId
+		 	  ,BML.MENU_CLASS		AS menuClass
+			  ,BML.MENU_NUM			AS menuNum
+			  ,BML.MENU_KOR			AS menuKor
+  			  ,BML.MENU_ENG			AS menuEng
+  			  ,BML.MENU_TITLE_KOR	AS menuTitleKor
+  			  ,BML.MENU_TITLE_ENG	AS menuTitleEng
+  			  ,BML.MENU_ENG			AS menuEng
+			  ,BML.MENU_DESC		AS menuDesc
+			  ,BML.MENU_PATH		AS menuPath
+			  ,BBM.SORT				AS sort
+			  
+			  ,(SELECT BM.MENU_TITLE_KOR 
+			  	  FROM BS_ROLE_MENU_LIST BS 
+			  	  LEFT JOIN BS_MENU_LIST BM ON BM.MENU_ID = BS.MENU_ROOT_ID
+                 WHERE BS.ROLE_ID = (SELECT ROLE_ID FROM BS_USER_ROLE_LIST WHERE USER_ID = #userId# AND ORG_ID = #orgId#)
+                   AND BS.MENU_ID = BBM.MENU_ID ) AS menuRootKor
+              
+              ,(SELECT BM.MENU_TITLE_KOR 
+                  FROM BS_ROLE_MENU_LIST BS 
+                  LEFT JOIN BS_MENU_LIST BM ON BM.MENU_ID = BS.MENU_PARENT_ID
+                 WHERE BS.ROLE_ID = (SELECT ROLE_ID FROM BS_USER_ROLE_LIST WHERE USER_ID = #userId# AND ORG_ID = #orgId#) 
+                   AND BS.MENU_ID = BBM.MENU_ID ) AS menuParentKor
+               
+		 FROM BS_BOOKMARK 			AS BBM
+		 JOIN BS_MENU_LIST 			AS BML		ON BML.MENU_ID = BBM.MENU_ID 
+		 JOIN BS_ROLE_MENU_LIST 	AS roleMenu ON roleMenu.MENU_ID = BML.MENU_ID
+		 JOIN BS_ORG_MENU_LIST 		AS orgMenu 	ON orgMenu.MENU_ID = roleMenu.MENU_ID	AND orgMenu.org_id = #orgId#
+		 
+		 JOIN BS_ORG_MENU_LIST 		AS parentOrgMenu 	ON parentOrgMenu.MENU_ID = roleMenu.MENU_PARENT_ID	AND parentOrgMenu.org_id = #orgId#
+		 JOIN BS_ORG_MENU_LIST 		AS rootOrgMenu 		ON rootOrgMenu.MENU_ID = roleMenu.MENU_ROOT_ID		AND rootOrgMenu.org_id = #orgId#
+		 
+		 
+		WHERE BBM.USER_ID = #userId#
+		  AND BBM.ORG_ID = #orgId#
+		  AND BBM.ENABLE = 'Y'
+		  AND BML.ENABLE = 'Y'
+		  AND orgMenu.ENABLE = 'Y'
+		  AND roleMenu.ENABLE = 'Y'
+		  
+		  AND parentOrgMenu.ENABLE = 'Y'
+		  AND rootOrgMenu.ENABLE = 'Y'
+		  
+		  
+		  <!-- AND roleMenu.role_id =  (SELECT ROLE_ID FROM BS_USER_ROLE_LIST WHERE USER_ID = #userId# AND ORG_ID = #orgId#) -->
+		  AND (
+				CASE WHEN BML.MENU_TYPE = 'ALONE'	<!-- 팝업이면 권한에 상관없이 가져온다 -->
+					 THEN TRUE
+                     ELSE (
+							roleMenu.role_id = (SELECT ROLE_ID
+											  FROM BS_USER_ROLE_LIST
+											 WHERE USER_ID = #userId# AND ORG_ID = #orgId#)
+                     	)
+				END
+        	)
+		
+		ORDER BY BBM.SORT ASC
+		
+		/* bookmark.getBookMarkList */
+	</select>
+	
+	
+	<!-- 즐겨찾기 등록 -->
+	<insert id="bookmark.insertBookMark" parameterClass="HashMap">
+		
+		INSERT INTO BS_BOOKMARK
+				  (
+				    USER_ID
+				  , MENU_ID
+				  , ORG_ID
+				  , SORT
+				  , ENABLE
+				  , create_date
+				  , created_by
+				  , update_date
+				  , updated_by
+		 ) 
+					 <dynamic>
+							<iterate prepend="VALUES" conjunction="," property="pList">
+									(
+										  #userId#
+										, #pList[].menuId#
+										, #orgId#
+										, #pList[].sort#
+										, 'Y'
+										, now()
+										, #userId#
+										, now()
+										, #userId#
+									)
+							</iterate>
+					</dynamic>
+	</insert>
+	 
+	 <!-- 즐겨찾기 삭제 -->
+	<update id="bookmark.deleteBookMark"  parameterClass="HashMap">		  
+		  DELETE FROM BS_BOOKMARK 
+		  WHERE USER_ID = #userId#
+		    AND ORG_ID = #orgId#
+		  <isNotEmpty property="menuId" prepend="AND">
+		  	MENU_ID = #menuId#
+		  </isNotEmpty>
+		/* bookmark.deleteBookMark */
+	 </update>	 
+	 
+	 <!-- 화면 단축키로 가져오기  -->
+	 <select id="bookmark.moveByMenuNum" parameterClass="HashMap" resultClass="HashMap">
+		SELECT BML.MENU_NUM 	AS menuNum
+			 , BML.MENU_PATH 	AS menuPath 
+	 	  FROM BS_MENU_LIST 			BML
+	 	  LEFT JOIN BS_ROLE_MENU_LIST 	BRML ON BRML.MENU_ID = BML.MENU_ID
+	 	  LEFT JOIN BS_ORG_MENU_LIST 	OML ON OML.MENU_ID = BML.MENU_ID
+	 	 WHERE 1=1
+	 	   AND BML.MENU_NUM = #menuNum#
+	  	   AND BRML.ROLE_ID = #roleId#
+	  	   AND OML.ORG_ID = (SELECT ORG_ID FROM BS_ROLE_LIST WHERE ROLE_ID = #roleId#) 
+	 	   AND BML.ENABLE = 'Y'
+	 	   AND BRML.ENABLE = 'Y'
+	 	   AND OML.ENABLE = 'Y'
+	 </select>
+	 
+	 <!--  북마크 정보 반환  -->
+	 <select id="bookmark.getBookmarkInfo" parameterClass="HashMap" resultClass="HashMap">
+	 	SELECT USER_ID 		AS userId
+	 		 , BOOKMARK_ID 	AS bookmarkID
+	 		 , MENU_ID 		AS menuId
+	 	  FROM BS_BOOKMARK
+	 	 WHERE MENU_ID = #menuId#
+	 	   AND USER_ID = #userId#
+	 	   AND ORG_ID = #orgId#
+ 		/* bookmark.getBookmarkInfo */
+	 </select>
+	 
+	  <!--  북마크 정보 입력  -->
+	 <insert id="bookmark.insertBookmarkInfo" parameterClass="HashMap">
+	 	INSERT INTO BS_BOOKMARK
+	 	( USER_ID, MENU_ID, ORG_ID, SORT, ENABLE, CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY)
+	 	VALUES
+	 	( #userId#, #menuId#, #orgId#,
+			(SELECT IFNULL(MAX(A.SORT),0)+10 FROM BS_BOOKMARK A WHERE A.USER_ID = #userId#)
+		, 'Y', now(), #userId#, now(), #userId# )
+ 		/* bookmark.insertBookmarkInfo */
+	 </insert>
+	 
+	 
+	<!-- 북마크 메뉴 리스트 -->
+	<select id="menu.selectUserAllMenuList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT 		
+			  roleMenu.ORG_ID				AS orgId
+			, menu.MENU_ID					AS menuId
+			, roleMenu.MENU_LEVEL			AS menuLevel
+			, roleMenu.MENU_PARENT_ID		AS menuParentId
+			, roleMenu.SORT					AS sort
+			, roleMenu.MENU_ROOT_ID			AS menuRootId
+			, menu.MENU_KOR					AS menuKor
+			, menu.MENU_TITLE_KOR			AS menuTitleKor
+			, IFNULL(menu.MENU_NUM,'')		AS menuNum
+			
+			, (SELECT COUNT(*)
+			   	FROM BS_ROLE_MENU_LIST 	AS list
+			   	JOIN BS_ORG_MENU_LIST 	AS org		ON list.MENU_ID = org.MENU_ID
+			   	
+			  	WHERE menu.MENU_ID = list.MENU_PARENT_ID 
+			  	AND list.ROLE_ID = (SELECT ROLE_ID FROM BS_USER_ROLE_LIST AS ur WHERE ur.USER_ID = #userId# AND ur.ORG_ID = #applyOrgId#)
+			  	AND org.ORG_ID = #applyOrgId#
+			  	AND org.ENABLE ='Y'
+			  	AND list.ENABLE ='Y'
+			  	
+			  ) AS childCount				<!-- 자식 갯수 -->
+			  
+			, EXISTS(SELECT 1 FROM BS_BOOKMARK A WHERE A.USER_ID = #userId# AND A.ORG_ID= #applyOrgId# AND A.MENU_ID = roleMenu.MENU_ID) AS chk  	  	
+			  
+		
+		FROM BS_ROLE_MENU_LIST 				AS roleMenu
+		LEFT OUTER JOIN BS_MENU_LIST 		AS menu 		ON roleMenu.MENU_ID = menu.MENU_ID
+		LEFT OUTER JOIN BS_ORG_MENU_LIST 	AS org 			ON org.MENU_ID = menu.MENU_ID AND org.ORG_ID = #applyOrgId#
+		
+		WHERE roleMenu.ROLE_ID =  (SELECT ROLE_ID FROM BS_USER_ROLE_LIST AS u WHERE u.USER_ID = #userId# AND u.ORG_ID = #applyOrgId#)
+		  AND menu.ENABLE = 'Y'
+		  AND org.ENABLE = 'Y'
+		  AND roleMenu.ENABLE = 'Y'
+		
+		ORDER BY roleMenu.SORT ASC, roleMenu.MENU_PARENT_ID ASC
+		
+		/* menu.selectUserAllMenuList */
+	</select>
+	
+	 
+</sqlMap>

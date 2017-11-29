@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="reply">
+
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="wvo" type="ib.work.service.WorkVO"/>
+	<typeAlias  alias="rvo" type="ib.reply.service.ReplyVO"/>
+
+	<select id="workDAO.selectReply4insertFile" parameterClass="wvo" resultClass="java.lang.String">
+		<![CDATA[
+			SELECT S_NB
+			  FROM IB_REPLY
+		WHERE RG_DT >=  DATE_ADD(NOW(), INTERVAL -1 MINUTE)
+		  AND RG_ID  =  #rgId#
+		  order by rg_dt desc
+		  limit 1
+		]]>
+	</select>
+
+	<select id="reply.selectReplyList" parameterClass="wvo" resultClass="wvo">
+		<![CDATA[
+			SELECT
+				  A.S_NB                as  sNb
+				, A.MAIN_SNB            as  mainSnb
+				, A.REP_SNB             as  repSnb
+				, A.STTS_CD             as  sttsCd
+				, DATE(A.TM_DT)         as  tmDt
+				, (SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.STAFF_SNB) AS name
+				, IFNULL(A.COMMENT,"-") as  comment
+				, GROUP_CONCAT(J1.realNm SEPARATOR '^^^')    as realNm
+				, GROUP_CONCAT(J1.makeNm SEPARATOR '^^^')    as makeNm
+				, A.RG_ID				as rgId
+				, B.NAME              as rgNm
+				, A.UP_ID               as upId
+				, B.USER_ID               as rgSnb
+			FROM IB_REPLY A
+			LEFT JOIN BS_USER_MASTER B ON A.RG_ID = B.LOGIN_ID
+			LEFT JOIN
+					(SELECT OFFER_SNB
+						  , REAL_NAME as realNm
+						  , MAKE_NAME as makeNm
+					   FROM IB_FILE_INFO
+					  WHERE FILE_CATEGORY = '00005'
+
+					) J1 ON A.S_NB = J1.OFFER_SNB
+		]]>
+		<dynamic prepend="WHERE">
+			<isNotEmpty prepend="AND" property="choiceMonth">
+				<![CDATA[	A.TM_DT between CONCAT (#choiceYear#, #choiceMonthS#, '01') and CONCAT (#choiceYear#, #choiceMonth#, '31235959') 		]]>
+			</isNotEmpty>
+
+			<!-- 일단주석 이인희 <isNotEmpty prepend="AND" property="name">
+				<![CDATA[	(A.NAME = #name# 	OR 	A.RG_ID = #tmpId#)	]]>
+			</isNotEmpty> -->
+
+			<isNotEmpty prepend="AND" property="comment">
+				<![CDATA[	A.COMMENT like CONCAT('%',#comment#,'%') 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="tmDt">
+				<![CDATA[	A.TM_DT = #tmDt# 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="rgId">
+				<![CDATA[	A.RG_ID = #rgId# 		]]>
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="sNb">
+				<![CDATA[	A.MAIN_SNB = #sNb# 		]]>
+			</isNotEmpty>
+			<!--<isNotEmpty prepend="AND" property="repSnb">
+				<![CDATA[	A.REP_SNB = #repSnb# or A.REP_SNB = '0'		]]>
+			</isNotEmpty>-->
+		</dynamic>
+			group by a.s_nb
+			ORDER BY
+			<isEqual property="memo4db" compareValue=""> A.TM_DT ASC, A.RG_DT ASC </isEqual>
+			<isEqual property="memo4db" compareValue="memo"> A.TM_DT ASC, A.RG_DT ASC </isEqual>
+	</select>
+
+	<insert id="reply.insertReply">
+		<![CDATA[
+			INSERT INTO IB_REPLY
+				  ( STAFF_SNB
+				  , MAIN_SNB
+				  , REP_SNB
+				  , COMMENT
+				  , STTS_CD
+				  , TM_DT
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES ( #staffSnb#
+				  , #mainSnb#
+				  , #repSnb#
+				  , #comment#
+				  , #sttsCd#
+				  , now()
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+		]]>
+	</insert>
+
+	<update id="reply.updateReply">
+		<![CDATA[
+			UPDATE IB_REPLY
+			SET
+				  COMMENT   =  #comment#
+				, STTS_CD 	=  '00001'
+				, UP_DT     =  now()
+				, UP_ID     =  #rgId#
+			WHERE S_NB      =  #memoSNb#
+		]]>
+	</update>
+
+	<update id="reply.checkReply">
+		<![CDATA[
+			UPDATE IB_REPLY
+			SET
+				  STTS_CD   =  #sttsCd#
+				, UP_DT     =  now()
+				, UP_ID     =  #rgId#
+			WHERE MAIN_SNB      =  #mainSnb#
+		]]>
+	</update>
+
+	<delete id="reply.deleteReply">
+		<![CDATA[
+			DELETE FROM IB_REPLY
+			 WHERE S_NB      =  #memoSNb#
+		]]>
+	</delete>
+
+	<select id="reply.selectDisposalList" parameterClass="rvo" resultClass="rvo">
+		<![CDATA[
+			SELECT
+				  DSPS.S_NB                as  sNb
+				, DSPS.OFFER_SNB           as  offerSnb
+				, DSPS.MARGIN              as  margin
+				, DSPS.PRICE               as  price
+				, DSPS.STAFF_SNB          as  staffSnb
+				, STF.NAME              as  rgNm
+				, DSPS.INVEST_SNB          as  investSnb
+				, CST2.S_NB                as snb2nd
+				, case when DSPS.category = '1' then CST2.CST_NM else CPN.CPN_NM end      as cstNm2nd
+				, case when DSPS.category = '1' then CPN2.CPN_NM end        		     as cpnNm2nd
+				, IFNULL(DSPS.NOTE,"-")    as  note
+				, DATE(DSPS.UP_DT)         as  tmDt
+				, DSPS.RG_ID               as rgId
+				, DSPS.UP_ID               as upId
+			FROM IB_OFFER_DISPOSAL DSPS
+			LEFT JOIN BS_USER_MASTER STF ON DSPS.STAFF_SNB = STF.USER_ID
+			LEFT JOIN IB_CUSTOMER CST2 ON DSPS.INVEST_SNB = CST2.S_NB
+			LEFT JOIN IB_COMPANY CPN2 ON CST2.CPN_ID = CPN2.CPN_ID
+			LEFT JOIN IB_COMPANY CPN ON DSPS.INVEST_SNB = CPN.S_NB
+			where DSPS.OFFER_SNB = #sNb#
+		]]>
+	</select>
+
+	<select id="reply.selectDisposalList4stats" parameterClass="rvo" resultClass="rvo">
+		<![CDATA[
+			SELECT
+				  DSPS.S_NB                as  sNb
+				, DSPS.OFFER_SNB           as  offerSnb
+				, DSPS.MARGIN              as  margin
+				, DSPS.PRICE               as  price
+				, DSPS.STAFF_SNB          as  staffSnb
+				, STF.NAME              as  rgNm
+				, DSPS.INVEST_SNB          as  investSnb
+				, CST2.S_NB                as snb2nd
+				, case when DSPS.category = '1' then CST2.CST_NM else CPN.CPN_NM end      as cstNm2nd
+				, case when DSPS.category = '1' then CPN2.CPN_NM end        		     as cpnNm2nd
+				, IFNULL(DSPS.NOTE,"-")    as  note
+				, DATE(DSPS.UP_DT)         as  tmDt
+				, DSPS.RG_ID               as rgId
+				, DSPS.UP_ID               as upId
+				, (SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = io.RG_STAFF_SNB) AS usrNm
+				, ic.cpn_nm					as  cpnNm
+				, CMM.VALUE_MEAN_KOR        as  categoryNm
+			FROM IB_OFFER_DISPOSAL DSPS
+			LEFT JOIN BS_USER_MASTER STF ON DSPS.STAFF_SNB = STF.USER_ID
+			LEFT JOIN IB_CUSTOMER CST2 ON DSPS.INVEST_SNB = CST2.S_NB
+			LEFT JOIN IB_COMPANY CPN2 ON CST2.CPN_ID = CPN2.CPN_ID
+			LEFT JOIN IB_COMPANY CPN ON DSPS.INVEST_SNB = CPN.S_NB
+				left join (select jp.offer_snb
+							from ib_joint_progress jp
+							left join BS_USER_MASTER stf on stf.USER_ID = jp.staff_snb
+							where jp.category = '2' and  stf.NAME = #tmpNum1#
+							group by jp.offer_snb
+				) sprt on sprt.offer_snb = dsps.s_nb
+				left join ib_offer io on io.s_nb = dsps.offer_snb
+				LEFT JOIN BS_CODE_GV CMM ON (CMM.CODE_NAME = 'DEAL_KIND' AND CMM.CODE_VALUE = io.category_cd)
+				left join ib_company ic on ic.cpn_id = io.cpn_id
+				where (stf.NAME = #tmpNum1# or sprt.offer_snb is not null)
+				and dsps.rg_dt between concat(#choiceYear#,'0101') and concat(#choiceYear#,'1231235959')
+		]]>
+	</select>
+
+	<insert id="reply.insertDisposal">
+		<![CDATA[
+			INSERT INTO IB_OFFER_DISPOSAL
+				  ( OFFER_SNB
+				  , STAFF_SNB
+				  , MARGIN
+				  , PRICE
+				  , INVEST_SNB
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES ( #offerSnb#
+				  , #staffSnb#
+				  , #margin#
+				  , #price#
+				  , #investSnb#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+		]]>
+		<selectKey keyProperty="sNb" resultClass="string">
+         SELECT ifnull(MAX(S_NB),0) FROM IB_OFFER_DISPOSAL
+       </selectKey>
+	</insert>
+
+	<update id="reply.updateDisposal">
+		<![CDATA[
+			UPDATE IB_OFFER_DISPOSAL
+			SET
+				  STAFF_SNB     =  #staffSnb#
+				, MARGIN     =  #margin#
+				, PRICE     =  #price#
+				, INVEST_SNB     =  #investSnb#
+				, UP_DT     =  now()
+				, UP_ID     =  #rgId#
+			WHERE S_NB      =  #sNb#
+		]]>
+	</update>
+
+	<delete id="reply.deleteDisposal">
+		<![CDATA[
+			DELETE FROM IB_OFFER_DISPOSAL
+			 WHERE S_NB      =  #sNb#
+		]]>
+	</delete>
+
+	<select id="reply.selectSupporterList" parameterClass="rvo" resultClass="rvo">
+				SELECT
+						A.S_NB			as  sNb
+					 ,  A.OFFER_SNB		as  offerSnb
+					 ,  A.STAFF_SNB		as  staffSnb
+					 ,  A.RATIO			as  ratio
+					 ,  A.CATEGORY		as  cate
+					 ,  A.COMMENT		as  comment
+					 ,  STF.NAME		as  usrNm
+				  FROM	IB_JOINT_PROGRESS A
+				LEFT JOIN BS_USER_MASTER STF ON STF.USER_ID = A.STAFF_SNB
+				LEFT JOIN IB_OFFER_DISPOSAL DSPS ON DSPS.S_NB = A.OFFER_SNB
+			<isEqual property="tmpNum2" compareValue="stats">
+				<![CDATA[ where a.rg_dt between concat(#choiceYear#,'0101') and concat(#choiceYear#,'1231235959') ]]>
+			</isEqual>
+			<isNotEqual property="tmpNum2" compareValue="stats">
+				<![CDATA[ WHERE case when A.CATEGORY = '1' then A.OFFER_SNB = #sNb# when A.CATEGORY = '2' then DSPS.OFFER_SNB = #sNb# end ]]>
+			</isNotEqual>
+	</select>
+
+	<insert id="reply.insertSupporter">
+		<![CDATA[
+			INSERT INTO IB_JOINT_PROGRESS
+				  ( OFFER_SNB
+				  , STAFF_SNB
+				  , RATIO
+				  , CATEGORY
+				  , RG_DT
+				  , UP_DT
+				  , RG_ID
+				  , UP_ID
+				  , ORG_ID
+		 ) VALUES ( #offerSnb#
+				  , #staffSnb#
+				  , #ratio#
+				  , #cate#
+				  , now()
+				  , now()
+				  , #rgId#
+				  , #rgId#
+				  , #orgId#
+				  )
+		]]>
+	</insert>
+
+	<delete id="reply.deleteSupporter">
+		<![CDATA[
+			DELETE FROM IB_JOINT_PROGRESS
+			 WHERE S_NB      =  #sNb#
+		]]>
+	</delete>
+
+</sqlMap>

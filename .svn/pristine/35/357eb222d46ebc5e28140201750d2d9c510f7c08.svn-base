@@ -1,0 +1,594 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+
+<!-- -------- each page css :S -------- -->
+<style type="text/css">
+.AXGridUserList .AXGrid .AXgridScrollBody .AXGridColHead .colHeadTable tbody tr td .colHeadTdText{		/* grid head */
+	font-weight: bold;
+	/*
+	height:20px;
+	background: linear-gradient(silver, white);
+	vertical-align: middle;	*/
+}
+.AXSelect{
+	height:16px;
+}
+.bodyNode{
+	color:red;
+}
+.AXGridUserList .AXGrid .AXgridScrollBody .AXGridBody .gridFixedBodyTable thead tr td .bodyTdText, .AXGrid .AXgridScrollBody .AXGridBody .gridFixedBodyTable tbody tr td .bodyTdText, .AXGrid .AXgridScrollBody .AXGridBody .gridFixedBodyTable tfoot tr td .bodyTdText {
+    position: relative;				/* 그리드 헤드 */
+    line-height: 18px;
+    min-height: 18px;
+    padding: 3px 3px;
+    color: #3b3b3b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.AXGridUserList .AXGrid .AXgridScrollBody .AXGridBody .gridBodyTable thead tr td .bodyTdText, .AXGrid .AXgridScrollBody .AXGridBody .gridBodyTable tbody tr td .bodyTdText, .AXGrid .AXgridScrollBody .AXGridBody .gridBodyTable tfoot tr td .bodyTdText {
+    position: relative;				/* 그리드 바디(라인) */
+    line-height: 18px;
+    min-height: 18px;
+    padding: 3px 3px;
+    color: #3b3b3b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+</style>
+<!-- -------- each page css :E -------- -->
+
+
+
+<section id="detail_contents">
+
+
+	<div id="Contents">
+		<div id="AXSearchTarget" style="border-top:1px solid #ccc;width=300"></div>
+		<div style="margin-top:10px;">
+			<button type="button" class="AXButton Blue" onclick="fnObj.doSearch();">
+			<i class="axi axi-search3"></i>&nbsp;&nbsp;검&nbsp;&nbsp;&nbsp;&nbsp;색&nbsp;&nbsp;&nbsp;</button>
+			</div>
+		<div id="AXGridCalendar" style="margin-top:5px;"></div>
+		<div style="margin-top:5px;float:right;">
+
+			</div>
+		<h2  style="margin-top:30px;">휴일 등록</h2>
+		<div id="AXGridHoliday" style="margin-top:10px;"></div>
+		<div style="margin-top:5px;float:right;">
+			<button type="button" class="AXButton Blue"  onclick="fnObj.addHoliday();">
+			<i class="axi axi-search3"></i>&nbsp;&nbsp;휴일등록&nbsp;&nbsp;</button>
+			</div>
+	</div>
+
+</section>
+
+
+
+<script type="text/javascript">
+
+//Global variables :S ---------------
+//사용자언어
+var lang = '${baseUserLoginInfo.lang}';		//language (profile language... 'KOR' or 'ENG')
+
+//공통코드
+var comCodeYear;				//부서분류
+var comCodeMonth;				//부서분류
+
+var codeYn;
+
+var calendarMode;
+var mySearch = new AXSearch(); 	// instance
+var myGridCalendar = new AXGrid(); 		// instance
+var myGridHoliday = new AXGrid(); 	// instance	(오른쪽)
+
+var myModal = new AXModal();	// instance
+
+var selDeptCode;
+var selDeptClass = "ORG";
+var selUserId;
+var selUserName;
+
+//Global variables :E ---------------
+
+
+
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+var fnObj = {
+
+	//################# init function :S #################
+
+	//선로딩코드
+	preloadCode: function(){
+
+		//공통코드
+		//comCodeDeptClass = getCommonCode('DEPT_CLASS', lang, 'CD', 'NM' );						//코드타입 공통코드 (Sync ajax)
+		comCodeYear = fnObj.getYearCombo();
+		comCodeMonth = fnObj.getMonthCombo();
+
+		codeYn = [{'CD':'Y', 'NM':'Y'}, {'CD':'N', 'NM':'N'}];
+		//'optionValue','optionText' 프로퍼티를 생성하며 값으로 CD, NM 의 값 할당
+		//this.addComCodeArray(comCodeDeptClass);
+	},
+
+
+	//화면세팅
+    pageStart: function(){
+
+    	//-------------------------- 검색 :S ---------------------------
+    	mySearch.setConfig({
+            targetID : "AXSearchTarget",
+            theme : "AXSearch",
+
+            width:300,
+            mediaQuery: {
+                mx:{min:0, max:767}, dx:{min:767}
+            },
+
+            onsubmit: function(){	// 버튼이 선언되지 않았거나 submit 개체가 있는 경우 발동 합니다.
+				fnObj.doSearch();
+			},
+
+			rows:[
+					{display:true, addClass:"", style:"", list:[
+
+   						{label:"년 도", labelWidth:"100", type:"selectBox", width:"150", key:"calYear", addClass:"secondItem", valueBoxStyle:"", value:"",
+   							//options:[{optionValue:"2015", optionText:"2015년"}, {optionValue:"2014", optionText:"2014년"}, {optionValue:"2013", optionText:"2013년"}],
+   							options: comCodeYear,
+   							AXBind:{
+   								type:"select", config:{
+   									onChange:function(){
+   										//toast.push(Object.toJSON(this));
+   										fnObj.doSearchHoliday();
+   										fnObj.doSearch();
+   									}
+   								}
+   							}
+   						},
+   						{label:"월", labelWidth:"100", type:"selectBox", width:"150", key:"mm", addClass:"secondItem", valueBoxStyle:"", value:"",
+   							//options:[{optionValue:"1", optionText:"1월"}, {optionValue:"2", optionText:"2월"}, {optionValue:"3", optionText:"3월"}],
+   							options: comCodeMonth,
+   							AXBind:{
+   								type:"select", config:{
+   									onChange:function(){
+   										//toast.push(Object.toJSON(this));
+   										fnObj.doSearch();
+   									}
+   								}
+   							}
+   						}
+
+   						/*,
+   						{label:"검 색",labelWidth:"100",type:"button", width:"200", key:"search1", addClass:"fa fa-check-circle fa-lg Blue", value:"검&nbsp;&nbsp;&nbsp;&nbsp;색",
+   							onclick: function(){
+   								//아래 2개의 값을 사용 하실 수 있습니다.
+   								fnObj.doSearch();
+   							}
+   						}*/
+   						/*,
+   						{label:"입력2", labelWidth:"60", type:"inputText", width:"250", key:"inputText2", addClass:"secondItem", valueBoxStyle:"", value:"입력2", title:"타이틀정보",
+   							onChange: function(){}
+   						}*/
+   					]},
+			     ]
+
+        });//end mySearch.setConfig
+    	//-------------------------- 검색 :E ---------------------------
+
+    	//-------------------------- 그리드 :S -------------------------
+    	myGridCalendar.setConfig({
+            targetID : "AXGridCalendar",
+            theme : "AXGrid",
+
+            fixedColSeq : 2,	//컬럼고정 index
+            fitToWidth : true,	//true,	//넓이에맞게
+            colHeadAlign : "center",	//헤드의 기본 정렬. "left"|"center"|"right"
+
+            height: 500,		//grid height
+            //width: '95%',
+
+            autoChangeGridView: { // autoChangeGridView by browser width
+                mobile:[0,600], grid:[600]
+            },
+
+            //passiveMode:true,
+			//passiveRemoveHide:false,
+
+            colGroup : [
+                {key:"NO", 		label:"NO", 	width:"40", 	align:"center",	sort: false,  formatter:function(){
+                	//return (this.list.length - this.index) + ( ( this.page.pageNo - 1) * this.page.pageSize );		//역순
+                	return ("<font color=silver><b>" + (this.index + 1) + "</b></font>");
+                }},
+
+                {key:"dd",	 			label:"일", 		width:"50",		align:"center",  formatter:function(){
+                	if(this.item.weekKor == "토") return "<font color=blue><b>"+this.value+"</b></font>";
+					else if( this.item.holiday == "Y")  return "<font color=red><b>"+this.value+"</b></font>";
+					else return "<font color=black><b>"+this.value+"</b></font>";
+                																					}},
+                {key:"weekKor",			label:"요일(한글)", 	width:"90",		align:"center",  formatter:function(){
+					if(this.item.weekKor == "토") return "<font color=blue><b>"+this.value+"</b></font>";
+					else if( this.item.weekKor == "일")  return "<font color=red><b>"+this.value+"</b></font>";
+					else return "<font color=black><b>"+this.value+"</b></font>";
+					}},
+                {key:"weekEng",			label:"요일(영문)", 		width:"120",	align:"center",  formatter:function(){
+					if(this.item.weekKor == "토") return "<font color=blue><b>"+this.value+"</b></font>";
+					else if( this.item.weekKor == "일")  return "<font color=red><b>"+this.value+"</b></font>";
+					else return "<font color=black><b>"+this.value+"</b></font>";
+					}},
+                {key:"weekAb",			label:"요일약어", 		width:"120",	align:"center", formatter:function(){
+					if(this.item.weekKor == "토") return "<font color=blue><b>"+this.value+"</b></font>";
+					else if( this.item.weekKor == "일")  return "<font color=red><b>"+this.value+"</b></font>";
+					else return "<font color=black><b>"+this.value+"</b></font>";
+					}},
+                {key:"yearWeek",		label:"년 주차", 		width:"150",	align:"center"},
+                {key:"monthWeek", 		label:"월 주차",		width:"65",		align:"center"},
+                {key:"inTime", 			label:"출근시간", 	width:"65",		align:"center"},
+                {key:"outTime", 		label:"퇴근시간", 		width:"90",		align:"center"},
+                {key:"holiday", 		label:"휴일여부", 		width:"90",		align:"center", formatter: function(val){
+        			var colorObj = {'N':'#FFA648', 'Y':'#3DB7CC'};	//{'IT':'#F15F5F', 'ADMIN':'#F2CB61', 'WORK':'#BCE55C', 'USER':'#B2CCFF'};
+        			return createSelectTag('holiday'+(this.index), codeYn, 'CD', 'NM', this.value, 'fnObj.doChangeIt(this,"' + this.item.sysDate + '","holiday")', colorObj);
+                }},
+                {key:"formalHol", 		label:"공식휴일", 		width:"90",		align:"center", formatter: function(val){
+        			var colorObj = {'N':'#FFA648', 'Y':'#3DB7CC'};	//{'IT':'#F15F5F', 'ADMIN':'#F2CB61', 'WORK':'#BCE55C', 'USER':'#B2CCFF'};
+        			return createSelectTag('formalHol'+(this.index), codeYn, 'CD', 'NM', this.value, 'fnObj.doChangeIt(this,"' + this.item.sysDate + '","formalHol")', colorObj);
+                }},
+                {key:"holPaid", 		label:"연차사용", 		width:"90",		align:"center", formatter: function(val){
+        			var colorObj = {'N':'#FFA648', 'Y':'#3DB7CC'};	//{'IT':'#F15F5F', 'ADMIN':'#F2CB61', 'WORK':'#BCE55C', 'USER':'#B2CCFF'};
+        			return createSelectTag('holPaid'+(this.index), codeYn, 'CD', 'NM', this.value, 'fnObj.doChangeIt(this,"' + this.item.sysDate + '","holPaid")', colorObj);
+                }},
+                {key:"holType", 		label:"휴일타입", 		width:"90",		align:"center"},
+                {key:"costingYn", 		label:"비용 분석 여부", 		width:"90",		align:"center", formatter: function(val){
+        			var colorObj = {'N':'#FFA648', 'Y':'#3DB7CC'};	//{'IT':'#F15F5F', 'ADMIN':'#F2CB61', 'WORK':'#BCE55C', 'USER':'#B2CCFF'};
+        			return createSelectTag('costingYn'+(this.index), codeYn, 'CD', 'NM', this.value, 'fnObj.doChangeIt(this,"' + this.item.sysDate + '","costingYn")', colorObj);
+                }},
+                {key:"timesheetYn", 	label:"근무입력가능", 		width:"90",		align:"center", formatter: function(val){
+        			var colorObj = {'N':'#FFA648', 'Y':'#3DB7CC'};	//{'IT':'#F15F5F', 'ADMIN':'#F2CB61', 'WORK':'#BCE55C', 'USER':'#B2CCFF'};
+        			return createSelectTag('timesheetYn'+(this.index), codeYn, 'CD', 'NM', this.value, 'fnObj.doChangeIt(this,"' + this.item.sysDate + '","timesheetYn")', colorObj);
+                }}
+            ],
+            body : {
+                onclick: function(){
+                    //toast.push(Object.toJSON({index:this.index, item:this.item}));
+                	//toast.push("<b>내용</b>:\n" + this.item.CONTENT);
+                	//alert(JSON.stringify(this));
+                	if(this.c >= 1 &&  this.c <= 4 ){		//부서보기
+                		fnObj.viewDept(this.list[this.index]);	//부서정보보기 (부서정보 객체전달)
+
+                		//console.debug("# onClick #");
+                		//console.debug(this.list[this.index]);
+                	}
+
+                },
+
+                ondblclick: function(){
+                	//fnObj.viewArticle(this.list[this.index].BOARD_SEQ);
+                }
+
+            },
+			page:{
+				paging:false,
+				status:{formatter: null}
+			}
+
+        });
+    	//-------------------------- 그리드 :E -------------------------
+
+    	//-------------------------- 그리드 :S -------------------------
+    	myGridHoliday.setConfig({
+            targetID : "AXGridHoliday",
+            theme : "AXGrid",
+
+            fixedColSeq : 4,	//컬럼고정 index
+            //fitToWidth : true,	//true,	//넓이에맞게
+            colHeadAlign : "center",	//헤드의 기본 정렬. "left"|"center"|"right"
+            colHeadTool : false,	//컬럼 display 여부를 설정
+            height: 200,		//grid height
+
+            autoChangeGridView: { // autoChangeGridView by browser width
+                mobile:[0,600], grid:[600]
+            },
+
+            //passiveMode:true,
+			//passiveRemoveHide:false,
+
+            colGroup : [
+                {key:"NO", 		label:"NO", 	width:"40", 	align:"center",	sort: false,  formatter:function(){
+                	//return (this.list.length - this.index) + ( ( this.page.pageNo - 1) * this.page.pageSize );		//역순
+                	return ("<font color=silver><b>" + (this.index + 1) + "</b></font>");
+                }},
+
+                {key:"holId", 		label:"ID", 			width:"80",		align:"center",  formatter:function(){return ("<b>" + (this.value) + "</b>");}},
+                {key:"holiday",		label:"날짜", 			width:"200",	align:"center",  formatter:function(){
+                	return ("<font color=red><b>"+this.value+"</b></font>");}},
+                {key:"holYyyy",		label:"년",		width:"100",	align:"center"},
+                {key:"holMm",		label:"월", 			width:"100",		align:"center"},
+                {key:"holDd",		label:"일", 		width:"100",		align:"center"},
+                {key:"holType", 	label:"내용", 			width:"300",	align:"center"},
+                {key:"allHalf", 	label:"종일", 			width:"100",		align:"center"},
+                {key:"repeatYn", 	label:"반복", 			width:"100",		align:"center"},
+                {key:"holPaid", 	label:"연차", 			width:"100",		align:"center"},
+                {key:"enable", 		label:"사용", 			width:"100",		align:"center"}
+            ],
+            body : {
+                onclick: function(){
+                    if(this.c >= 1 && this.c <= 6 ){		//메뉴보기
+                		fnObj.viewHoliday(this.list[this.index]);
+
+                	}
+
+                },
+
+                ondblclick: function(){
+                	//fnObj.viewArticle(this.list[this.index].BOARD_SEQ);
+                }
+
+            },
+			page:{
+				paging:false,
+				status:{formatter: null}
+			}
+
+        });
+    	//-------------------------- 그리드 :E -------------------------
+
+    	//-------------------------- 모달창 :S -------------------------
+    	myModal.setConfig({
+    		windowID:"myModalCT",
+    		width:740,
+            mediaQuery: {
+                mx:{min:0, max:1200}, dx:{min:767}
+            },
+    		displayLoading:true,
+            scrollLock: true,
+    		onclose: function(){
+    		}
+            ,contentDivClass: "popup_outline"
+    	});
+    	//-------------------------- 모달창 :E -------------------------
+
+    },//end pageStart.
+
+
+  	//검색
+    doSearch: function(){		//knd : null - 검색버튼, 숫자 - 페이지검색
+
+    	var url = contextRoot + "/system/getCalendarList.do";
+    	var param = mySearch.getParam().queryToObjectDec();	//query string 을 객체로 바꿔준다.		*queryToObjectDec 디코딩해서
+    	//console.debug(param);
+    	var callback = function(result){
+
+    		var obj = JSON.parse(result);
+
+    		//세션로그아웃 >> 재로그인
+    		if(obj.result=='FAIL' && obj.resultVal=='SESSION'){
+    			window.open('<c:url value="/login/loginPop.do" />', 'loginPop', 'width=500 height=200');
+    			return;
+    		}
+
+    		var cnt = obj.resultVal;	//결과수
+    		var list = obj.resultList;	//결과데이터JSON
+
+
+    		var gridData = {list:list};
+
+    		myGridCalendar.clearSort();			//소팅초기화
+    		myGridCalendar.setData(gridData);	//그리드에결과반영
+
+    	};
+
+    	commonAjax("POST", url, param, callback);
+    },//end doSearch
+
+
+
+  	//휴일 검색
+    doSearchHoliday: function(){		//knd : null - 검색버튼, 숫자 - 페이지검색
+
+    	var url = contextRoot + "/system/getHolidayList.do";
+    	var param = mySearch.getParam().queryToObjectDec();	//query string 을 객체로 바꿔준다.		*queryToObjectDec 디코딩해서
+    	//console.debug(param);
+    	var callback = function(result){
+    		//alert(result);
+    		var obj = JSON.parse(result);
+
+    		//alert(JSON.stringify(obj.resultList));
+
+    		//세션로그아웃 >> 재로그인
+    		if(obj.result=='FAIL' && obj.resultVal=='SESSION'){
+    			window.open('<c:url value="/login/loginPop.do" />', 'loginPop', 'width=500 height=200');
+    			return;
+    		}
+
+    		var cnt = obj.resultVal;	//결과수
+    		var list = obj.resultList;	//결과데이터JSON
+
+    		var gridData = {list:list};
+
+    		myGridHoliday.clearSort();			//소팅초기화
+    		myGridHoliday.setData(gridData);	//그리드에결과반영
+    	};
+
+    	commonAjax("POST", url, param, callback);
+
+    },//end doSearchHoliday
+
+
+  //콤보박스 이벤트 함수
+    doChangeIt: function(obj, sysDate, colNm){
+
+    	var url = contextRoot + "/system/doUpdateCalendar.do";
+    	var param = {
+    			sysDate: sysDate		// 날짜
+    	}
+    	param[colNm] = obj.value;		//바꾸려는 컬럼명과 값 으로 (key/value) 전달
+
+    	alert(obj.value);
+    	alert(sysDate);
+
+    	var callback = function(result){
+
+    		var obj = JSON.parse(result);
+
+    		//세션로그아웃 >> 재로그인
+    		if(obj.result=='FAIL' && obj.resultVal=='SESSION'){
+    			window.open('<c:url value="/login/loginPop.do" />', 'loginPop', 'width=500 height=200');
+    			return;
+    		}
+
+    		var cnt = obj.resultVal;	//결과수
+
+    	    if(obj.result == "SUCCESS"){
+
+    	    	toast.push("저장하였습니다!");
+
+    			fnObj.doSearch();	//재검색
+
+    		}
+
+    	};
+
+    	commonAjax("POST", url, param, callback);
+    },
+
+
+    //툴팁 세팅
+    setTooltip: function(){
+    	var tooltipStr = '';
+    	/*for(var i=1; i<comCodeRoleCd.length; i++){
+    		tooltipStr += comCodeRoleCd[i].NM + " : " + comCodeRoleCd[i].DESCRIPTION + "<br>";
+    	}*/
+    	tooltipStr += "수정을 하시려면 해당 '부서코드', '부서명' 중 하나를 클릭하시기 바랍니다";
+
+  		AXPopOver.bind({
+  	        id:"myPopOver",
+  	        theme:"AXPopOverTooltip", 	// 선택항목
+  	        width:"200", 				// 선택항목
+  	        body:tooltipStr				//"설명입니다.<br/>액시스제이는 이렇게 유용 합니다."
+  	    });
+  		$("#ttipDept").bind("mouseover", function(event){
+  	        AXPopOver.open({id:"myPopOver", sendObj:{}}, event); // event 직접 연결 방식
+  	    });
+  	},
+
+
+  	// 휴일 등록
+    addHoliday: function(){
+    	var url = "<c:url value='/system/addHoliday.do'/>";
+    	var params = {mode:'new'};		//"btype=1&cate=1".queryToObject();		//게시판유형(board_type), 게시판 카테고리 를 넘긴다.
+
+    	//params 에 코드리스트 전달------
+    	var list = myGridCalendar.getList();	//그리드 데이터(array object)
+    	/*var codeList  = '';				//코드리스트(','로 연결된 문자열)
+    	for(var i=0; i<list.length; i++){
+    		codeList += list[i].deptCode.toUpperCase() + ',';
+    	}
+    	params.codeList = codeList;		//파라미터에 추가(key,value)*/
+    	//-----------------------------
+
+    	myModal.open({
+    		url: url,
+    		pars: params,
+    		titleBarText: '휴일등록',		//titleBarText 속성 추가하였음.(원 Axisj에는 없었던것)
+    		method:"POST",
+    		top: 150,
+    		width: 540,
+    		closeByEscKey: true				//esc 키로 닫기
+    	});
+
+    	$('#myModalCT').draggable();
+    },//end writeOpen
+
+
+    // 휴일 수정
+    viewHoliday : function(holidayInfoObj){
+    	var url = "<c:url value='/system/addHoliday.do'/>";
+    	var params = {mode:'update',
+    			holidayInfoObj:JSON.stringify(holidayInfoObj)};		//이미 리스트에서 읽은 정보를 팝업에 전달
+
+    	myModal.open({
+    		url: url,
+    		pars: params,
+    		titleBarText: '휴일수정',		//titleBarText 속성 추가하였음.(원 Axisj에는 없었던것)
+    		method:"POST",
+    		top: 150,
+    		width: 540,
+    		closeByEscKey: true			//esc 키로 닫기
+    	});
+
+    	$('#myModalCT').draggable();
+    },
+
+
+    getYearCombo: function (){
+    	var yearArray = new Array();
+
+    	for(var idx = 2015; idx > 1970; idx -- ){
+    		var yearInfo = new Object();
+
+    		yearInfo.optionValue = idx;
+    		yearInfo.optionText = idx + "년";
+
+    		yearArray.push(yearInfo);
+    	}
+
+    	return  yearArray;
+    },
+
+    getMonthCombo: function (){
+    	var monthArray = new Array();
+
+    	for(var idx = 1; idx <= 12; idx ++ ){
+    		var monthInfo = new Object();
+
+    		monthInfo.optionValue = idx;
+    		monthInfo.optionText = idx + "월";
+
+    		monthArray.push(monthInfo);
+    	}
+
+    	return  monthArray;
+    },
+
+
+  	//배열에 새로운 인자로 추가 (공통코드 이상문제해결)
+    addComCodeArray: function(obj){
+		for(var i=0; i<obj.length; i++){
+			obj[i].optionValue = obj[i].CD;		//'optionValue' 프로퍼티를 생성하며 값으로 CD 의 값 할당
+			obj[i].optionText  = obj[i].NM;		//'optionText'  프로퍼티를 생성하며 값으로 NM 의 값 할당
+		}
+    },
+
+  	//################# else function :E #################
+
+
+
+};//end fnObj.
+
+
+
+
+/*
+ * 화면로딩완료후, 자바스크립트 화면세팅 과 그외동작들 호출.
+ */
+$(function(){
+	fnObj.preloadCode();	//공통코드 or 각종선로딩코드
+	fnObj.pageStart();		//화면세팅
+	//fnObj.doLoadTreeview();		//검색
+	//fnObj.doSearch();		//검색
+	//fnObj.setTooltip();
+
+	fnObj.doSearchHoliday();
+	fnObj.doSearch();
+
+});
+
+
+
+</script>

@@ -1,0 +1,1482 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="orgCompany">
+
+	<!-- BS_ORG 관계사 정보 리스트 -->
+	<select id="orgCompany.getOrgCompanyList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT T.*, @RNUM := @RNUM + 1 AS rnum
+		  FROM (
+
+				SELECT
+					  BO.ORG_ID 				AS orgId
+					, BO.ORG_CODE		 		AS orgCode
+					, BO.COMPANY_SNB 			AS companySnb
+					, BO.BUSINESS_GRP_SEQ 		AS businessGrpSeq
+					, BBG.BUSINESS_GRP_NM 		AS businessGrpNm
+					, BO.DESCRIPTION 			AS description
+					, BO.ORG_LOGO 				AS orgLogo
+					, BO.PROJECT_USE_YN 		AS projectUseYn
+					, BO.APPROVE_USE_YN  		AS approveUseYn
+					, BO.USE_YN 				AS useYn
+					, BO.ENABLE 				AS enable
+					, BO.START_DT 				AS startDt
+					, BO.ADDR 					AS addr
+					, BO.END_DT 				AS endDt
+					, IBC.CPN_ID 				AS cpnId
+					, IBC.CPN_NM 				AS cpnNm
+					, BO.CODE_MGMT_ADMIN_YN		AS codeMgmtAdminYn
+					, BO.MAIL_USE_YN			AS mailUseYn
+					, BO.MAIL_SERVICE_NAME		AS mailServiceName
+					, BO.MAIL_URL				AS mailUrl
+
+					, (SELECT CST_NM FROM IB_CUSTOMER WHERE S_NB = IBC.CEO_ID)					AS ownNm
+					, DATE_FORMAT(BO.CREATE_DATE, '%Y-%m-%d') 									AS createDate
+					, DATE_FORMAT(BO.UPDATE_DATE, '%Y-%m-%d') 									AS updateDate
+					, (SELECT NAME FROM BS_USER_MASTER BUM WHERE BUM.USER_ID = BO.CREATED_BY) 	AS createUserNm
+
+					, YR.minYear				AS minYear
+					, YR.maxYear				AS maxYear
+
+					,(SELECT GROUP_CONCAT(CPN_NM SEPARATOR '|') FROM IB_COMPANY WHERE REF_ORG_ID = BO.ORG_ID AND GROUPING_ORG_YN = 'N' AND S_NB != BO.COMPANY_SNB) AS otherCpnList
+
+				 FROM BS_ORG 					BO
+				 LEFT JOIN IB_COMPANY 			IBC ON IBC.S_NB = BO.COMPANY_SNB
+				 LEFT JOIN BS_BUSINESS_GROUP 	BBG ON BBG.BUSINESS_GRP_SEQ = BO.BUSINESS_GRP_SEQ
+				 LEFT JOIN (SELECT ORG_ID, MIN(CAL_YEAR) minYear, MAX(CAL_YEAR) maxYear
+							  FROM BS_CALENDAR
+							 GROUP BY ORG_ID)	YR ON YR.ORG_ID = BO.ORG_ID
+
+				WHERE 1=1
+				<isNotEmpty prepend="AND" property="cpnNm">
+					IBC.CPN_NM LIKE CONCAT('%',#cpnNm#,'%')
+				</isNotEmpty>
+				<isNotEmpty prepend="AND" property="cpnId">
+					(IBC.CPN_ID LIKE CONCAT('%',#cpnId#,'%')
+					 OR IBC.CPN_NM LIKE CONCAT('%',#cpnId#,'%')
+					 OR BO.ORG_CODE LIKE CONCAT('%',#cpnId#,'%')
+					 OR BBG.BUSINESS_GRP_NM LIKE CONCAT('%',#cpnId#,'%')
+					 OR BO.DESCRIPTION LIKE CONCAT('%',#cpnId#,'%')
+					 )
+				</isNotEmpty>
+
+				<isNotEmpty prepend="" property="sortCol">
+					ORDER BY $sortCol$ $sortVal$
+				</isNotEmpty>
+				<isEmpty prepend="" property="sortCol">
+					ORDER BY BO.BUSINESS_GRP_SEQ ASC, BO.ORG_ID ASC
+				</isEmpty>
+				<!-- ORDER BY replace(IBC.CPN_NM,'(주)','') ASC -->
+		) T,
+		( SELECT @RNUM := #offset# ) R
+
+
+
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#, #limit#
+		</isNotEmpty>
+		/* orgCompany.getOrgCompanyList */
+	</select>
+
+	<!-- BS_ORG 관계사 총 갯수 -->
+	<select id="orgCompany.getOrgCompanyTotalCnt" parameterClass="HashMap" resultClass="int">
+		SELECT COUNT(ORG_ID)
+		  FROM BS_ORG BO
+		  LEFT JOIN IB_COMPANY IBC ON IBC.S_NB = BO.COMPANY_SNB
+		  LEFT JOIN BS_BUSINESS_GROUP BBG ON BBG.BUSINESS_GRP_SEQ = BO.BUSINESS_GRP_SEQ
+		 WHERE 1=1
+		<isNotEmpty prepend="AND" property="cpnNm">
+			IBC.CPN_NM LIKE CONCAT('%',#cpnNm#,'%')
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="cpnId">
+			(IBC.CPN_ID LIKE CONCAT('%',#cpnId#,'%')
+			 OR IBC.CPN_NM LIKE CONCAT('%',#cpnId#,'%')
+			 OR BO.ORG_CODE LIKE CONCAT('%',#cpnId#,'%')
+			 OR BBG.BUSINESS_GRP_NM LIKE CONCAT('%',#cpnId#,'%')
+			 OR BO.DESCRIPTION LIKE CONCAT('%',#cpnId#,'%')
+			 )
+		</isNotEmpty>
+		/* orgCompany.getOrgCompanyTotalCnt */
+	</select>
+
+	<!-- 회사정보 리스트 -->
+	<select id="orgCompany.getIbCompanyList" parameterClass="HashMap"
+		resultClass="HashMap">
+		SELECT T.*, @RNUM := @RNUM + 1 AS rnum
+			FROM (
+					SELECT
+						  cpn.S_NB AS sNb
+						, CASE WHEN (cpn.A_CPN_ID is null or cpn.A_CPN_ID = '') THEN cpn.CPN_ID
+								ELSE cpn.A_CPN_ID end AS aCpnId
+						, cpn.CPN_ID AS cpnId
+						, cpn.CPN_NM AS cpnNm
+						, cpn.CEO_ID AS ceoId
+					FROM IB_COMPANY cpn force index(ib_company_u1)
+					WHERE	cpn.S_NB NOT IN (SELECT COMPANY_SNB FROM BS_ORG WHERE ENABLE='Y')
+					AND cpn.REF_ORG_ID IS NULL
+
+					<isNotEmpty prepend="AND" property="cpnNm">
+						CPN_NM LIKE CONCAT('%',#cpnNm#,'%')
+					</isNotEmpty>
+					<isNotEmpty prepend="AND" property="cpnId">
+						CPN_ID LIKE CONCAT('%',#cpnId#,'%')
+					</isNotEmpty>
+
+					<isNotEmpty prepend="" property="sortCol">
+						ORDER BY $sortCol$ $sortVal$
+					</isNotEmpty>
+					<isEmpty prepend="" property="sortCol">
+						ORDER BY replace(CPN_NM,'(주)','') ASC
+					</isEmpty>
+				) T,
+
+			( SELECT @RNUM := #offset# ) R
+
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#, #limit#
+		</isNotEmpty>
+
+		/*orgCompany.getIbCompanyList*/
+	</select>
+
+	<!-- 회사정보 총 갯수 -->
+	<select id="orgCompany.getIbCompanyTotalCnt" parameterClass="HashMap"
+		resultClass="int">
+		SELECT COUNT(cpn.S_NB)
+		FROM IB_COMPANY cpn
+		WHERE
+		cpn.S_NB NOT IN (SELECT COMPANY_SNB FROM BS_ORG WHERE ENABLE='Y')
+		AND cpn.REF_ORG_ID IS NULL
+		<isNotEmpty prepend="AND" property="cpnNm">
+			CPN_NM LIKE
+			CONCAT('%',#cpnNm#,'%')
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="cpnId">
+			CPN_ID LIKE
+			CONCAT('%',#cpnId#,'%')
+		</isNotEmpty>
+
+		/*orgCompany.getIbCompanyTotalCnt*/
+	</select>
+
+	<!-- 관계사 정보 등록 -->
+	<insert id="orgCompany.insertBsOrg" parameterClass="HashMap">
+		INSERT INTO BS_ORG
+				(
+					 COMPANY_SNB
+					,ORG_CODE
+					,BUSINESS_GRP_SEQ
+					,DESCRIPTION
+					,ORG_LOGO
+					,ENABLE
+					,START_DT
+					,END_DT
+					,ADDR
+					,IN_TIME
+					,OUT_TIME
+					,CODE_MGMT_ADMIN_YN
+					,PROJECT_USE_YN
+					,APPROVE_USE_YN
+					,SECOME_USE_YN
+					,USE_YN
+					,MAIL_USE_YN
+					,MAIL_SERVICE_NAME
+					,MAIL_URL
+					,MAIL_API_URL
+					,MAIL_LINK_TYPE
+					,PROJECT_TITLE
+					,ACTIVITY_TITLE
+					,TS_TITLE
+					,AVAL_USER_CNT
+					,DOMAIN
+					,SMS_END_TEL_NO
+					,CREATED_BY
+					,CREATE_DATE
+					,UPDATED_BY
+					,UPDATE_DATE
+
+				) VALUES (
+					  #companySnb#
+					, #orgCode#
+					, #businessGrpSeq#
+					, #description#
+					, #orgLogo#
+					, 'Y'
+					, now()
+					, DATE_FORMAT('9999-10-11', '%Y-%m-%d')
+					, #addr#
+					, #inTime#
+					, #outTime#
+					, #codeMgmtAdminYn#
+					, #projectUseYn#
+					, #approveUseYn#
+					, #secomeUseYn#
+					, #useYn#
+					, #mailUseYn#
+					, #mailServiceName#
+					, #mailUrl#
+					, #mailApiUrl#
+					, #mailLinkType#
+					, #projectTitle#
+					, #activityTitle#
+					, #tsTitle#
+					, #avalUserCnt#
+					, #domain#
+					, #smsEndTelNo#
+					, #userRegId#
+					, now()
+					, #userRegId#
+					, now()
+				)
+		<selectKey keyProperty="orgId" resultClass="int">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		/*orgCompany.insertBsOrg*/
+	</insert>
+
+	<!-- 관계사 정보 수정 -->
+	<update id="orgCompany.updateBsOrg" parameterClass="HashMap">
+		UPDATE BS_ORG
+			SET
+			  BUSINESS_GRP_SEQ = #businessGrpSeq#
+			, DESCRIPTION = #description#
+
+
+			, IN_TIME = #inTime#
+			, OUT_TIME = #outTime#
+			, ADDR = #addr#
+
+			<isNotEmpty prepend="," property="orgLogo">
+				ORG_LOGO = #orgLogo#
+			</isNotEmpty>
+			<isEmpty prepend="" property="orgLogo">
+				<isEqual prepend="," property="logoYn" compareValue="N">
+					ORG_LOGO = null
+				</isEqual>
+			</isEmpty>
+
+			<isNotEmpty property="codeMgmtAdminYn">
+			, CODE_MGMT_ADMIN_YN = #codeMgmtAdminYn#
+			</isNotEmpty>
+
+			, PROJECT_USE_YN = #projectUseYn#
+			, APPROVE_USE_YN = #approveUseYn#
+			, SECOME_USE_YN  = #secomeUseYn#
+			, USE_YN 		 = #useYn#
+			<isNotEmpty property="mailUseYn">
+			, MAIL_USE_YN = #mailUseYn#
+			</isNotEmpty>
+			<isNotEmpty property="mailServiceName">
+			, MAIL_SERVICE_NAME = #mailServiceName#
+			</isNotEmpty>
+			<isNotEmpty property="mailUrl">
+			, MAIL_URL = #mailUrl#
+			</isNotEmpty>
+			<isNotEmpty property="mailApiUrl">
+			, MAIL_API_URL = #mailApiUrl#
+			</isNotEmpty>
+			<isNotEmpty property="mailLinkType">
+			, MAIL_LINK_TYPE = #mailLinkType#
+			</isNotEmpty>
+
+			<isNotEmpty property="projectTitle">
+            , PROJECT_TITLE = #projectTitle#
+            </isNotEmpty>
+            <isNotEmpty property="activityTitle">
+            , ACTIVITY_TITLE = #activityTitle#
+            </isNotEmpty>
+            <isNotEmpty property="tsTitle">
+            , TS_TITLE = #tsTitle#
+            </isNotEmpty>
+            <isNotEmpty property="avalUserCnt">
+            , AVAL_USER_CNT = #avalUserCnt#
+            </isNotEmpty>
+            , DOMAIN = #domain#
+            , SMS_END_TEL_NO = #smsEndTelNo#
+
+			, ENABLE 		 = #enable#
+			, UPDATE_DATE = now()
+			, UPDATED_BY = #userRegId#
+
+		WHERE ORG_ID = #orgId#
+		/*orgCompany.updateBsOrg*/
+	</update>
+
+	<!-- 관계사 달력데이터 출퇴근시간 업데이트 -->
+    <update id="orgCompany.updateBsCalendarForInTime" parameterClass="HashMap">
+        UPDATE BS_CALENDAR
+           SET    IN_TIME = (SELECT IN_TIME FROM BS_ORG X WHERE X.ORG_ID = #orgId#)
+                 ,OUT_TIME = (SELECT OUT_TIME FROM BS_ORG X WHERE X.ORG_ID = #orgId#)
+                 , UPDATE_DATE = now()
+                 , UPDATED_BY = #userRegId#
+           WHERE ORG_ID = #orgId#
+           AND   SYS_DATE > NOW()
+        /*orgCompany.updateBsCalendarForInTime*/
+    </update>
+
+	<!-- 관계사 정보 삭제 -->
+	<update id="orgCompany.deleteBsOrg">
+		UPDATE BS_ORG
+		SET ENABLE = 'N'
+		, UPDATE_DATE = now()
+		, UPDATED_BY = #userRegId#
+		WHERE ORG_ID = #orgId#
+		/*orgCompany.deleteBsOrg*/
+	</update>
+
+
+	<!-- 관계사 정보 반환 -->
+	<select id="orgCompany.selectBsOrgCompany" parameterClass="HashMap"	resultClass="HashMap">
+		SELECT
+				ORG_ID 							AS orgId
+			  , ORG_CODE 						AS orgCode
+			  , COMPANY_SNB 					AS companySnb
+			  ,	DATE_FORMAT( IN_TIME, '%H:%i') 	AS inTime
+			  ,	DATE_FORMAT( OUT_TIME, '%H:%i')	AS outTime
+			  ,	BO.BUSINESS_GRP_SEQ 			AS businessGrpSeq
+			  , BO.DESCRIPTION 					AS description
+			  ,	ORG_LOGO						AS orgLogoData
+			  , BO.CODE_MGMT_ADMIN_YN			AS codeMgmtAdminYn
+			  , BO.PROJECT_USE_YN				AS projectUseYn
+			  , BO.APPROVE_USE_YN  				AS approveUseYn
+			  , BO.USE_YN						AS useYn
+			  , BO.ENABLE						AS enable
+			  /* 메일연동 컬럼 정보 추가*/
+			  , BO.MAIL_USE_YN					AS mailUseYn
+			  , BO.MAIL_SERVICE_NAME			AS mailServiceName
+              , BO.MAIL_URL						AS mailUrl
+              , BO.MAIL_LINK_TYPE				AS mailLinkType
+              , BO.MAIL_API_URL					AS mailApiUrl
+
+              , BO.PROJECT_TITLE               	AS projectTitle
+              , BO.ACTIVITY_TITLE               AS activityTitle
+              , BO.TS_TITLE               		AS tsTitle
+              , BO.AVAL_USER_CNT               	AS avalUserCnt
+              , BO.DOMAIN               		AS domain
+              , BO.SMS_END_TEL_NO               AS smsEndTelNo
+
+			  ,	CASE WHEN ORG_LOGO IS NULL THEN 'N' ELSE 'Y' END 	AS orgLogo
+			  ,	DATE_FORMAT(BO.CREATE_DATE , '%Y-%m-%d') 			AS createDate
+			  ,	BO.ADDR 											AS addr
+			  , BO.SECOME_USE_YN									AS secomeUseYn
+
+			  , IC.GROUPING_ORG_YN				 					AS groupingOrgYn
+			  , IC.REF_ORG_ID 										AS refOrgId
+			  , IC.CPN_NM											AS cpnNm
+
+		FROM BS_ORG BO
+		LEFT JOIN IB_COMPANY IC ON IC.S_NB = BO.COMPANY_SNB
+		WHERE 1=1
+		  AND ORG_ID = #orgId#
+		/* orgCompany.selectBsOrgCompany*/
+	</select>
+
+
+	<!-- 그룹핑된 회사리스트 반환 -->
+	<select id="orgCompany.selectBsIncludeOrgCompany" parameterClass="HashMap"	resultClass="HashMap">
+		SELECT
+			S_NB AS companySnb,  GROUPING_ORG_YN AS groupingOrgYn,
+			REF_ORG_ID AS refOrgId, CPN_NM AS cpnNm
+		FROM IB_COMPANY
+		WHERE REF_ORG_ID = #orgId# and grouping_Org_Yn = 'N'
+		AND S_NB != #sNb#
+		/* orgCompany.selectBsIncludeOrgCompany */
+	</select>
+
+	<!-- 비즈니스 그룹 지우기 -->
+	<update id="orgCompany.deleteBsBusinessGrp" parameterClass="HashMap">
+		<![CDATA[
+			UPDATE bs_business_group
+			SET DEL_FLAG='Y', UPDATE_DATE = NOW(), UPDATED_BY = #userRegId#
+			 WHERE BUSINESS_GRP_SEQ      =  #businessGrpSeq#
+		]]>
+	</update>
+
+	<!-- 비즈니스 그룹 수정하기 -->
+	<update id="orgCompany.updateBsBusinessGrp" parameterClass="HashMap">
+		<![CDATA[
+			UPDATE bs_business_group
+			SET BUSINESS_GRP_NM = #businessGrpNm# ,  DESCRIPTION = #description#,
+			UPDATE_DATE = NOW(), UPDATED_BY = #userRegId#
+			 WHERE BUSINESS_GRP_SEQ      =  #businessGrpSeq#
+		]]>
+	</update>
+
+	<!-- 비즈니스 그룹 저장 -->
+	<insert id="orgCompany.insertBsBusinessGrp" parameterClass="HashMap">
+		INSERT INTO bs_business_group
+		(
+		BUSINESS_GRP_NM
+		, DESCRIPTION
+		, DEL_FLAG
+		, CREATED_BY
+		, CREATE_DATE
+		, UPDATED_BY
+		, UPDATE_DATE
+		) VALUES (
+		#businessGrpNm#
+		, #description#
+		, 'N'
+		, #userRegId#
+		, now()
+		, #userRegId#
+		, now()
+		)
+		<selectKey keyProperty="businessGrpSeq" resultClass="int">
+			SELECT
+			LAST_INSERT_ID()
+		</selectKey>
+		/* orgCompany.insertBsBusinessGrp */
+	</insert>
+
+
+
+	<!-- 같은 비즈니스 그룹에 같은 회사가 있는 경우 -->
+	<select id="orgCompany.checkOrgCompany" parameterClass="HashMap"
+		resultClass="int">
+		SELECT COUNT(ORG_ID)
+		FROM BS_ORG BO
+		WHERE ENABLE = 'Y'
+		<isNotEmpty prepend="AND" property="companySnb">
+			COMPANY_SNB = #companySnb#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="businessGrpSeq">
+			BUSINESS_GRP_SEQ = #businessGrpSeq#
+		</isNotEmpty>
+		/* orgCompany.checkOrgCompany */
+	</select>
+
+	<!-- 비즈니스 그룹 리스트 반환 -->
+	<select id="orgCompany.getBusinessGroupList" parameterClass="HashMap"
+		resultClass="HashMap">
+		SELECT T.*, @RNUM := @RNUM + 1 AS rnum
+			FROM (
+					SELECT
+						BUSINESS_GRP_NM as businessGrpNm
+					  , DESCRIPTION as description
+					  , BUSINESS_GRP_SEQ AS businessGrpSeq
+					  , DATE_FORMAT(CREATE_DATE,'%Y-%m-%d') as createDate
+					FROM BS_BUSINESS_GROUP
+					WHERE DEL_FLAG = 'N'
+					<isNotEmpty prepend="AND" property="businessGrpNm">
+						BUSINESS_GRP_NM LIKE CONCAT('%',#businessGrpNm#,'%')
+					</isNotEmpty>
+
+
+
+					<isNotEmpty prepend="" property="sortCol">
+						ORDER BY $sortCol$ $sortVal$
+					</isNotEmpty>
+					<isEmpty prepend="" property="sortCol">
+						ORDER BY businessGrpSeq ASC
+					</isEmpty>
+
+				) T,
+
+		( SELECT @RNUM := #offset# ) R
+
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#, #limit#
+		</isNotEmpty>
+		/* orgcompany.getBusinessGroupList */
+	</select>
+
+	<!-- 비즈니스 그룹 리스트 총 갯수 -->
+	<select id="orgCompany.getBusinessGroupTotalCnt" parameterClass="HashMap"
+		resultClass="int">
+		SELECT COUNT(BUSINESS_GRP_SEQ)
+		FROM BS_BUSINESS_GROUP
+		WHERE DEL_FLAG =
+		'N'
+		<isNotEmpty prepend="AND" property="businessGrpNm">
+			BUSINESS_GRP_NM LIKE
+			CONCAT('%',#businessGrpNm#,'%')
+		</isNotEmpty>
+		/* orgcompany.getBusinessGroupTotalCnt */
+	</select>
+
+	<!-- selectbox를 위한 그룹리스트 조회 -->
+	<select id="orgCompany.getBusinessGroupForSelect"
+		parameterClass="HashMap" resultClass="HashMap">
+		SELECT BUSINESS_GRP_NM as
+		businessGrpNm, BUSINESS_GRP_SEQ AS businessGrpSeq,
+		FROM
+		BS_BUSINESS_GROUP
+		WHERE DEL_FLAG = 'N'
+		/*
+		orgcompany.getBusinessGroupForSelect */
+	</select>
+
+	<!-- IB_COMPANY 관계사 정보 수정 -->
+	<update id="orgCompany.updateIbCompanyInfo" parameterClass="HashMap">
+		UPDATE IB_COMPANY SET ADDR = #addr#, UP_ID = #upId#, UP_DT = now(),
+		GROUPING_ORG_YN= #groupingOrgYn#, REF_ORG_ID = #refOrgId# WHERE S_NB =
+		#sNb#
+	</update>
+
+	<!-- IB_COMPANY 그룹핑 회사 정보 수정 -->
+	<update id="orgCompany.updateGroupingOrgInfo" parameterClass="HashMap">
+		UPDATE IB_COMPANY SET REF_ORG_ID = #refOrgId#, GROUPING_ORG_YN =
+		#groupingOrgYn# WHERE S_NB = #sNb#
+	</update>
+
+	<!-- IB_COMPANY 그룹핑 회사 정보 초기화 -->
+	<update id="orgCompany.updateGroupingOrgInfoRefresh" parameterClass="HashMap">
+		UPDATE IB_COMPANY SET REF_ORG_ID = null, GROUPING_ORG_YN ='N' WHERE REF_ORG_ID = #orgId#
+	</update>
+
+	<!-- 사용자 관계사 권한 지정을 위한 관계사 셀렉트 리스트 -->
+	<select id="orgCompany.getOrgCompanyAuthSelectbox"
+		parameterClass="HashMap" resultClass="HashMap">
+		SELECT CPN.S_NB AS sNb
+		,CPN.CPN_ID AS cpnId
+		,CPN.CPN_NM AS cpnNm
+		,BO.ORG_ID AS orgId
+		,(CASE WHEN BO.ORG_ID = #orgId# THEN 'Y' ELSE 'N' END) AS companyYn
+		,BO.BUSINESS_GRP_SEQ AS businessGrpSeq
+		,(SELECT BUSINESS_GRP_NM FROM BS_BUSINESS_GROUP BBG WHERE BBG.BUSINESS_GRP_SEQ
+		= BO.BUSINESS_GRP_SEQ) AS businessGrpNm
+
+		FROM BS_ORG BO
+		LEFT JOIN IB_COMPANY CPN ON CPN.S_NB = BO.COMPANY_SNB
+		WHERE 1=1
+		AND BO.ENABLE='Y'
+		ORDER BY companyYn DESC, replace(CPN.CPN_NM,'(주)','') ASC
+
+		/*orgCompany.getOrgCompanyAuthSelectbox */
+	</select>
+
+	<!-- 관계사별 사용자 권한 리스트 (사용자별 관계사 권한 메뉴에서 사용) -->
+	<select id="orgCompany.getOrgCompanyAuthUserList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT T.*, @RNUM := @RNUM + 1 AS rnum
+
+		  FROM (
+
+			SELECT
+				 BUA.EMP_NO AS empNo
+				,SUBSTRING_INDEX(BUA.EMP_NO, '_', -1)				AS showEmpNo
+				,BRCAA.orgIds
+				,BUA.LOGIN_ID AS loginId
+				,BUA.NAME AS userName
+				,BUA.USER_ID AS userId
+				,BRCAA.cpnNms
+				,(SELECT G.VALUE_MEAN_KOR
+					FROM BS_CODE_GV G
+					WHERE G.CODE_NAME = 'EMP_TYPE'
+					AND G.ORG_ID = #orgId#
+					AND G.CODE_VALUE = BUA.EMP_TYPE) AS empTypeNm
+				,BUA.ORG_ID AS orgId
+				,IFNULL((SELECT ICOM.CPN_NM
+							FROM IB_COMPANY ICOM, BS_ORG BSO
+				  			WHERE ICOM.S_NB = BSO.COMPANY_SNB
+							 AND BSO.ORG_ID = BUA.ORG_ID
+							 AND EXISTS(SELECT 1
+							 			  FROM BS_RELATION_COMPANY_ACCESS_AUTH ATH
+							 			 WHERE ATH.ORG_ID = BUA.ORG_ID
+							 			   AND ATH.USER_ID = BUA.USER_ID
+							 			)
+							 	),'')			 AS orgNm
+				,(SELECT CPN_NM
+					FROM IB_COMPANY
+					WHERE S_NB = BUA.COMPANY) AS companyNm
+				,(SELECT G.VALUE_MEAN_KOR
+					FROM BS_CODE_GV G
+					WHERE G.CODE_NAME = 'RANK'
+					AND G.ORG_ID = #orgId#
+					AND G.CODE_VALUE = BUA.RANK) AS rankNm
+
+				,(SELECT concat(roleList.role_kor,' (',LEFT(myAuth.org_access_auth_type,1),')')
+
+					FROM BS_ROLE_LIST AS roleList, BS_USER_ROLE_LIST AS myRole, bs_relation_company_access_auth AS myAuth
+
+					WHERE myRole.user_id = BUA.user_id
+						AND myRole.org_id = BUA.org_id
+						AND myRole.role_id = roleList.role_id
+						AND myAuth.org_id = myRole.org_id
+						AND myAuth.user_id = myRole.user_id
+				 )AS roleNm
+
+			  FROM BS_USER_MASTER BUA
+			  LEFT JOIN (
+					SELECT AC.USER_ID
+							,GROUP_CONCAT(DISTINCT AC.ORG_ID) AS orgIds
+							,GROUP_CONCAT(DISTINCT AC.CPN_NM ,'VII@', IFNULL(AC.kor,'') ORDER BY AC.CPN_NM ASC) AS cpnNms
+					  FROM (
+							SELECT   BOR.ORG_ID
+									,BOR.CPN_NM
+									,(SELECT concat(role.role_kor,' (',LEFT(auth.org_access_auth_type,1),')')
+
+										FROM BS_ROLE_LIST AS role, BS_USER_ROLE_LIST AS userRole, bs_relation_company_access_auth AS auth
+										WHERE userRole.user_id = CAA.user_id
+											AND userRole.org_id = CAA.org_id
+											AND userRole.role_id = role.role_id
+											AND auth.org_id = userRole.org_id
+											AND auth.user_id = userRole.user_id
+										)as kor
+									,CAA.USER_ID
+							FROM BS_RELATION_COMPANY_ACCESS_AUTH CAA
+							LEFT JOIN (
+								SELECT BO.ORG_ID
+										,IC.CPN_NM
+								FROM BS_ORG BO
+									,IB_COMPANY IC
+								WHERE BO.COMPANY_SNB = IC.S_NB
+								  AND BO.ORG_ID != #orgId#
+								) BOR ON BOR.ORG_ID = CAA.ORG_ID
+
+							ORDER BY BOR.CPN_NM ASC
+						) AC
+					 GROUP BY AC.USER_ID
+
+			) BRCAA ON BRCAA.USER_ID = BUA.USER_ID
+
+			WHERE 1=1
+			<isEqual property="hideSynergyUserYn" compareValue="Y">     /* 관계사 시너지 유저 목록 활성화여부 */
+	            AND BUA.CUS_ID != 1133368
+	        </isEqual>
+			AND BUA.ORG_ID = #orgId#
+			AND BUA.USER_STATUS IN ('W','H','L')
+			AND BUA.DELETE_FLAG = 'N'
+
+			<isNotEmpty property="searchText" prepend="and">
+				<isEqual property="searchType" compareValue="name">
+					BUA.NAME LIKE CONCAT('%',#searchText#,'%')
+				</isEqual>
+				<isEqual property="searchType" compareValue="id">
+					BUA.LOGIN_ID LIKE CONCAT('%',#searchText#,'%')
+				</isEqual>
+			</isNotEmpty>
+
+		) T,
+
+		( SELECT @RNUM := #offset# ) R
+
+		ORDER BY $sortCol$ $sortVal$
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#, #limit#
+		</isNotEmpty>
+
+		/* orgCompany.getOrgCompanyAuthUserList */
+	</select>
+
+
+	<!-- 관계사별 사용자 권한 리스트 총 갯수 -->
+	<select id="orgCompany.getOrgCompanyAuthUserCnt" parameterClass="HashMap"
+		resultClass="int">
+		SELECT COUNT(BUA.USER_ID)
+		  FROM BS_USER_MASTER BUA
+		  LEFT JOIN (
+				SELECT AC.USER_ID, GROUP_CONCAT(DISTINCT AC.ORG_ID) AS orgIds,
+					   group_concat(distinct AC.CPN_NM ) AS cpnNms
+				  FROM (
+						SELECT BOR.ORG_ID, BOR.CPN_NM, CAA.USER_ID
+						  FROM BS_RELATION_COMPANY_ACCESS_AUTH CAA
+						  LEFT JOIN (
+								SELECT BO.ORG_ID, IC.CPN_NM
+								  FROM BS_ORG BO, IB_COMPANY IC
+								 WHERE BO.COMPANY_SNB = IC.S_NB
+								) BOR ON BOR.ORG_ID = CAA.ORG_ID
+						) AC GROUP BY AC.USER_ID
+				) BRCAA ON BRCAA.USER_ID = BUA.USER_ID
+		WHERE 1=1
+		    <isEqual property="hideSynergyUserYn" compareValue="Y">     /* 관계사 시너지 유저 목록 활성화여부 */
+                AND BUA.CUS_ID != 1133368
+            </isEqual>
+		  AND BUA.ORG_ID = #orgId#
+		  AND BUA.USER_STATUS IN ('W','H','L')
+		<isNotEmpty property="searchText" prepend="and">
+			<isEqual property="searchType" compareValue="name">
+				BUA.NAME LIKE CONCAT('%',#searchText#,'%')
+			</isEqual>
+			<isEqual property="searchType" compareValue="id">
+				BUA.LOGIN_ID LIKE CONCAT('%',#searchText#,'%')
+			</isEqual>
+		</isNotEmpty>
+	</select>
+
+	<!-- 사용자별 관계사 접근 권한 리스트 불러오기(사용자의 모든 관계사 리스트이다 !!) -->
+	<select id="orgCompany.getOrgRelationAuthList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			  companyAuth.user_id 				AS userId
+			, org.org_id 						AS orgId
+			, relation_company_access_auth_id 	AS authIds
+			, org_access_auth_type 				AS authChk
+			, company.cpn_nm 					AS cpnNm
+			, company.cpn_id 					AS cpnId
+			, org.business_grp_seq 				AS businessGrpSeq
+			, company.s_nb 						AS sNb
+			, roleList.role_kor					AS roleKor
+			, roleList.role_id					AS roleId
+
+			, (SELECT business_grp_nm
+				FROM BS_BUSINESS_GROUP AS bbg
+				WHERE org.business_grp_seq = bbg.business_grp_seq) AS businessGrpNm
+
+			, (SELECT (CONCAT('[',
+
+								GROUP_CONCAT(
+							 			CONCAT(
+							 		 			  '{"roleId":"', roleO.role_id, '"	, "roleKor":"', roleO.role_kor ,'"}')ORDER BY roleO.ROLE_ID ASC   SEPARATOR ','
+										),']'
+							)
+					  )FROM BS_ROLE_LIST AS roleO   WHERE roleO.org_id = companyAuth.org_id  AND roleO.enable = 'Y'
+				)AS roleObj
+			,(SELECT X.NAME FROM BS_USER_MASTER X WHERE X.USER_ID = userRole.UPDATED_BY)	AS updateNm
+
+		FROM BS_RELATION_COMPANY_ACCESS_AUTH AS companyAuth
+
+		LEFT JOIN  BS_USER_ROLE_LIST 	AS userRole ON companyAuth.user_id = userRole.user_id  AND userRole.org_id = companyAuth.org_id
+		LEFT JOIN  BS_ROLE_LIST 		AS roleList ON userRole.role_id = roleList.role_id
+		LEFT JOIN  BS_ORG 				AS org 		ON org.org_id = companyAuth.org_id
+		LEFT JOIN  IB_COMPANY 			AS company 	ON company.s_nb =org.company_snb
+
+
+
+		WHERE companyAuth.user_id = #userId#	AND org.org_id IS NOT NULL
+
+		GROUP BY companyAuth.org_id
+	</select>
+
+
+	<!-- 사용자 관계사 권한 지정을 위한 관계사 리스트 -->
+	<select id="orgCompany.getOrgCompanyAuthList" parameterClass="HashMap" resultClass="HashMap">
+
+		SELECT
+			  CPN.S_NB AS sNb
+			, CPN.CPN_ID AS cpnId
+			, CPN.CPN_NM AS cpnNm
+			, BO.ORG_ID AS orgId
+			, BO.BUSINESS_GRP_SEQ AS businessGrpSeq
+			, (SELECT BUSINESS_GRP_NM FROM BS_BUSINESS_GROUP BBG WHERE BBG.BUSINESS_GRP_SEQ = BO.BUSINESS_GRP_SEQ) AS businessGrpNm
+			, (SELECT (CONCAT('[',
+
+								GROUP_CONCAT(
+							 			CONCAT( '{"roleId":"' , ROLE.ROLE_ID, '" , "roleKor":"' , ROLE.ROLE_KOR ,'"}' )ORDER BY ROLE.ROLE_ID ASC   SEPARATOR ','
+										),']'
+							)
+					  )FROM BS_ROLE_LIST AS ROLE   WHERE ROLE.ORG_ID = BO.ORG_ID  AND ROLE.ENABLE = 'Y'
+				)AS roleObj
+
+		FROM BS_ORG BO
+		LEFT JOIN IB_COMPANY CPN 		ON CPN.S_NB 	= BO.COMPANY_SNB
+
+		WHERE 1=1 AND
+		BO.ENABLE='Y'
+		<isNotEmpty prepend="AND" property="orgId"><!--권한 설정시 소속 회사는 제외한 관계사만 추가가능. -->
+			BO.ORG_ID != #orgId#
+		</isNotEmpty>
+		<isNotEmpty property="searchText" prepend="and">
+			<isEqual property="searchType" compareValue="cpnNm">
+				CPN.CPN_NM LIKE CONCAT('%',#searchText#,'%')
+			</isEqual>
+			<isEqual property="searchType" compareValue="cpnId">
+				CPN.CPN_ID LIKE CONCAT('%',#searchText#,'%')
+			</isEqual>
+		</isNotEmpty>
+		ORDER BY replace(CPN.CPN_NM,'(주)','') ASC ;
+
+		/* orgCompany.getOrgCompanyAuthList */
+	</select>
+
+	<delete id="orgCompany.deleteBsRelationCompanyAccess"	parameterClass="HashMap">
+
+		DELETE FROM BS_RELATION_COMPANY_ACCESS_AUTH
+		WHERE USER_ID = #userId#
+
+		<isEmpty property="allDelete">
+			AND ORG_ID != #orgId#
+		</isEmpty>
+
+		/*orgCompany.deleteBsRelationCompanyAccess */
+	</delete>
+
+	<insert id="orgCompany.insertBsRelationCompanyAccess"
+		parameterClass="HashMap">
+		INSERT INTO BS_RELATION_COMPANY_ACCESS_AUTH
+										(
+											USER_ID,
+											ORG_ID,
+											ORG_ACCESS_AUTH_TYPE,
+											RG_DT,
+											RG_ID,
+											UP_DT,
+											UP_ID
+										)
+								VALUES
+										(
+											#userId#,
+											#orgId#,
+											#orgAccessAuthType#,
+											now(),
+											#userRegId#,
+											now(),
+											#userRegId#
+										)
+
+		/* orgCompany.insertBsRelationCompanyAccess */
+	</insert>
+
+	<!-- 사용자별 관계사 리스트 -->
+	<select id="orgCompany.getOrgRelationAuthListOnlyUserId"
+		parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				  BRCAA.USER_ID 			AS userId
+			  	, BRCAA.ORG_ID 				AS orgId
+			  	, ORG_ACCESS_AUTH_TYPE 		AS authChk
+			  	, BSS.CPN_NM 				AS cpnNm
+                , BSS.CPN_ID 				AS cpnId
+                , BSS.S_NB 					AS sNb
+                , BSS.BUSINESS_GRP_SEQ 		AS businessGrpSeq
+			  	, RELATION_COMPANY_ACCESS_AUTH_ID AS authIds
+			  	, (SELECT BUSINESS_GRP_NM FROM BS_BUSINESS_GROUP BBG WHERE bss.BUSINESS_GRP_SEQ = BBG.BUSINESS_GRP_SEQ) AS businessGrpNm
+
+
+		FROM BS_RELATION_COMPANY_ACCESS_AUTH AS BRCAA
+
+		LEFT JOIN (
+					SELECT BOR.BUSINESS_GRP_SEQ, BOR.ORG_ID, BOR.ENABLE, IC.CPN_ID, IC.CPN_NM , IC.S_NB
+					FROM BS_ORG BOR, IB_COMPANY IC
+					WHERE BOR.COMPANY_SNB = IC.S_NB
+					)BSS
+		ON BSS.ORG_ID = BRCAA.ORG_ID
+
+		WHERE BRCAA.USER_ID = #userId#
+		  AND BSS.ENABLE = 'Y'
+		GROUP BY BRCAA.ORG_ID
+
+		/* orgCompany.getOrgRelationAuthListOnlyUserId */
+	</select>
+
+
+	<!-- 관계사별 메뉴리스트 -->
+	<select id="orgCompany.getMenuListByOrg" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+				 OML.ORG_MENU_ID 		AS orgMenuId
+				,OML.ORG_ID 			AS orgId
+				,OML.MENU_ID			AS menuId
+				,OML.SORT 				AS sort
+				,BML.MENU_KOR 			AS menuKor
+				,BML.MENU_ENG 			AS menuEng
+				,BML.MENU_CLASS 		AS menuClass
+				,BML.MENU_NUM 			AS menuNum
+				,BML.MENU_TYPE 			AS menuType
+				,BML.MENU_DESC			AS menuDesc
+				,BML.MENU_PATH 			AS menuPath
+				,BML.MENU_TITLE_KOR 	AS menuTitleKor
+				,BML.MENU_TITLE_ENG		AS menuTitleEng
+				,BML.ENABLE				AS menuEnable
+				,(SELECT B.VALUE_MEAN_KOR
+		 		 	FROM BS_CODE_GV B
+				 	WHERE B.CODE_NAME = 'MENU_TYPE'
+		  		   	AND B.CODE_VALUE = BML.MENU_TYPE
+		  		   	AND B.ORG_ID = #orgId#) AS menuTypeNm
+				<!-- ,OML.ENABLE				AS orgMenuEnable -->
+
+		FROM BS_ORG_MENU_LIST OML
+		LEFT JOIN BS_MENU_LIST BML ON BML.MENU_ID = OML.MENU_ID
+		WHERE 1=1 AND OML.ENABLE = 'Y'
+		<isNotEmpty property="orgId" prepend="AND">
+			OML.ORG_ID = #orgId#
+		</isNotEmpty>
+		<isNotEmpty property="menuId" prepend="AND">
+			OML.MENU_ID = #menuId#
+		</isNotEmpty>
+		<isNotEmpty property="roleId" prepend="AND">
+			OML.ORG_ID = (SELECT ORG_ID FROM BS_ROLE_LIST WHERE ROLE_ID = #roleId#)
+		</isNotEmpty>
+
+		ORDER BY BML.MENU_TYPE DESC
+	</select>
+
+	<!-- 관계사별 메뉴 리스트 저장 -->
+	<insert id="orgCompany.saveMenuListByOrg" parameterClass="HashMap">
+		INSERT INTO BS_ORG_MENU_LIST
+		( MENU_ID, ORG_ID, SORT, ENABLE, CREATE_DATE, CREATED_BY, UPDATE_DATE,
+		UPDATED_BY)
+		VALUES
+		( #menuId#, #orgId#, #sort#, 'Y', now(), #userRegId#, now(),#userRegId#)
+	</insert>
+
+	<!-- 관계사별 메뉴 리스트 삭제 -->
+	<update id="orgCompany.deleteMenuListByOrg" parameterClass="HashMap">
+		UPDATE BS_ORG_MENU_LIST
+		SET ENABLE = #enable#,
+		UPDATE_DATE = NOW(),
+		UPDATED_BY = #userRegId#
+		WHERE ORG_ID = #targetOrgId#
+	</update>
+
+	<!-- 관계사 코드 중복 여부 체크 -->
+	<select id="orgCompany.checkOrgCompanyCode" parameterClass="HashMap"
+		resultClass="int">
+		SELECT COUNT(ORG_ID) FROM BS_ORG WHERE ORG_CODE = #orgCode#
+	</select>
+
+	<!-- 관계사 소속 회사 리스트 (관계사 등록) -->
+	<select id="orgCompany.addGroupingCompanyList" parameterClass="HashMap"
+		resultClass="HashMap">
+		SELECT T.*, @RNUM := @RNUM + 1 AS rnum
+			FROM (
+					SELECT
+						  S_NB As sNb
+						, CPN_ID as cpnId
+						, CPN_NM as cpnNm
+					FROM IB_COMPANY  force index(ib_company_u1)
+					WHERE (REF_ORG_ID IS NULL OR REF_ORG_ID = #orgId#)
+					AND GROUPING_ORG_YN = 'N'
+
+				<isNotEmpty prepend="AND" property="srch_comNm">
+					CPN_NM LIKE CONCAT('%', #srch_comNm#, '%')
+				</isNotEmpty>
+
+				<isNotEmpty prepend="" property="sortCol">
+					ORDER BY $sortCol$ $sortVal$
+				</isNotEmpty>
+				<isEmpty prepend="" property="sortCol">
+					ORDER BY replace(CPN_NM,'(주)','') ASC
+				</isEmpty>
+
+
+			) T,
+
+		( SELECT @RNUM := #offset# ) R
+
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#, #limit#
+		</isNotEmpty>
+	</select>
+
+	<!-- 관계사 소속 회사리스트 총 갯수 (관계사 등록) -->
+	<select id="orgCompany.addGroupingCompanyListCnt"
+		parameterClass="HashMap" resultClass="int">
+		SELECT COUNT(S_NB)
+		FROM IB_COMPANY
+		WHERE (REF_ORG_ID IS NULL OR REF_ORG_ID = #orgId#)
+		AND GROUPING_ORG_YN = 'N'
+		<isNotEmpty prepend="AND" property="srch_comNm">
+			CPN_NM LIKE CONCAT('%',
+			#srch_comNm#, '%')
+		</isNotEmpty>
+	</select>
+
+
+	<!-- 관계사별 모듈 리스트 -->
+	<select id="orgCompany.getModuleListByOrg" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			 OML.MODULE_ID 			AS moduleId
+			,OML.ORG_ID   			AS orgId
+			,OML.SORT	  			AS sort
+			,OML.ORG_MODULE_ID  	AS orgModuleId
+			,BML.MODULE_CODE    	AS moduleCode
+			,BML.MODULE_NAME    	AS moduleName
+			,BML.MODULE_DESC    	AS moduleDesc
+			,BML.MODULE_INC_URL		AS moduleIncUrl
+			,BML.ENABLE	 		   	AS moduleEnable
+
+		FROM BS_ORG_MODULE_LIST OML
+		LEFT JOIN BS_MODULE_LIST BML ON BML.MODULE_ID = OML.MODULE_ID
+		WHERE 1=1 AND OML.ENABLE = 'Y'	AND BML.ENABLE	 = 'Y'
+		<isNotEmpty property="orgId" prepend="AND">
+			OML.ORG_ID = #orgId#
+		</isNotEmpty>
+		<isNotEmpty property="search" prepend="AND">
+			BML.MODULE_NAME LIKE CONCAT('%', #search#,'%')
+		</isNotEmpty>
+		<isNotEmpty property="moduleId" prepend="AND">
+			OML.MODULE_ID = #moduleId#
+		</isNotEmpty>
+		ORDER BY SORT ASC
+	</select>
+
+	<!-- 관계사별 모듈 리스트 저장 -->
+	<insert id="orgCompany.saveModuleListByOrg" parameterClass="HashMap">
+		INSERT INTO BS_ORG_MODULE_LIST
+		( MODULE_ID, ORG_ID, SORT, ENABLE, CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY)
+		VALUES
+		( #moduleId#, #orgId#, #sort#, 'Y', now(), #userRegId#, now(),	#userRegId#)
+	</insert>
+
+	<!-- 관계사별 모듈 리스트 삭제 -->
+	<update id="orgCompany.deleteModuleListByOrg" parameterClass="HashMap">
+		UPDATE BS_ORG_MODULE_LIST
+		SET ENABLE = #enable#,
+		UPDATE_DATE = NOW(),
+		UPDATED_BY = #userRegId#
+		WHERE ORG_ID = #targetOrgId#
+	</update>
+
+	<!-- 관계사 등록시 코드SET 등록(신규) -->
+	<insert id="orgCompany.insertCodeSet" parameterClass="ib.basic.web.Commoncodeset">
+		INSERT INTO BS_CODE_SET(ORG_ID ,CODE_SET_NAME
+									, MEANING_KOR
+									, MEANING_ENG
+									, CODE_TYPE
+									, CODE_GROUP
+									, DESCRIPTION
+									, CREATE_DATE
+									, CREATED_BY
+									, UPDATE_DATE
+									, UPDATED_BY
+									, PARENT_SET_ID
+									)
+							VALUES(#ORG_ID#
+									 , #CODE_SET_NAME#
+									, #MEANING_KOR#
+									, #MEANING_ENG#
+									, #CODE_TYPE#
+									, #CODE_GROUP#
+									, #DESCRIPTION#
+									, now()
+									, #CREATED_BY#
+									, now()
+									, #UPDATED_BY#
+									,(CASE WHEN #PARENT_SET_ID# = 'NULL' THEN 0 ELSE #PARENT_SET_ID# END)
+									)
+
+		<selectKey resultClass="int" type="post" keyProperty="REAL_CODE_SET_ID">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* orgCompany.insertCodeSet */
+	</insert>
+
+
+	<!-- 관계사 등록시 공통코드 추가  -->
+	<insert id="orgCompany.insertCodeList" parameterClass="ib.basic.web.Commoncodeset">
+		INSERT INTO BS_CODE_LIST(CODE_SET_ID
+									 ,VALUE
+									 ,MEANING_KOR
+									 ,MEANING_ENG
+									 ,SORT
+									 ,DESCRIPTION
+									 ,SON_SET_ID
+									 ,CREATE_DATE
+									 ,CREATED_BY
+									 ,UPDATE_DATE
+									 ,UPDATED_BY
+									 ,DELETE_DATE
+			 						 ,DELETED_BY
+			 						 ,DELETE_FLAG
+									 )
+							   VALUES(
+									  #CODE_SET_ID#
+									 ,#VALUE#
+									 ,#MEANING_KOR#
+									 ,#MEANING_ENG#
+									 ,(CASE WHEN #SORT# = 'NULL' THEN 0 ELSE #SORT# END)
+									 ,#DESCRIPTION#
+									 ,(CASE WHEN #SON_SET_ID# = 'NULL' THEN 0 ELSE #SON_SET_ID# END)
+									 ,now()
+									 ,#CREATED_BY#
+									 ,now()
+									 ,#UPDATED_BY#
+									 ,(CASE WHEN #DELETE_DATE# != 'NULL' THEN #DELETE_DATE# END)
+									 ,(CASE WHEN #DELETED_BY# = 'NULL' THEN 0 ELSE #DELETED_BY# END)
+			 						 ,#DELETE_FLAG#
+									 )
+
+		<selectKey resultClass="int" type="post" keyProperty="REAL_CODE_LIST_ID">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+
+		/* system.insertCodeList */
+	</insert>
+
+	<!-- 헤더를 위한 관계사 체크  -->
+	<select id="orgCompany.checkOrgList"  parameterClass="HashMap" resultClass="integer">
+		SELECT COUNT(ORG_ID) FROM BS_ORG WHERE DATE_FORMAT(NOW(), '%Y-%m-%d') = DATE_FORMAT(CREATE_DATE, '%Y-%m-%d')
+
+		/* orgCompany.checkOrgList */
+	</select>
+
+
+
+	<!-- BS_CODE_SET 카피 -->
+	<update id="orgCompany.copyBsCodeSet" parameterClass="HashMap">
+		INSERT INTO BS_CODE_SET (ORG_ID, CODE_SET_NAME, MEANING_KOR, MEANING_ENG, CODE_TYPE, CODE_GROUP, DESCRIPTION
+								, CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY, DELETE_DATE, DELETED_BY, DELETE_FLAG
+								, PARENT_SET_ID)
+
+		 	 SELECT #targetOrgId#, CODE_SET_NAME, MEANING_KOR, MEANING_ENG, CODE_TYPE, CODE_GROUP, DESCRIPTION
+		 	 					, NOW(), 45, NOW(), 45, DELETE_DATE, DELETED_BY, DELETE_FLAG
+		 	 					, NULL
+
+		   	   FROM BS_CODE_SET
+		  	  WHERE ORG_ID = #originOrgId#
+		  	    AND CODE_GROUP IN ('SYSTEM','COMMON')
+
+		/* orgCompany.copyBsCodeSet */
+	</update>
+
+
+	<!-- BS_CODE_SET	PARENT_SET_ID 있는것 카피 -->
+	<update id="orgCompany.copyBsCodeSetParent" parameterClass="HashMap">
+		UPDATE BS_CODE_SET A
+		  JOIN BS_CODE_SET B ON A.PARENT_SET_ID = B.CODE_SET_ID AND A.ORG_ID = #originOrgId#
+		  JOIN BS_CODE_SET C ON A.CODE_SET_NAME = C.CODE_SET_NAME AND C.ORG_ID = #targetOrgId#
+		  JOIN BS_CODE_SET D ON B.CODE_SET_NAME = D.CODE_SET_NAME AND D.ORG_ID = #targetOrgId#
+
+		   SET C.PARENT_SET_ID = D.CODE_SET_ID
+
+		 WHERE A.CODE_GROUP IN ('SYSTEM','COMMON')
+
+		/* orgCompany.copyBsCodeSetParent */
+	</update>
+
+
+	<!-- BS_CODE_LIST 카피 -->
+	<update id="orgCompany.copyBsCodeList" parameterClass="HashMap">
+		INSERT INTO BS_CODE_LIST(CODE_SET_ID, VALUE, MEANING_KOR, MEANING_ENG, SORT, DESCRIPTION
+								, CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY, DELETE_DATE, DELETED_BY, DELETE_FLAG,SON_SET_ID)
+
+             SELECT C.CODE_SET_ID, B.`VALUE`, B.MEANING_KOR, B.MEANING_ENG, B.SORT, B.DESCRIPTION
+             					, NOW(), 45, NOW(), 45, B.DELETE_DATE, B.DELETED_BY, B.DELETE_FLAG, B.SON_SET_ID
+			   FROM BS_CODE_SET			A
+			   JOIN BS_CODE_LIST		B ON A.CODE_SET_ID = B.CODE_SET_ID
+			   LEFT JOIN BS_CODE_SET 	C ON A.CODE_SET_NAME = C.CODE_SET_NAME
+			  WHERE 1=1
+			    AND A.CODE_GROUP IN ('SYSTEM','COMMON')
+			    AND A.ORG_ID = #originOrgId#
+				AND C.ORG_ID = #targetOrgId#
+			  ORDER BY C.CODE_SET_ID ASC
+
+		/* orgCompany.copyBsCodeList */
+	</update>
+
+
+	<!-- BS_CODE_LIST SON_SET_ID 있는것 카피 -->
+	<update id="orgCompany.copyBsCodeListSon" parameterClass="HashMap">
+	    UPDATE BS_CODE_LIST A, BS_CODE_SET B
+         SET A.SON_SET_ID = (SELECT Y.CODE_SET_ID
+                             FROM BS_CODE_SET X , BS_CODE_SET Y
+                             WHERE X.CODE_SET_ID = A.SON_SET_ID
+                             AND X.CODE_SET_NAME = Y.CODE_SET_NAME
+                             AND X.ORG_ID = #originOrgId#
+                             AND Y.ORG_ID = #targetOrgId#)
+         WHERE A.CODE_SET_ID = B.CODE_SET_ID
+         AND B.ORG_ID = #targetOrgId#
+         AND B.CODE_GROUP IN ('SYSTEM','COMMON')
+         AND A.SON_SET_ID IS NOT NULL
+         AND A.SON_SET_ID != 0
+
+		/* orgCompany.copyBsCodeListSon */
+	</update>
+
+
+	<!-- BS_CODE_SET 카피 (MASTER 중 필요한것) -->
+	<update id="orgCompany.copyBsCodeSetForBusiness" parameterClass="HashMap">
+		INSERT INTO BS_CODE_SET (ORG_ID, CODE_SET_NAME, MEANING_KOR, MEANING_ENG, CODE_TYPE, CODE_GROUP, DESCRIPTION
+								, CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY, DELETE_DATE, DELETED_BY, DELETE_FLAG
+								, PARENT_SET_ID)
+
+		 	 SELECT #targetOrgId#, CODE_SET_NAME, MEANING_KOR, MEANING_ENG, CODE_TYPE, CODE_GROUP, DESCRIPTION
+		 	 					, NOW(), 45, NOW(), 45, DELETE_DATE, DELETED_BY, DELETE_FLAG
+		 	 					, NULL
+
+		   	   FROM BS_CODE_SET
+		  	  WHERE ORG_ID = #originOrgId#
+		  	    AND CODE_GROUP = 'MASTER'
+		  	    AND CODE_SET_NAME IN ('INFO_TYPE','INFO_PROGRESS','INFO_PATH')
+		/* orgCompany.copyBsCodeSetForBusiness */
+	</update>
+
+
+	<!-- 달력 등록 프로시저 -->
+	<parameterMap id="calendarRegMap" class="map">
+		<parameter property="orgId" mode="IN" javaType="java.lang.Integer" jdbcType="INTEGER"/>
+		<parameter property="duringYear" mode="IN" javaType="java.lang.String" jdbcType="INTEGER"/>
+	</parameterMap>
+
+	<procedure id="orgCompany.doCalendarDate" parameterMap="calendarRegMap">
+		 { CALL base.insert_calendar_data(?, ?) }
+	</procedure>
+
+	<!-- 관계사 이메일 연동 정보 조회 -->
+<!-- 	<select id = "orgCompany.getEmailServiceInfo" parameterClass="HashMap" resultClass = "HashMap">
+		SELECT
+				A.MAIL_USE_YN			as mailUseYn
+    		   ,A.MAIL_SERVICE_NAME		as mailServiceName
+    		   ,A.MAIL_URL				as mailUrl
+    		   ,A.MAIL_LINK_TYPE		as mailLinkType
+
+		FROM    BS_ORG A
+		WHERE   A.ORG_ID = #orgId#
+	</select> -->
+
+
+	<!-- 관계사 권한 등록 -->
+    <insert id="orgCompany.insertRoleListForOrg" parameterClass="HashMap">
+        INSERT INTO BS_ROLE_LIST(ORG_ID, ROLE_CODE, ROLE_KOR, ROLE_ENG, ROLE_DESC, ROLE_TYPE, SORT, P_ROLE_CODE, ENABLE, CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY)
+		SELECT  #orgId# ORG_ID, ROLE_CODE, ROLE_KOR, ROLE_ENG, ROLE_DESC, ROLE_TYPE, SORT, P_ROLE_CODE, ENABLE
+		       , NOW() CREATE_DATE
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') CREATED_BY
+		       , NOW() UPDATE_DATE
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') UPDATED_BY
+		FROM    BS_BASE_ROLE_LIST
+		ORDER BY SORT
+
+        /*orgCompany.insertRoleListForOrg*/
+    </insert>
+
+    <!-- 관계사 권한별 메뉴 등록 -->
+    <insert id="orgCompany.insertRoleMenuListForOrg" parameterClass="HashMap">
+        INSERT INTO BS_ROLE_MENU_LIST(
+               ORG_ID
+               ,ROLE_ID
+		       ,MENU_ID
+		       ,MENU_LOC
+		       ,MENU_LEVEL
+		       ,MENU_SEQ
+		       ,MENU_PARENT_ID
+		       ,SORT
+		       ,MENU_ROOT_ID
+		       ,BASIC_TREE_YN
+		       ,ENABLE
+		       ,CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY)
+		SELECT  #orgId# ORG_ID
+		       ,(SELECT ROLE_ID FROM BS_ROLE_LIST X WHERE X.ORG_ID = #orgId# AND X.ROLE_CODE = A.ROLE_CODE) ROLE_ID
+		       ,MENU_ID
+		       ,MENU_LOC
+		       ,MENU_LEVEL
+		       ,MENU_SEQ
+		       ,MENU_PARENT_ID
+		       ,SORT
+		       ,MENU_ROOT_ID
+		       ,BASIC_TREE_YN
+		       ,ENABLE
+		       , NOW() CREATE_DATE
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') CREATED_BY
+		       , NOW() UPDATE_DATE
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') UPDATED_BY
+		FROM    BS_BASE_ROLE_MENU_LIST A
+
+        /*orgCompany.insertRoleMenuListForOrg*/
+    </insert>
+
+    <!-- 관계사 권한별 모듈 등록 -->
+    <insert id="orgCompany.insertRoleModuleListForOrg" parameterClass="HashMap">
+        INSERT INTO BS_ROLE_MODULE_LIST(
+                ORG_ID
+               ,ROLE_ID
+		       ,MODULE_ID
+		       ,POSITION
+		       ,SORT
+		       ,ENABLE
+		       ,CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY)
+		SELECT  #orgId# ORG_ID
+		       ,(SELECT ROLE_ID FROM BS_ROLE_LIST X WHERE X.ORG_ID = #orgId# AND X.ROLE_CODE = A.ROLE_CODE) ROLE_ID
+		       ,MODULE_ID
+		       ,POSITION
+		       ,SORT
+		       ,ENABLE
+		       , NOW() CREATE_DATE
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') CREATED_BY
+		       , NOW() UPDATE_DATE
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') UPDATED_BY
+		FROM    BS_BASE_ROLE_MODULE_LIST A
+
+        /*orgCompany.insertRoleModuleListForOrg*/
+    </insert>
+
+    <!-- 관계사 구대표님 READ, 천경민이사님 READ, 시너지시스템관리자에게 WRITE 권한 추가, 시스템기획팀(DPT009), 바이오투자팀(DPT080) -->
+    <insert id="orgCompany.insertUserRoleListForOrg" parameterClass="HashMap">
+        INSERT INTO BS_USER_ROLE_LIST(USER_ID, ORG_ID, ROLE_ID, ENABLE, CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY)
+        SELECT DISTINCT
+		           X.USER_ID
+		          ,X.ORG_ID
+		          ,X.ROLE_ID
+		          ,X.ENABLE
+		          ,X.CREATE_DATE
+		          ,X.CREATED_BY
+		          ,X.UPDATE_DATE
+		          ,X.UPDATED_BY
+        FROM (
+		SELECT  (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'gjh') USER_ID, #orgId# ORG_ID  /* 구대표님 */
+		       ,(SELECT ROLE_ID FROM BS_ROLE_LIST X WHERE X.ORG_ID = #orgId# AND X.ROLE_CODE = 'SYSTEM') ROLE_ID
+		       ,'Y' ENABLE
+		       , NOW() CREATE_DATE
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') CREATED_BY
+		       , NOW() UPDATE_DATE
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') UPDATED_BY
+		<isNotEqual  property="domain" compareValue="bio.passerp.co.kr">
+			UNION ALL
+			SELECT  (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'ckm') USER_ID, #orgId# ORG_ID  /* 천경민이사님 */
+			       ,(SELECT ROLE_ID FROM BS_ROLE_LIST X WHERE X.ORG_ID = #orgId# AND X.ROLE_CODE = 'SYSTEM') ROLE_ID
+			       ,'Y' ENABLE
+			       , NOW() CREATE_DATE
+			       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') CREATED_BY
+			       , NOW() UPDATE_DATE
+			       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') UPDATED_BY
+        </isNotEqual>
+		UNION ALL
+		SELECT  USER_ID, #orgId# ORG_ID, (SELECT ROLE_ID FROM BS_ROLE_LIST X WHERE X.ORG_ID = #orgId# AND X.ROLE_CODE = 'SYSTEM') ROLE_ID /* 시너지시스템관리자 */
+		       ,'Y' ENABLE
+		       , NOW() CREATE_DATE
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') CREATED_BY
+		       , NOW() UPDATE_DATE
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') UPDATED_BY
+		FROM    BS_USER_ROLE_LIST
+		WHERE   ORG_ID = 1
+		AND     USER_ID IN (
+                        SELECT DISTINCT A.USER_ID
+                        FROM BS_USER_MASTER     A
+                                  INNER JOIN BS_USER_DEPARTMENT B ON A.USER_ID = B.USER_ID
+                                  INNER JOIN BS_DEPARTMENT  C ON B.DEPT_ID = C.DEPT_ID
+                                 WHERE 1=1
+                                   AND B.ENABLE = 'Y'
+                                   AND B.DELETE_FLAG = 'N'
+                                   AND C.ENABLE = 'Y'
+                                   AND C.DELETE_FLAG = 'N'
+                                   AND B.MAIN_YN = 'Y'
+                                   <isEqual  property="domain" compareValue="bio.passerp.co.kr">
+                                       AND C.DEPT_CODE IN ('DPT009', 'DPT080')  /*시스템기획팀(DPT009), 바이오투자팀(DPT080) */
+                                   </isEqual>
+                                   <isNotEqual  property="domain" compareValue="bio.passerp.co.kr">
+                                       AND C.DEPT_CODE = 'DPT009'  /*시스템기획팀(DPT009) */
+                                   </isNotEqual>
+                                    )
+		ORDER BY 2
+		) X
+
+        /*orgCompany.insertUserRoleListForOrg*/
+    </insert>
+
+    <!-- 관계사 구대표님 READ, 천경민이사님 READ, 시너지시스템관리자에게 WRITE 권한 추가2 , 시스템기획팀(DPT009), 바이오투자팀(DPT080)-->
+    <insert id="orgCompany.insertRelationCompanyAccessAuthForOrg" parameterClass="HashMap">
+        INSERT INTO BS_RELATION_COMPANY_ACCESS_AUTH(USER_ID, ORG_ID, ORG_ACCESS_AUTH_TYPE, UP_DT, UP_ID, RG_DT, RG_ID)
+		SELECT (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'gjh') USER_ID, #orgId# ORG_ID, 'READ' ORG_ACCESS_AUTH_TYPE  /* 구대표님 */
+		       , NOW() UP_DT
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') UP_ID
+		       , NOW() RG_DT
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') RG_ID
+		<isNotEqual  property="domain" compareValue="bio.passerp.co.kr">
+			UNION ALL
+			SELECT (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'ckm') USER_ID, #orgId# ORG_ID, 'READ' ORG_ACCESS_AUTH_TYPE  /* 천경민이사님 */
+			       , NOW() UP_DT
+			       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') UP_ID
+			       , NOW() RG_DT
+			       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') RG_ID
+	    </isNotEqual>
+		UNION ALL
+		SELECT  USER_ID, #orgId# ORG_ID, 'WRITE' ORG_ACCESS_AUTH_TYPE    /* 시너지시스템관리자 */
+		       , NOW() UP_DT
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') UP_ID
+		       , NOW() RG_DT
+		       , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') RG_ID
+		FROM    BS_USER_ROLE_LIST
+		WHERE   ORG_ID = 1
+		AND     USER_ID IN (
+                        SELECT DISTINCT A.USER_ID
+                        FROM BS_USER_MASTER     A
+                                  INNER JOIN BS_USER_DEPARTMENT B ON A.USER_ID = B.USER_ID
+                                  INNER JOIN BS_DEPARTMENT  C ON B.DEPT_ID = C.DEPT_ID
+                                 WHERE 1=1
+                                   AND B.ENABLE = 'Y'
+                                   AND B.DELETE_FLAG = 'N'
+                                   AND C.ENABLE = 'Y'
+                                   AND C.DELETE_FLAG = 'N'
+                                   AND B.MAIN_YN = 'Y'
+                                   <isEqual  property="domain" compareValue="bio.passerp.co.kr">
+                                       AND C.DEPT_CODE IN ('DPT009', 'DPT080')  /*시스템기획팀(DPT009), 바이오투자팀(DPT080) */
+                                   </isEqual>
+                                   <isNotEqual  property="domain" compareValue="bio.passerp.co.kr">
+                                       AND C.DEPT_CODE = 'DPT009'  /*시스템기획팀(DPT009) */
+                                   </isNotEqual>
+                                    )
+        /*orgCompany.insertRelationCompanyAccessAuthForOrg*/
+    </insert>
+
+    <!-- 관계사 신규등록된 시스템기획팀 ROLE_ID -->
+    <select id="orgCompany.getRoleIdBySystem" parameterClass="HashMap"  resultClass="String">
+        SELECT ROLE_ID
+        FROM BS_ROLE_LIST
+        WHERE ORG_ID = #orgId#
+        AND ROLE_CODE = 'SYSTEM'
+        /*orgCompany.getRoleIdBySystem*/
+    </select>
+
+    <!-- 기본 네트워크고객 S_NB -->
+    <select id="orgCompany.getDefaultCustomerId" parameterClass="HashMap"  resultClass="String">
+        SELECT S_NB
+        FROM IB_CUSTOMER
+        WHERE SYSTEM_CUSTOMER_YN = 'Y'
+        LIMIT 1
+        /*orgCompany.getDefaultCustomerId*/
+    </select>
+
+    <!-- 관계사에 메뉴 할당 -->
+    <insert id="orgCompany.insertMenuListForOrg" parameterClass="HashMap">
+        /*orgCompany.insertMenuListForOrg*/
+        INSERT INTO BS_ORG_MENU_LIST
+		        ( MENU_ID, ORG_ID, SORT, ENABLE, CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY)
+		 SELECT A.MENU_ID AS MENU_ID
+		  ,#orgId# AS ORG_ID
+		  ,(@rownum:=@rownum+1)*10000 AS SORT
+		  ,'Y' AS ENABLE
+		  , NOW() CREATE_DATE
+          , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') CREATED_BY
+          , NOW() UPDATE_DATE
+          , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') UPDATED_BY
+		FROM BS_MENU_LIST AS A
+		LEFT JOIN BS_ROLE_MENU_LIST AS ROLE
+		          ON A.MENU_ID = ROLE.MENU_ID
+		          AND ROLE.ROLE_ID = '-1'
+		      , (SELECT @rownum:=0) TMP
+		WHERE 1 = 1
+		    AND A.MENU_TYPE = 'TREE'
+		    AND A.ENABLE = 'Y'
+		ORDER BY A.MENU_ID ASC
+    </insert>
+
+    <!-- 관계사에 모듈 할당 -->
+    <insert id="orgCompany.insertModuleListForOrg" parameterClass="HashMap">
+         INSERT INTO BS_ORG_MODULE_LIST
+		        ( MODULE_ID, ORG_ID, SORT, ENABLE, CREATE_DATE, CREATED_BY, UPDATE_DATE, UPDATED_BY)
+		 SELECT A.MODULE_ID AS MODULE_ID
+		  ,#orgId#  AS ORG_ID
+		  ,(@rownum:=@rownum+1)*10000 AS SORT
+		  ,'Y' AS ENABLE
+		 , NOW() CREATE_DATE
+          , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') CREATED_BY
+          , NOW() UPDATE_DATE
+          , (SELECT USER_ID FROM BS_USER_MASTER WHERE LOGIN_ID = 'admin') UPDATED_BY
+		FROM BS_MODULE_LIST A, (SELECT @rownum:=0) TMP
+		WHERE 1 = 1
+		    AND A.ENABLE = 'Y'
+		ORDER BY A.MODULE_ID ASC
+
+        /*orgCompany.insertModuleListForOrg*/
+    </insert>
+
+	<!-- 관계사별 권한 리스트 -->
+	<select id="orgCompany.getRelationCompanyAccessAuthListForOrg"
+		parameterClass="HashMap" resultClass="egovMap">
+		SELECT
+				  BRCAA.USER_ID
+			  	, BRCAA.ORG_ID
+			  	, ORG_ACCESS_AUTH_TYPE
+			  	, BSS.CPN_NM
+                , BSS.CPN_ID
+                , BSS.S_NB
+                , BSS.BUSINESS_GRP_SEQ
+			  	, RELATION_COMPANY_ACCESS_AUTH_ID
+			  	, (SELECT BUSINESS_GRP_NM FROM BS_BUSINESS_GROUP BBG WHERE bss.BUSINESS_GRP_SEQ = BBG.BUSINESS_GRP_SEQ) AS BUSINESS_GRP_NM
+		FROM BS_RELATION_COMPANY_ACCESS_AUTH AS BRCAA
+
+		LEFT JOIN (
+					SELECT BOR.BUSINESS_GRP_SEQ, BOR.ORG_ID, BOR.ENABLE, IC.CPN_ID, IC.CPN_NM , IC.S_NB
+					FROM BS_ORG BOR, IB_COMPANY IC
+					WHERE BOR.COMPANY_SNB = IC.S_NB
+					)BSS
+		ON BSS.ORG_ID = BRCAA.ORG_ID
+
+		WHERE BRCAA.ORG_ID = #orgId#
+		  AND BSS.ENABLE = 'Y'
+		  <isNotEmpty property="superManagerYn">
+		  	AND ORG_ACCESS_AUTH_TYPE IN ('SUPER','VIP')
+		  </isNotEmpty>
+		GROUP BY BRCAA.USER_ID
+		/* orgCompany.getRelationCompanyAccessAuthListForOrg */
+	</select>
+
+</sqlMap>

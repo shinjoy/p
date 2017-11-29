@@ -1,0 +1,366 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<script type="text/javascript">
+
+	//프로젝트리턴펑션
+	var projectDeptTreeProjectReturnFnc;
+	//부서리턴펑션
+	var projectDeptTreeDeptReturnFnc;
+
+	//최초 선택 초기값
+	var projectDeptTreeSelectedId;
+
+	//처음로드여부:project
+	var isFirstLoadProject = true;
+	//처음로드여부:dept
+	var isFirstLoadDept = true;
+
+	//프로젝트 최초로딩  페이지
+	var projectPageNo = 1;
+
+	//프로젝트 트리 전체 노출여부
+	var idProjectAllAreaDisplay=true;
+
+	//선택된 orgId
+	var g_selectOrgId = '${baseUserLoginInfo.applyOrgId}';
+
+	//선택된탭
+	var g_selectedTab = 'PROJECT';
+
+	$(document).ready(function(){
+		//setProfileImagePosition();
+		getOrgIdList();
+	});
+	function getOrgIdList(){
+		var params = {'authOrgId':'Y', 'userId':'${baseUserLoginInfo.userId}'};       //나에게 권한이 있는 관계사만 볼 수 있다
+        var orgCodeCombo = getCodeInfo('KOR', 'optionValue', 'optionText', null, null, null, '/common/getOrgCodeCombo.do', params);  //ORG코드(콤보용) 호출
+        for(var i = 0 ;i < orgCodeCombo.length ;i++){
+            var item = orgCodeCombo[i];
+            $("<option />",{ value : item.orgId , text : item.orgNm}).appendTo("#selectOrgId");
+            var orgId = g_selectOrgId;
+            $("#selectOrgId").val(orgId);
+        }
+	}
+
+	//project / dept 탭 클릭시 이벤트
+	//리턴 함수의 인자는 rtnProjectFnc(projectId)
+	//리턴 함수의 인자는 projectDeptTreeDeptReturnFnc(type,key)
+	//type : D (부서),U (직원),A(전체)
+	//key  : 부서 : deptId ,유저 userId , 전체 0
+	function selectProjectDeptTreeTab(type,rtnDeptFnc,rtnProjectFnc,selectedTab,selectedId,projectPage,projectAllAreaDisplay){
+		g_selectedTab = selectedTab;
+		if(selectedId!=null)
+			projectDeptTreeSelectedId=selectedId;
+
+		if(projectPage!=null)
+			projectPageNo=projectPage;
+
+		if(projectAllAreaDisplay == "NONE"){
+			idProjectAllAreaDisplay=false;
+		}
+
+		if(type == "ALL"){
+			$("#projectDeptTreeTab_project").show();
+			$("#projectDeptTreeTab_dept").show();
+
+			//프로젝트 리턴함수 셋팅
+			if(rtnProjectFnc!=null)
+				projectDeptTreeProjectReturnFnc=rtnProjectFnc;
+
+			//부서 리턴함수 셋팅
+			if(rtnDeptFnc!=null)
+				projectDeptTreeDeptReturnFnc=rtnDeptFnc;
+
+			if(selectedTab == "DEPT")
+				selectTabZone('DEPT');
+			else if(selectedTab == "PROJECT")
+				selectTabZone('PROJECT');
+		}else if(type == "PROJECT"){
+			$("#projectDeptTreeTab_project").show();
+			$("#projectDeptTreeTab_dept").hide();
+
+			//프로젝트 리턴함수 셋팅
+			if(rtnProjectFnc!=null)
+				projectDeptTreeProjectReturnFnc=rtnProjectFnc;
+
+			selectTabZone('PROJECT');
+		}else if(type == "DEPT"){
+			$("#projectDeptTreeTab_project").hide();
+			$("#projectDeptTreeTab_dept").show();
+
+			//부서 리턴함수 셋팅
+			if(rtnDeptFnc!=null)
+				projectDeptTreeDeptReturnFnc=rtnDeptFnc;
+
+			selectTabZone('DEPT');
+		}
+	}
+
+	//텝 클릭시
+	function selectTabZone(type){
+		g_selectedTab = type;
+
+		if(g_selectedTab == "PROJECT"){
+            if(idProjectAllAreaDisplay) projectDeptTreeSelectedId = "0";
+        }else{
+            projectDeptTreeSelectedId = "A0";
+        }
+
+		if(type == "DEPT"){
+			$("#projectDeptTreeTab_dept").addClass("current");
+			$("#projectDeptTreeTab_project").removeClass("current");
+			if(isFirstLoadDept){
+					selectProjectDeptTreeDept(1);
+					isFirstLoadDept=false;
+			}else {
+				$("#nameSortList1").hide();
+				$('#AXJSTree').show();
+			}
+
+		}else if(type == "PROJECT"){
+			$("#projectDeptTreeTab_dept").removeClass("current");
+			$("#projectDeptTreeTab_project").addClass("current");
+			if(isFirstLoadProject){
+				selectProjectDeptTreeProject(projectPageNo);
+				isFirstLoadProject=false;
+			} else{
+				$("#nameSortList1").show();
+				$('#AXJSTree').hide();
+			}
+		}
+
+	}
+
+	//관계사 선택시
+	function selectOrgId(){
+		g_selectOrgId = $("#selectOrgId").val();
+		if(g_selectedTab == "PROJECT"){
+			if(idProjectAllAreaDisplay) projectDeptTreeSelectedId = "0";
+			selectProjectDeptTreeProject(1);
+		}else{
+			projectDeptTreeSelectedId = "A0";
+			selectProjectDeptTreeDept();
+		}
+	}
+
+	//프로젝트 검색
+	function selectProjectDeptTreeProject(pageNo){
+		var url = contextRoot + "/project/getProjectTreeList.do";
+		$("#treePageIndex").val(pageNo);
+		$("#orgId").val(g_selectOrgId);
+		$("#treeFrm").attr("action",contextRoot+"/project/getProjectTreeList.do");
+		commonAjaxSubmit("POST",$("#treeFrm"),selectProjectDeptTreeProjectCallback);
+	}
+	//프로젝트 검색Callback
+	function selectProjectDeptTreeProjectCallback(data){
+
+		var ret = projectDeptTreeProjectReturnFnc.toString();
+	    ret = ret.substr('function '.length);
+	    ret = ret.substr(0, ret.indexOf('('));
+
+		var stStr = data.split("##projectDeptTreeProjectReturnFnc##").join(ret);
+
+		$("#nameSortList1").html(stStr);
+
+		$("#nameSortList1").show();
+		$('#AXJSTree').hide();
+		//idProjectAllAreaDisplay
+		if(projectDeptTreeSelectedId!=null){
+			projectDeptTreeProjectReturnFnc(projectDeptTreeSelectedId);
+			projectTreeSelect(projectDeptTreeSelectedId);
+			projectDeptTreeSelectedId = null;
+		}else if($("#firstProjectId").val() != undefined){
+			projectDeptTreeProjectReturnFnc($("#firstProjectId").val());
+            projectTreeSelect($("#firstProjectId").val());
+            projectDeptTreeSelectedId = null;
+		}
+
+		if(!idProjectAllAreaDisplay){
+			$("#projectTreeLi_0").hide();
+		}
+	}
+	//부서검색
+	function selectProjectDeptTreeDept(){
+		 var url = contextRoot + "/common/getOrgDeptUserList.do";
+		 var param = {
+					'isOnlyOne' : 'Y',		//선택건수 1개 여부
+					'isAllOrg' : 'N',		//전체 ORG 범위로의 여부
+					'oneOrg' : g_selectOrgId	,					//전달받은 한개의 ORG ID
+					'rtnField' : "${baseUserLoginInfo.userId}"	,				//전달받은 userId, cusId, empNo
+					'isUserGroup' : 'Y', 	//유저그룹 탭 사용여부
+					'hasDeptTopLevel' : 'N' 	//부서의 회장 부서 표시여부  (true: 포함,     그외,: 미포함(default))
+			};
+
+	    commonAjax("POST", url, param, selectProjectDeptTreeDeptCallback);
+	}
+	//부서검색Callback
+	function selectProjectDeptTreeDeptCallback(result){
+		var rslt = JSON.parse(result);
+		var obj = rslt.resultObject;
+
+		var orgList = obj.orgList;		//org list
+		var deptObj = obj.deptObj;		//dept list array object 	{ORG1 : [{부서1},{부서2},...], ORG2 : [{부서1},{부서2},...], ...}
+		var userObj = obj.userObj;		//user list array object	{ORG1 : [{사용자1},{사용자2},...], ORG2 : [{사용자1},{사용자2},...], ...}
+		var deptList = deptObj[orgList[0].orgId];
+		var userList = userObj[orgList[0].orgId];
+
+		var deptUserList = deptList.concat(userList);
+
+		var allList = [{code:0,deptId:0,deptNm:"전체",deptOrder:"L00_0",deptSeq:0,id:"A0",levelSeq:0,name:"전체",orgId: g_selectOrgId
+					,orgNm:"",parent:"#",parentDeptId:0,sort:null,text:"전체",type:"dept",userCount:0}]
+
+		var treeList = allList.concat(deptUserList);
+        viewTree(treeList);
+
+
+	}
+	function viewTree(jsonDeptData) {
+			$("#nameSortList1").hide();
+			$('#AXJSTree').show();
+			$('#AXJSTree').jstree('destroy');
+
+			$('#AXJSTree').jstree({
+						'core' : {
+									"check_callback" : true,
+									"data" : JSON.parse(JSON.stringify(jsonDeptData)),
+									"multiple" : "N",				//다중선택
+
+									"two_state": true
+							},
+						"themes" : {
+								//"variant" : "large",
+								"variant" : "small",
+								"icons": true,
+								"stripes" : true,
+								"responsive" : false,
+								"dots" : true
+						},
+						"plugins" : [
+								"themes",  "json_data", "types", "sort", "conditionalselect", null		/* "wholerow",  "dnd", "crrm", */
+						],
+						"types" : {
+								"default" : {
+									//"icon" : "folder"
+							  	},
+							  	"user" : {
+							    	"icon" : contextRoot + "/images/work/red_dot.png"	//(thisUserTree.isCheckbox?null:"../images/work/red_dot.png")	//"http://jstree.com/tree.png"
+							  	}
+						},
+						"sort" :  function (a, b) {
+							var aVal = this.get_node(a).original.type;
+							var bVal = this.get_node(b).original.type;
+
+							if(aVal == "user") aVal = "cept";
+							if(bVal == "user") bVal = "cept";
+
+							aVal += '_' + fillzero(this.get_node(a).original.levelSeq, 7);
+							bVal += '_' + fillzero(this.get_node(b).original.levelSeq, 7);
+							aVal += '_' + fillzero(this.get_node(a).original.deptOrder, 7);
+							bVal += '_' + fillzero(this.get_node(b).original.deptOrder, 7);
+							aVal += '_' + fillzero(this.get_node(a).original.deptSeq, 7);
+							bVal += '_' + fillzero(this.get_node(b).original.deptSeq, 7);
+							aVal += '_' + fillzero(this.get_node(a).original.positionSort, 7);
+							bVal += '_' + fillzero(this.get_node(b).original.positionSort, 7);
+							aVal += '_' + fillzero(this.get_node(a).original.userId, 7);
+							bVal += '_' + fillzero(this.get_node(b).original.userId, 7);
+
+						    //return this.get_node(a).original.type < this.get_node(b).original.type ? 1 : -1;
+							return aVal > bVal ? 1 : -1;
+						},
+						"conditionalselect" : function (node, event) {
+							return true;
+					    },
+						"dnd" : {
+								//
+						}}).bind("loaded.jstree",function(event, data){		//첫 로딩시
+
+				    	}).bind("select_node.jstree", function (event, data){
+				    		// 트리선택시
+		                    selDeptId = data.node.original.deptId;
+		                    selLevel = data.node.original.level;
+		                    selDeptCode = data.node.original.deptCode;
+				    		var type = data.node.original.type;
+				    		var id = data.node.original.id;
+
+				    		var returnType = "D";
+				    		var returnKey = 0;
+				    		if(id == "A0"){
+			    				returnType = "A";
+			    			}else if(type == "user"){
+			    				returnType = "U";
+			    				returnKey = data.node.original.userId;
+			    			}else{
+			    				returnKey = data.node.original.code;
+			    			}
+				    		projectDeptTreeDeptReturnFnc(returnType,returnKey);
+
+				    		isFirstLoadProject=true;
+
+				     	}).bind("changed.jstree", function (event, data){
+
+				     	}).bind("move_node.jstree",function(event,data){
+
+		    		    }).bind("dblclick.jstree",function(event,data){
+							//fnObj.doSearchAndPopup(event);
+		    		    }).bind("ready.jstree",function(event,data){
+		    		    	//loaded 에서 호출시 ie 10 이하 버전에서 에러 발생 !! ready 함수로 바인드 2017.01.03 sjy
+		    		    	$(this).jstree("open_all");		//전체 펼침
+		    		    	 if(projectDeptTreeSelectedId!=null){
+		    		 			$("#"+projectDeptTreeSelectedId+"_anchor").trigger("click");
+		    		 			projectDeptTreeSelectedId = null;
+		    		         }
+
+		    		    });;
+			//2016.12.28. IE 버전에 따라 처음로딩 실패에 따른 분기처리(10.0이하 분기처리함)
+			var verString = get_version_of_IE();
+			if(verString != "N/A"){
+				var verNumber = parseInt ( verString , 10 );
+				if(verNumber <= 10  ){
+					thisUserTree.isFirstLoad = false;
+				}
+			}
+    }
+	//프로젝트 선택시 활성화
+	function projectTreeSelect(projectId){
+		$(".projectTreeContentsArea").removeClass("current");
+		$("#projectTreeLi_"+projectId).addClass("current");
+		isFirstLoadDept=true;
+	}
+</script>
+<div class="addAreaZone printOut">
+	<div id="treeArea">
+		<div class="tnavi_title">
+			<%-- <span>${baseUserLoginInfo.applyOrgNm }</span> --%>
+			<span>
+			    <select id="selectOrgId" name="selectOrgId" onChange="selectOrgId();"  class="select_b" title="관계사 선택">
+			</select>
+		</div>
+		<div id="tabZoneTreeList" class="tabZone_tree_list">
+			<ul style="border-top:none; border-right:none; ">
+				<li id="projectDeptTreeTab_project" style="display: none;">
+					<a href="javascript:selectTabZone('PROJECT')">${baseUserLoginInfo.projectTitle}</a>
+				</li>
+				<li id="projectDeptTreeTab_dept" style="display: none;">
+					<a href="javascript:selectTabZone('DEPT')">부서별</a>
+				</li>
+			</ul>
+		</div>
+		<form id = "treeFrm" name = "treeFrm" method="post">
+			<!-- 페이징 -->
+			<input type="hidden" id = "treePageIndex" name = "treePageIndex" value="1">
+			<input type="hidden" id = "orgId" name = "orgId" value="${baseUserLoginInfo.applyOrgId}">
+			<input type="hidden" id = "confirm" name = "confirm" value="Y">
+
+		</form>
+		<!--  -->
+		<div id="nameSortList1" class="allproject_List" style="">
+
+		</div>
+
+		<div id="AXJSTree" class="tnavi_treezone"></div>
+
+	</div>
+</div>
+

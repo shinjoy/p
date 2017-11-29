@@ -1,0 +1,360 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<!-- Daum Editor... -->
+<link rel="stylesheet" href="<c:url value='/daumeditor/css/editor.css'/>" type="text/css" charset="utf-8"/>
+<script src="<c:url value='/daumeditor/js/editor_loader.js'/>" type="text/javascript" charset="utf-8"></script>
+<form id = "tx_editor_form" name = "tx_editor_form" ></form>
+<!-- Daum Editor... -->
+<style type="text/css">
+    #ui-datepicker-div
+    {
+        z-index: 9999999!important;
+    }
+</style>
+<%@ include file="./js/reqEdu_JS.jsp" %>
+<script src="${pageContext.request.contextPath}/js/sp/synergy_util.js"></script>
+<script type="text/javascript">
+	/* $(document).ready(function(){
+		numberFormatForNumberClass();
+	})
+	//도움말팝업토글
+	function showlayer(id)
+	{
+		$("#"+id).toggle();
+	} */
+</script>
+
+
+<section id="detail_contents">
+
+<form id = "frm" name = "frm" method="post">
+	<!-- DocClass 고정.... -->
+	<input type="hidden" id = "appvDocClass" name = "appvDocClass" value="EDUCATION">
+
+	<!-- 연차휴가만 고정...(16.10.20) -->
+	<input type="hidden" id = "appvDocType" name = "appvDocType" value="EDU_IN">
+
+	<!-- 저장후 상세화면 이동 -->
+	<input type="hidden" id = "appvDocId" name = "appvDocId">
+
+	<!-- Popup에서 열렸을때 넘어오는 파라미터 -->
+	<input type="hidden" name = "popYn" value="${popYn }">
+	<div class="doc_AllWrap">
+	    <c:if test="${popYn eq 'M' }"><h3 style="font-family:'NanumBarun'; font-size:30px; letter-spacing:0; text-align:center; line-height:1.4; ">교육신청</h3></c:if>
+		<!--교육신청/완료보고작성-->
+		<table class="tb_regi_basic" summary="교육신청/완료보고 (문서종류, 결재자, 신청자, 연락처, 소속/직위,연락처, 휴가기간, 사용일/잔여일, 사유, 업무인수자, 대결자, 참조인선택)">
+			<caption>교육신청/완료보고작성</caption>
+			<colgroup>
+				<col width="105" />
+				<col width="*" />
+				<col width="110" />
+				<col width="28%" />
+			</colgroup>
+			<tbody>
+				<tr>
+					<th>신청자</th>
+					<td>${baseUserLoginInfo.userName }</td>
+					<th><label for="IDNAME04">소속/직위</label></th>
+					<td>
+						${baseUserLoginInfo.deptNm }<span class="dashLine"> / </span>
+						${baseUserLoginInfo.rankNm }
+					</td>
+				</tr>
+				<tr>
+					<th scope="row">연락처</th>
+					<td colspan="3">${baseUserLoginInfo.mobile }</td>
+				</tr>
+				<tr>
+					<th id = "linkDocTh">연결 결재문서</th>
+					<td colspan="3">
+						<div id = "refDocBefore">
+							<a href="javascript:openApproveRefDocPop()" class="btn_s_type_g"><em>결재문서 선택</em></a>
+						</div>
+					</td>
+
+				</tr>
+				<tr id = "linkDocTr" style="display: none;">
+					<td colspan="3" class="dot_line" id = "linkDocArea">
+					</td>
+				</tr>
+				<tr>
+					<th>교육기간</th>
+					<td colspan="3">
+						<input type="text"  id="dateFrom" name="dateFrom" class="input_b input_date_type" title="시작일" />
+
+						 ~
+						<input type="text" id="dateTo" name="dateTo" class="input_b input_date_type" title="종료일" />
+
+						<select class="select_b w50px mgl20" id = "hourFrom" name = "hourFrom" >
+							<c:forEach var = "i" begin="0" end="23" step="1">
+								<option value="${i }"><c:if test = "${i<10}">0</c:if>${i }</option>
+							</c:forEach>
+							</select>
+							 시
+							<select class="select_b w50px" id = "minuteFrom" name = "minuteFrom">
+								<option value="0">00</option>
+								<option value="30">30</option>
+							</select>
+							분
+						~
+						<select class="select_b w50px" id = "hourTo" name = "hourTo">
+							<c:forEach var = "i" begin="0" end="23" step="1">
+								<option value="${i }"><c:if test = "${i<10}">0</c:if>${i }</option>
+							</c:forEach>
+						</select>
+							 시
+						<select class="select_b w50px" id = "minuteTo" name = "minuteTo">
+							<option value="0">00</option>
+							<option value="30">30</option>
+						</select>
+							분
+
+						<span class="mgl10">(</span>
+						<input type="text" class="input_b w42px" id = "eduDay" name = "eduDay" title="교육총일수" maxlength="4" onkeyup="isNumChk($(this))"/>
+						<span>일간, 총</span>
+						<input type="text" class="input_b w42px" id = "eduTime" name = "eduTime" title="교육총시간" maxlength="3" onkeyup="isNumChk($(this))"/>
+						<span>시간)</span>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="projectId">${baseUserLoginInfo.projectTitle }</label></th>
+					<td colspan="3">
+					<!-- <select class="select_b" title="일정분류선택" id = "scheType" name = "scheType">
+					</select> -->
+						<span id = "projectArea"></span>
+						<span id = "activityArea">
+							<select id = "activityId" name = "activityId" class="select_b mgl6">
+								<option value="">${baseUserLoginInfo.activityTitle } 선택</option>
+							</select>
+						</span>
+						<span id = "activityDescArea" class="mgl10"></span>
+					</td>
+				</tr>
+				<tr>
+					<th><label for="eduName">교육과정명</label></th>
+					<td><input class="input_b w100pro" id="eduName" name="eduName"/></td>
+					<th><label for="eduAgency">교육기관</label></th>
+					<td><input class="input_b w100pro" id="eduAgency" name="eduAgency"/></td>
+				</tr>
+				<tr>
+					<th>출근인정여부</th>
+					<td>
+						<span class="radio_list2">
+							<label>
+								<input type="radio" id = "attendYn" name="attendYn" value="Y" checked="checked" /><span>출근인정</span>
+							</label>
+							<label>
+								<input type="radio" id = "attendYn" name="attendYn" value="N"><span>출근미인정</span>
+							</label>
+						</span>
+						<span class="tooltip" style="z-index: 999;">
+							<a href="javascript:showlayer('helpEducation')" class="icon_question2 mgl10"><em>출근인정규정</em></a>
+							<div id="helpEducation" class="tooltip_box" style="display:none;">
+								<h3 class="title">출근인정규정</h3>
+								<span class="intext">
+									<ul class="list_st_dot">
+										<li>교육으로 인한 출근인정은 반드시 부서장과 협의하여 사전 승인을 받아야 합니다.</li>
+									</ul>
+									<p class="excerption">기준일 (2016.10.11)</p>
+								</span>
+								<em class="edge_topcenter"></em>
+								<a href="javascript:showlayer('helpEducation')" class="closebtn"><img src="../images/network/btn_tooltip_closed.gif" alt="닫기"></a>
+							</div>
+						</span>
+					</td>
+					<th><label for="IDNAME89">완료보고여부</label></th>
+					<td>
+						<span class="radio_list2">
+							<label>
+								<input type="radio" id ="reportYn" name="reportYn" value="Y" checked="checked" /><span>작성</span>
+							</label>
+							<label>
+								<input type="radio" id ="reportYn" name="reportYn" value="N"><span>미작성</span>
+							</label>
+						</span>
+					</td>
+				</tr>
+
+				<tr>
+					<th scope="row"><label for="eduPrice">금액</label></th>
+					<td colspan="3"><input class="money_input_b w180px number" name = "amount" id="amount"/> <span>원</span></td>
+				</tr>
+				<tr>
+					<th scope="row" id = "eduWorkerTh">교육참여자</th>
+					<td colspan="3">
+						<a href="javascript:openSelectUserPop('eduWorker')" class="btn_select_employee"><em>직원선택</em></a>
+					</td>
+				</tr>
+				<tr id = "eduWorkerTr" style="display: none;">
+					<td colspan="3" class="dot_line" id = "eduWorkerArea">
+
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="IDNAME07">교육내용</label></th>
+					<td colspan="3" class="conEditor">
+						<jsp:include page="/daumeditor/editor.jsp" flush="true">
+	                		<jsp:param value="approve" name="type"/>
+	                	</jsp:include>
+						<input type="hidden" id="memo" name = "memo">
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="IDNAME10">참고사이트</label></th>
+					<td colspan="3">
+						<textarea class="txtarea_b3 w100pro" id="siteUrl" name="siteUrl" placeholder="참고사이트 입력"></textarea>
+					</td>
+				</tr>
+				<tr>
+					<th>파일첨부</th>
+					<td colspan="3" class="r_addFileList">
+		                <p class="posi_btn">
+							<span id="fileInputArea" class="file_btn_bg"><input name="upFile" type="file" multiple onchange="newFileUpload();" class="file_btn_cover"></span>
+						</p>
+
+		                    <!--파일없을땐 지워주세요-->
+		                    <ul id="uploadFileList" class="fileList" style="display: none;">
+		                	</ul>
+		                    <!--//파일없을땐 지워주세요//-->
+		                    <p class="file_notice">* 전체 최대용량 100MB 까지 첨부 가능합니다.</p>
+		                </td>
+				</tr>
+				<tr>
+					<th id = "approveLineTh" rowspan="1">결재라인</th>
+					<td colspan="3">
+					   <span id="appvDocTypeTag" >
+	                  		<select id = "appvDocType" name = "appvDocType" class="select_b w100pro">
+	                  			<option value="">문서타입선택</option>
+	                  		</select>
+	                   </span><!-- 문서타입선택 :선택한 문서종류-->
+
+	                   <span id = "appvHeaderNameArea">
+
+	                   </span>
+						<%-- <div id = "approveLineArea">
+							<jsp:include page="./include/reqPageApproveLine_INC.jsp"></jsp:include>
+						</div> --%>
+					</td>
+				</tr>
+				<tr id = "approveLineTr" style="display: none;">
+					<td colspan="3" class="dot_line">
+						<div id = "approveLineArea">
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<th>업무인수자</th>
+					<td>
+						<a href="javascript:openSelectUserPop('workAssign')" class="btn_select_employee">
+							<em>직원선택</em>
+						</a>
+						<span class="employee_list" id = "workAssignArea">
+							<span id = "workAssignName"></span><em id = "workAssignRankNm"></em>
+							<input type="hidden" id = "workAgencyId" name = "workAgencyId">
+							<!-- <a href="#" class="btn_delete_employee"><em>삭제</em></a> -->
+						</span>
+
+					<th>대결자</th>
+					<td>
+						<a href="javascript:openSelectUserPop('appvAssign')" class="btn_select_employee"><em>직원선택</em></a>
+						<span class="employee_list" id = "appvAssignArea">
+							<span id = "appvAssignName"></span><em id = "appvAssignRankNm"></em>
+							<input type="hidden" id = "appvAgencyId" name = "appvAgencyId">
+							<!-- <a href="#" class="btn_delete_employee"><em>삭제</em></a></span> -->
+					</td>
+				</tr>
+
+				<tr>
+					<th scope="row" id = "approveCcTh">참조인선택</th>
+					<td colspan="3">
+						<span class="radio_list2">
+							<label>
+								<input type="radio" name="approveCcType" value="NONE" checked="checked" onclick="approveCcBtnToggle()">
+								<span>선택안함</span>
+							</label>
+							<label>
+								<input type="radio" name="approveCcType" value="MY_ORG_ALL" onclick="approveCcBtnToggle()"/>
+								<span>전체</span>
+							</label>
+							<label>
+								<input type="radio" name="approveCcType" value="MY_TEAM" onclick="approveCcBtnToggle()">
+								<span>소속팀</span>
+							</label>
+							<label>
+								<input type="radio" name="approveCcType" value="SELECT" onclick="approveCcBtnToggle()">
+								<span>직접선택</span>
+							</label>
+						</span>
+						<a id = "approveCcBtn" href="javascript:openSelectUserPop('approveCc')" class="btn_select_employee mgl10" style="display: none;">
+							<em>직원선택</em>
+						</a>
+					</td>
+				</tr>
+				<tr id = "approveCcTr" style="display: none;">
+					<td colspan="3" class="dot_line" id = "approveCcArea">
+					</td>
+				</tr>
+				<!-- 수신 추가 :S -->
+				<tr>
+					<th scope="row" id = "approveRcTh">수신인선택</th>
+					<td colspan="3">
+						<span class="radio_list2">
+							<label>
+								<input type="radio" name="approveRcType" value="NONE" checked="checked" onclick="approveRcBtnToggle()">
+								<span>선택안함</span>
+							</label>
+							<label>
+								<input type="radio" name="approveRcType" value="MY_ORG_ALL" onclick="approveRcBtnToggle()"/>
+								<span>전체</span>
+							</label>
+							<label>
+								<input type="radio" name="approveRcType" value="MY_TEAM" onclick="approveRcBtnToggle()">
+								<span>소속팀</span>
+							</label>
+							<label>
+								<input type="radio" name="approveRcType" value="SELECT" onclick="approveRcBtnToggle()">
+								<span>직접선택</span>
+							</label>
+						</span>
+						<a id = "approveRcBtn" href="javascript:openSelectUserPop('approveRc')" class="btn_select_employee mgl10" style="display: none;">
+							<em>직원선택</em>
+						</a>
+					</td>
+				</tr>
+				<tr id = "approveRcTr" style="display: none;">
+					<td colspan="3" class="dot_line" id = "approveRcArea">
+					</td>
+				</tr>
+				<!-- 수신 추가 :E -->
+				<tr>
+					<th scope="row">결재완료전<br>열람허용</th>
+					<td colspan="3">
+						<label><input type="checkbox" id = "appvBeforeApproveReadYn" class="mgr3" name = "appvBeforeApproveReadYn" value="Y" <c:if test = "${appvReadDocSetupMap.approveYn eq 'Y' }">checked="checked"</c:if> ><span>결재/합의 허옹</span></label>
+						<label><input type="checkbox" id = "appvBeforeCcReadYn" class="mgl10 mgr3" name = "appvBeforeCcReadYn" value="Y" <c:if test = "${appvReadDocSetupMap.ccYn eq 'Y' }">checked="checked"</c:if>><span>참조 허용</span></label>
+						<label><input type="checkbox" id = "appvBeforeReceiveReadYn" class="mgl10 mgr3" name = "appvBeforeReceiveReadYn" value="Y" <c:if test = "${appvReadDocSetupMap.receiveYn eq 'Y' }">checked="checked"</c:if>><span>수신 허용</span></label>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+		<!--// 교육신청/완료보고작성 //-->
+		<!--버튼모음-->
+		<div class="btn_baordZone2">
+			<a href="javascript:doSave()" class="btn_blueblack btn_auth">임시저장</a>
+			<c:choose>
+				<c:when test="${popYn eq 'M' }">
+					<a href="javascript:window.close()" class="btn_witheline">닫기</a>
+				</c:when>
+				<c:otherwise>
+					<a href="javascript:goDraftListPage()" class="btn_witheline">취소</a>
+				</c:otherwise>
+			</c:choose>
+		</div>
+		<!--//버튼모음//-->
+	</div>
+</form>
+
+</section>

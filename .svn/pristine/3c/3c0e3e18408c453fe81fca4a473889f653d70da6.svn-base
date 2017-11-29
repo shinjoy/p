@@ -1,0 +1,109 @@
+package ib.recommend.service.impl;
+
+import ib.basic.web.MultiFileUpload;
+import ib.cmm.FileUpDbVO;
+import ib.recommend.service.RecommendService;
+import ib.recommend.service.RecommendVO;
+import ib.work.service.impl.WorkMemoDAO;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import egovframework.rte.fdl.cmmn.AbstractServiceImpl;
+
+
+@Service("recommendService")
+public class RecommendServiceImpl extends AbstractServiceImpl implements RecommendService {
+
+    @Resource(name="recommendDAO")
+    private RecommendDAO recommendDAO;
+
+    @Resource(name="workMemoDAO")
+    private WorkMemoDAO workMemoDAO;
+
+
+    protected static final Log logger = LogFactory.getLog(RecommendServiceImpl.class);
+
+
+
+    //추천종목 >> 제안중 딜 등록
+	public int regPropDeal(Map<String, Object> map) throws Exception {
+
+		int upCnt = 0;
+
+//		String sNb = map.get("sNb").toString();
+//		String comment = map.get("comment").toString();
+//		String usrId = map.get("usrId").toString();
+
+		//딜 제안중 등록
+		int mainSnb = recommendDAO.regPropDeal(map);
+
+		//파일 등록
+		map.put("offerSnb", mainSnb + "");	//새로운 메모 키
+		//workMemoDAO.clonePropDealFile(map);		//!!!!!!!!!!!!!!!!!!!!! 일단 주석처리... 딜상세보기 팝업에서 추천종목 정보를 모두 가져오므로 볼 수 있기 때문에 추가카피는 일단 주석
+
+		//추천종목 상태 변경
+		upCnt = recommendDAO.updateRcmdDealStts(map);
+
+		return upCnt;
+	}
+	public List<RecommendVO> selectIBlist(RecommendVO VO) throws Exception {
+		return recommendDAO.selectIBlist(VO);
+	}
+	public List<RecommendVO> selectOpinionList(RecommendVO VO) throws Exception {
+		return recommendDAO.selectOpinionList(VO);
+	}
+	public List<RecommendVO> selectRecommendInfo(RecommendVO VO) throws Exception {
+		return recommendDAO.selectRecommendInfo(VO);
+	}
+	public List<RecommendVO> selectRcmdDealInfo(RecommendVO rcmdVO) throws Exception {
+		return recommendDAO.selectRcmdDealInfo(rcmdVO);
+	}
+	public void insertRecommendOpinion(RecommendVO VO) throws Exception {
+		recommendDAO.insertRecommendOpinion(VO);
+	}
+	public String insertRecommendOpinionByIbSystem(RecommendVO rcmdVO, MultipartHttpServletRequest multipartRequest,String rtnPath,HttpServletRequest request)
+			throws Exception {
+		String cateCd = (String) multipartRequest.getParameter("categoryCd");
+		rtnPath = "redirect:/recommend/comment.do?sNb="+(String) multipartRequest.getParameter("tmpNum1") + "&tmDt=" + (String)multipartRequest.getParameter("tmDt");
+		if ("00002".equals(cateCd)) rtnPath = "redirect:/personnel/management/index.do?usrId="+(String) multipartRequest.getParameter("usrId");
+		rcmdVO.setOfferSnb( (String) multipartRequest.getParameter("offerSnb"));
+		rcmdVO.setComment( (String) multipartRequest.getParameter("comment"));
+		rcmdVO.setCategoryCd( cateCd );
+	// 코멘트 입력
+		recommendDAO.insertRecommendOpinion(rcmdVO);
+		log.debug(rcmdVO.getRgId()+"^_^recommendDAO.insertRecommendOpinion");
+
+		// maxSnb 구하기
+//		List<RecommendVO> rslt = recommendDAO.selectMaxOpinionSnb(rcmdVO);
+
+		// 파일업로드 시키기
+		//MultiFileUpload mUpload = new MultiFileUpload();
+		FileUpDbVO fileVo = new FileUpDbVO();
+//		fileVo.setOfferSnb(rslt.get(0).getsNb());
+		fileVo.setOfferSnb(rcmdVO.getsNb());
+		fileVo.setReportYN("N");
+		fileVo.setFileCategory("00002"); //00000:정보정리, 00001: staff사진 ,  00002: 댓글 첨부파일, 00003: 인사관리->이력서파일
+		fileVo.setRgId(rcmdVO.getRgId());
+		fileVo.setOrgId(rcmdVO.getOrgId());
+
+		MultiFileUpload mUpload = new MultiFileUpload("");
+		mUpload.fileUpload(multipartRequest, fileVo, request);
+		return rtnPath;
+	}
+
+	public int deleteRecommendOpinion(RecommendVO VO) throws Exception {
+		return recommendDAO.deleteRecommendOpinion(VO);
+	}
+	public int updatecomment(RecommendVO VO) throws Exception {
+		return recommendDAO.updatecomment(VO);
+	}
+}

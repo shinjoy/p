@@ -1,0 +1,76 @@
+package ib.car.sevice.impl;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Service;
+
+import ib.car.service.Car2Service;
+import ib.car.service.CarService;
+import ib.car.service.CarVO;
+import egovframework.rte.fdl.cmmn.AbstractServiceImpl;
+
+@Service("carService")
+public class CarServiceImpl extends AbstractServiceImpl implements CarService {
+
+	@Resource(name = "carDAO")
+    private CarDAO carDAO;
+
+
+	public List<CarVO> selectCarUsedList(CarVO vo) throws Exception {
+		return carDAO.selectCarUsedList(vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : insertCarUsedList
+	 * @param carVO
+	 * @return
+	 */
+	public int insertCarUsedList(CarVO vo) throws Exception {
+		return carDAO.insertCarUsedList(vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectTotalDistance
+	 * @param carVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<CarVO> selectTotalDistance(CarVO vo) throws Exception {
+		return carDAO.selectTotalDistance(vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : selectCarParkingFloorList
+	 * @param carVO
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<CarVO> selectCarParkingFloorList(CarVO vo) throws Exception {
+		return carDAO.selectCarParkingFloorList(vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : deleteCarUsedList
+	 * @param carVO
+	 * @return
+	 */
+	public int deleteCarUsedList(CarVO vo) throws Exception {
+		return carDAO.deleteCarUsedList(vo);
+	}
+
+	/**
+	 *
+	 * @MethodName : updateFloor
+	 * @param carVO
+	 */
+	public int updateFloor(CarVO vo) throws Exception {
+		return carDAO.updateFloor(vo);
+	}
+}

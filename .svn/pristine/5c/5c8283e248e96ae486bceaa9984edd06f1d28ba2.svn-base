@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE taglib
+    PUBLIC "-//Sun Microsystems, Inc.//DTD JSP Tag Library 1.2//EN"
+    "http://java.sun.com/dtd/web-jsptaglibrary_1_2.dtd">
+
+<taglib>
+
+    <tlib-version>1.1</tlib-version>
+    <jsp-version>1.2</jsp-version>
+    <short-name>ui</short-name>
+
+    <display-name>UI</display-name>
+    <description>UI Tag Library</description>
+
+    <!-- 상수-->
+    <tag>
+        <name>useConstants</name>
+        <tag-class>ib.common.tiles.JstlUseConstantsTag</tag-class>
+        <body-content>empty</body-content>
+        <description>JSTL useConstants Tag</description>
+        <attribute>
+            <name>var</name>
+            <required>yes</required>
+            <rtexprvalue>no</rtexprvalue>
+        </attribute>
+        <attribute>
+            <name>className</name>
+            <required>yes</required>
+            <rtexprvalue>no</rtexprvalue>
+        </attribute>
+        <attribute>
+            <name>scope</name>
+            <required>no</required>
+            <rtexprvalue>no</rtexprvalue>
+        </attribute>
+    </tag>
+
+    <!-- 관계사 권한에따른 버튼노출태그 -->
+    <tag>
+        <name>authBtn</name>
+        <tag-class>ib.common.tiles.AuthBtnTag</tag-class>
+        <body-content>empty</body-content>
+        <description>JSTL useAuthBtn Tag</description>
+        <attribute>
+            <name>ele</name>
+            <required>yes</required>
+            <rtexprvalue>no</rtexprvalue>
+        </attribute>
+        <attribute>
+            <name>event</name>
+            <required>yes</required>
+            <rtexprvalue>no</rtexprvalue>
+        </attribute>
+        <attribute>
+            <name>orgId</name>
+            <required>yes</required>
+            <rtexprvalue>yes</rtexprvalue>
+        </attribute>
+        <attribute>
+            <name>id</name>
+            <required>yes</required>
+            <rtexprvalue>no</rtexprvalue>
+        </attribute>
+        <attribute>
+            <name>classValue</name>
+            <required>yes</required>
+            <rtexprvalue>no</rtexprvalue>
+        </attribute>
+        <attribute>
+            <name>txt</name>
+            <required>yes</required>
+            <rtexprvalue>no</rtexprvalue>
+        </attribute>
+    </tag>
+</taglib>

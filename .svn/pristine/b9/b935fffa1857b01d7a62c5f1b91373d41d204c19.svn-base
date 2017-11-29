@@ -1,0 +1,756 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="ui" uri="http://egovframework.gov/ctl/ui"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+
+<link href="<c:url value='/css/new_network.css'/>" rel="stylesheet" type="text/css">
+<link href="<c:url value='/images/synergyAI.ico'/>" rel="icon" type="image/x-icon">
+<link href="<c:url value='/images/ibB.ico' />" rel="shortcut icon" type="image/x-icon">
+
+<input type="hidden" id="usrId">
+<input type="hidden" id="deptId">
+<input type="hidden" id="deptChildId">
+<input type="hidden" id="searchOrgId" name="searchOrgId" value="${baseUserLoginInfo.applyOrgId }"/>
+
+<div class="verticalWrap">
+	<!--============== LEFT MENU : S =============-->
+	<div class="addAreaZone">
+		<div id="userListAreaTree"></div>
+	</div>
+	<!--============== LEFT MENU : E =============-->
+	<!--============== RIGHT MENU : S =============-->
+	<section id="detail_contents">
+	    <div id="rightPanel_inner" style="min-height:850px;">
+	    	<input type="hidden" id="choiceMonth"/>
+			<!-- carSearchBox -->
+			<div class="carSearchBox">
+				<span id="searchTypeDiv" class="carSearchtitle"><label for="searchType">분류</label></span>
+				<select class="select_b" id="searchType"  onchange="fnObj.setSearchDiv();">
+					<option value="all">전체통계</option>
+					<option value="team">부서별통계</option>
+					<option value="person">직원별통계</option>
+				</select>
+				<span class="carSearchtitle mgl30"><label for="choiceYear">년도</label></span>
+				<span id="yearDiv"></span><!-- 년도 -->
+				<button type="button" class="btn_g_black mgl10" onclick="fnObj.doSearch();">조회</button>
+				<div class="btnRightZone">
+					<button type="button" class="btn_b2_skyblue" onclick="fnObj.excelDownList();"><em class="icon_XLS">파일로 저장</em></button>
+				</div>
+			</div>
+			<!--// carSearchBox //-->
+
+           	<h3 class="h3_title_basic mgt20"><span id="searchTypeSpan"></span><span class="sub_desc" id="nameDiv"></span></h3>
+           	<!--================= table : S ================-->
+            <table class="tb_statistics">
+				<caption>통계리스트</caption>
+				<colgroup>
+					<col width="125" />
+					<col width="7%" span="12" />
+					<col width="*" />
+				</colgroup>
+				<thead>
+					<tr id="tblHeaderPart">
+				        <th scope="col">&nbsp;</th>
+				        <th scope="col">1월</th>
+				        <th scope="col">2월</th>
+				        <th scope="col">3월</th>
+				        <th scope="col">4월</th>
+				        <th scope="col">5월</th>
+				        <th scope="col">6월</th>
+				        <th scope="col">7월</th>
+				        <th scope="col">8월</th>
+				        <th scope="col">9월</th>
+				        <th scope="col">10월</th>
+				        <th scope="col">11월</th>
+				        <th scope="col">12월</th>
+				        <th scope="col">합계</th>
+				    </tr>
+				</thead>
+                <tbody id="dataTableDiv"></tbody>
+                <tfoot id="totalTableDiv"></tfoot>
+			</table>
+			<!--================= table : E ================-->
+	    </div><!-- rightPanel -->
+	</section>
+	<!--============== RIGHT MENU : E =============-->
+
+</div>
+
+
+
+<script type="text/javascript">
+
+//Global variables :S ---------------
+
+//공통코드
+var comCodeCstType;			//고객구분
+
+var myGrid = new SGrid();		// instance		new sjs
+var mySorting = new SSorting();	// instance		new sjs
+
+var g_chargeStaffCusId = '${baseUserLoginInfo.cusId}';		//담당자 사원 고객id ... 담당자 일경우 (처음에는 로그인 사용자 고객id)
+var g_division ="${baseUserLoginInfo.orgId}";
+var g_sabun ="${baseUserLoginInfo.empNo}";					//로그인유저사번
+var g_loginId ="${baseUserLoginInfo.loginId}";					//로그인유저아이디
+var g_permission ="${baseUserLoginInfo.permission}";		//permission
+var g_deptId ="${baseUserLoginInfo.deptId}";				//teamId
+var g_deptMngr ="${baseUserLoginInfo.deptMngrEmpNo}";			//부서장 사번
+
+var g_applyOrgId = '${baseUserLoginInfo.applyOrgId}';
+var g_staffList =[];
+var dv2List=[];				//dv2 리스트
+var dvList=[];				//dv 리스트
+
+var g_resultList = [];
+//Global variables :E ---------------
+
+
+/*
+ * 화면세팅에 관한함수(pageStart)와, 각종 함수들을 정의하는 fnObj(function object).
+ */
+var fnObj = {
+
+	//################# init function :S #################
+
+	//선로딩코드
+	preloadCode: function(){
+
+		//공통코드
+		//dv2List=getCommonCode('00024', '', 'CD', 'NM', null, '', '');		//dv2의 메뉴cd 00024
+		//dvList =getCommonCode('00025', '', 'CD', 'NM', null, '', '');		//dv의 메뉴cd 00025
+		dv2List = getBaseCommonCode('ACCOUNT_SUBJECT', '', 'CD', 'NM', null, '', '',{ orgId : "${baseUserLoginInfo.applyOrgId}"});
+		dvList = getBaseCommonCode('', '', 'CD', 'NM', null, '', '',{sSortOrder : 'Y' , parentCodeSetNm : 'ACCOUNT_SUBJECT', orgId : "${baseUserLoginInfo.applyOrgId}"});
+	},
+
+	//화면세팅
+    pageStart: function(){
+    	fnObj.yearSetting();		//년도 셀렉트박스 세팅
+    	fnObj.setSearchDiv();		//분류에 따른 페이지 세팅
+    },//end pageStart.
+
+  	//검색
+    doSearch: function(){
+
+    	var choiceYear 	= $("#choiceYear").val();
+    	var searchType 	= $("#searchType").val();
+    	var nowDate = new Date().yyyy_mm_dd();
+    	var checkist = [];
+    	var checkStr = '';
+    	var checkChildStr = '';
+
+    	var url = contextRoot + "/card/getCardStatisticsByPerson.do";
+
+
+    	if(searchType == 'team'){
+    		checkStr = $("#deptChildId").val();
+    		url = contextRoot + "/card/getCardStatistics.do";
+	   		if(checkStr == ''){
+	    		if('${baseUserLoginInfo.orgId}' == '${baseUserLoginInfo.applyOrgId}'){
+	    			alert("선택된 부서가 없습니다.");
+	    			$("#nameDiv").html('');
+	    		}
+	    		$("#dataTableDiv").html('');
+	    		fnObj.totalDisplay([]);			//최하단 초기화
+
+	    		return false;
+	    	}
+	    }else if(searchType == 'person'){
+    		if($("#usrId").val() == ''){
+    			if('${baseUserLoginInfo.orgId}' == '${baseUserLoginInfo.applyOrgId}'){
+    				alert("선택된 직원이 없습니다.");
+    				$("#nameDiv").html('');
+	    		}
+
+    			$("#dataTableDiv").html('');
+
+    			fnObj.totalDisplay([]);			//최하단 초기화
+
+	    		return false;
+    		}else{
+    			checkStr = $("#usrId").val();
+    		}
+    	}
+    	if(choiceYear==''){
+    		choiceYear = nowDate.substring(0,4);
+    	}
+
+
+    	var param = {
+    					searchType 		: searchType,
+    					choiceYear 		: choiceYear,
+    					checkList 		: checkStr,
+    					deptList		: checkStr,
+    					checkChildStr	: checkChildStr,
+    					searchOrgId : $("#searchOrgId").val()
+    				};
+
+
+    	var callback = function(result){
+
+    		var obj = JSON.parse(result);
+    		var resultList = obj.resultList;
+    		var totalList = obj.totalList;
+
+    		g_resultList = resultList;
+
+    		var str ='';
+    		sortByKey(dvList, 'CD', 'ASC');
+            sortByKey(dv2List, 'CD', 'ASC');
+
+            if(searchType != 'team') fnObj.dataDisplay(resultList);			//선택별 테이블 세팅 (직원별,전체)
+            else fnObj.dataDeptDisplay(resultList);
+
+            fnObj.totalDisplay(resultList);			//최하단 토탈 세팅
+
+    	};
+    	commonAjax("POST", url, param, callback, false, '', '');
+
+    },//end doSearch
+
+    //LEFT 사원 선택
+    selStaff : function(userList,orgId){ //type : ALL 전체선택 , 빈값 : 개별선택 , 이외 : 부서SEQ
+    	$("#searchOrgId").val(orgId);
+
+    	var userStr = '';
+
+    	if($("#searchType").val() == 'team'){
+    		$("#deptChildId").val(userList.join(","));
+
+    	}else{
+    		$("#usrId").val(userList.join(","));
+    	}
+
+    	fnObj.doSearch();
+    },
+
+   	//엑셀다운로드
+    excelDownList: function(){
+    	var htmlStr = "<table>";
+    	htmlStr += $('.tb_statistics').html().replace(/display:none/gi,'');
+    	htmlStr += "</table>";
+    	//console.log(htmlStr);
+    	excelDown(htmlStr, '지출통계'+(new Date().yyyy_mm_dd()));
+    },
+
+    /* ====================================== 화면 세팅 관련 : S ===================================*/
+
+    //사용자 트리 생성
+	setUserTree: function(){
+
+		var myUserTree = new UserTree();			//UserTree 객체생성
+
+		/* 사용자트리 설정정보 */
+		var configObj = {
+				targetID : 'userListAreaTree',							//대상 위치 id (div, span)
+				url : contextRoot + "/common/getOrgDeptUserList.do",	//데이터 URL
+				isCheckbox:true,
+				isOnlyOne : false,										//선택건수 1개 여부			(false: 복수,		그외,: 한명(default))
+				isAllOrg : false,										//전체 ORG 범위로의 여부		(true: 전체ORG, 		그외,: 나의권한ORG (default))
+				oneOrg : '${baseUserLoginInfo.applyOrgId}',				//전달받은 한개의 ORG ID
+				defaultSelectList : ['${baseUserLoginInfo.userId}'],	//기본 선택 id array 			(로딩시점 초기 기본 선택 노드 id list)
+				isDeptSelectable : true,								//부서선택 가능여부(= 하위 사용자 모두 선택)		(true: 해당부서하위모두선택, 	그외,:부서선택불가 (default))
+				callbackFn : fnObj.selStaff,							//콜백 function
+				useAllCheck : true										//전체선택 기능 사용 여부		(true: 사용,			그외,: 미사용(default))
+		};
+
+		myUserTree.setConfig(configObj);	//설정정보 세팅
+		myUserTree.drawTree();				//트리 생성
+		//$('#allTree_1').prop("checked",true);
+		//doCheckAllTreeUser('${baseUserLoginInfo.applyOrgId}');
+	},
+
+	//사용자 트리 생성(부서 아이디 리턴)
+	setDeptTree: function(){
+		var myUserTree = new UserTree();			//UserTree 객체생성
+
+		/* 사용자트리 설정정보 */
+		var configObj = {
+				targetID : 'userListAreaTree',							//대상 위치 id (div, span)
+				url : contextRoot + "/common/getOrgDeptUserList.do",	//데이터 URL
+				isCheckbox:true,
+				isOnlyOne : false,										//선택건수 1개 여부			(false: 복수,		그외,: 한명(default))
+				isAllOrg : false,										//전체 ORG 범위로의 여부		(true: 전체ORG, 		그외,: 나의권한ORG (default))
+				oneOrg : '${baseUserLoginInfo.applyOrgId}',				//전달받은 한개의 ORG ID
+				defaultSelectList : ['D' + '${baseUserLoginInfo.deptId}'],	//기본 선택 id array 			(로딩시점 초기 기본 선택 노드 id list)
+				isDeptSelectable : true,								//부서선택 가능여부(= 하위 사용자 모두 선택)		(true: 해당부서하위모두선택, 	그외,:부서선택불가 (default))
+				isUserSelectable : false,
+				isOnlyDeptId : true,
+				callbackFn : fnObj.selStaff,							//콜백 function
+				useAllCheck : true										//전체선택 기능 사용 여부		(true: 사용,			그외,: 미사용(default))
+		};
+
+		myUserTree.setConfig(configObj);	//설정정보 세팅
+		myUserTree.drawTree();				//트리 생성
+
+		myUserTree.isFirstLoad = false;		//첫실행이 되도록 하기 위해
+	},
+
+	//사용자 트리 생성(전체통계)
+	setUserAllTree: function(){
+
+		var myUserTree = new UserTree();			//UserTree 객체생성
+
+		/* 사용자트리 설정정보 */
+		var configObj = {
+				targetID : 'userListAreaTree',							//대상 위치 id (div, span)
+				url : contextRoot + "/common/getOrgDeptUserList.do",	//데이터 URL
+				isCheckbox:true,
+				isOnlyOne : false,										//선택건수 1개 여부			(false: 복수,		그외,: 한명(default))
+				isAllOrg : false,										//전체 ORG 범위로의 여부		(true: 전체ORG, 		그외,: 나의권한ORG (default))
+				oneOrg : '${baseUserLoginInfo.applyOrgId}',				//전달받은 한개의 ORG ID
+				defaultSelectList : ['${baseUserLoginInfo.applyOrgId}'],	//기본 선택 id array 			(로딩시점 초기 기본 선택 노드 id list)
+				isDeptSelectable : false,								//부서선택 가능여부(= 하위 사용자 모두 선택)		(true: 해당부서하위모두선택, 	그외,:부서선택불가 (default))
+				isUserSelectable : false,
+				isOnlyDeptId : true,
+				callbackFn : fnObj.selStaff,							//콜백 function
+				useAllCheck : false										//전체선택 기능 사용 여부		(true: 사용,			그외,: 미사용(default))
+		};
+
+		myUserTree.setConfig(configObj);	//설정정보 세팅
+		myUserTree.drawTree();				//트리 생성
+	},
+
+    //년도 세팅(셀렉트박스)
+    yearSetting : function(){
+
+    	var nowDate= new Date().yyyy_mm_dd();
+    	var nowYear = nowDate.substring(0,4);
+    	var str ='<select id="choiceYear" class="select_b w_date" onchange="fnObj.doSearch();">';
+    	for(var i="${minYear}";i<=parseInt(nowYear)+1;i++){
+    		var chk ='';
+    		if(nowYear == i){
+    			chk ='selected="selected"';
+    		}
+    		str += '<option value="'+ i+'" '+chk+'>'+ i+'</option>';
+    	}
+    	str += '</select>';
+    	$("#yearDiv").html(str);
+    },//end yearSetting
+
+    //분류 선택
+    setSearchDiv : function(){
+
+    	$("#nameDiv").html('');
+    	$("#userListAreaTree").html('');
+
+    	if($("#searchType").val() == 'all'){				//회사
+    		$("#searchTypeSpan").html('전체 통계');
+    		fnObj.setUserAllTree();
+
+    	}else if($("#searchType").val() == 'team'){			//부서별
+			$("#searchTypeSpan").html('부서별 통계');
+			fnObj.setDeptTree();
+    	}else{												//사원별
+    		$("#searchTypeSpan").html('직원별 통계');
+    		fnObj.setUserTree();
+    	}
+    },
+
+
+    //------------------------------------------------------부서별 일때 : S
+
+ 	//plus 버튼 액션
+    trDeptDisplay : function(selectDeptId,selectTopDeptId){						//버튼의 아이디값,tr
+
+    	if(!$("#deptId_"+selectDeptId).hasClass("select_row")){
+    		$(".inner_"+selectDeptId).show();
+    		$(".parent_"+selectDeptId).show();
+    		$("#deptId_"+selectDeptId).addClass("select_row");
+    	}else{
+
+    		var idx = getRowIndexWithValue(g_resultList, 'deptId', selectDeptId);		//해당 선택 행의 index 를 알아내어
+    		for(var i=idx;i<g_resultList.length;i++){									//그 index 의 다음부터 검사
+    			var deptId = g_resultList[i].deptId;
+    			var depth = g_resultList[i].depth;
+    			var topDeptId = g_resultList[i].topDeptId;
+
+    			if(depth>1 && topDeptId == selectTopDeptId)								//depth 가 첫번째 노드가 아니고 속한 부서일때만, 닫아줌.
+    			fnObj.trDeptClose(deptId);
+    		}
+    		fnObj.trDeptClose(selectDeptId);
+    	}
+    },
+
+    //plus 버튼 액션
+    trDeptClose : function(deptId){						//버튼의 아이디값,tr
+
+    	$(".parent_"+deptId).hide();
+    	$(".inner_"+deptId).hide();
+    	$("tr[name=sub_"+deptId+"]").hide();
+    	$(".sub_"+deptId).hide();
+    	$("#deptId_"+deptId).removeClass("select_row");
+    	$("tr[name=sub_"+deptId+"]").removeClass("select_row");
+
+    },
+
+    trDeptSubDisplay : function(selectDeptId,selectDv){				//부서 - 대분류 액션.
+    	if(!$('tr[group=sub_'+selectDeptId+'_'+selectDv+']').hasClass("select_row")){
+    		$('tr[dv=sub_'+selectDeptId+'_'+selectDv+']').show();
+    		//$(".sub_"+selectDeptId).show();
+    		$('tr[group=sub_'+selectDeptId+'_'+selectDv+']').addClass("select_row");
+    	}else{
+    		//$(".sub_"+selectDeptId).hide();
+    		$('tr[dv=sub_'+selectDeptId+'_'+selectDv+']').hide();
+        	$('tr[group=sub_'+selectDeptId+'_'+selectDv+']').removeClass("select_row");
+    	}
+    },
+
+    ///부서세팅
+    dataDeptDisplay : function(resultList){
+    	var searchType 	= $("#searchType").val();
+    	$("#dataTableDiv").html('');
+    	var str ='';
+    	var nameList = [];
+    	var entryChk =0;
+    	//전체 리스트
+
+    	//console.log(JSON.stringify(resultList));
+    	for(var i=0; i<resultList.length; i++){
+    		/*==================================== 하나의 테이블세팅 : S=================================== */
+
+
+   			var dv2CardList = resultList[i].dv2CardList;		//큰 분류 통계 리스트
+   			var dvCardList = resultList[i].dvCardList;			//작은 분류 통계 리스트
+   			var monthList = resultList[i].monthList;			//월별 통계 리스트
+   			var name = resultList[i].deptNm;					//부서,이름
+   			var parentDeptId = resultList[i].parentDeptId;		//부모 시퀀스
+   			var deptId = resultList[i].deptId;					//부서 시퀀스
+   			var depth = resultList[i].depth;					//현재 몇 depth 의 부서인지
+   			var topDeptId = resultList[i].topDeptId;			//현재 몇 depth 의 부서인지
+   			var depthDisplay ='';
+
+   			if(depth ==1){
+    			entryChk++;
+    		}
+
+   			/*==================================== 부서 or 직원 합계 : S=================================== */
+			nameList.push(name);
+
+   			if(depth != 1){
+   				depthDisplay ='display:none;';
+
+   			}
+
+   			//타이틀
+   			str +='<tr class="team_row parent_'+parentDeptId+'" id="deptId_'+deptId+'"  style="cursor:pointer; '+depthDisplay+'" onclick="fnObj.trDeptDisplay(\''+deptId+'\','+topDeptId+');">';
+
+   			str +='<th scope="row" class="name_td btn_plus" id="inner_'+i+'">';
+   			if(depth >1) str +='<span style="color:#1d60fb;">'+name +'</span>';
+   			else str +=name ;
+   			str +='</th>';
+
+			//금액
+			var totalSum=0;
+
+			for(var p=1; p<13; p++){
+				str +='<td>';
+				for(var k=0; k<monthList.length; k++){
+					if(parseInt(monthList[k].month) == p){
+						str +=Number(monthList[k].sum).toLocaleString().split(".")[0];
+   	   					totalSum += monthList[k].sum;
+   	   				}
+   	   			}
+   	   			str +=' </td>';
+
+			}
+   			//합계
+   			str +='<td class="txt_sum_money">'+Number(totalSum).toLocaleString().split(".")[0]+' </td>';
+   			str +=' </tr>';
+   	   		/*==================================== 부서 or 직원 합계 : E=================================== */
+
+   			for(var s=0; s<dv2List.length; s++){	//공통코드 리스트
+   				var sum=0;
+
+   				/*==================================== 큰 분류(dv2)세팅 : S=================================== */
+
+   				//타이틀
+   				str +='<tr class="title_row inner_'+deptId+'"  name="sub_'+deptId+'" group="sub_'+deptId+'_'+s+'"  style="display:none;" cursor:pointer;" onclick="fnObj.trDeptSubDisplay('+deptId+','+s+');">';
+   				str +='<th scope="row"><span class="grp_span">';
+   				str +=dv2List[s].NM+'</th>';
+   				//''+name+':'+
+
+   				//금액
+   				for(var p=1; p<13; p++){			//12개의 행을 그리면서
+   					str +='<td>';
+   					for(var k=0; k<dv2CardList.length; k++){
+
+   				 		//통계리스트의 month 와 p 가 같고, dv2의 값이 같을때
+   				 		if(parseInt(dv2CardList[k].month) == p && dv2CardList[k].dv2 == dv2List[s].CD){
+								str +=Number(dv2CardList[k].sum).toLocaleString().split(".")[0];
+								sum += dv2CardList[k].sum;
+						}
+					}
+   					str +=' </td>';
+   				}
+
+   				//합계
+   				str +='<td class="txt_sum_money">'+Number(sum).toLocaleString().split(".")[0]+' </td>';
+   				str +='</tr>';
+
+   				/*==================================== 큰 분류(dv2)세팅 : E=================================== */
+   				/*==================================== 작은분류(dv)세팅 : S=================================== */
+   				var cnt =0;
+   				var trClass='';
+
+   				for(var h=0; h<dvList.length; h++){
+
+
+   					if(dvList[h].codeName == dv2List[s].sonCodeName){		//분류에 포함된 항목
+
+   						var dvSum=0;										//우측 합계 sum
+
+   						if(h+1 < dvList.length){
+   							trClass= (dvList[parseInt(h+1)].codeName == dvList[h].codeName ? 'sub_row' : 'sub_row sub_last');
+   						}else{
+   							trClass = 'sub_row sub_last';
+   						}
+   						//타이틀
+   						//str +='<tr class="'+trClass+'"  grp="grp_'+i+'" dv="dv_'+i+'_'+s+'" style="display:none;">';
+   						str +='<tr class="'+trClass+' sub_'+deptId+'" dv="sub_'+deptId+'_'+s+'" style="display:none;">';
+   						str +='<th scope="row">'+dvList[h].NM+'</th>';
+
+   						//금액
+   						for(var p=1;p<13;p++){					 //12개의 행을 그리면서
+   	    					str +='<td>';
+   	    					for(var k=0; k<dvCardList.length; k++){
+
+   	    						//dv의 값이 같고 통계리스트의 month 와 p 가 같을때
+   	    						if(dvCardList[k].dv == dvList[h].CD && parseInt(dvCardList[k].month) == p){
+   	    							str +=Number(dvCardList[k].sum).toLocaleString().split(".")[0];
+   	    							dvSum += dvCardList[k].sum;
+   	    						}
+   	    					}
+   	    					str +=' </td>';
+   	    				}
+
+   						//합계
+   						str +='<td class="txt_sum_money">'+Number(dvSum).toLocaleString().split(".")[0]+' </td>';
+    	    			str +='</tr>';
+    	    			cnt ++;
+
+    	    		}
+   				}
+   				/*==================================== 작은분류(dv)세팅 : E=================================== */
+   			}
+
+   		 	/* str +='</tbody>';
+		  	str +='</table>'; */
+		  	/*==================================== 하나의 테이블세팅 : E=================================== */
+   		}
+    	$("#dataTableDiv").html(str);
+    	if(searchType != 'all'){
+    		$("#nameDiv").html('('+nameList.join(',   ')+')');
+    	}
+
+   	},
+
+    //------------------------------------------------------부서별 일때 : E
+
+    //------------------------------------------------------직원이나 전체 일때 : S
+
+
+    //plus 버튼 액션
+    trDisplay : function(idx,th,type){						//버튼의 아이디값,tr
+
+    	if(!$("#"+type+"_"+idx).hasClass("select_row")){
+    		$("."+type+"_"+idx).show();
+        	$("#"+type+"_"+idx).addClass("select_row");
+    	}else{
+    		$("."+type+"_"+idx).hide();
+        	$("#"+type+"_"+idx).removeClass("select_row");
+        	if(type == 'grp') {								//부서나 사원 선택시
+
+        		$('tr[dv=dv_'+idx+']').hide();
+        		$('tr[grp=grp_'+idx+']').removeClass("select_row");
+        	}
+    	}
+    },
+
+   	dataDisplay : function(resultList){
+    	var searchType 	= $("#searchType").val();
+    	$("#dataTableDiv").html('');
+    	var str ='';
+    	var nameList = [];
+    	//console.log(resultList);
+    	//전체 리스트
+    	for(var i=0; i<resultList.length; i++){
+
+    		/*==================================== 하나의 테이블세팅 : S=================================== */
+
+	   			var dv2CardList = resultList[i].dv2CardList;		//큰 분류 통계 리스트
+	   			var dvCardList = resultList[i].dvCardList;			//작은 분류 통계 리스트
+	   			var monthList = resultList[i].monthList;			//월별 통계 리스트
+	   			var name = resultList[i].name;						//부서
+	   			if(searchType != 'all'){							//부서별 혹은 직원별만,
+	   				/*==================================== 부서 or 직원 합계 : S=================================== */
+					nameList.push(name);
+
+	   				//타이틀
+	   				str +='<tr class="team_row" id="grp_'+i+'" style="cursor:pointer;" onclick="fnObj.trDisplay(\''+i+'\',this,\'grp\');">';
+					str +='<th scope="row" class="name_td btn_plus" id="inner_'+i+'">'+name+'</th>';
+					//금액
+					var totalSum=0;
+	   	   			for(var p=1; p<13; p++){
+	   	   				str +='<td>';
+	   	   				for(var k=0; k<monthList.length; k++){
+	   	   					if(parseInt(monthList[k].month) == p){
+	   	   						str +=Number(monthList[k].sum).toLocaleString().split(".")[0];
+	   	   						totalSum += monthList[k].sum;
+	   	   					}
+	   	   				}
+	   	   				str +=' </td>';
+	   	   			}
+	   	   			//합계
+	   	   			str +='<td class="txt_sum_money">'+Number(totalSum).toLocaleString().split(".")[0]+' </td>';
+	   	   			str +=' </tr>';
+	   	   			/*==================================== 부서 or 직원 합계 : E=================================== */
+				}
+	   			for(var s=0; s<dv2List.length; s++){	//공통코드 리스트
+	   				var sum=0;
+
+	   				/*==================================== 큰 분류(dv2)세팅 : S=================================== */
+
+	   				//타이틀
+	   				str +='<tr class="title_row grp_'+i+'" id="dv_'+i+'_'+s+'" grp=grp_'+i+'  style="'+(searchType!='all' ? 'display:none;' : '')+' cursor:pointer;" onclick="fnObj.trDisplay(\''+i+'_'+s+'\',this,\'dv\');">';
+	   				str +='<th scope="row"><span class="grp_span">';
+	   				str +=''+dv2List[s].NM+'</th>';
+
+
+	   				//금액
+	   				for(var p=1; p<13; p++){			//12개의 행을 그리면서
+	   					str +='<td>';
+	   					for(var k=0; k<dv2CardList.length; k++){
+
+	   				 		//통계리스트의 month 와 p 가 같고, dv2의 값이 같을때
+	   				 		if(parseInt(dv2CardList[k].month) == p && dv2CardList[k].dv2 == dv2List[s].CD){
+									str +=Number(dv2CardList[k].sum).toLocaleString().split(".")[0];
+									sum += dv2CardList[k].sum;
+							}
+						}
+	   					str +=' </td>';
+	   				}
+
+	   				//합계
+	   				str +='<td class="txt_sum_money">'+Number(sum).toLocaleString().split(".")[0]+' </td>';
+	   				str +='</tr>';
+
+	   				/*==================================== 큰 분류(dv2)세팅 : E=================================== */
+	   				/*==================================== 작은분류(dv)세팅 : S=================================== */
+	   				var cnt =0;
+	   				var trClass='';
+
+	   				for(var h=0; h<dvList.length; h++){
+
+
+	   					if(dvList[h].codeName == dv2List[s].sonCodeName){		//분류에 포함된 항목
+
+	   						var dvSum=0;										//우측 합계 sum
+
+	   						if(h+1 < dvList.length){
+	   							trClass= (dvList[parseInt(h+1)].codeName == dvList[h].codeName ? 'sub_row' : 'sub_row sub_last');
+	   						}else{
+	   							trClass = 'sub_row sub_last';
+	   						}
+	   						//타이틀
+	   						//str +='<tr class="'+trClass+'"  grp="grp_'+i+'" dv="dv_'+i+'_'+s+'" style="display:none;">';
+	   						str +='<tr class="'+trClass+' dv_'+i+'_'+s+'"  dv=dv_'+i+' style="display:none;">';
+	   						str +='<th scope="row">'+dvList[h].NM+'</th>';
+
+	   						//금액
+	   						for(var p=1;p<13;p++){					 //12개의 행을 그리면서
+	   	    					str +='<td>';
+	   	    					for(var k=0; k<dvCardList.length; k++){
+
+	   	    						//dv의 값이 같고 통계리스트의 month 와 p 가 같을때
+	   	    						if(dvCardList[k].dv == dvList[h].CD && parseInt(dvCardList[k].month) == p){
+	   	    							str +=Number(dvCardList[k].sum).toLocaleString().split(".")[0];
+	   	    							dvSum += dvCardList[k].sum;
+	   	    						}
+	   	    					}
+	   	    					str +=' </td>';
+	   	    				}
+
+	   						//합계
+	   						str +='<td class="txt_sum_money">'+Number(dvSum).toLocaleString().split(".")[0]+' </td>';
+	    	    			str +='</tr>';
+	    	    			cnt ++;
+
+	    	    		}
+	   				}
+	   				/*==================================== 작은분류(dv)세팅 : E=================================== */
+	   			}
+
+	   		 	/* str +='</tbody>';
+			  	str +='</table>'; */
+			  	/*==================================== 하나의 테이블세팅 : E=================================== */
+
+
+   		}
+    	$("#dataTableDiv").append(str);
+    	if(searchType != 'all'){
+    		$("#nameDiv").html('('+nameList.join(',   ')+')');
+    	}
+
+   	},
+
+  //------------------------------------------------------직원이나 전체 일때 : E
+
+   	//최하단 토탈 통계
+   	totalDisplay : function(resultList){
+   		$("#totalTableDiv").html('');
+
+   		var str='<tr>';
+
+	 	str +='<th scope="row">합계</th>';
+	 	var totalSum=0;
+
+		for(var p=1; p<13; p++){
+			var idxSum=0;											//td 당 합계
+			str +='<td>';
+			for(var i=0; i<resultList.length; i++){
+		    	var monthList = resultList[i].monthList;			//월별 통계 리스트
+				for(var k=0; k<monthList.length; k++){
+					if(parseInt(monthList[k].month) == p){
+						if($("#searchType").val() == 'team'){
+							if(resultList[i].depth ==1){
+								totalSum +=monthList[k].sum;				//전체 합계
+								idxSum += monthList[k].sum;					//td 당 합계
+							}
+						}else{
+							totalSum +=monthList[k].sum;				//전체 합계
+							idxSum += monthList[k].sum;					//td 당 합계
+						}
+					}
+				}
+			}
+			 str+=Number(idxSum).toLocaleString().split(".")[0];
+			 str +=' </td>';
+		}
+
+		str +='<td class="txt_sum_money">'+Number(totalSum).toLocaleString().split(".")[0]+' </td>';
+		str +='</tr>';
+
+	 	/*=============== 월별 통계 세팅 : E================= */
+
+	  	$("#totalTableDiv").html(str);
+
+	}
+
+
+    /* ====================================== 화면 세팅 관련 : E ===================================*/
+
+
+    //################# else function :E #################
+};//end fnObj.
+
+
+/*
+ * 화면로딩완료후, 자바스크립트 화면세팅 과 그외동작들 호출.
+ */
+$(function(){
+	fnObj.preloadCode();	//공통코드 or 각종선로딩코드
+	fnObj.pageStart();		//화면세팅
+});
+</script>

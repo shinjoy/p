@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="eam">
+
+	<!--
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="carVO" type="ib.car.service.CarVO"/>
+	 -->
+
+	<!-- ############################ 자산 마스터 등록 :S ############################ -->
+
+	<!-- 자산 마스터 리스트 -->
+	<select id="eam.selectAssetMasterList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT A.ASSET_ID								AS assetId
+			  ,A.ASSET_CODE								AS assetCode
+			  ,A.ORG_ID									AS orgId
+			  ,A.ASSET_CLASS							AS assetClass
+			  ,(SELECT B.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV B
+				 WHERE B.CODE_NAME = 'ASSET_CLASS'
+		  		   AND B.CODE_VALUE = A.ASSET_CLASS
+		  		   AND B.ORG_ID = A.ORG_ID) 			AS assetClassNm
+
+			  ,A.ASSET_TYPE								AS assetType
+			  ,(SELECT B.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV B
+				 WHERE B.CODE_NAME = 'ASSET_TYPE'
+		  		   AND B.CODE_VALUE = A.ASSET_TYPE
+		  		   AND B.ORG_ID = A.ORG_ID) 			AS assetTypeNm
+
+			  ,A.ASSET_NAME								AS assetName
+			  ,A.ACCOUNT								AS accountName
+			  ,(SELECT B.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV B
+				 WHERE B.CODE_NAME = 'ASSET_ACCOUNT'
+		  		   AND B.CODE_VALUE = A.ACCOUNT
+		  		   AND B.ORG_ID = A.ORG_ID)		 		AS accountNameNm
+
+			  ,DATE_FORMAT(A.GET_DATE, "%Y-%m-%d")		AS getDate
+			  ,A.GET_PRICE								AS getPrice
+			  ,A.DEPRECIATION							AS depreciation
+			  ,A.ENABLE									AS enable
+			  ,A.STATUS									AS status
+			  ,A.QTY									AS qty
+			  ,A.OWN_COMPANY							AS ownCompany
+			  ,(SELECT B.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV B
+				 WHERE B.CODE_NAME = 'ASSET_STATUS'
+		  		   AND B.CODE_VALUE = A.`STATUS`
+		  		   AND B.ORG_ID = A.ORG_ID)		 		AS statusNm
+
+			  ,DATE_FORMAT(A.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			  ,A.CREATED_BY			AS createdBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(A.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			  ,A.UPDATED_BY			AS updatedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = A.UPDATED_BY)	AS updateNm
+
+		  FROM EA_ASSET_MASTER		A
+		  WHERE 1=1
+		  AND A.ENABLE = 'Y'
+
+		<isNotEmpty prepend="AND" property="search">
+			(A.ASSET_CODE LIKE concat('%', #search#, '%')		OR
+			A.ASSET_NAME LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="orgId">
+			A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isEmpty prepend="" property="sortCol">
+			ORDER BY CREATE_DATE DESC, ASSET_CODE DESC
+		</isEmpty>
+		<isNotEmpty prepend="" property="sortCol">
+		 	ORDER BY $sortCol$ $sortVal$
+		</isNotEmpty>
+
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#,#limit#
+		</isNotEmpty>
+
+		/* eam.selectAssetMasterList */
+	</select>
+
+
+	<!-- 자산 마스터 리스트 총 건수 -->
+	<select id="eam.selectAssetMasterListCount" parameterClass="HashMap" resultClass="Integer">
+		SELECT COUNT(*)
+		  FROM EA_ASSET_MASTER		A
+		 WHERE 1=1
+		   AND ENABLE = 'Y'
+
+		<isNotEmpty prepend="AND" property="search">
+			(A.ASSET_CODE LIKE concat('%', #search#, '%')		OR
+			A.ASSET_NAME LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="orgId">
+			A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		/* eam.selectAssetMasterListCount */
+	</select>
+
+
+	<!-- 자산 마스터 등록 -->
+	<insert id="eam.insertAssetMaster" parameterClass="Map">
+		INSERT INTO EA_ASSET_MASTER(
+							 ASSET_CODE
+							,ASSET_CLASS
+							,ASSET_TYPE
+							,ASSET_NAME
+							,ACCOUNT
+							,GET_DATE
+							,GET_PRICE
+							,DEPRECIATION
+							,ENABLE
+							,STATUS
+							,OWN_COMPANY
+							,ORG_ID
+							,QTY
+							,CREATE_DATE
+							,CREATED_BY
+							,UPDATE_DATE
+							,UPDATED_BY
+						)
+					SELECT
+							 (
+							 SELECT IFNULL(CONCAT(#assetClass# , LPAD(MAX(SUBSTRING(ASSET_CODE, LENGTH(#assetClass#)+1, 4)) + 1, 4, '0')), CONCAT(#assetClass#, '0001'))
+							   FROM EA_ASSET_MASTER
+							  WHERE ASSET_CLASS = #assetClass#
+							    AND LENGTH(ASSET_CODE) = (4 + LENGTH(#assetClass#))
+							 ) AS K
+							,#assetClass#
+							,#assetType#
+							,#assetName#
+							,#assetAccount#
+							,STR_TO_DATE(#getDate#, '%Y-%m-%d')
+							,#getPrice#
+							,#depreciation#
+							,'Y'
+							,#status#
+							,#ownCompany#
+							,#orgId#
+							,#qty#
+							,now()
+							,#userSeq#
+							,now()
+							,#userSeq#
+					FROM DUAL
+			<selectKey resultClass="int" type="post" keyProperty="assetId">
+				SELECT LAST_INSERT_ID()
+			</selectKey>
+		/* eam.insertAssetMaster */
+	</insert>
+
+
+	<!-- 자산 마스터 수정 -->
+	<update id="eam.updateAssetMaster" parameterClass="Map">
+		UPDATE EA_ASSET_MASTER		A
+		   SET
+				 A.ASSET_CODE	= IF(A.ASSET_CLASS = #assetClass#, A.ASSET_CODE,
+									(SELECT IFNULL(CONCAT(#assetClass# , LPAD(MAX(SUBSTRING(K.ASSET_CODE, LENGTH(#assetClass#)+1, 4)) + 1, 4, '0')), CONCAT(#assetClass#, '0001'))
+									  FROM (SELECT * FROM EA_ASSET_MASTER L)	K
+									 WHERE K.ASSET_CLASS = #assetClass#
+									   AND LENGTH(K.ASSET_CODE) = (4 + LENGTH(#assetClass#)))
+									)
+				,A.ASSET_CLASS	= #assetClass#
+				,A.ASSET_TYPE	= #assetType#
+				,A.ASSET_NAME	= #assetName#
+				,A.ACCOUNT	= #assetAccount#
+				,A.GET_DATE		= STR_TO_DATE(#getDate#, '%Y-%m-%d')
+				,A.GET_PRICE	= #getPrice#
+
+			<isNotEmpty prepend="" property="enable">
+				,A.ENABLE		= #enable#
+			</isNotEmpty>
+
+				,A.STATUS		= #status#
+				,A.OWN_COMPANY  = #ownCompany#
+				,A.ORG_ID	    = #orgId#
+				,A.QTY		    = #qty#
+				,A.UPDATE_DATE	= now()
+				,A.UPDATED_BY	= #userSeq#
+
+		 WHERE A.ASSET_ID = #assetId#
+
+		/* eam.updateAssetMaster */
+	</update>
+
+
+	<!-- 자산 마스터 삭제 -->
+	<update id="eam.deleteAssetMaster" parameterClass="Map">
+		UPDATE EA_ASSET_MASTER		A
+		   SET
+				 A.ENABLE		= 'N'
+
+				,A.UPDATE_DATE	= now()
+				,A.UPDATED_BY	= #userSeq#
+
+		 WHERE A.ASSET_ID = #assetId#
+
+		/* eam.deleteAssetMaster */
+	</update>
+
+
+
+	<!-- ############################ 차량 리스트 등록 :S ############################ -->
+
+	<!-- 차량 리스트 -->
+	<select id="eam.selectCarList" parameterClass="HashMap" resultClass="HashMap">
+		SELECT
+			   A.ASSET_ID						AS assetId
+			  ,A.ASSET_CODE						AS carCode
+			  ,A.ASSET_NAME        				AS assetName   
+			  ,A.ASSET_CLASS
+			  ,(SELECT B.VALUE_MEAN_KOR        FROM BS_CODE_GV B      WHERE B.CODE_NAME = 'ASSET_CLASS'       
+			  AND B.CODE_VALUE = A.ASSET_CLASS          AND B.ORG_ID = A.ORG_ID)    AS assetClassNm   
+			  ,B.CAR_ID							AS carId
+			  ,B.CAR_NUMBER						AS carNumber
+			  ,B.CAR_NICK						AS carNick
+			  ,B.CAR_MODEL						AS carModel
+			  ,B.AUTO_YN						AS autoYn
+
+			  ,B.MILEAGE						AS mileage
+			  ,B.CAR_IMAGE						AS carImage
+			  ,B.ENABLE							AS enable
+
+			  ,B.CAR_STATUS						AS carStatus
+			  ,(SELECT G.VALUE_MEAN_KOR
+		 		  FROM BS_CODE_GV G
+				 WHERE G.CODE_NAME = 'CAR_STATUS'
+		  		   AND G.CODE_VALUE = B.CAR_STATUS
+		  		   AND G.ORG_ID = A.ORG_ID) 	AS carStatusNm
+
+			  ,DATE_FORMAT(B.CREATE_DATE, "%Y-%m-%d")	AS createDate
+			  ,B.CREATED_BY			AS createdBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = B.CREATED_BY)	AS createNm
+			  ,DATE_FORMAT(B.UPDATE_DATE, "%Y-%m-%d")	AS updateDate
+			  ,B.UPDATED_BY			AS updatedBy
+			  ,(SELECT NAME FROM BS_USER_MASTER WHERE USER_ID = B.UPDATED_BY)	AS updateNm
+
+		  FROM EA_ASSET_MASTER		A
+		  LEFT JOIN BS_CAR_LIST	B ON A.ASSET_ID = B.ASSET_ID
+		 WHERE 1=1
+		   AND A.ENABLE = 'Y'
+		   
+		   AND A.ASSET_CLASS = 'CAR'
+
+		<isNotEmpty prepend="AND" property="search">
+			(A.ASSET_CODE LIKE concat('%', #search#, '%')	OR
+			B.CAR_NUMBER LIKE concat('%', #search#, '%')	OR
+			B.CAR_NICK LIKE concat('%', #search#, '%')		OR
+			B.CAR_MODEL LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="orgId">
+			A.ORG_ID = #orgId#
+		</isNotEmpty>
+
+		<isEmpty prepend="" property="sortCol">
+			ORDER BY A.ASSET_CODE ASC
+		</isEmpty>
+		<isNotEmpty prepend="" property="sortCol">
+		 	ORDER BY $sortCol$ $sortVal$
+		</isNotEmpty>
+
+		<isNotEmpty prepend="" property="limit">
+			LIMIT #offset#,#limit#
+		</isNotEmpty>
+
+		/* eam.selectCarList */
+	</select>
+
+
+	<!-- 차량 리스트 총수 -->
+	<select id="eam.selectCarListCount" parameterClass="HashMap" resultClass="int">
+		SELECT
+			   COUNT(*)
+
+		  FROM EA_ASSET_MASTER		A
+		  LEFT JOIN BS_CAR_LIST	B ON A.ASSET_ID = B.ASSET_ID
+		 WHERE 1=1
+		   AND A.ENABLE = 'Y'
+		  
+		   AND A.ASSET_CLASS = 'CAR'
+
+		<isNotEmpty prepend="AND" property="search">
+			(A.ASSET_CODE LIKE concat('%', #search#, '%')	OR
+			B.CAR_NUMBER LIKE concat('%', #search#, '%')	OR
+			B.CAR_NICK LIKE concat('%', #search#, '%')		OR
+			B.CAR_MODEL LIKE concat('%', #search#, '%'))
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="orgId">
+			A.ORG_ID = #orgId#
+		</isNotEmpty>
+		/* eam.selectCarListCount */
+	</select>
+
+
+	<!-- 차량 등록 -->
+	<insert id="eam.insertCar" parameterClass="Map">
+		INSERT INTO BS_CAR_LIST(
+								 ASSET_ID
+								,CAR_NUMBER
+								,CAR_NICK
+								,CAR_MODEL
+								,AUTO_YN
+
+								,MILEAGE
+								,CAR_IMAGE
+								,`ENABLE`
+								,CAR_STATUS
+								,ORG_ID
+								,CREATE_DATE
+								,CREATED_BY
+								,UPDATE_DATE
+								,UPDATED_BY
+
+							)VALUES(
+								 #assetId#
+								,#inCarNumber#
+								,#inCarNick#
+								,#inCarModel#
+								,#selAutoYn#
+
+								,#inMileage#
+								,#carImage#
+								,#selEnable#
+								,#selCarStatus#
+								,#orgId#
+								,now()
+								,#userSeq#
+								,now()
+								,#userSeq#
+							)
+
+			<selectKey resultClass="int" type="post" keyProperty="carId">
+				SELECT LAST_INSERT_ID()
+			</selectKey>
+
+		/* eam.insertCar */
+	</insert>
+
+
+	<!-- 차량 수정 -->
+	<update id="eam.updateCar" parameterClass="Map">
+		UPDATE BS_CAR_LIST		A
+		   SET
+				 A.CAR_NUMBER	= #inCarNumber#
+				,A.CAR_NICK		= #inCarNick#
+				,A.CAR_MODEL	= #inCarModel#
+				,A.AUTO_YN		= #selAutoYn#
+
+				,A.MILEAGE		= #inMileage#
+			
+			<isEmpty property="carImage">							<!-- 지워짐 -->
+				<isEqual property="fileDelYn" compareValue="Y">
+					,A.CAR_IMAGE	= ''
+				</isEqual>
+			</isEmpty>
+				
+			<isNotEmpty property="carImage">
+				<isEqual property="fileDelYn" compareValue="N">		<!-- 안지워지고 변경 -->
+					,A.CAR_IMAGE	= #carImage#
+				</isEqual>	
+			</isNotEmpty>
+				
+			    ,A.`ENABLE`		= #selEnable#
+				,A.CAR_STATUS	= #selCarStatus#
+
+				,A.UPDATE_DATE	= now()
+				,A.UPDATED_BY	= #userSeq#
+
+		 WHERE A.CAR_ID = #carId#
+
+		/* eam.eam.updateCar */
+	</update>
+
+	<!-- 차량 삭제  -->
+	<update id="eam.deleteCar" parameterClass="Map">
+		UPDATE BS_CAR_LIST		A
+		   SET
+				 A.ENABLE		= 'N'
+
+				,A.UPDATE_DATE	= now()
+				,A.UPDATED_BY	= #userSeq#
+
+		 WHERE A.CAR_ID = #carId#
+
+		/* eam.deleteCar */
+	</update>
+
+
+</sqlMap>

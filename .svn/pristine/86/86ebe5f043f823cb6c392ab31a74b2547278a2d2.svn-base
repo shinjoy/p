@@ -1,0 +1,757 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+
+<%
+response.setHeader("Cache-Control","no-cache");
+response.setHeader("Pragma","no-cache");
+response.setDateHeader("Expires",0);
+%>
+
+
+	<jsp:scriptlet>
+		pageContext.setAttribute("cr", "\r");
+		pageContext.setAttribute("lf", "\n");
+		pageContext.setAttribute("crlf", "\r\n");
+		pageContext.setAttribute("sp", "  ");
+	</jsp:scriptlet>
+
+<link href="<c:url value='/css/memo.css'/>" rel="stylesheet" type="text/css">
+<script type="text/JavaScript" src="<c:url value='/js/multiFileUpload.js'/>" ></script>
+
+<form id="downName" name="downName" action="<c:url value='/work/downloadProcess.do' />" method="post">
+	<input type="hidden" name="makeName" id="makeName"/>
+	<input type="hidden" name="recordCountPerPage" value="0"/>
+</form>
+<%-- <script type="text/JavaScript" src="<c:url value='/js/jquery-ui.js'/>" ></script> --%>
+<style>
+#divisionDivPop{
+	border-bottom:1px solid #bfc9de;
+}
+#divisionDivPop div dl dd label {
+    display: inline-block;
+    margin-left: 4px;
+   	color: #838383;
+}
+
+
+</style>
+<script>
+$(document).ready(function(){
+
+	getDivListPop('1');	//탭 - 1 부서별 2 사원별
+
+	$('.M_comR').hover(
+		function(){
+			$(this).click();
+		},function(){
+		}
+	);
+
+	$(document).on("click",".closePopUpMenu",function(event){
+		$(this).parent().parent().hide();
+		// $(".popUpMenu").hide();
+	});
+
+	$("#closeTab").mousedown(function(){
+		$("#offerPr").draggable();
+	});
+
+});
+
+function getDivListPop(ver){		//ver : 탭종류 - 1 부서별 2 사원별
+	$(".click_tab_pop").removeClass();
+	$("#btn_pop_"+ver).addClass("click_tab_pop");
+	var divisionList= getCodeInfo(null,null,null,null,null,null,"/common/getDivisionList.do",{userId : '${baseUserLoginInfo.userId}'});
+	$("#divisionDivPop").empty();
+	for(var i=0;i<divisionList.length;i++){
+		var str="";
+		str='<div id="'+divisionList[i].divCode+'ListPop"></div>'
+		$("#divisionDivPop").append(str);
+		if(ver == '1') getUserListVer1Pop(divisionList[i].divCode,divisionList[i].divName,i);
+		else getUserListVer2Pop(divisionList[i].divCode,divisionList[i].divName);
+
+	}
+}
+
+
+
+//부서별
+function getUserListVer1Pop(divCode,divName,idx){
+
+	var url = contextRoot+"/work/selectuserList.do";
+	var param = {
+			orgId : divCode,
+			deptOrder: 'Y',
+			mainYn	 : 'Y',
+			hasDeptTopLevel    : 'Y'
+		};
+	var callback = function(result){
+		var obj = JSON.parse(result);
+		var cnt = obj.resultVal;		//결과수
+		var list = obj.resultList;		//결과데이터JSON
+		//console.log(list);
+		var PerCnt=0;
+		var dept = ''; 	  //부서명 변수
+		var deptSeq = ''; //부서시퀀스 변수
+		var classSet = '';
+		var styleDisplay='';
+		if(divCode == "${baseUserLoginInfo.orgId}" ){	//login유저의  division일때 div세팅
+			onclickSet= 'hiddenDiv(\''+divCode+'Pop\')' ;
+			classSet  = 'axi-keyboard-arrow-up';
+		}else{
+			onclickSet= 'openDiv(\''+divCode+'Pop\')' ;
+			styleDisplay = ' style="display:none;" ' ;
+			classSet  = 'axi-keyboard-arrow-down';
+		}
+		if(list.length>0){
+			var str='';
+			/* ========회사선택 체크박스======== */
+			str+='<p class="division_area"> <label for="Entry'+idx+'Pop"><input type="checkbox" name="EntryPop" id="Entry'+idx+'Pop" class="Entry_'+divCode+'Pop" onclick="selCompanyPop(this.name, ' + idx + ', \'' + divCode + '\');"><b>전체선택('+divName+')</b></label>'; //
+			str += '<span id="span_'+divCode+'Pop" style="float:right;cursor:pointer;" onclick="'+onclickSet+'"><i id="btn_'+divCode+'Pop" class="axi '+classSet+'" style="font-size:20px;"></i></span></p>';
+			str+= '<dl class="user_dl" id="dl_'+divCode+'Pop" '+ styleDisplay +'>';
+			for(var i=0 ; i<list.length ;i++){
+	    		deptSeq = list[i].deptSeq;
+	    		if(list[i].deptNm != dept){		//새로운 부서 인원
+	    			/* ========부서선택 체크박스======== */
+	    			str+= '<dt class="user_dt"><label for="'+divCode+'_deptAry'+deptSeq+'Pop"><input type="checkbox" name="'+divCode+'deptAryPop" id="'+divCode+'_deptAry'+deptSeq+'Pop" class="'+divCode+'Pop"  onclick="selDeptPop(this.id);"><b>'+list[i].deptNm+'</b></label></dt>' ;		//줄바꾸고
+  				dept = list[i].deptNm;		//부서 이름
+  				str += '<dd class="user_dd" style="margin:0px;">';	//새로운 부서일때 dd생성
+  				PerCnt=0;
+	    		}
+  			str+='<label for="EntryAry'+i+'Pop"><input type="checkbox" name="memoSndName" id="EntryAry'+i+'Pop" class="'+divCode+'_deptAry'+deptSeq+'Pop" value="'+list[i].usrNm+'" >' ;
+	    		str+=list[i].usrNm+'</label>';
+	    		PerCnt++;
+	    		if(list[i].deptNm != dept){
+					str += '</dd>';
+				}
+	    	}
+	    	str += '</dl>';
+	    	$("#"+divCode+"ListPop").html(str);
+
+		}
+	};
+	commonAjax("POST", url, param, callback, false, null, null);
+
+}
+
+//사원별
+function getUserListVer2Pop(divCode,divName){
+
+	var url = contextRoot + "/work/selectuserList.do";
+	var param = {
+					orgId : divCode,
+					deptOrder: 'Y',
+					mainYn	 : 'Y',
+					hasDeptTopLevel    : 'Y'
+				};
+
+	var callback = function(result){
+		var obj = JSON.parse(result);
+		var cnt = obj.resultVal;		//결과수
+		var list = obj.resultList;		//결과데이터JSON
+		var styleDisplay='';
+		if(divCode == "${baseUserLoginInfo.orgId}" ){	//login유저의  division일때 div세팅
+			onclickSet= 'hiddenDiv(\''+divCode+'Pop\')' ;
+			classSet  = 'axi-keyboard-arrow-up';
+		}else{
+			onclickSet= 'openDiv(\''+divCode+'Pop\')' ;
+			styleDisplay = ' style="display:none;" ' ;
+			classSet  = 'axi-keyboard-arrow-down';
+		}
+		if(list.length>0){
+			var str='<p class="division_area">';
+			str+='<label><input type="checkbox" onclick="selectAllforSndMemoDivName(this,0,\''+divCode+'ListPop\');"><b>전체선택('+divName+')</b></label>';
+			str += '<span id="span_'+divCode+'Pop" style="float:right;cursor:pointer;" onclick="'+onclickSet+'"><i id="btn_'+divCode+'Pop" class="axi '+classSet+'" style="font-size:20px;"></i></span></p>';
+			str+= '<dl class="user_dl" id="dl_'+divCode+'Pop" '+ styleDisplay +'>';
+			str+='<dt class="user_dt" style="border-bottom:0px;background:#eceadf;">';
+			for(var i=0 ; i<list.length ;i++){
+	    		str+='<span style="width:155px;display:inline-block;"><label for="'+divCode+'chbox'+i+'" class="checkR"><input type="checkbox" name="memoSndName" id="'+divCode+'chbox'+i+'" value="'+list[i].usrNm+'" >' ;
+	    		str+='<span style="width:45px;display:inline-block;"><b>' + list[i].usrNm+'</b></span>('+list[i].deptNm+')</label></span>';
+	    		//str+='</dt>';
+	    		if(i%2 == 1){
+					str+='</dt>';
+					str+='<dt class="user_dt" style="border-bottom:0px;background:#eceadf;">';
+				}
+	    	}
+	    	str+='</dl>';
+	    	$("#"+divCode+"ListPop").html(str);
+		}
+	};
+	commonAjax("POST", url, param, callback, false, null, null);
+}
+
+
+//회사 선택
+function selCompanyPop(Obj, idx, divCd) {			//idx ... division list index ... 0:'SYNERGY', 1:'FIDES'		divCd...  'SYNERGY', 'FIDES'
+
+	var All = $($('input:checkbox[name='+Obj+']')[idx]); //회사선택 체크박스
+	var ChkList = $('input[name='+divCd+'deptAryPop]'); //부서선택 체크박스
+	if(!All.is(':checked')) {// 전체선택 체크박스가 해제되었다면
+		for(var i=0; i<ChkList.length; i++) {
+			ChkList[i].checked = false;
+			selDeptPop($(ChkList[i]).attr('id')); //부서선택으로
+		}
+	}
+	else { // 그게 아니라면
+		for(var i=0; i<ChkList.length; i++) {
+			ChkList[i].checked = true;
+			selDeptPop($(ChkList[i]).attr('id'));//부서선택으로
+		}
+	}
+}
+//부서선택
+function selDeptPop(obj) {
+	var All = $("#"+obj);
+	var ChkList = $("."+obj); ///해당 부서를 class 로 가지고 있는 사원의 체크박스 리스트
+	if(!All.is(':checked')) {// 전체선택 체크박스가 해제되었다면
+		for(var i=0; i<ChkList.length; i++) {
+			ChkList[i].checked = false;
+		}
+	}
+	else { // 그게 아니라면
+		for(var i=0; i<ChkList.length; i++) {
+			ChkList[i].checked = true;
+		}
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function getUserList (divCode,divName){
+
+	var url = contextRoot + "/work/selectuserList.do";
+	var param = {
+					orgId : '${baseUserLoginInfo.orgId}',
+					deptOrder: 'Y',
+	    			mainYn	 : 'Y',
+	    			hasDeptTopLevel    : 'Y'
+	    		};
+
+
+	var callback = function(result){
+		var obj = JSON.parse(result);
+		var cnt = obj.resultVal;		//결과수
+		var list = obj.resultList;		//결과데이터JSON
+
+		if(list.length>0){
+			var str ='<p class="bsnsR_btn allCheck"><span class="memo_btnSnd btn s">';
+			str+=' <a onclick="selectAllforSndMemoDivName(this,0,\''+divCode+'ListPop\');" style="display: inline-block; width: 105px;">전체선택('+divName+')</a> </span>&nbsp;</p> ';
+			str+='<p class="pd0 mg0">';
+	    	for(var i=0 ; i<list.length ;i++){
+	    		str+='<label for="'+divCode+'chbox'+i+'" class="checkR"><input type="checkbox" name="memoSndName" id="'+divCode+'chbox'+i+'" value="'+list[i].usrNm+'" >' ;
+	    		str+=list[i].usrNm+'</label>';
+
+	    		if(i%2 == 1){
+	    			str+='</p><p class="pd0 mg0">';
+	    		}
+	    	}
+	    	str+='</p>';
+
+
+			$("#"+divCode+"ListPop").html(str);
+
+		}
+
+	};
+	commonAjax("POST", url, param, callback, true, null, null);
+
+}
+
+function resizeTextarea(th){
+	var obj=$(th);
+	obj.css('height','1px');
+	obj.css('height',(th.scrollHeight)+'px');
+}
+
+function putStaffNames(th){
+	var NM = document.getElementById('am_Name')
+		i = 0
+		div = $(th).parent().parent()
+		nmValue='';
+
+	div.find('[name=memoSndName]:checked').each(function(){
+		nmValue = nmValue+(nmValue==''?'':',')+this.value;
+	});
+	/* div.find('[name=memoSndName2]:checked').each(function(){
+		nmValue = nmValue+(nmValue==''?'':',')+this.value;
+	}); */
+
+	if(nmValue!='') {
+		NM.value = nmValue;
+
+		$('#am_smsTitle').val(($('#chkSmsSend').is(':checked'))?'sms':'');		//문자발송 여부
+	}
+	div.hide();
+}
+
+function textareaClick(th){
+	var obj = $(th)
+		,next = obj.next()
+		,textarea = next.find('textarea');
+	obj.css('display','none');
+	$('.hideCntrl').css('display','');
+	textarea.css('height',obj.css('height'));
+	next.css('display','');
+	textarea.focus();
+	textarea.click();
+}
+function majorBsns(th){
+	var obj = $(th)
+		,redYN = obj.attr('class').indexOf('red');
+	if(redYN>0) {
+		obj.removeClass('red');
+		$('#am_majorBsns').val('N');
+	}else{
+		obj.addClass('red');
+		$('#am_majorBsns').val('Y');
+	}
+}
+
+
+//메모 재전송 팝업
+function reSend(snb){
+
+	var url = "<c:url value='/work/memoResendPopup.do?s=' />" + snb;
+
+	window.open(url, 'memoResendPop', 'scrollbars=no width=500 height=320');
+}
+
+
+
+</script>
+<iframe id="uploadIFrame" name="uploadIFrame" style="display:none;visibility:hidden"></iframe>
+<%-- 메모 --%>
+	<div class="popUpMenu title_area" id="offerPr" style="display:block;width:500px;">
+		<c:forEach var="workVO" items="${memoList}" varStatus="memoStatus">
+			<input type="hidden" id="am_majorBsns" value="${workVO.major}">
+
+		<c:choose>
+		<c:when test="${baseUserLoginInfo.userName==workVO.name}">
+			<c:choose>
+		<%-- 타인에게 전달 받은 메모 --%>
+			<c:when test="${workVO.sttsCd=='00001'||workVO.sttsCd=='00002'}">
+				<input type="hidden" id="memoSNb${memoStatus.count}" value="${workVO.sNb }">
+
+				<p id="closeTab" name="textR"><span class="closePopUpMenu" title="닫기">ⅹ닫기</span></p>
+				<div style="clear:both;height:2px;"></div>
+				<c:if test="${workVO.major == 'Y'}"><div style="padding:0 0 2px 4px;"><span class="btn s red"><a>주업무</a></span></div></c:if>
+				<div class="M_basicInfoL Toogle">${workVO.rgNm}<br/>${fn:replace(fn:substring(workVO.tmDt,5,10),'-','.') }<br/></div>
+				<div class="triL<c:if test='${workVO.priv == "Y"}'>org</c:if>">&nbsp;</div>
+				<div class="M_comL clr${workVO.importance}" style="<c:if test='${workVO.priv == "Y"}'>background:#FAAC58;</c:if>">${fn:replace(fn:replace(workVO.comment, lf,"<br/>"),sp,"&nbsp; ")}</div>
+			<%-- 파일첨부 --%>
+				<div style="clear:both;height:4px;"></div>
+				<div style="cursor:pointer;padding-left:50px;">
+				<c:if test="${not empty workVO.realNm}"><c:choose><c:when test="${fn:indexOf(workVO.realNm,'^^^') > 0}"><c:set var="imgNm" value="${fn:split(workVO.realNm, '^^^')}"/><c:set var="makeNm" value="${fn:split(workVO.makeNm, '^^^')}"/><c:forEach var="mkNm" items="${makeNm}" varStatus="mkSt"><input type="hidden" id="mkNames${mkSt.count}" value="${mkNm}"/></c:forEach><c:forEach var="im" items="${imgNm}" varStatus="imSt"><c:set var="extension" value="${fn:split(im,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file${imSt.count}" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${im}"><span class="filePosition link" id="titlefile${imSt.count}" style="color:gray;"> ${im}</span></c:forEach></c:when><c:otherwise><c:set var="extension" value="${fn:split(workVO.realNm,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><input type="hidden"  id="mkNames1" value="${workVO.makeNm}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file1" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${workVO.realNm}"><span class="filePosition link" id="titlefile1" style="color:gray;"> ${workVO.realNm}</span></c:otherwise></c:choose></c:if>
+				</div>
+			<%-- 파일첨부 --%>
+				<div style="clear:both;height:8px;"></div>
+
+				<c:forEach var="cmnt" items="${cmntStaffNm}" varStatus="cmntS"><c:if test="${workVO.mainSnb == cmnt.mainSnb}"><div style="color:navy;font-size:11px;width:450px;"><div style="float:left;height:15px;">&nbsp;&nbsp;참조인:&nbsp;</div><div>${cmnt.cmntStaffs}</div></div></c:if></c:forEach>
+				<c:if test="${not empty cmntStaffNm}"><div style="clear:both;height:5px;"></div></c:if>
+				<c:forEach var="replyCmt" items="${replyList}" varStatus="rpS">
+					<c:if test="${workVO.mainSnb == replyCmt.mainSnb}">
+						<c:choose>
+						<c:when test="${replyCmt.rgId==baseUserLoginInfo.loginId}">
+					<%-- 본인이 작성한 댓글 --%>
+					<div style="cursor:pointer;">
+						<input type="hidden" id="repSNb${fn:substring(replyCmt.tmDt, 8,10)}_${memoStatus.count}" value="${replyCmt.repSnb}">
+						<input type="hidden" id="memoRPSNb${memoStatus.count}" value="${replyCmt.sNb }">
+						<input type="hidden" id="oldMemoTmdt${memoStatus.count}" value="${fn:substring(replyCmt.tmDt, 0,10)}">
+						<div class="M_basicInfoR bsnsR_btn">나<br/>${fn:replace(fn:substring(replyCmt.tmDt, 5,10),'-','.')}<br/>
+							<%--<span class="repEdit" onclick="replyUpd('${replyCmt.mainSnb}','${replyCmt.sNb}','${replyCmt.rgNm}',this)"><a><img src="<c:url value='/images/recommend/modify.png'/>" title="수정"/></a></span> --%>
+							<span class="btn s green" onclick="replyUpd('${replyCmt.mainSnb}','${replyCmt.sNb}','${replyCmt.rgNm}',this)"><a>저장</a></span>
+							<span class="repEdit" onclick="replyDel('${replyCmt.sNb}')"><a><img src="<c:url value='/images/recommend/delete.png'/>" title="삭제"/></a></span>
+						</div>
+						<div class="triR">&nbsp;</div>
+						<div class="M_comR" title="클릭해서 수정하기" onclick="javascript:textareaClick(this);">${fn:replace(fn:replace(replyCmt.comment, lf,"<br/>"),sp,"&nbsp; ")}</div>
+						<div class="M_comRinTA" style="display:none;"><div class="repEdit"><textarea onkeyup="resizeTextarea(this)" onclick="resizeTextarea(this)" id="memoarea${memoStatus.count}" style="min-height:40px">${replyCmt.comment}</textarea></div></div>
+						<c:if test="${replyCmt.sttsCd!='00002'}"><div style="float:right;color:red;width:14px;font-weight:bold;">1</div></c:if>
+					</div>
+					<%-- 파일첨부 --%>
+					<div>
+						<c:if test="${not empty replyCmt.realNm}"><c:choose><c:when test="${fn:indexOf(replyCmt.realNm,'^^^') > 0}"><c:set var="imgNm" value="${fn:split(replyCmt.realNm, '^^^')}"/><c:set var="makeNm" value="${fn:split(replyCmt.makeNm, '^^^')}"/><c:forEach var="mkNm" items="${makeNm}" varStatus="mkSt"><input type="hidden" id="mkNames${mkSt.count}" value="${mkNm}"/></c:forEach><c:forEach var="im" items="${imgNm}" varStatus="imSt"><c:set var="extension" value="${fn:split(im,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file${imSt.count}" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${im}"><span class="filePosition link" id="titlefile${imSt.count}" style="color:gray;"> ${im}</span></c:forEach></c:when><c:otherwise><c:set var="extension" value="${fn:split(replyCmt.realNm,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><input type="hidden"  id="mkNames1" value="${replyCmt.makeNm}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file1" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${replyCmt.realNm}"><span class="filePosition link" id="titlefile1" style="color:gray;"> ${replyCmt.realNm}</span></c:otherwise></c:choose></c:if>
+					</div>
+					<%-- 파일첨부 --%>
+					<div style="clear:both;height:5px;"></div>
+
+					<%-- 본인이 작성한 댓글 --%>
+						</c:when>
+						<c:otherwise>
+					<%-- 다른사람이 작성한 댓글 --%>
+
+						<%-- <c:if test="${replyCmt.repSnb == '0'}"> --%>
+					<div class="M_basicInfoL Toogle">${replyCmt.rgNm}<br/>${fn:replace(fn:substring(replyCmt.tmDt,5,10),'-','.') }<br/></div>
+					<div class="triL">&nbsp;</div>
+					<div class="M_comL">${fn:replace(fn:replace(replyCmt.comment, lf,"<br/>"),sp,"&nbsp; ")}</div>
+					<c:if test="${replyCmt.sttsCd!='00002'}"><div style="float:left;color:red;width:14px;font-weight:bold;text-align:right;">1</div></c:if>
+
+					<%-- 파일첨부 --%>
+					<div style="cursor:pointer;">
+					<c:if test="${not empty replyCmt.realNm}"><c:choose><c:when test="${fn:indexOf(replyCmt.realNm,'^^^') > 0}"><c:set var="imgNm" value="${fn:split(replyCmt.realNm, '^^^')}"/><c:set var="makeNm" value="${fn:split(replyCmt.makeNm, '^^^')}"/><c:forEach var="mkNm" items="${makeNm}" varStatus="mkSt"><input type="hidden" id="mkNames${mkSt.count}" value="${mkNm}"/></c:forEach><c:forEach var="im" items="${imgNm}" varStatus="imSt"><c:set var="extension" value="${fn:split(im,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file${imSt.count}" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${im}"><span class="filePosition link" id="titlefile${imSt.count}" style="color:gray;"> ${im}</span></c:forEach></c:when><c:otherwise><c:set var="extension" value="${fn:split(replyCmt.realNm,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><input type="hidden"  id="mkNames1" value="${replyCmt.makeNm}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file1" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${replyCmt.realNm}"><span class="filePosition link" id="titlefile1" style="color:gray;"> ${replyCmt.realNm}</span></c:otherwise></c:choose></c:if>
+					</div>
+					<%-- 파일첨부 --%>
+
+					<div style="clear:both;height:8px;"></div>
+
+						<%-- </c:if> --%>
+
+					<%-- 다른사람이 작성한 댓글 --%>
+						</c:otherwise>
+						</c:choose>
+					</c:if>
+				</c:forEach>
+
+			<!-- ============= 답글등록 :S ============= -->
+			<div style="border:1px solid #D4E6F1; background-color:#D4E6F1; margin-left:5px;margin-right:5px; padding-top:5px;padding-bottom:5px;">
+
+
+				<c:if test="${(workVO.sttsCd=='00001' or workVO.sttsCd=='00002') and baseUserLoginInfo.userName==workVO.name}">
+				<div class="M_basicInfoR">나<br/><small>${fn:replace(fn:substring(replyCmt.tmDt, 5,10),'-','.')}</small>
+					<c:if test="${(workVO.sttsCd=='00001' or workVO.sttsCd=='00002') and baseUserLoginInfo.userName==workVO.name}"><span class="btn s green" onclick="reply('${workVO.mainSnb}','${workVO.sNb}','${baseUserLoginInfo.userId}',this)"><a>답글달기</a></span>
+					<span class="btn s gold" onclick="reply('${workVO.mainSnb}','${workVO.sNb}','${baseUserLoginInfo.userId}',this, null, 'Y')"><a>읽음확인</a></span></c:if>
+					<div class="Impt" style="padding:1px;border-radius:5px;border:1px solid gray;margin:5px 0px;">
+						중요도<br/>
+						<select id="importance${memoStatus.count}">
+							<option value="0" <c:if test="${workVO.importance == 0}">selected</c:if>>-</option>
+							<option value="1" <c:if test="${workVO.importance == 1}">selected</c:if>>하</option>
+							<option value="2" <c:if test="${workVO.importance == 2}">selected</c:if>>중</option>
+							<option value="3" <c:if test="${workVO.importance == 3}">selected</c:if>>상</option>
+						</select>
+					</div>
+				</div>
+				<div class="triRn">&nbsp;</div>
+				<div class="M_comRinTAn"><div><textarea onkeyup="resizeTextarea(this)" style="min-height:80px" id="memoarea0" placeholder="답장을 입력하세요."></textarea></div></div>
+		<%-- 파일업로드 --%>
+			<form id="multiFile_N_comment" name="fileNcomment" action="<c:url value='/basic/filesUpload4memo.do' />" method="post" encType="multipart/form-data">
+				<input type="hidden" id="m_categoryCd" name="categoryCd" value="00004">
+				<input type="hidden" id="m_rtn" name="rtn">
+				<input id="files-upload" name="files-upload" type="file" multiple style="display:none;">
+			</form>
+
+			<div style="float:left;padding-left:20px;vertical-align:middle;">
+				<a class="btn glass s" onclick="$('#files-upload').click();" style="color:blue;width:60px;font-weight:bold;"><img src="<c:url value='../images/file/fileDisk.png' />" style="vertical-align:middle;" align="absmiddle">File</a>
+				<div><table id="file_list"></table></div>
+			</div>
+		<%-- 파일업로드 --%>
+				<div style="clear:both;height:1px;"></div>
+				<%-- <div class="cent">
+					<span class="Impt">
+						중요도
+						<select id="importance${memoStatus.count}">
+							<option value="0" <c:if test="${workVO.importance == 0}">selected</c:if>>하</option>
+							<option value="1" <c:if test="${workVO.importance == 1}">selected</c:if>>중</option>
+							<option value="2" <c:if test="${workVO.importance == 2}">selected</c:if>>상</option>
+						</select>
+					</span>
+					<span class="btn s blue" onclick="chkOk(this)"><a>확인</a></span>
+				</div> --%>
+				</c:if>
+
+			</div>
+			<!-- ============= 답글등록 :E ============= -->
+
+			</c:when>
+		<%-- 타인에게 전달 받은 메모 --%>
+		<%-- 본인이 작성한 메모 --%>
+			<c:otherwise>
+
+				<!-- ============= 본인이 작성한 첫글 :S ============= -->
+
+				<input type="hidden" id="memoSNb${memoStatus.count}" value="${workVO.sNb }">
+				<input type="hidden" id="oldMemoComment${memoStatus.count}" value="${workVO.comment}">
+				<input type="hidden" id="oldMemoTmdt${memoStatus.count}" value="${fn:substring(workVO.tmDt, 0,10)}">
+				<p id="closeTab" name="textR"><span class="closePopUpMenu" title="닫기">ⅹ닫기</span></p>
+				<div style="clear:both;height:5px;"></div>
+				<div class="M_basicInfoR">나<br/>${fn:replace(fn:substring(workVO.tmDt, 5,10),'-','.')}<br/>
+					<%--<span style="margin:3px;" class="hand" onclick="memo_btnOk(this)"> --%></span><span class="btn s green" onclick="memo_btnOk(this)"><a>저장</a></span>
+					<span style="margin:3px;" class="hand" onclick="memo_btnDel(this)"><a><img src="<c:url value='/images/recommend/delete.png'/>" title="삭제"/></a></span>
+					<div class="hideCntrl" style="<c:if test="${workVO.major != 'Y'}">display:none;</c:if>padding-top:3px;"><span class="btn s<c:if test="${workVO.major == 'Y'}"> red</c:if>" onclick="javascript:majorBsns(this);"><a>주업무</a></span></div>
+					<div class="hideCntrl" style="display:none;padding:1px;border-radius:5px;border:1px solid gray;margin:5px 0px;">
+						중요도<br/>
+						<select id="importance${memoStatus.count}">
+							<option value="0" <c:if test="${workVO.importance == 0}">selected</c:if>>-</option>
+							<option value="1" <c:if test="${workVO.importance == 1}">selected</c:if>>하</option>
+							<option value="2" <c:if test="${workVO.importance == 2}">selected</c:if>>중</option>
+							<option value="3" <c:if test="${workVO.importance == 3}">selected</c:if>>상</option>
+						</select>
+					</div>
+					<div class="hideCntrl" style="display:none;padding:1px;border-radius:5px;border:1px solid gray;">
+						비밀<br/>
+						<select id="priv${memoStatus.count}">
+							<option value="N" <c:if test="${workVO.priv == 'N'}">selected</c:if>>N</option>
+							<option value="Y" <c:if test="${workVO.priv == 'Y'}">selected</c:if>>Y</option>
+						</select>
+					</div>
+				</div>
+				<div class="triR<c:if test='${workVO.priv == "Y"}'>org</c:if>">&nbsp;</div>
+				<div class="M_comR clr${workVO.importance}" title="클릭해서 수정하기" onclick="javascript:textareaClick(this);" style="<c:if test='${workVO.priv == "Y"}'>background:#FAAC58;</c:if>">${fn:replace(fn:replace(workVO.comment, lf,"<br/>"),sp,"&nbsp; ")}</div>
+				<div class="M_comRinTA" style="display:none;"><div><textarea onkeyup="resizeTextarea(this)" onclick="resizeTextarea(this)" id="memoarea${memoStatus.count}" class="clr${workVO.importance}" style="min-height:140px;<c:if test='${workVO.priv == "Y"}'>background:#FAAC58;</c:if>">${workVO.comment}</textarea></div></div>
+			<%-- 파일첨부 --%>
+				<div style="cursor:pointer;">
+				<c:if test="${not empty workVO.realNm}"><c:choose><c:when test="${fn:indexOf(workVO.realNm,'^^^') > 0}"><c:set var="imgNm" value="${fn:split(workVO.realNm, '^^^')}"/><c:set var="makeNm" value="${fn:split(workVO.makeNm, '^^^')}"/><c:forEach var="mkNm" items="${makeNm}" varStatus="mkSt"><input type="hidden" id="mkNames${mkSt.count}" value="${mkNm}"/></c:forEach><c:forEach var="im" items="${imgNm}" varStatus="imSt"><c:set var="extension" value="${fn:split(im,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file${imSt.count}" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${im}"><span class="filePosition link" id="titlefile${imSt.count}" style="color:gray;"> ${im}</span></c:forEach></c:when><c:otherwise><c:set var="extension" value="${fn:split(workVO.realNm,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><input type="hidden"  id="mkNames1" value="${workVO.makeNm}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file1" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${workVO.realNm}"><span class="filePosition link" id="titlefile1" style="color:gray;"> ${workVO.realNm}</span></c:otherwise></c:choose></c:if>
+				</div>
+			<%-- 파일첨부 --%>
+				<div style="clear:both;height:0px;"></div>
+
+				<c:if test="${not empty cmntStaffNm}">
+				<div class="hideCntrl" style="padding-top:3px;padding-left:5px; text-align:left;"><span class="btn s" onclick="javascript:reSend(${workVO.sNb});"><a>재전송</a></span></div>
+				</c:if>
+
+				<!-- ============= 본인이 작성한 첫글 :E ============= -->
+
+				<c:forEach var="cmnt" items="${cmntStaffNm}" varStatus="cmntS"><c:if test="${workVO.sNb == cmnt.mainSnb}"><div style="color:navy;font-size:11px;width:480px;"><div style="float:left;height:15px;">&nbsp;&nbsp;참조인:&nbsp;</div><div>${cmnt.cmntStaffs}</div></div></c:if></c:forEach>
+				<c:if test="${not empty cmntStaffNm}"><div style="clear:both;height:5px;"></div></c:if>
+				<c:set var="chkrpl" value="0"/>
+				<c:forEach var="replyCmt" items="${replyList}" varStatus="rpS">
+					<c:if test="${workVO.sNb == replyCmt.mainSnb}"><c:set var="chkCmt" value="${replyCmt.sttsCd}"/><c:set var="chkrpl" value="1"/>
+						<input type="hidden" id="memoRPSNb${rpS.count}" value="${replyCmt.sNb }">
+							<c:choose>
+							<c:when test="${replyCmt.rgId==baseUserLoginInfo.loginId}">
+						<%-- 본인이 작성한 댓글 --%>
+						<%--div class="M_basicInfoR">나<br/>${fn:replace(fn:substring(replyCmt.tmDt,5,10),'-','.') }<br/>
+							<span class="repEdit" onclick="replyUpd('${replyCmt.mainSnb}','${replyCmt.sNb}','${replyCmt.rgNm}',this)"><a><img src="<c:url value='/images/recommend/modify.png'/>" title="수정"/></a></span>
+							<span class="repEdit" onclick="replyDel('${replyCmt.sNb}')"><a><img src="<c:url value='/images/recommend/delete.png'/>" title="삭제"/></a></span>
+						</div>
+						<div class="triR">&nbsp;</div>
+						<div class="M_comR">${fn:replace(fn:replace(replyCmt.comment, lf,"<br/>"),sp,"&nbsp; ")}</div>
+						<div style="clear:both;height:5px;"></div--%>
+
+						<div>
+							<input type="hidden" id="oldMemoTmdt${memoStatus.count}" value="${fn:substring(replyCmt.tmDt, 0,10)}">
+							<div class="M_basicInfoR bsnsR_btn">나<br/>${fn:replace(fn:substring(replyCmt.tmDt, 5,10),'-','.')}<br/>
+								<%-- <span class="repEdit" onclick="replyUpd('${replyCmt.mainSnb}','${replyCmt.sNb}','${replyCmt.rgNm}',this)"><a><img src="<c:url value='/images/recommend/modify.png'/>" title="수정"/></a></span>--%>
+								<span class="btn s green" onclick="replyUpd('${replyCmt.mainSnb}','${replyCmt.sNb}','${replyCmt.rgNm}',this)"><a>저장</a></span>
+								<span class="repEdit" onclick="replyDel('${replyCmt.sNb}')"><a><img src="<c:url value='/images/recommend/delete.png'/>" title="삭제"/></a></span>
+							</div>
+							<div class="triR">&nbsp;</div>
+							<div class="M_comR" title="클릭해서 수정하기" onclick="javascript:textareaClick(this);">${fn:replace(fn:replace(replyCmt.comment, lf,"<br/>"),sp,"&nbsp; ")}</div>
+							<div class="M_comRinTA" style="display:none;"><div class="repEdit"><textarea onkeyup="resizeTextarea(this)" onclick="resizeTextarea(this)" id="memoarea${memoStatus.count}" style="min-height:40px">${replyCmt.comment}</textarea></div></div>
+							<c:if test="${replyCmt.sttsCd!='00002'}"><div style="float:right;color:red;width:14px;font-weight:bold;">1</div></c:if>
+						</div>
+						<%-- 파일첨부 --%>
+						<div style="cursor:pointer;">
+							<c:if test="${not empty replyCmt.realNm}"><c:choose><c:when test="${fn:indexOf(replyCmt.realNm,'^^^') > 0}"><c:set var="imgNm" value="${fn:split(replyCmt.realNm, '^^^')}"/><c:set var="makeNm" value="${fn:split(replyCmt.makeNm, '^^^')}"/><c:forEach var="mkNm" items="${makeNm}" varStatus="mkSt"><input type="hidden" id="mkNames${mkSt.count}" value="${mkNm}"/></c:forEach><c:forEach var="im" items="${imgNm}" varStatus="imSt"><c:set var="extension" value="${fn:split(im,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file${imSt.count}" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${im}"><span class="filePosition link" id="titlefile${imSt.count}" style="color:gray;"> ${im}</span></c:forEach></c:when><c:otherwise><c:set var="extension" value="${fn:split(replyCmt.realNm,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><input type="hidden"  id="mkNames1" value="${replyCmt.makeNm}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file1" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${replyCmt.realNm}"><span class="filePosition link" id="titlefile1" style="color:gray;"> ${replyCmt.realNm}</span></c:otherwise></c:choose></c:if>
+						</div>
+						<%-- 파일첨부 --%>
+						<div style="clear:both;height:5px;"></div>
+						<%-- 본인이 작성한 댓글 --%>
+							</c:when>
+							<c:otherwise>
+						<%-- 다른사람이 작성한 댓글 --%>
+						<div class="M_basicInfoL">${replyCmt.rgNm}<br/>${fn:replace(fn:substring(replyCmt.tmDt,5,10),'-','.') }<br/>
+						</div>
+						<div class="triL">&nbsp;</div>
+						<div class="M_comL">${fn:replace(fn:replace(replyCmt.comment, lf,"<br/>"),sp,"&nbsp; ")}</div>
+						<c:if test="${replyCmt.sttsCd!='00002'}"><div style="float:left;color:red;width:14px;font-weight:bold;text-align:right;">1</div></c:if>
+
+						<%-- 파일첨부 --%>
+						<div style="cursor:pointer;">
+						<c:if test="${not empty replyCmt.realNm}">
+							<c:choose>
+								<c:when test="${fn:indexOf(replyCmt.realNm,'^^^') > 0}">
+									<c:set var="imgNm" value="${fn:split(replyCmt.realNm, '^^^')}"/>
+									<c:set var="makeNm" value="${fn:split(replyCmt.makeNm, '^^^')}"/>
+									<c:forEach var="mkNm" items="${makeNm}" varStatus="mkSt">
+										<input type="hidden" id="mkNames${mkSt.count}" value="${mkNm}"/>
+									</c:forEach>
+									<c:forEach var="im" items="${imgNm}" varStatus="imSt">
+									<c:set var="extension" value="${fn:split(im,'.')}"/>
+									<c:set var="lastDot" value="${fn:length(extension)-1}"/>
+									<c:set var="ext" value=""/>
+									<c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if>
+									<c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if>
+									<c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if>
+									<c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if>
+									<img class="link filePosition" id="file${imSt.count}" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${im}">
+									<span class="filePosition link" id="titlefile${imSt.count}" style="color:gray;"> ${im}</span>
+									</c:forEach>
+								</c:when>
+								<c:otherwise>
+									<c:set var="extension" value="${fn:split(replyCmt.realNm,'.')}"/>
+									<c:set var="lastDot" value="${fn:length(extension)-1}"/>
+									<input type="hidden"  id="mkNames1" value="${replyCmt.makeNm}"/>
+									<c:set var="ext" value=""/>
+									<c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if>
+									<c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if>
+									<c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if>
+									<c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if>
+									<img class="link filePosition" id="file1" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${replyCmt.realNm}">
+									<span class="filePosition link" id="titlefile1" style="color:gray;"> ${replyCmt.realNm}</span>
+								</c:otherwise>
+							</c:choose>
+						</c:if>
+						</div>
+						<%-- 파일첨부 --%>
+
+						<div style="clear:both;height:8px;"></div>
+						<%-- 다른사람이 작성한 댓글 --%>
+							</c:otherwise>
+							</c:choose>
+					</c:if>
+				</c:forEach>
+				<c:if test="${chkrpl!=0}">
+
+					<!-- ============= 내가 답글 달기 :S ============= -->
+					<div style="border:1px solid #D4E6F1; background-color:#D4E6F1; margin-left:5px;margin-right:5px; padding-top:5px;padding-bottom:5px;">
+
+					<div class="M_basicInfoR">나<br/><small>${fn:replace(fn:substring(replyCmt.tmDt, 5,10),'-','.')}</small>
+						<c:if test="${baseUserLoginInfo.userName==workVO.name}"><span class="btn s green" onclick="reply('${workVO.sNb}','${workVO.mainSnb}','${baseUserLoginInfo.userId}',this)"><a>답글달기</a></span>
+						<span class="btn s gold" onclick="reply('${workVO.sNb}','${workVO.mainSnb}','${baseUserLoginInfo.userId}',this, null, 'Y')"><a>읽음확인</a></span>
+						</c:if>
+					</div>
+
+
+
+					<div class="triRn">&nbsp;</div>
+					<div class="M_comRinTAn"><div><textarea onkeyup="resizeTextarea(this)" style="min-height:60px" id="memoarea0" placeholder="답장을 입력하세요."></textarea></div></div>
+
+					<%-- 파일업로드 --%>
+						<form id="multiFile_N_comment" name="fileNcomment" action="<c:url value='/basic/filesUpload4memo.do' />" method="post" encType="multipart/form-data">
+							<input type="hidden" id="m_categoryCd" name="categoryCd" value="00004">
+							<input type="hidden" id="m_rtn" name="rtn">
+							<input id="files-upload" name="files-upload" type="file" multiple style="display:none;">
+						</form>
+
+						<div style="float:left;padding-left:20px;vertical-align:middle;">
+							<a class="btn glass s" onclick="$('#files-upload').click();" style="color:blue;width:60px;font-weight:bold;"><img src="<c:url value='../images/file/fileDisk.png' />" style="vertical-align:middle;" align="absmiddle">File</a>
+							<div><table id="file_list"></table></div>
+						</div>
+					<%-- 파일업로드 --%>
+
+					<div style="clear:both;height:1px;"></div>
+
+					</div>
+					<!-- ============= 내가 답글 달기 :E ============= -->
+
+				</c:if>
+				<%-- <c:if test="${chkrpl!=0 and baseUserLoginInfo.userName==workVO.name}"><div class="cent"><span class="btn s red" onclick="chkRPok(this,'${memoStatus.count}')"><a>확인</a></span></div></c:if> --%>
+			</c:otherwise>
+		<%-- 본인이 작성한 메모 --%>
+			</c:choose>
+		</c:when>
+
+	<%-- 타인의 메모/전달한 사람만 삭제가능 --%>
+		<c:otherwise>
+			<input type="hidden" id="memoSNb${memoStatus.count}" value="${workVO.sNb }">
+			<p id="closeTab" name="textR"><span class="closePopUpMenu" title="닫기">ⅹ닫기</span></p>
+			<div style="clear:both;height:5px;"></div>
+			<div class="M_basicInfoL Toogle">${workVO.rgNm}<br/>${fn:replace(fn:substring(workVO.tmDt, 5,10),'-','.')}<br/>
+				<c:if test="${ workVO.rgId==baseUserLoginInfo.loginId}">
+				<span style="margin:3px;" class="hand" onclick="memo_btnDel(this)"><a><img src="<c:url value='/images/recommend/delete.png'/>" title="삭제"/></a></span>
+				</c:if>
+			</div>
+			<div class="triL<c:if test='${workVO.priv == "Y"}'>org</c:if>">&nbsp;</div>
+			<div class="M_comL clr${workVO.importance}" style="<c:if test='${workVO.priv == "Y"}'>background:#FAAC58;</c:if>">${fn:replace(fn:replace(workVO.comment, lf,"<br/>"),sp,"&nbsp; ")}</div>
+			<div style="clear:both;height:0px;"></div>
+		<%-- 파일첨부 --%>
+			<div style="cursor:pointer;">
+			<c:if test="${not empty workVO.realNm}"><c:choose><c:when test="${fn:indexOf(workVO.realNm,'^^^') > 0}"><c:set var="imgNm" value="${fn:split(workVO.realNm, '^^^')}"/><c:set var="makeNm" value="${fn:split(workVO.makeNm, '^^^')}"/><c:forEach var="mkNm" items="${makeNm}" varStatus="mkSt"><input type="hidden" id="mkNames${mkSt.count}" value="${mkNm}"/></c:forEach><c:forEach var="im" items="${imgNm}" varStatus="imSt"><c:set var="extension" value="${fn:split(im,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file${imSt.count}" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${im}"><span class="filePosition link" id="titlefile${imSt.count}" style="color:gray;"> ${im}</span></c:forEach></c:when><c:otherwise><c:set var="extension" value="${fn:split(workVO.realNm,'.')}"/><c:set var="lastDot" value="${fn:length(extension)-1}"/><input type="hidden"  id="mkNames1" value="${workVO.makeNm}"/><c:set var="ext" value=""/><c:if test="${extension[lastDot]=='doc' or extension[lastDot]=='docx'}"><c:set var="ext" value="doc"/></c:if><c:if test="${extension[lastDot]=='xls' or extension[lastDot]=='xlsx'}"><c:set var="ext" value="xls"/></c:if><c:if test="${extension[lastDot]=='ppt' or extension[lastDot]=='pptx'}"><c:set var="ext" value="ppt"/></c:if><c:if test="${extension[lastDot]=='pdf'}"><c:set var="ext" value="pdf"/></c:if><img class="link filePosition" id="file1" style="padding-left:20px;" <c:choose><c:when test="${empty ext or ext == ''}">src="../images/file/files.png"</c:when><c:otherwise>src="../images/file/${ext}.png"</c:otherwise></c:choose>title="${workVO.realNm}"><span class="filePosition link" id="titlefile1" style="color:gray;"> ${workVO.realNm}</span></c:otherwise></c:choose></c:if>
+			</div>
+		<%-- 파일첨부 --%>
+			<div style="clear:both;height:5px;"></div>
+		</c:otherwise>
+	<%-- 타인의 메모/전달한 사람만 삭제가능 --%>
+		</c:choose>
+			<input type="text" id="MM_${fn:substring(workVO.tmDt, 8,10)}_${memoStatus.count}" style="height:0.5px;width:0.5px;border:0px none;padding:0;vertical-align:bottom;">
+		</c:forEach>
+
+
+
+
+	<%-- 최초 메모 입력 --%>
+		<c:if test="${empty memoList}">
+			<input type="hidden" id="memoSNb${DAY}">
+			<input type="hidden" id="am_majorBsns" value="N">
+			<input type="hidden" id="DirectRecord"><script>if($('#rgstId').val()!==$('#s_id').val()) $('#DirectRecord').val("direct");</script>
+			<p id="closeTab" name="textR"><span class="closePopUpMenu" title="닫기">ⅹ닫기</span></p>
+			<div style="clear:both;height:5px;"></div>
+			<div class="M_basicInfoR">나<br/>
+				<span style="margin:3px;" class="btn s green" onclick="memo_btnOk(this)"><a>저장</a></span>
+				<div style="padding-top:3px;"><span class="btn s"onclick="javascript:majorBsns(this);"><a>주업무</a></span></div>
+				<div style="padding:1px;border-radius:5px;border:1px solid gray;margin:5px 0px;">
+					중요도<br/>
+					<select id="importance${memoStatus.count}">
+						<option value="0" <c:if test="${workVO.importance == 0}">selected</c:if>>-</option>
+						<option value="1" <c:if test="${workVO.importance == 1}">selected</c:if>>하</option>
+						<option value="2" <c:if test="${workVO.importance == 2}">selected</c:if>>중</option>
+						<option value="3" <c:if test="${workVO.importance == 2}">selected</c:if>>상</option>
+					</select>
+				</div>
+				<div style="padding:1px;border-radius:5px;border:1px solid gray;">
+					비밀<br/>
+					<select id="priv${memoStatus.count}">
+						<option value="N" <c:if test="${workVO.priv == 'N'}">selected</c:if>>N</option>
+						<option value="Y" <c:if test="${workVO.priv == 'Y'}">selected</c:if>>Y</option>
+					</select>
+				</div>
+				<div style="padding-top:3px;"><span class="btn s" onclick="javascript:viewNhide('staffList',$(this),event);"><a>참조인</a></span></div>
+			</div>
+			<div class="triRn">&nbsp;</div>
+			<div class="M_comRinTAn"><div><textarea onkeyup="resizeTextarea(this)" id="memoarea0" placeholder="메모를 입력하세요."></textarea></div></div>
+
+		<%-- 파일업로드 --%>
+			<form id="multiFile_N_comment" name="fileNcomment" action="<c:url value='/basic/filesUpload4memo.do' />" method="post" encType="multipart/form-data">
+				<input type="hidden" id="m_categoryCd" name="categoryCd" value="00004">
+				<input type="hidden" id="m_rtn" name="rtn">
+				<input id="files-upload" name="files-upload" type="file" multiple style="display:none;">
+			</form>
+
+			<div style="float:left;padding-left:20px;vertical-align:middle;">
+				<a class="btn glass s" onclick="$('#files-upload').click();" style="color:blue;width:60px;font-weight:bold;"><img src="<c:url value='../images/file/fileDisk.png' />" style="vertical-align:middle;" align="absmiddle">File</a>
+				<div><table id="file_list"></table></div>
+			</div>
+		<%-- 파일업로드 --%>
+
+			<div style="clear:both;height:5px;"></div>
+		</c:if>
+	<%-- 최초 메모 입력 --%>
+	</div>
+<%-- 메모 --%>
+<%-- 직원 플로팅 div --%>
+	<div class="popUpMenu" id="staffList" style="width:320px;">
+		<div style="padding-left:300px;cursor:pointer;" onclick="javascript:$('#staffList').hide();"><i class="axi axi-close2" style="font-size:17px;"></i></div>
+			<div class="btn_tab">
+				<button id="btn_pop_1" type="button" style="cursor:pointer;margin-left:3px;" onclick="getDivListPop('1');"><i class="axi axi-sitemap"></i> 부서별</button>
+				<button id="btn_pop_2" type="button" style="cursor:pointer;" onclick="getDivListPop('2');"><i class="axi axi-ion-person-stalker"></i> 직원별</button>
+			</div>
+			<div id="divisionDivPop"></div>
+		<br/>
+		<p class="bsnsR_btn">
+			<!-- <span class="memo_btnSnd btn s blue" onclick="javascript:putStaffNames(this,'sms')"><a> 선택 (SMS발송) </a></span> -->
+			<span class="btn s green" onclick="javascript:putStaffNames(this);"><a style="display:inline-block;width:40px;">확인</a></span>
+			<label><input type="checkbox" id="chkSmsSend"><b>SMS발송</b></label>
+			<%--
+			<input type="text" style="height:0.5px;width:0.5px;border:0px none;padding:0;vertical-align:bottom;">
+			<input type="text" id="PM_0" style="height:0.5px;width:0.5px;border:0px none;padding:0;vertical-align:bottom;">
+			--%>
+		</p>
+	</div>
+<%-- 직원 플로팅 div --%>
